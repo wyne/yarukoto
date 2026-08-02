@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+body { margin: 0; background: #E9E9E4; font-family: 'IBM Plex Sans', sans-serif; }
+a { color: var(--accent, #2E52E0); text-decoration: none; }
+a:hover { color: #1a3ab8; }
+</style>
+</helmet>
+<section id="1a" style="padding: 56px 64px 96px 64px;">
+  <div style="margin-bottom: 40px;">
+    <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.12em; color: #8A8A82; text-transform: uppercase;">Docket — self-hosted tasks · mobile</div>
+    <div style="font-size: 26px; font-weight: 600; color: #1A1A18; margin-top: 6px;">Core flows, one direction: dense &amp; utilitarian</div>
+  </div>
+  <div style="display: flex; flex-wrap: wrap; gap: 56px; align-items: flex-start;">
+
+    <div style="display: flex; flex-direction: column; gap: 14px;">
+      <div style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #55554F;">01 · Inbox — quick add + swipe</div>
+      <x-import component-from-global-scope="IOSDevice" from="./ios-frame.jsx" hint-size="430px,900px">
+        <div style="height: 100%; display: flex; flex-direction: column; background: #F4F4F1; font-family: 'IBM Plex Sans', sans-serif; color: #1A1A18; padding-top: 62px; box-sizing: border-box;">
+          <div style="padding: 6px 16px 10px 16px; display: flex; align-items: center; gap: 12px;">
+            <svg width="22" height="22" viewBox="0 0 22 22" fill="none"><path d="M3 6h16M3 11h16M3 16h10" stroke="#1A1A18" stroke-width="1.8" stroke-linecap="round"></path></svg>
+            <div style="display: flex; align-items: baseline; gap: 8px; flex: 1;">
+              <div style="font-size: 22px; font-weight: 700; letter-spacing: -0.01em;">Inbox</div>
+              <div style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #8A8A82;">14</div>
+            </div>
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="9" cy="9" r="6" stroke="#1A1A18" stroke-width="1.8"></circle><path d="M13.5 13.5L17 17" stroke="#1A1A18" stroke-width="1.8" stroke-linecap="round"></path></svg>
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M4 6h12M4 10h12M4 14h7" stroke="#1A1A18" stroke-width="1.8" stroke-linecap="round"></path><path d="M14 13l2 2 3-3.5" stroke="#1A1A18" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+          </div>
+          <div style="margin: 0 12px 10px 12px; background: #FFFFFF; border: 1px solid #E1E1DA; border-radius: 10px; padding: 10px 12px; display: flex; align-items: center; gap: 10px; box-shadow: 0 1px 2px rgba(20,20,15,0.04);">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 3v10M3 8h10" stroke="var(--accent, #2E52E0)" stroke-width="1.8" stroke-linecap="round"></path></svg>
+            <div style="font-size: 14px; display: flex; align-items: center; gap: 4px; flex-wrap: wrap;">
+              <span>pay rent</span>
+              <span style="background: #E4EAFE; color: var(--accent, #2E52E0); border-radius: 4px; padding: 1px 5px; font-family: 'IBM Plex Mono', monospace; font-size: 12.5px;">fri 6pm</span>
+              <span style="background: #EEEEE8; color: #55554F; border-radius: 4px; padding: 1px 5px; font-family: 'IBM Plex Mono', monospace; font-size: 12.5px;">#home</span>
+              <span style="background: #FBE3E1; color: #C22B23; border-radius: 4px; padding: 1px 5px; font-family: 'IBM Plex Mono', monospace; font-size: 12.5px;">!high</span>
+              <span style="width: 2px; height: 16px; background: var(--accent, #2E52E0); border-radius: 1px;"></span>
+            </div>
+          </div>
+          <div style="flex: 1; overflow: hidden; padding: 0 12px;">
+            <div style="background: #FFFFFF; border: 1px solid #E1E1DA; border-radius: 12px; overflow: hidden;">
+              <div style="display: flex; align-items: center; gap: 12px; padding: 11px 14px; min-height: 44px; box-sizing: border-box;">
+                <span style="width: 20px; height: 20px; border-radius: 50%; border: 2px solid #C22B23; flex: none;"></span>
+                <div style="flex: 1; min-width: 0;">
+                  <div style="font-size: 15px; font-weight: 500;">Pay rent</div>
+                  <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: #C22B23; margin-top: 2px;">Yesterday <span style="color: #8A8A82;">· Home · #home</span></div>
+                </div>
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1.5l1.7 3.4 3.8.6-2.7 2.7.6 3.8L7 10.2 3.6 12l.6-3.8L1.5 5.5l3.8-.6L7 1.5z" fill="#C22B23"></path></svg>
+              </div>
+              <div style="height: 1px; background: #EDEDE7; margin-left: 46px;"></div>
+              <div style="position: relative; overflow: hidden; background: #EEEEE8;">
+                <div style="position: absolute; inset: 0; display: flex; justify-content: flex-end;">
+                  <div style="width: 66px; background: #55554F; color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;">
+                    <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect x="2.5" y="3.5" width="13" height="12" rx="2" stroke="#fff" stroke-width="1.6"></rect><path d="M2.5 7.5h13M6 1.5v3M12 1.5v3" stroke="#fff" stroke-width="1.6" stroke-linecap="round"></path></svg>
+                    <span style="font-size: 10px; font-weight: 600;">Later</span>
+                  </div>
+                  <div style="width: 66px; background: #1E7A3C; color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;">
+                    <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M3 9.5l4 4 8-9" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+                    <span style="font-size: 10px; font-weight: 600;">Done</span>
+                  </div>
+                </div>
+                <div style="position: relative; transform: translateX(-132px); background: #FFFFFF; display: flex; align-items: center; gap: 12px; padding: 11px 14px; min-height: 44px; box-sizing: border-box;">
+                  <span style="width: 20px; height: 20px; border-radius: 50%; border: 2px solid #DB8A00; flex: none;"></span>
+                  <div style="flex: 1; min-width: 0;">
+                    <div style="font-size: 15px; font-weight: 500;">Renew SSL cert</div>
+                    <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: #8A8A82; margin-top: 2px;">Fri 6:00 PM · Admin · #server</div>
+                  </div>
+                </div>
+              </div>
+              <div style="height: 1px; background: #EDEDE7; margin-left: 46px;"></div>
+              <div style="display: flex; align-items: center; gap: 12px; padding: 11px 14px; min-height: 44px; box-sizing: border-box;">
+                <span style="width: 20px; height: 20px; border-radius: 50%; border: 2px solid #2E62D9; flex: none;"></span>
+                <div style="flex: 1; min-width: 0;">
+                  <div style="font-size: 15px; font-weight: 500;">Review PR #142</div>
+                  <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: #8A8A82; margin-top: 2px;">Today · Engineering · #dev</div>
+                </div>
+                <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #8A8A82; background: #EEEEE8; border-radius: 4px; padding: 2px 6px;">2/4</span>
+              </div>
+              <div style="height: 1px; background: #EDEDE7; margin-left: 46px;"></div>
+              <div style="display: flex; align-items: center; gap: 12px; padding: 11px 14px; min-height: 44px; box-sizing: border-box;">
+                <span style="width: 20px; height: 20px; border-radius: 50%; border: 2px solid #C6C6BE; flex: none;"></span>
+                <div style="flex: 1; min-width: 0;">
+                  <div style="font-size: 15px; font-weight: 500;">Buy stamps</div>
+                  <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: #8A8A82; margin-top: 2px;">Errands</div>
+                </div>
+              </div>
+              <div style="height: 1px; background: #EDEDE7; margin-left: 46px;"></div>
+              <div style="display: flex; align-items: center; gap: 12px; padding: 11px 14px; min-height: 44px; box-sizing: border-box;">
+                <span style="width: 20px; height: 20px; border-radius: 50%; border: 2px solid #DB8A00; flex: none;"></span>
+                <div style="flex: 1; min-width: 0;">
+                  <div style="font-size: 15px; font-weight: 500;">Draft backup strategy doc</div>
+                  <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: #8A8A82; margin-top: 2px;">Aug 5 · Admin · #server #docs</div>
+                </div>
+              </div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px; padding: 14px 6px 6px 6px;">
+              <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.08em; color: #8A8A82; text-transform: uppercase;">Completed · 2</span>
+              <span style="flex: 1; height: 1px; background: #DDDDD5;"></span>
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M3 5l3 3 3-3" stroke="#8A8A82" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+            </div>
+            <div style="background: #FFFFFF; border: 1px solid #E1E1DA; border-radius: 12px; overflow: hidden;">
+              <div style="display: flex; align-items: center; gap: 12px; padding: 11px 14px; min-height: 44px; box-sizing: border-box; opacity: 0.55;">
+                <span style="width: 20px; height: 20px; border-radius: 50%; background: #1E7A3C; flex: none; display: flex; align-items: center; justify-content: center;"><svg width="11" height="11" viewBox="0 0 11 11" fill="none"><path d="M2 6l2.5 2.5L9 3" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
+                <div style="font-size: 15px; text-decoration: line-through; color: #55554F;">Water plants</div>
+              </div>
+            </div>
+          </div>
+          <div style="display: flex; border-top: 1px solid #E1E1DA; background: #FBFBF9; padding: 8px 8px 24px 8px;">
+            <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; min-height: 44px; justify-content: center;">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10l2-6h10l2 6v6H3v-6z" stroke="var(--accent, #2E52E0)" stroke-width="1.7" stroke-linejoin="round"></path><path d="M3 10h4.5c0 1.4 1.1 2.5 2.5 2.5s2.5-1.1 2.5-2.5H17" stroke="var(--accent, #2E52E0)" stroke-width="1.7"></path></svg>
+              <span style="font-size: 10px; font-weight: 600; color: var(--accent, #2E52E0);">Inbox</span>
+            </div>
+            <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; min-height: 44px; justify-content: center;">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="7" stroke="#8A8A82" stroke-width="1.7"></circle><path d="M10 6.5V10l2.5 1.5" stroke="#8A8A82" stroke-width="1.7" stroke-linecap="round"></path></svg>
+              <span style="font-size: 10px; font-weight: 500; color: #8A8A82;">Today</span>
+            </div>
+            <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; min-height: 44px; justify-content: center;">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><rect x="3" y="4" width="14" height="13" rx="2" stroke="#8A8A82" stroke-width="1.7"></rect><path d="M3 8.5h14M7 2v3.5M13 2v3.5" stroke="#8A8A82" stroke-width="1.7" stroke-linecap="round"></path></svg>
+              <span style="font-size: 10px; font-weight: 500; color: #8A8A82;">Calendar</span>
+            </div>
+            <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; min-height: 44px; justify-content: center;">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 5.5h6l1.5 2H17v8H3v-10z" stroke="#8A8A82" stroke-width="1.7" stroke-linejoin="round"></path></svg>
+              <span style="font-size: 10px; font-weight: 500; color: #8A8A82;">Browse</span>
+            </div>
+          </div>
+        </div>
+      </x-import>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 14px;">
+      <div style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #55554F;">02 · Task detail</div>
+      <x-import component-from-global-scope="IOSDevice" from="./ios-frame.jsx" hint-size="430px,900px">
+        <div style="height: 100%; display: flex; flex-direction: column; background: #F4F4F1; font-family: 'IBM Plex Sans', sans-serif; color: #1A1A18; padding-top: 62px; box-sizing: border-box;">
+          <div style="padding: 6px 16px 8px 16px; display: flex; align-items: center; justify-content: space-between;">
+            <span style="font-size: 15px; color: var(--accent, #2E52E0); font-weight: 500;">Close</span>
+            <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #8A8A82;">Admin</span>
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><circle cx="4" cy="9" r="1.5" fill="#1A1A18"></circle><circle cx="9" cy="9" r="1.5" fill="#1A1A18"></circle><circle cx="14" cy="9" r="1.5" fill="#1A1A18"></circle></svg>
+          </div>
+          <div style="flex: 1; overflow: hidden; padding: 4px 12px 12px 12px; display: flex; flex-direction: column; gap: 12px;">
+            <div style="background: #FFFFFF; border: 1px solid #E1E1DA; border-radius: 12px; padding: 14px;">
+              <div style="display: flex; gap: 12px; align-items: flex-start;">
+                <span style="width: 22px; height: 22px; border-radius: 50%; border: 2px solid #C22B23; flex: none; margin-top: 2px;"></span>
+                <div style="font-size: 19px; font-weight: 600; line-height: 1.3;">Renew SSL cert</div>
+              </div>
+              <div style="display: flex; gap: 6px; margin-top: 14px;">
+                <span style="flex: 1; text-align: center; font-size: 12.5px; font-weight: 500; padding: 7px 0; border-radius: 7px; border: 1px solid #E1E1DA; color: #8A8A82;">None</span>
+                <span style="flex: 1; text-align: center; font-size: 12.5px; font-weight: 500; padding: 7px 0; border-radius: 7px; border: 1px solid #E1E1DA; color: #2E62D9;">Low</span>
+                <span style="flex: 1; text-align: center; font-size: 12.5px; font-weight: 500; padding: 7px 0; border-radius: 7px; border: 1px solid #E1E1DA; color: #DB8A00;">Med</span>
+                <span style="flex: 1; text-align: center; font-size: 12.5px; font-weight: 600; padding: 7px 0; border-radius: 7px; border: 1px solid #C22B23; background: #FBE3E1; color: #C22B23;">High</span>
+              </div>
+            </div>
+            <div style="background: #FFFFFF; border: 1px solid #E1E1DA; border-radius: 12px; overflow: hidden;">
+              <div style="display: flex; align-items: center; gap: 12px; padding: 12px 14px; min-height: 44px; box-sizing: border-box;">
+                <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect x="2.5" y="3.5" width="13" height="12" rx="2" stroke="#55554F" stroke-width="1.6"></rect><path d="M2.5 7.5h13M6 1.5v3M12 1.5v3" stroke="#55554F" stroke-width="1.6" stroke-linecap="round"></path></svg>
+                <span style="flex: 1; font-size: 15px;">Due</span>
+                <span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: var(--accent, #2E52E0);">Fri, Aug 7 · 6:00 PM</span>
+              </div>
+              <div style="height: 1px; background: #EDEDE7; margin-left: 44px;"></div>
+              <div style="display: flex; align-items: center; gap: 12px; padding: 12px 14px; min-height: 44px; box-sizing: border-box;">
+                <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M9 2.5c-3 0-4.5 2-4.5 4.5v3L3 12.5h12L13.5 10V7c0-2.5-1.5-4.5-4.5-4.5z" stroke="#55554F" stroke-width="1.6" stroke-linejoin="round"></path><path d="M7.5 14.5a1.5 1.5 0 003 0" stroke="#55554F" stroke-width="1.6"></path></svg>
+                <span style="flex: 1; font-size: 15px;">Reminder</span>
+                <span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #55554F;">30 min before</span>
+              </div>
+              <div style="height: 1px; background: #EDEDE7; margin-left: 44px;"></div>
+              <div style="display: flex; align-items: center; gap: 12px; padding: 12px 14px; min-height: 44px; box-sizing: border-box;">
+                <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M2.5 5h5l1.5 2h6.5v7h-13V5z" stroke="#55554F" stroke-width="1.6" stroke-linejoin="round"></path></svg>
+                <span style="flex: 1; font-size: 15px;">List</span>
+                <span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #55554F;">Work / Admin</span>
+              </div>
+              <div style="height: 1px; background: #EDEDE7; margin-left: 44px;"></div>
+              <div style="display: flex; align-items: center; gap: 12px; padding: 12px 14px; min-height: 44px; box-sizing: border-box;">
+                <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M2.5 8V3.5H7L15.5 12 11 16.5 2.5 8z" stroke="#55554F" stroke-width="1.6" stroke-linejoin="round"></path><circle cx="6" cy="7" r="1" fill="#55554F"></circle></svg>
+                <span style="font-size: 15px;">Tags</span>
+                <span style="flex: 1;"></span>
+                <span style="display: flex; gap: 6px;">
+                  <span style="background: #EEEEE8; color: #55554F; border-radius: 4px; padding: 2px 7px; font-family: 'IBM Plex Mono', monospace; font-size: 12px;">#server</span>
+                  <span style="background: #EEEEE8; color: #55554F; border-radius: 4px; padding: 2px 7px; font-family: 'IBM Plex Mono', monospace; font-size: 12px;">#recurring</span>
+                </span>
+              </div>
+            </div>
+            <div style="background: #FFFFFF; border: 1px solid #E1E1DA; border-radius: 12px; padding: 12px 14px;">
+              <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.08em; color: #8A8A82; text-transform: uppercase;">Notes</div>
+              <div style="font-size: 14px; line-height: 1.5; color: #35352F; margin-top: 6px;">Wildcard cert via Let's Encrypt. Check the DNS-01 challenge — the API token expires this month.</div>
+            </div>
+            <div style="background: #FFFFFF; border: 1px solid #E1E1DA; border-radius: 12px; overflow: hidden;">
+              <div style="display: flex; align-items: center; gap: 8px; padding: 12px 14px 8px 14px;">
+                <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.08em; color: #8A8A82; text-transform: uppercase;">Subtasks</span>
+                <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #8A8A82;">2/4</span>
+                <span style="flex: 1; height: 3px; background: #EEEEE8; border-radius: 2px; overflow: hidden;"><span style="display: block; width: 50%; height: 100%; background: var(--accent, #2E52E0);"></span></span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 10px; padding: 8px 14px; min-height: 40px; box-sizing: border-box;">
+                <span style="width: 17px; height: 17px; border-radius: 50%; background: #1E7A3C; flex: none; display: flex; align-items: center; justify-content: center;"><svg width="9" height="9" viewBox="0 0 11 11" fill="none"><path d="M2 6l2.5 2.5L9 3" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
+                <span style="font-size: 14px; text-decoration: line-through; color: #8A8A82;">Rotate API token</span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 10px; padding: 8px 14px; min-height: 40px; box-sizing: border-box;">
+                <span style="width: 17px; height: 17px; border-radius: 50%; background: #1E7A3C; flex: none; display: flex; align-items: center; justify-content: center;"><svg width="9" height="9" viewBox="0 0 11 11" fill="none"><path d="M2 6l2.5 2.5L9 3" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
+                <span style="font-size: 14px; text-decoration: line-through; color: #8A8A82;">Verify DNS record</span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 10px; padding: 8px 14px; min-height: 40px; box-sizing: border-box;">
+                <span style="width: 17px; height: 17px; border-radius: 50%; border: 1.5px solid #C6C6BE; flex: none;"></span>
+                <span style="font-size: 14px;">Run certbot renew</span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 10px; padding: 8px 14px; min-height: 40px; box-sizing: border-box;">
+                <span style="width: 17px; height: 17px; border-radius: 50%; border: 1.5px solid #C6C6BE; flex: none;"></span>
+                <span style="font-size: 14px;">Reload nginx</span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 10px; padding: 8px 14px 12px 14px; color: #8A8A82;">
+                <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M8 3v10M3 8h10" stroke="#8A8A82" stroke-width="1.6" stroke-linecap="round"></path></svg>
+                <span style="font-size: 14px;">Add subtask</span>
+              </div>
+            </div>
+            <div style="text-align: center; padding: 6px 0; font-size: 14px; color: #C22B23; font-weight: 500;">Delete task</div>
+          </div>
+        </div>
+      </x-import>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 14px;">
+      <div style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #55554F;">03 · Browse — folders, lists, tags</div>
+      <x-import component-from-global-scope="IOSDevice" from="./ios-frame.jsx" hint-size="430px,900px">
+        <div style="height: 100%; display: flex; flex-direction: column; background: #F4F4F1; font-family: 'IBM Plex Sans', sans-serif; color: #1A1A18; padding-top: 62px; box-sizing: border-box;">
+          <div style="padding: 6px 16px 10px 16px; display: flex; align-items: center; justify-content: space-between;">
+            <div style="font-size: 22px; font-weight: 700;">Browse</div>
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10 4v12M4 10h12" stroke="var(--accent, #2E52E0)" stroke-width="1.8" stroke-linecap="round"></path></svg>
+          </div>
+          <div style="flex: 1; overflow: hidden; padding: 0 12px; display: flex; flex-direction: column; gap: 12px;">
+            <div style="background: #FFFFFF; border: 1px solid #E1E1DA; border-radius: 12px; overflow: hidden;">
+              <div style="display: flex; align-items: center; gap: 12px; padding: 11px 14px; min-height: 44px; box-sizing: border-box;">
+                <svg width="18" height="18" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="7" stroke="var(--accent, #2E52E0)" stroke-width="1.7"></circle><path d="M10 6.5V10l2.5 1.5" stroke="var(--accent, #2E52E0)" stroke-width="1.7" stroke-linecap="round"></path></svg>
+                <span style="flex: 1; font-size: 15px; font-weight: 500;">Today</span>
+                <span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #8A8A82;">6</span>
+              </div>
+              <div style="height: 1px; background: #EDEDE7; margin-left: 44px;"></div>
+              <div style="display: flex; align-items: center; gap: 12px; padding: 11px 14px; min-height: 44px; box-sizing: border-box;">
+                <svg width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M4 13l4-4 3 3 5-6" stroke="var(--accent, #2E52E0)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+                <span style="flex: 1; font-size: 15px; font-weight: 500;">Upcoming</span>
+                <span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #8A8A82;">18</span>
+              </div>
+              <div style="height: 1px; background: #EDEDE7; margin-left: 44px;"></div>
+              <div style="display: flex; align-items: center; gap: 12px; padding: 11px 14px; min-height: 44px; box-sizing: border-box;">
+                <svg width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M3 10l2-6h10l2 6v6H3v-6z" stroke="var(--accent, #2E52E0)" stroke-width="1.7" stroke-linejoin="round"></path><path d="M3 10h4.5c0 1.4 1.1 2.5 2.5 2.5s2.5-1.1 2.5-2.5H17" stroke="var(--accent, #2E52E0)" stroke-width="1.7"></path></svg>
+                <span style="flex: 1; font-size: 15px; font-weight: 500;">Inbox</span>
+                <span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #8A8A82;">14</span>
+              </div>
+            </div>
+            <div>
+              <div style="display: flex; align-items: center; gap: 8px; padding: 2px 6px 8px 6px;">
+                <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.08em; color: #8A8A82; text-transform: uppercase;">Work</span>
+                <span style="flex: 1; height: 1px; background: #DDDDD5;"></span>
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M3 5l3 3 3-3" stroke="#8A8A82" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+              </div>
+              <div style="background: #FFFFFF; border: 1px solid #E1E1DA; border-radius: 12px; overflow: hidden;">
+                <div style="display: flex; align-items: center; gap: 12px; padding: 11px 14px; min-height: 44px; box-sizing: border-box;">
+                  <span style="width: 10px; height: 10px; border-radius: 3px; background: #2E62D9; flex: none;"></span>
+                  <span style="flex: 1; font-size: 15px;">Engineering</span>
+                  <span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #8A8A82;">12</span>
+                </div>
+                <div style="height: 1px; background: #EDEDE7; margin-left: 36px;"></div>
+                <div style="display: flex; align-items: center; gap: 12px; padding: 11px 14px; min-height: 44px; box-sizing: border-box;">
+                  <span style="width: 10px; height: 10px; border-radius: 3px; background: #DB8A00; flex: none;"></span>
+                  <span style="flex: 1; font-size: 15px;">Admin</span>
+                  <span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #8A8A82;">5</span>
+                </div>
+              </div>
+            </div>
+            <div>
+              <div style="display: flex; align-items: center; gap: 8px; padding: 2px 6px 8px 6px;">
+                <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.08em; color: #8A8A82; text-transform: uppercase;">Personal</span>
+                <span style="flex: 1; height: 1px; background: #DDDDD5;"></span>
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M3 5l3 3 3-3" stroke="#8A8A82" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+              </div>
+              <div style="background: #FFFFFF; border: 1px solid #E1E1DA; border-radius: 12px; overflow: hidden;">
+                <div style="display: flex; align-items: center; gap: 12px; padding: 11px 14px; min-height: 44px; box-sizing: border-box;">
+                  <span style="width: 10px; height: 10px; border-radius: 3px; background: #1E7A3C; flex: none;"></span>
+                  <span style="flex: 1; font-size: 15px;">Home</span>
+                  <span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #8A8A82;">8</span>
+                </div>
+                <div style="height: 1px; background: #EDEDE7; margin-left: 36px;"></div>
+                <div style="display: flex; align-items: center; gap: 12px; padding: 11px 14px; min-height: 44px; box-sizing: border-box;">
+                  <span style="width: 10px; height: 10px; border-radius: 3px; background: #8A5FD6; flex: none;"></span>
+                  <span style="flex: 1; font-size: 15px;">Errands</span>
+                  <span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #8A8A82;">3</span>
+                </div>
+              </div>
+            </div>
+            <div>
+              <div style="display: flex; align-items: center; gap: 8px; padding: 2px 6px 8px 6px;">
+                <span style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.08em; color: #8A8A82; text-transform: uppercase;">Tags</span>
+                <span style="flex: 1; height: 1px; background: #DDDDD5;"></span>
+              </div>
+              <div style="display: flex; flex-wrap: wrap; gap: 8px; padding: 0 2px;">
+                <span style="background: #FFFFFF; border: 1px solid #E1E1DA; color: #55554F; border-radius: 6px; padding: 6px 10px; font-family: 'IBM Plex Mono', monospace; font-size: 13px;">#dev <span style="color: #B4B4AC;">9</span></span>
+                <span style="background: #FFFFFF; border: 1px solid #E1E1DA; color: #55554F; border-radius: 6px; padding: 6px 10px; font-family: 'IBM Plex Mono', monospace; font-size: 13px;">#server <span style="color: #B4B4AC;">6</span></span>
+                <span style="background: #FFFFFF; border: 1px solid #E1E1DA; color: #55554F; border-radius: 6px; padding: 6px 10px; font-family: 'IBM Plex Mono', monospace; font-size: 13px;">#home <span style="color: #B4B4AC;">5</span></span>
+                <span style="background: #FFFFFF; border: 1px solid #E1E1DA; color: #55554F; border-radius: 6px; padding: 6px 10px; font-family: 'IBM Plex Mono', monospace; font-size: 13px;">#docs <span style="color: #B4B4AC;">2</span></span>
+                <span style="background: #FFFFFF; border: 1px solid #E1E1DA; color: #55554F; border-radius: 6px; padding: 6px 10px; font-family: 'IBM Plex Mono', monospace; font-size: 13px;">#recurring <span style="color: #B4B4AC;">4</span></span>
+              </div>
+            </div>
+          </div>
+          <div style="margin: 10px 12px; display: flex; align-items: center; gap: 8px; padding: 10px 14px; background: #FBFBF9; border: 1px solid #E1E1DA; border-radius: 10px;">
+            <span style="width: 8px; height: 8px; border-radius: 50%; background: #1E7A3C; flex: none;"></span>
+            <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #55554F;">Synced 2 min ago</span>
+            <span style="flex: 1;"></span>
+            <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #8A8A82;">todo.selfhost.dev</span>
+          </div>
+        </div>
+      </x-import>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 14px;">
+      <div style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #55554F;">04 · Calendar</div>
+      <x-import component-from-global-scope="IOSDevice" from="./ios-frame.jsx" hint-size="430px,900px">
+        <div style="height: 100%; display: flex; flex-direction: column; background: #F4F4F1; font-family: 'IBM Plex Sans', sans-serif; color: #1A1A18; padding-top: 62px; box-sizing: border-box;">
+          <div style="padding: 6px 16px 10px 16px; display: flex; align-items: center; gap: 8px;">
+            <div style="font-size: 22px; font-weight: 700; flex: 1;">August <span style="font-weight: 400; color: #8A8A82;">2026</span></div>
+            <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--accent, #2E52E0); border: 1px solid #E1E1DA; background: #FFFFFF; border-radius: 6px; padding: 4px 8px;">Today</span>
+          </div>
+          <div style="margin: 0 12px; background: #FFFFFF; border: 1px solid #E1E1DA; border-radius: 12px; padding: 10px 8px 8px 8px;">
+            <div style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; text-align: center;">
+              <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: #8A8A82;">M</span><span style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: #8A8A82;">T</span><span style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: #8A8A82;">W</span><span style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: #8A8A82;">T</span><span style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: #8A8A82;">F</span><span style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: #8A8A82;">S</span><span style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: #8A8A82;">S</span>
+              <span style="padding: 7px 0; font-size: 14px; color: #B4B4AC;">27</span><span style="padding: 7px 0; font-size: 14px; color: #B4B4AC;">28</span><span style="padding: 7px 0; font-size: 14px; color: #B4B4AC;">29</span><span style="padding: 7px 0; font-size: 14px; color: #B4B4AC;">30</span><span style="padding: 7px 0; font-size: 14px; color: #B4B4AC;">31</span>
+              <span style="padding: 7px 0; font-size: 14px; background: var(--accent, #2E52E0); color: #fff; border-radius: 8px; font-weight: 600;">1</span>
+              <span style="padding: 7px 0; font-size: 14px;">2</span>
+              <span style="padding: 7px 0; font-size: 14px; position: relative;">3<span style="position: absolute; left: 50%; transform: translateX(-50%); bottom: 1px; width: 4px; height: 4px; border-radius: 50%; background: #DB8A00;"></span></span>
+              <span style="padding: 7px 0; font-size: 14px;">4</span>
+              <span style="padding: 7px 0; font-size: 14px; position: relative;">5<span style="position: absolute; left: 50%; transform: translateX(-50%); bottom: 1px; width: 4px; height: 4px; border-radius: 50%; background: #DB8A00;"></span></span>
+              <span style="padding: 7px 0; font-size: 14px;">6</span>
+              <span style="padding: 7px 0; font-size: 14px; position: relative;">7<span style="position: absolute; left: 50%; transform: translateX(-50%); bottom: 1px; width: 4px; height: 4px; border-radius: 50%; background: #C22B23;"></span></span>
+              <span style="padding: 7px 0; font-size: 14px;">8</span>
+              <span style="padding: 7px 0; font-size: 14px;">9</span>
+              <span style="padding: 7px 0; font-size: 14px; position: relative;">10<span style="position: absolute; left: 50%; transform: translateX(-50%); bottom: 1px; width: 4px; height: 4px; border-radius: 50%; background: #2E62D9;"></span></span>
+              <span style="padding: 7px 0; font-size: 14px;">11</span>
+              <span style="padding: 7px 0; font-size: 14px; position: relative;">12<span style="position: absolute; left: 50%; transform: translateX(-50%); bottom: 1px; width: 4px; height: 4px; border-radius: 50%; background: #8A8A82;"></span></span>
+              <span style="padding: 7px 0; font-size: 14px;">13</span>
+              <span style="padding: 7px 0; font-size: 14px;">14</span>
+            </div>
+          </div>
+          <div style="flex: 1; overflow: hidden; padding: 12px;">
+            <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.08em; color: #8A8A82; text-transform: uppercase; padding: 0 6px 8px 6px;">Sat, Aug 1 · 3 tasks</div>
+            <div style="background: #FFFFFF; border: 1px solid #E1E1DA; border-radius: 12px; overflow: hidden;">
+              <div style="display: flex; align-items: center; gap: 12px; padding: 11px 14px; min-height: 44px; box-sizing: border-box;">
+                <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #8A8A82; width: 62px; flex: none;">9:00 AM</span>
+                <span style="width: 20px; height: 20px; border-radius: 50%; border: 2px solid #DB8A00; flex: none;"></span>
+                <div style="flex: 1; min-width: 0;">
+                  <div style="font-size: 15px; font-weight: 500;">Weekly backup check</div>
+                  <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: #8A8A82; margin-top: 2px;">Admin · #server #recurring</div>
+                </div>
+              </div>
+              <div style="height: 1px; background: #EDEDE7; margin-left: 46px;"></div>
+              <div style="display: flex; align-items: center; gap: 12px; padding: 11px 14px; min-height: 44px; box-sizing: border-box;">
+                <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #8A8A82; width: 62px; flex: none;">2:30 PM</span>
+                <span style="width: 20px; height: 20px; border-radius: 50%; border: 2px solid #2E62D9; flex: none;"></span>
+                <div style="flex: 1; min-width: 0;">
+                  <div style="font-size: 15px; font-weight: 500;">Groceries run</div>
+                  <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: #8A8A82; margin-top: 2px;">Errands · #home</div>
+                </div>
+              </div>
+              <div style="height: 1px; background: #EDEDE7; margin-left: 46px;"></div>
+              <div style="display: flex; align-items: center; gap: 12px; padding: 11px 14px; min-height: 44px; box-sizing: border-box;">
+                <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #8A8A82; width: 62px; flex: none;">6:00 PM</span>
+                <span style="width: 20px; height: 20px; border-radius: 50%; border: 2px solid #C6C6BE; flex: none;"></span>
+                <div style="flex: 1; min-width: 0;">
+                  <div style="font-size: 15px; font-weight: 500;">Call parents</div>
+                  <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: #8A8A82; margin-top: 2px;">Home</div>
+                </div>
+              </div>
+            </div>
+            <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.08em; color: #8A8A82; text-transform: uppercase; padding: 14px 6px 8px 6px;">Mon, Aug 3 · 1 task</div>
+            <div style="background: #FFFFFF; border: 1px solid #E1E1DA; border-radius: 12px; overflow: hidden;">
+              <div style="display: flex; align-items: center; gap: 12px; padding: 11px 14px; min-height: 44px; box-sizing: border-box;">
+                <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #8A8A82; width: 62px; flex: none;">All day</span>
+                <span style="width: 20px; height: 20px; border-radius: 50%; border: 2px solid #DB8A00; flex: none;"></span>
+                <div style="flex: 1; min-width: 0;">
+                  <div style="font-size: 15px; font-weight: 500;">Draft backup strategy doc</div>
+                  <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: #8A8A82; margin-top: 2px;">Admin · #server #docs</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div style="display: flex; border-top: 1px solid #E1E1DA; background: #FBFBF9; padding: 8px 8px 24px 8px;">
+            <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; min-height: 44px; justify-content: center;">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 10l2-6h10l2 6v6H3v-6z" stroke="#8A8A82" stroke-width="1.7" stroke-linejoin="round"></path><path d="M3 10h4.5c0 1.4 1.1 2.5 2.5 2.5s2.5-1.1 2.5-2.5H17" stroke="#8A8A82" stroke-width="1.7"></path></svg>
+              <span style="font-size: 10px; font-weight: 500; color: #8A8A82;">Inbox</span>
+            </div>
+            <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; min-height: 44px; justify-content: center;">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="7" stroke="#8A8A82" stroke-width="1.7"></circle><path d="M10 6.5V10l2.5 1.5" stroke="#8A8A82" stroke-width="1.7" stroke-linecap="round"></path></svg>
+              <span style="font-size: 10px; font-weight: 500; color: #8A8A82;">Today</span>
+            </div>
+            <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; min-height: 44px; justify-content: center;">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><rect x="3" y="4" width="14" height="13" rx="2" stroke="var(--accent, #2E52E0)" stroke-width="1.7"></rect><path d="M3 8.5h14M7 2v3.5M13 2v3.5" stroke="var(--accent, #2E52E0)" stroke-width="1.7" stroke-linecap="round"></path></svg>
+              <span style="font-size: 10px; font-weight: 600; color: var(--accent, #2E52E0);">Calendar</span>
+            </div>
+            <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; min-height: 44px; justify-content: center;">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 5.5h6l1.5 2H17v8H3v-10z" stroke="#8A8A82" stroke-width="1.7" stroke-linejoin="round"></path></svg>
+              <span style="font-size: 10px; font-weight: 500; color: #8A8A82;">Browse</span>
+            </div>
+          </div>
+        </div>
+      </x-import>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 14px;">
+      <div style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #55554F;">05 · Multi-select + bulk edit</div>
+      <x-import component-from-global-scope="IOSDevice" from="./ios-frame.jsx" hint-size="430px,900px">
+        <div style="height: 100%; display: flex; flex-direction: column; background: #F4F4F1; font-family: 'IBM Plex Sans', sans-serif; color: #1A1A18; padding-top: 62px; box-sizing: border-box;">
+          <div style="padding: 6px 16px 10px 16px; display: flex; align-items: center; justify-content: space-between;">
+            <span style="font-size: 15px; color: var(--accent, #2E52E0); font-weight: 500;">Cancel</span>
+            <span style="font-size: 16px; font-weight: 600;">2 selected</span>
+            <span style="font-size: 15px; color: var(--accent, #2E52E0); font-weight: 500;">All</span>
+          </div>
+          <div style="flex: 1; overflow: hidden; padding: 0 12px;">
+            <div style="background: #FFFFFF; border: 1px solid #E1E1DA; border-radius: 12px; overflow: hidden;">
+              <div style="display: flex; align-items: center; gap: 12px; padding: 11px 14px; min-height: 44px; box-sizing: border-box; background: #E9EEFD;">
+                <span style="width: 20px; height: 20px; border-radius: 50%; background: var(--accent, #2E52E0); flex: none; display: flex; align-items: center; justify-content: center;"><svg width="11" height="11" viewBox="0 0 11 11" fill="none"><path d="M2 6l2.5 2.5L9 3" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
+                <div style="flex: 1; min-width: 0;">
+                  <div style="font-size: 15px; font-weight: 500;">Pay rent</div>
+                  <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: #C22B23; margin-top: 2px;">Yesterday <span style="color: #8A8A82;">· Home · #home</span></div>
+                </div>
+              </div>
+              <div style="height: 1px; background: #EDEDE7; margin-left: 46px;"></div>
+              <div style="display: flex; align-items: center; gap: 12px; padding: 11px 14px; min-height: 44px; box-sizing: border-box; background: #E9EEFD;">
+                <span style="width: 20px; height: 20px; border-radius: 50%; background: var(--accent, #2E52E0); flex: none; display: flex; align-items: center; justify-content: center;"><svg width="11" height="11" viewBox="0 0 11 11" fill="none"><path d="M2 6l2.5 2.5L9 3" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
+                <div style="flex: 1; min-width: 0;">
+                  <div style="font-size: 15px; font-weight: 500;">Renew SSL cert</div>
+                  <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: #8A8A82; margin-top: 2px;">Fri 6:00 PM · Admin · #server</div>
+                </div>
+              </div>
+              <div style="height: 1px; background: #EDEDE7; margin-left: 46px;"></div>
+              <div style="display: flex; align-items: center; gap: 12px; padding: 11px 14px; min-height: 44px; box-sizing: border-box;">
+                <span style="width: 20px; height: 20px; border-radius: 50%; border: 2px solid #C6C6BE; flex: none;"></span>
+                <div style="flex: 1; min-width: 0;">
+                  <div style="font-size: 15px; font-weight: 500;">Review PR #142</div>
+                  <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: #8A8A82; margin-top: 2px;">Today · Engineering · #dev</div>
+                </div>
+              </div>
+              <div style="height: 1px; background: #EDEDE7; margin-left: 46px;"></div>
+              <div style="display: flex; align-items: center; gap: 12px; padding: 11px 14px; min-height: 44px; box-sizing: border-box;">
+                <span style="width: 20px; height: 20px; border-radius: 50%; border: 2px solid #C6C6BE; flex: none;"></span>
+                <div style="flex: 1; min-width: 0;">
+                  <div style="font-size: 15px; font-weight: 500;">Buy stamps</div>
+                  <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: #8A8A82; margin-top: 2px;">Errands</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div style="display: flex; border-top: 1px solid #E1E1DA; background: #FBFBF9; padding: 10px 8px 24px 8px;">
+            <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; min-height: 44px; justify-content: center;">
+              <svg width="19" height="19" viewBox="0 0 18 18" fill="none"><rect x="2.5" y="3.5" width="13" height="12" rx="2" stroke="var(--accent, #2E52E0)" stroke-width="1.6"></rect><path d="M2.5 7.5h13M6 1.5v3M12 1.5v3" stroke="var(--accent, #2E52E0)" stroke-width="1.6" stroke-linecap="round"></path></svg>
+              <span style="font-size: 10.5px; font-weight: 500; color: var(--accent, #2E52E0);">Schedule</span>
+            </div>
+            <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; min-height: 44px; justify-content: center;">
+              <svg width="19" height="19" viewBox="0 0 18 18" fill="none"><path d="M2.5 5h5l1.5 2h6.5v7h-13V5z" stroke="var(--accent, #2E52E0)" stroke-width="1.6" stroke-linejoin="round"></path></svg>
+              <span style="font-size: 10.5px; font-weight: 500; color: var(--accent, #2E52E0);">Move</span>
+            </div>
+            <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; min-height: 44px; justify-content: center;">
+              <svg width="19" height="19" viewBox="0 0 18 18" fill="none"><path d="M2.5 8V3.5H7L15.5 12 11 16.5 2.5 8z" stroke="var(--accent, #2E52E0)" stroke-width="1.6" stroke-linejoin="round"></path><circle cx="6" cy="7" r="1" fill="var(--accent, #2E52E0)"></circle></svg>
+              <span style="font-size: 10.5px; font-weight: 500; color: var(--accent, #2E52E0);">Tag</span>
+            </div>
+            <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; min-height: 44px; justify-content: center;">
+              <svg width="19" height="19" viewBox="0 0 18 18" fill="none"><path d="M4 5.5h10M7 5.5V4h4v1.5M5.5 5.5l.7 9h5.6l.7-9" stroke="#C22B23" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+              <span style="font-size: 10.5px; font-weight: 500; color: #C22B23;">Delete</span>
+            </div>
+          </div>
+        </div>
+      </x-import>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 14px;">
+      <div style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #55554F;">06 · First-run — connect your server</div>
+      <x-import component-from-global-scope="IOSDevice" from="./ios-frame.jsx" hint-size="430px,900px">
+        <div style="height: 100%; display: flex; flex-direction: column; background: #F4F4F1; font-family: 'IBM Plex Sans', sans-serif; color: #1A1A18; padding: 62px 24px 0 24px; box-sizing: border-box;">
+          <div style="flex: 1;"></div>
+          <div style="width: 56px; height: 56px; border-radius: 14px; background: #1A1A18; display: flex; align-items: center; justify-content: center;">
+            <svg width="28" height="28" viewBox="0 0 28 28" fill="none"><path d="M6 15l5.5 5.5L22 8" stroke="var(--accent, #2E52E0)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+          </div>
+          <div style="font-size: 28px; font-weight: 700; margin-top: 18px; letter-spacing: -0.01em;">Docket</div>
+          <div style="font-size: 15px; color: #55554F; margin-top: 6px; line-height: 1.5;">Your tasks, on your server. Point Docket at your instance to get started.</div>
+          <div style="margin-top: 28px; display: flex; flex-direction: column; gap: 10px;">
+            <div style="background: #FFFFFF; border: 1px solid #E1E1DA; border-radius: 10px; padding: 13px 14px; display: flex; align-items: center; gap: 10px;">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="12" height="5" rx="1.5" stroke="#8A8A82" stroke-width="1.5"></rect><rect x="2" y="9" width="12" height="5" rx="1.5" stroke="#8A8A82" stroke-width="1.5"></rect><circle cx="4.5" cy="4.5" r="0.9" fill="#8A8A82"></circle><circle cx="4.5" cy="11.5" r="0.9" fill="#8A8A82"></circle></svg>
+              <span style="font-family: 'IBM Plex Mono', monospace; font-size: 14px;">https://todo.selfhost.dev</span>
+              <span style="width: 2px; height: 16px; background: var(--accent, #2E52E0); border-radius: 1px;"></span>
+            </div>
+            <div style="background: #FFFFFF; border: 1px solid #E1E1DA; border-radius: 10px; padding: 13px 14px; display: flex; align-items: center; gap: 10px;">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="3" y="7" width="10" height="7" rx="1.5" stroke="#8A8A82" stroke-width="1.5"></rect><path d="M5.5 7V5a2.5 2.5 0 015 0v2" stroke="#8A8A82" stroke-width="1.5"></path></svg>
+              <span style="font-family: 'IBM Plex Mono', monospace; font-size: 14px; color: #B4B4AC;">Access token</span>
+            </div>
+            <div style="background: #1A1A18; color: #FFFFFF; border-radius: 10px; padding: 14px; text-align: center; font-size: 15px; font-weight: 600; min-height: 44px; box-sizing: border-box;">Connect</div>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px; margin-top: 16px;">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1.5l4.5 2v3c0 3-2 5.5-4.5 6-2.5-.5-4.5-3-4.5-6v-3L7 1.5z" stroke="#1E7A3C" stroke-width="1.4" stroke-linejoin="round"></path></svg>
+            <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #55554F;">Your data never leaves your server.</span>
+          </div>
+          <div style="flex: 1.4;"></div>
+          <div style="text-align: center; font-size: 13px; color: #8A8A82; padding-bottom: 32px;">Need a server? <a href="#1a">Read the setup guide</a></div>
+        </div>
+      </x-import>
+    </div>
+
+  </div>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;accent&quot;: {&quot;editor&quot;: &quot;color&quot;, &quot;default&quot;: &quot;#2E52E0&quot;, &quot;tsType&quot;: &quot;string&quot;, &quot;options&quot;: [&quot;#2E52E0&quot;, &quot;#1E7A3C&quot;, &quot;#C2570A&quot;, &quot;#6B21A8&quot;]}}">
+class Component extends DCLogic {
+  componentDidMount() { this.applyAccent(); }
+  componentDidUpdate() { this.applyAccent(); }
+  applyAccent() {
+    document.documentElement.style.setProperty('--accent', this.props.accent ?? '#2E52E0');
+  }
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>
