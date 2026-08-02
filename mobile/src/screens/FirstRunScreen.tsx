@@ -1,0 +1,197 @@
+import React, { useState } from 'react';
+import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { colors } from '../theme/colors';
+import { fonts } from '../theme/typography';
+import { useAccent } from '../theme/ThemeContext';
+import { useTasks } from '../data/TaskContext';
+import { IconCheckBig, IconLock, IconServer, IconShield } from '../icons/Icons';
+import BottomSheet from '../components/BottomSheet';
+
+export default function FirstRunScreen() {
+  const accent = useAccent();
+  const insets = useSafeAreaInsets();
+  const { connect } = useTasks();
+  const [serverUrl, setServerUrl] = useState('https://todo.selfhost.dev');
+  const [token, setToken] = useState('');
+  const [connecting, setConnecting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [helpOpen, setHelpOpen] = useState(false);
+
+  const handleConnect = () => {
+    const url = serverUrl.trim();
+    if (!/^https?:\/\/.+/i.test(url)) {
+      setError('Enter a full server URL, starting with http:// or https://');
+      return;
+    }
+    setError(null);
+    setConnecting(true);
+    setTimeout(() => {
+      setConnecting(false);
+      connect(url);
+    }, 600);
+  };
+
+  return (
+    <KeyboardAvoidingView
+      style={styles.screen}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+      <View style={[styles.content, { paddingTop: insets.top + 24 }]}>
+        <View style={{ flex: 1 }} />
+        <View style={styles.logo}>
+          <IconCheckBig size={28} color={accent} strokeWidth={3} />
+        </View>
+        <Text style={styles.appName}>Yarukoto</Text>
+        <Text style={styles.tagline}>Your tasks, on your server. Point Yarukoto at your instance to get started.</Text>
+
+        <View style={styles.form}>
+          <View style={styles.field}>
+            <IconServer />
+            <TextInput
+              value={serverUrl}
+              onChangeText={setServerUrl}
+              placeholder="https://your-server.example.com"
+              placeholderTextColor={colors.textFaint}
+              style={styles.fieldInput}
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardType="url"
+            />
+          </View>
+          <View style={styles.field}>
+            <IconLock />
+            <TextInput
+              value={token}
+              onChangeText={setToken}
+              placeholder="Access token"
+              placeholderTextColor={colors.textFaint}
+              style={styles.fieldInput}
+              secureTextEntry
+              autoCapitalize="none"
+            />
+          </View>
+          {error && <Text style={styles.error}>{error}</Text>}
+          <Pressable style={styles.connectBtn} onPress={handleConnect} disabled={connecting}>
+            {connecting ? <ActivityIndicator color="#fff" /> : <Text style={styles.connectText}>Connect</Text>}
+          </Pressable>
+        </View>
+
+        <View style={styles.trustRow}>
+          <IconShield />
+          <Text style={styles.trustText}>Your data never leaves your server.</Text>
+        </View>
+
+        <View style={{ flex: 1.4 }} />
+        <Pressable onPress={() => setHelpOpen(true)} style={{ paddingBottom: Math.max(24, insets.bottom) }}>
+          <Text style={styles.footer}>
+            Need a server? <Text style={{ color: accent }}>Read the setup guide</Text>
+          </Text>
+        </Pressable>
+      </View>
+
+      <BottomSheet visible={helpOpen} onClose={() => setHelpOpen(false)} title="Self-hosting Yarukoto">
+        <Text style={styles.helpText}>
+          Yarukoto talks to a small self-hosted server that stores your tasks, lists and tags. Deploy the server
+          anywhere you like, then enter its URL and an access token here to connect this app to it. Nothing is
+          sent anywhere else.
+        </Text>
+      </BottomSheet>
+    </KeyboardAvoidingView>
+  );
+}
+
+const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: colors.screenBg,
+  },
+  content: {
+    flex: 1,
+    paddingHorizontal: 24,
+  },
+  logo: {
+    width: 56,
+    height: 56,
+    borderRadius: 14,
+    backgroundColor: colors.textPrimary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  appName: {
+    fontFamily: fonts.sansBold,
+    fontSize: 28,
+    color: colors.textPrimary,
+    marginTop: 18,
+  },
+  tagline: {
+    fontFamily: fonts.sansRegular,
+    fontSize: 15,
+    color: colors.textSecondary,
+    marginTop: 6,
+    lineHeight: 21,
+  },
+  form: {
+    marginTop: 28,
+    gap: 10,
+  },
+  field: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+  },
+  fieldInput: {
+    flex: 1,
+    fontFamily: fonts.monoRegular,
+    fontSize: 14,
+    color: colors.textPrimary,
+    padding: 0,
+  },
+  error: {
+    fontFamily: fonts.sansRegular,
+    fontSize: 12.5,
+    color: colors.priorityHigh,
+  },
+  connectBtn: {
+    backgroundColor: colors.textPrimary,
+    borderRadius: 10,
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 44,
+  },
+  connectText: {
+    fontFamily: fonts.sansSemiBold,
+    fontSize: 15,
+    color: '#fff',
+  },
+  trustRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 16,
+  },
+  trustText: {
+    fontFamily: fonts.monoRegular,
+    fontSize: 12,
+    color: colors.textSecondary,
+  },
+  footer: {
+    textAlign: 'center',
+    fontFamily: fonts.sansRegular,
+    fontSize: 13,
+    color: colors.textTertiary,
+  },
+  helpText: {
+    fontFamily: fonts.sansRegular,
+    fontSize: 14,
+    lineHeight: 21,
+    color: colors.textSecondary,
+  },
+});
