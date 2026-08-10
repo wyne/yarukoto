@@ -4,7 +4,6 @@ import { useTasks } from '../data/TaskContext';
 import { RootStackParamList } from './types';
 import FirstRunScreen from '../screens/FirstRunScreen';
 import MainTabs from './MainTabs';
-import TaskDetailScreen from '../screens/TaskDetailScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -16,10 +15,7 @@ export default function RootNavigator() {
       {!state.connected ? (
         <Stack.Screen name="FirstRun" component={FirstRunScreen} />
       ) : (
-        <>
-          <Stack.Screen name="Main" component={MainTabs} />
-          <Stack.Screen name="TaskDetail" component={TaskDetailScreen} options={{ presentation: 'modal' }} />
-        </>
+        <Stack.Screen name="Main" component={MainTabs} />
       )}
     </Stack.Navigator>
   );

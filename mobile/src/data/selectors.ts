@@ -18,6 +18,19 @@ export function completedTasksList(tasks: Task[]): Task[] {
   return tasks.filter((t) => t.completed).sort((a, b) => a.order - b.order);
 }
 
+/** Inbox is the untriaged pile: anything not yet filed into a list. */
+export function isUnfiled(task: Task): boolean {
+  return task.listId === null;
+}
+
+export function inboxTasks(tasks: Task[]): Task[] {
+  return activeTasks(tasks).filter(isUnfiled);
+}
+
+export function completedInboxTasks(tasks: Task[]): Task[] {
+  return completedTasksList(tasks).filter(isUnfiled);
+}
+
 export function listCounts(tasks: Task[]): Record<string, number> {
   const out: Record<string, number> = {};
   for (const t of tasks) {
@@ -48,7 +61,7 @@ export function tasksUpcomingCount(tasks: Task[], now: Date): number {
 }
 
 export function inboxCount(tasks: Task[]): number {
-  return activeTasks(tasks).length;
+  return inboxTasks(tasks).length;
 }
 
 /** Groups active, dated tasks by ISO date for the calendar agenda + dots. */

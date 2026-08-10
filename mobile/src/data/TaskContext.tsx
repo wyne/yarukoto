@@ -3,6 +3,7 @@ import { FOLDERS, LISTS, buildMockTasks } from './mockData';
 import { FolderDef, ListDef, Priority, ReminderOption, Task } from './types';
 import { addDays, toISODate } from './dateUtils';
 import { parseQuickAdd } from './quickAdd';
+import { DEFAULT_VIEW_OPTIONS, ViewOptions } from './viewOptions';
 
 interface State {
   tasks: Task[];
@@ -10,6 +11,8 @@ interface State {
   folders: FolderDef[];
   connected: boolean;
   serverUrl: string;
+  /** Grouping + sort per view, keyed by viewKey(). Views not in here use the default. */
+  viewOptions: Record<string, ViewOptions>;
 }
 
 type Action =
@@ -22,6 +25,7 @@ type Action =
   | { type: 'TOGGLE_SUBTASK'; taskId: string; subtaskId: string }
   | { type: 'SNOOZE_TASK'; id: string }
   | { type: 'ADD_LIST'; list: ListDef }
+  | { type: 'SET_VIEW_OPTIONS'; key: string; options: ViewOptions }
   | { type: 'CONNECT'; serverUrl: string }
   | { type: 'DISCONNECT' };
 
@@ -79,6 +83,8 @@ function reducer(state: State, action: Action): State {
       };
     case 'ADD_LIST':
       return { ...state, lists: [...state.lists, action.list] };
+    case 'SET_VIEW_OPTIONS':
+      return { ...state, viewOptions: { ...state.viewOptions, [action.key]: action.options } };
     case 'CONNECT':
       return { ...state, connected: true, serverUrl: action.serverUrl };
     case 'DISCONNECT':
@@ -95,6 +101,7 @@ function initState(): State {
     folders: FOLDERS,
     connected: false,
     serverUrl: '',
+    viewOptions: {},
   };
 }
 
@@ -109,6 +116,8 @@ interface TaskContextValue {
   toggleSubtask: (taskId: string, subtaskId: string) => void;
   snoozeTask: (id: string) => void;
   addList: (name: string, folderId: string) => void;
+  getViewOptions: (key: string) => ViewOptions;
+  setViewOptions: (key: string, options: ViewOptions) => void;
   connect: (serverUrl: string) => void;
   disconnect: () => void;
 }
@@ -160,6 +169,14 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       },
     });
   }, []);
+  const getViewOptions = useCallback(
+    (key: string) => state.viewOptions[key] ?? DEFAULT_VIEW_OPTIONS,
+    [state.viewOptions]
+  );
+  const setViewOptions = useCallback(
+    (key: string, options: ViewOptions) => dispatch({ type: 'SET_VIEW_OPTIONS', key, options }),
+    []
+  );
   const connect = useCallback((serverUrl: string) => dispatch({ type: 'CONNECT', serverUrl }), []);
   const disconnect = useCallback(() => dispatch({ type: 'DISCONNECT' }), []);
 
@@ -175,6 +192,8 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       toggleSubtask,
       snoozeTask,
       addList,
+      getViewOptions,
+      setViewOptions,
       connect,
       disconnect,
     }),
@@ -189,6 +208,8 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       toggleSubtask,
       snoozeTask,
       addList,
+      getViewOptions,
+      setViewOptions,
       connect,
       disconnect,
     ]

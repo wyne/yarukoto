@@ -1,25 +1,29 @@
 import React, { useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, priorityColor } from '../theme/colors';
 import { fonts } from '../theme/typography';
 import { useAccent } from '../theme/ThemeContext';
-import { RootStackParamList } from '../navigation/types';
 import { useTasks } from '../data/TaskContext';
 import { getListById } from '../data/selectors';
 import { formatDueFull, reminderLabel } from '../data/dateUtils';
+import { confirmDestructive } from '../data/confirm';
 import { Priority } from '../data/types';
-import Card from '../components/Card';
-import Divider from '../components/Divider';
-import TaskCheckbox from '../components/TaskCheckbox';
+import Card from './Card';
+import Divider from './Divider';
+import TaskCheckbox from './TaskCheckbox';
 import { IconBell, IconCalendarBox, IconDotsHorizontal, IconFolder, IconPlus, IconTag } from '../icons/Icons';
-import DueDatePickerSheet from '../components/pickers/DueDatePickerSheet';
-import ReminderPickerSheet from '../components/pickers/ReminderPickerSheet';
-import ListPickerSheet from '../components/pickers/ListPickerSheet';
-import TagPickerSheet from '../components/pickers/TagPickerSheet';
+import DueDatePickerSheet from './pickers/DueDatePickerSheet';
+import ReminderPickerSheet from './pickers/ReminderPickerSheet';
+import ListPickerSheet from './pickers/ListPickerSheet';
+import TagPickerSheet from './pickers/TagPickerSheet';
 
-type Props = NativeStackScreenProps<RootStackParamList, 'TaskDetail'>;
+interface Props {
+  taskId: string;
+  onClose: () => void;
+  /** 'pane' is the wide-layout third column; 'sheet' is the narrow pull-up. */
+  variant: 'pane' | 'sheet';
+}
 
 const PRIORITIES: { key: Priority; label: string }[] = [
   { key: 'none', label: 'None' },
@@ -28,12 +32,13 @@ const PRIORITIES: { key: Priority; label: string }[] = [
   { key: 'high', label: 'High' },
 ];
 
-export default function TaskDetailScreen({ route, navigation }: Props) {
-  const { taskId } = route.params;
+export default function TaskDetailView({ taskId, onClose, variant }: Props) {
   const accent = useAccent();
   const insets = useSafeAreaInsets();
   const { state, updateTask, toggleComplete, deleteTasks, addSubtask, toggleSubtask } = useTasks();
   const task = state.tasks.find((t) => t.id === taskId);
+  // The sheet supplies its own top chrome and safe-area padding.
+  const topPad = variant === 'pane' ? insets.top + 6 : 6;
 
   const [dueOpen, setDueOpen] = useState(false);
   const [reminderOpen, setReminderOpen] = useState(false);
@@ -44,7 +49,7 @@ export default function TaskDetailScreen({ route, navigation }: Props) {
 
   if (!task) {
     return (
-      <View style={[styles.screen, { paddingTop: insets.top + 12 }]}>
+      <View style={[styles.screen, { paddingTop: topPad + 6 }]}>
         <Text style={styles.notFound}>This task no longer exists.</Text>
       </View>
     );
@@ -55,23 +60,16 @@ export default function TaskDetailScreen({ route, navigation }: Props) {
   const doneCount = task.subtasks.filter((s) => s.done).length;
 
   const confirmDelete = () => {
-    Alert.alert('Delete task?', task.title, [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: () => {
-          deleteTasks([task.id]);
-          navigation.goBack();
-        },
-      },
-    ]);
+    confirmDestructive('Delete task?', task.title, () => {
+      deleteTasks([task.id]);
+      onClose();
+    });
   };
 
   return (
-    <View style={[styles.screen, { paddingTop: insets.top + 6 }]}>
+    <View style={[styles.screen, { paddingTop: topPad }]}>
       <View style={styles.header}>
-        <Pressable onPress={() => navigation.goBack()} hitSlop={8}>
+        <Pressable onPress={onClose} hitSlop={8}>
           <Text style={[styles.close, { color: accent }]}>Close</Text>
         </Pressable>
         <Text style={styles.headerCenter}>{list ? list.name : 'Inbox'}</Text>
