@@ -6,18 +6,28 @@ import { colors } from '../theme/colors';
 import { fonts } from '../theme/typography';
 import { useAccent } from '../theme/ThemeContext';
 import { MainTabParamList } from '../navigation/types';
+import { PANE_MAX_WIDTH, useSidebar } from '../navigation/SidebarContext';
 import { useTasks } from '../data/TaskContext';
-import { folderTotal, listCounts, listsInFolder, tagCounts, tasksForToday, tasksUpcomingCount } from '../data/selectors';
+import {
+  folderTotal,
+  inboxCount,
+  listCounts,
+  listsInFolder,
+  tagCounts,
+  tasksForToday,
+  tasksUpcomingCount,
+} from '../data/selectors';
 import Card from '../components/Card';
 import Divider from '../components/Divider';
 import BottomSheet from '../components/BottomSheet';
-import { IconClock, IconInboxTray, IconPlusBig, IconTrendUp } from '../icons/Icons';
+import { IconClock, IconInboxTray, IconPlusBig, IconStack, IconTrendUp } from '../icons/Icons';
 
 type Props = BottomTabScreenProps<MainTabParamList, 'BrowseTab'>;
 
 export default function BrowseScreen({ navigation }: Props) {
   const accent = useAccent();
   const insets = useSafeAreaInsets();
+  const { wide } = useSidebar();
   const { state, addList, disconnect } = useTasks();
   const now = new Date();
   const counts = listCounts(state.tasks);
@@ -40,15 +50,21 @@ export default function BrowseScreen({ navigation }: Props) {
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top + 6 }]}>
-      <View style={styles.header}>
+      <View style={[styles.header, wide && styles.paneWide]}>
         <Text style={styles.title}>Browse</Text>
         <Pressable onPress={() => setAddOpen(true)} hitSlop={8}>
           <IconPlusBig color={accent} />
         </Pressable>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scroll}>
+      <ScrollView contentContainerStyle={[styles.scroll, wide && styles.paneWide]}>
         <Card>
+          <Pressable style={styles.smartRow} onPress={() => navigation.navigate('AllTab')}>
+            <IconStack size={18} color={accent} />
+            <Text style={styles.smartLabel}>All</Text>
+            <Text style={styles.smartCount}>{state.tasks.filter((t) => !t.completed).length}</Text>
+          </Pressable>
+          <Divider indent={44} />
           <Pressable style={styles.smartRow} onPress={() => navigation.navigate('TodayTab')}>
             <IconClock size={18} color={accent} />
             <Text style={styles.smartLabel}>Today</Text>
@@ -64,7 +80,7 @@ export default function BrowseScreen({ navigation }: Props) {
           <Pressable style={styles.smartRow} onPress={() => navigation.navigate('InboxTab', { filter: undefined })}>
             <IconInboxTray size={18} color={accent} />
             <Text style={styles.smartLabel}>Inbox</Text>
-            <Text style={styles.smartCount}>{state.tasks.filter((t) => !t.completed).length}</Text>
+            <Text style={styles.smartCount}>{inboxCount(state.tasks)}</Text>
           </Pressable>
         </Card>
 
@@ -120,7 +136,7 @@ export default function BrowseScreen({ navigation }: Props) {
         )}
       </ScrollView>
 
-      <Pressable style={styles.syncRow} onPress={confirmDisconnect}>
+      <Pressable style={[styles.syncRow, wide && styles.paneWide]} onPress={confirmDisconnect}>
         <View style={[styles.syncDot, { backgroundColor: colors.success }]} />
         <Text style={styles.syncText}>Synced just now</Text>
         <View style={{ flex: 1 }} />
@@ -168,6 +184,7 @@ export default function BrowseScreen({ navigation }: Props) {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.screenBg },
+  paneWide: { width: '100%', maxWidth: PANE_MAX_WIDTH },
   header: {
     flexDirection: 'row',
     alignItems: 'center',

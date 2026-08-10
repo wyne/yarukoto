@@ -7,6 +7,7 @@ export interface TaskListFilter {
 }
 
 export type MainTabParamList = {
+  AllTab: undefined;
   InboxTab: { filter?: TaskListFilter } | undefined;
   TodayTab: undefined;
   CalendarTab: { focusDate?: string } | undefined;
@@ -16,5 +17,4 @@ export type MainTabParamList = {
 export type RootStackParamList = {
   FirstRun: undefined;
   Main: NavigatorScreenParams<MainTabParamList> | undefined;
-  TaskDetail: { taskId: string };
 };

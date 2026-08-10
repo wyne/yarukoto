@@ -1,46 +1,71 @@
 import React, { useLayoutEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../theme/colors';
 import { fonts } from '../theme/typography';
 import { useAccent } from '../theme/ThemeContext';
 import { useTasks } from '../data/TaskContext';
-import { activeTasks, completedTasksList, getListById, tasksForToday } from '../data/selectors';
+import {
+  activeTasks,
+  completedInboxTasks,
+  completedTasksList,
+  getListById,
+  inboxTasks,
+  tasksForToday,
+} from '../data/selectors';
 import { isSameDay } from '../data/dateUtils';
-import { RootStackParamList, TaskListFilter } from '../navigation/types';
+import { groupTasks, viewKey } from '../data/viewOptions';
+import { Task } from '../data/types';
+import { TaskListFilter } from '../navigation/types';
+import { PANE_MAX_WIDTH, useSidebar } from '../navigation/SidebarContext';
+import { useDetail } from '../navigation/DetailContext';
 import TaskRow from '../components/TaskRow';
 import Card from '../components/Card';
 import Divider from '../components/Divider';
 import SectionHeader from '../components/SectionHeader';
 import QuickAddBar from '../components/QuickAddBar';
 import BulkActionBar from '../components/BulkActionBar';
+import ViewOptionsSheet from '../components/ViewOptionsSheet';
 import DueDatePickerSheet from '../components/pickers/DueDatePickerSheet';
 import ListPickerSheet from '../components/pickers/ListPickerSheet';
 import TagPickerSheet from '../components/pickers/TagPickerSheet';
-import { IconMenu, IconSearch, IconSelectMode } from '../icons/Icons';
+import { IconMenu, IconSearch, IconSelectMode, IconViewOptions } from '../icons/Icons';
 
-type Nav = NativeStackNavigationProp<RootStackParamList>;
+const TITLES = { all: 'All', inbox: 'Inbox', today: 'Today' } as const;
 
 interface Props {
-  mode: 'inbox' | 'today';
+  mode: 'all' | 'inbox' | 'today';
   tabNavigation: any;
   filter?: TaskListFilter;
 }
 
 export default function TaskListScreen({ mode, tabNavigation, filter }: Props) {
-  const navigation = useNavigation<Nav>();
   const accent = useAccent();
   const insets = useSafeAreaInsets();
-  const { state, toggleComplete, snoozeTask, deleteTasks, bulkUpdate, addTaskFromQuickAdd } = useTasks();
+  const { wide, openDrawer } = useSidebar();
+  const { openTask } = useDetail();
+  const {
+    state,
+    toggleComplete,
+    snoozeTask,
+    deleteTasks,
+    bulkUpdate,
+    addTaskFromQuickAdd,
+    getViewOptions,
+    setViewOptions,
+  } = useTasks();
   const now = new Date();
+
+  const key = viewKey(mode, filter);
+  const options = getViewOptions(key);
 
   const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [completedCollapsed, setCompletedCollapsed] = useState(false);
+  const [collapsedGroups, setCollapsedGroups] = useState<string[]>([]);
+  const [optionsOpen, setOptionsOpen] = useState(false);
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const [moveOpen, setMoveOpen] = useState(false);
   const [tagOpen, setTagOpen] = useState(false);
@@ -51,12 +76,23 @@ export default function TaskListScreen({ mode, tabNavigation, filter }: Props) {
     });
   }, [selectionMode, tabNavigation]);
 
+  // The Inbox tab doubles as the host for list/tag filtered views, so the untriaged
+  // restriction only applies when it's showing the actual Inbox.
+  const untriagedOnly = mode === 'inbox' && !filter;
+
   const { active, completed } = useMemo(() => {
-    let a = mode === 'inbox' ? activeTasks(state.tasks) : tasksForToday(state.tasks, now);
-    let c =
-      mode === 'inbox'
-        ? completedTasksList(state.tasks)
-        : completedTasksList(state.tasks).filter((t) => t.completedAt && isSameDay(new Date(t.completedAt), now));
+    let a: Task[];
+    let c: Task[];
+    if (mode === 'today') {
+      a = tasksForToday(state.tasks, now);
+      c = completedTasksList(state.tasks).filter((t) => t.completedAt && isSameDay(new Date(t.completedAt), now));
+    } else if (untriagedOnly) {
+      a = inboxTasks(state.tasks);
+      c = completedInboxTasks(state.tasks);
+    } else {
+      a = activeTasks(state.tasks);
+      c = completedTasksList(state.tasks);
+    }
     if (filter) {
       const matchFilter = (t: (typeof a)[number]) =>
         filter.type === 'list' ? t.listId === filter.value : t.tags.includes(filter.value);
@@ -71,7 +107,12 @@ export default function TaskListScreen({ mode, tabNavigation, filter }: Props) {
       c = c.filter(match);
     }
     return { active: a, completed: c };
-  }, [state.tasks, mode, query, filter]);
+  }, [state.tasks, mode, query, filter, untriagedOnly]);
+
+  const groups = useMemo(
+    () => groupTasks(active, options, { lists: state.lists, folders: state.folders, now }),
+    [active, options, state.lists, state.folders]
+  );
 
   const exitSelection = () => {
     setSelectionMode(false);
@@ -83,11 +124,41 @@ export default function TaskListScreen({ mode, tabNavigation, filter }: Props) {
   };
 
   const allSelected = selectedIds.length > 0 && selectedIds.length === active.length;
+  const grouped = options.groupBy !== 'none';
+
+  const renderTaskCard = (tasks: typeof active) => (
+    <Card style={{ marginHorizontal: 12 }}>
+      {tasks.map((task, i) => (
+        <View key={task.id}>
+          <TaskRow
+            task={task}
+            list={getListById(state.lists, task.listId)}
+            now={now}
+            selectionMode={selectionMode}
+            selected={selectedIds.includes(task.id)}
+            onPress={() =>
+              selectionMode ? toggleSelected(task.id) : openTask(task.id)
+            }
+            onLongPress={() => {
+              if (!selectionMode) {
+                setSelectionMode(true);
+                setSelectedIds([task.id]);
+              }
+            }}
+            onToggleComplete={() => toggleComplete(task.id)}
+            onLater={() => snoozeTask(task.id)}
+            onDone={() => toggleComplete(task.id)}
+          />
+          {i < tasks.length - 1 && <Divider />}
+        </View>
+      ))}
+    </Card>
+  );
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top + 6 }]}>
       {selectionMode ? (
-        <View style={styles.selectHeader}>
+        <View style={[styles.selectHeader, wide && styles.paneWide]}>
           <Pressable onPress={exitSelection}>
             <Text style={[styles.headerAction, { color: accent }]}>Cancel</Text>
           </Pressable>
@@ -97,10 +168,12 @@ export default function TaskListScreen({ mode, tabNavigation, filter }: Props) {
           </Pressable>
         </View>
       ) : (
-        <View style={styles.header}>
-          <Pressable onPress={() => tabNavigation.navigate('BrowseTab')} hitSlop={8}>
-            <IconMenu />
-          </Pressable>
+        <View style={[styles.header, wide && styles.paneWide]}>
+          {!wide && (
+            <Pressable onPress={openDrawer} hitSlop={8}>
+              <IconMenu />
+            </Pressable>
+          )}
           {searchOpen ? (
             <TextInput
               autoFocus
@@ -119,7 +192,7 @@ export default function TaskListScreen({ mode, tabNavigation, filter }: Props) {
               disabled={!filter}
               onPress={() => tabNavigation.navigate('InboxTab', { filter: undefined })}
             >
-              <Text style={styles.title}>{filter ? filter.label : mode === 'inbox' ? 'Inbox' : 'Today'}</Text>
+              <Text style={styles.title}>{filter ? filter.label : TITLES[mode]}</Text>
               <Text style={styles.count}>{active.length}</Text>
               {filter && <Text style={[styles.clearFilter, { color: accent }]}>Clear</Text>}
             </Pressable>
@@ -133,45 +206,51 @@ export default function TaskListScreen({ mode, tabNavigation, filter }: Props) {
           >
             <IconSearch />
           </Pressable>
+          <Pressable onPress={() => setOptionsOpen(true)} hitSlop={8}>
+            <IconViewOptions color={grouped || options.sortBy !== 'manual' ? accent : undefined} />
+          </Pressable>
           <Pressable onPress={() => setSelectionMode(true)} hitSlop={8}>
             <IconSelectMode />
           </Pressable>
         </View>
       )}
 
-      <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
-        {mode === 'inbox' && !selectionMode && !filter && <QuickAddBar onSubmit={addTaskFromQuickAdd} />}
-
-        {active.length > 0 ? (
-          <Card style={{ marginHorizontal: 12 }}>
-            {active.map((task, i) => (
-              <View key={task.id}>
-                <TaskRow
-                  task={task}
-                  list={getListById(state.lists, task.listId)}
-                  now={now}
-                  selectionMode={selectionMode}
-                  selected={selectedIds.includes(task.id)}
-                  onPress={() =>
-                    selectionMode ? toggleSelected(task.id) : navigation.navigate('TaskDetail', { taskId: task.id })
-                  }
-                  onLongPress={() => {
-                    if (!selectionMode) {
-                      setSelectionMode(true);
-                      setSelectedIds([task.id]);
-                    }
-                  }}
-                  onToggleComplete={() => toggleComplete(task.id)}
-                  onLater={() => snoozeTask(task.id)}
-                  onDone={() => toggleComplete(task.id)}
-                />
-                {i < active.length - 1 && <Divider />}
-              </View>
-            ))}
-          </Card>
-        ) : (
-          <Text style={styles.empty}>{query ? 'No matches.' : 'Nothing here. Nice work.'}</Text>
+      <ScrollView
+        contentContainerStyle={[styles.scrollContent, wide && styles.paneWide]}
+        keyboardShouldPersistTaps="handled"
+      >
+        {(mode === 'inbox' || mode === 'all') && !selectionMode && !filter && (
+          <QuickAddBar onSubmit={addTaskFromQuickAdd} />
         )}
+
+        {active.length === 0 && <Text style={styles.empty}>{query ? 'No matches.' : 'Nothing here. Nice work.'}</Text>}
+
+        {active.length > 0 &&
+          (grouped ? (
+            groups.map((group) => {
+              const collapsed = collapsedGroups.includes(group.key);
+              return (
+                <View key={group.key} style={styles.group}>
+                  <View style={{ marginHorizontal: 6 }}>
+                    <SectionHeader
+                      label={group.label}
+                      count={group.tasks.length}
+                      color={group.color}
+                      collapsed={collapsed}
+                      onToggle={() =>
+                        setCollapsedGroups((prev) =>
+                          prev.includes(group.key) ? prev.filter((k) => k !== group.key) : [...prev, group.key]
+                        )
+                      }
+                    />
+                  </View>
+                  {!collapsed && renderTaskCard(group.tasks)}
+                </View>
+              );
+            })
+          ) : (
+            renderTaskCard(groups[0].tasks)
+          ))}
 
         {completed.length > 0 && (
           <>
@@ -193,7 +272,7 @@ export default function TaskListScreen({ mode, tabNavigation, filter }: Props) {
                       selectionMode={selectionMode}
                       selected={selectedIds.includes(task.id)}
                       onPress={() =>
-                        selectionMode ? toggleSelected(task.id) : navigation.navigate('TaskDetail', { taskId: task.id })
+                        selectionMode ? toggleSelected(task.id) : openTask(task.id)
                       }
                       onToggleComplete={() => toggleComplete(task.id)}
                       onLater={() => snoozeTask(task.id)}
@@ -219,6 +298,16 @@ export default function TaskListScreen({ mode, tabNavigation, filter }: Props) {
           }}
         />
       )}
+
+      <ViewOptionsSheet
+        visible={optionsOpen}
+        onClose={() => setOptionsOpen(false)}
+        value={options}
+        onChange={(next) => {
+          setViewOptions(key, next);
+          setCollapsedGroups([]);
+        }}
+      />
 
       <DueDatePickerSheet
         visible={scheduleOpen}
@@ -312,6 +401,14 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingBottom: 24,
     gap: 12,
+  },
+  group: {
+    gap: 2,
+  },
+  /** Keeps the list at a readable width instead of stretching across a desktop window. */
+  paneWide: {
+    width: '100%',
+    maxWidth: PANE_MAX_WIDTH,
   },
   empty: {
     textAlign: 'center',

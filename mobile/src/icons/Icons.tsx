@@ -130,6 +130,28 @@ export function IconFolder({ size = 20, color = '#8A8A82', strokeWidth = 1.7 }: 
   );
 }
 
+/** Stacked layers — the All view, everything at once. */
+export function IconStack({ size = 20, color = '#8A8A82', strokeWidth = 1.7 }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 20 20" fill="none">
+      <Path d="M10 3l7 3.5-7 3.5-7-3.5L10 3z" stroke={color} strokeWidth={strokeWidth} strokeLinejoin="round" />
+      <Path d="M3 10.5l7 3.5 7-3.5" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+/** Sliders — opens the group/sort sheet. */
+export function IconViewOptions({ size = 20, color = '#1A1A18', strokeWidth = 1.8 }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 20 20" fill="none">
+      <Path d="M3 6h14M3 10h14M3 14h14" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" />
+      <Circle cx={7} cy={6} r={2} fill={color} />
+      <Circle cx={13} cy={10} r={2} fill={color} />
+      <Circle cx={8} cy={14} r={2} fill={color} />
+    </Svg>
+  );
+}
+
 export function IconTrendUp({ size = 18, color = '#2E52E0', strokeWidth = 1.7 }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 20 20" fill="none">

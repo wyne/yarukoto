@@ -170,7 +170,11 @@ export function buildMockTasks(now: Date): Task[] {
     base({ title: 'Pick up dry cleaning', listId: 'l-errands' }),
     base({ title: 'Return library books', listId: 'l-errands', priority: 'low', dueDate: iso(now, 2) }),
 
-    // Unfiled
+    // Unfiled — the Inbox triage pile: captured quickly, not yet sorted into a list.
     base({ title: 'Try the new pomodoro timer', listId: null }),
+    base({ title: 'Look into standing desk options', listId: null }),
+    base({ title: 'Book dentist appointment', listId: null, priority: 'medium' }),
+    base({ title: 'Reply to Sam about the cabin weekend', listId: null, dueDate: iso(now, 1) }),
+    base({ title: 'Cancel the unused domain', listId: null, tags: ['server'] }),
   ];
 }

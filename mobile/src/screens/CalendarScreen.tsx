@@ -1,12 +1,11 @@
 import React, { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, priorityColor } from '../theme/colors';
 import { fonts } from '../theme/typography';
 import { useAccent } from '../theme/ThemeContext';
-import { RootStackParamList } from '../navigation/types';
+import { PANE_MAX_WIDTH, useSidebar } from '../navigation/SidebarContext';
+import { useDetail } from '../navigation/DetailContext';
 import { useTasks } from '../data/TaskContext';
 import { getListById, tasksByDate } from '../data/selectors';
 import {
@@ -25,8 +24,6 @@ import Divider from '../components/Divider';
 import TaskCheckbox from '../components/TaskCheckbox';
 import { IconChevronLeft, IconChevronRight } from '../icons/Icons';
 
-type Nav = NativeStackNavigationProp<RootStackParamList>;
-
 const WEEKDAY_LETTERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 const AGENDA_WINDOW_DAYS = 45;
 
@@ -35,9 +32,10 @@ function priorityWeight(p: Task['priority']): number {
 }
 
 export default function CalendarScreen() {
-  const navigation = useNavigation<Nav>();
   const accent = useAccent();
   const insets = useSafeAreaInsets();
+  const { wide } = useSidebar();
+  const { openTask } = useDetail();
   const { state, toggleComplete } = useTasks();
   const today = new Date();
 
@@ -71,7 +69,7 @@ export default function CalendarScreen() {
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top + 6 }]}>
-      <View style={styles.header}>
+      <View style={[styles.header, wide && styles.paneWide]}>
         <Pressable onPress={() => setMonthAnchor((m) => addMonths(m, -1))} hitSlop={8}>
           <IconChevronLeft />
         </Pressable>
@@ -87,7 +85,7 @@ export default function CalendarScreen() {
         </Pressable>
       </View>
 
-      <View style={styles.gridCardWrap}>
+      <View style={[styles.gridCardWrap, wide && styles.paneWide]}>
         <Card style={styles.gridCard}>
           <View style={styles.weekdayRow}>
             {WEEKDAY_LETTERS.map((l, i) => (
@@ -136,7 +134,7 @@ export default function CalendarScreen() {
         </Card>
       </View>
 
-      <ScrollView contentContainerStyle={styles.agenda}>
+      <ScrollView contentContainerStyle={[styles.agenda, wide && styles.paneWide]}>
         {agendaDays.length === 0 && (
           <Text style={styles.empty}>Nothing scheduled in the next {AGENDA_WINDOW_DAYS} days.</Text>
         )}
@@ -154,7 +152,7 @@ export default function CalendarScreen() {
                   <View key={task.id}>
                     <Pressable
                       style={styles.taskRow}
-                      onPress={() => navigation.navigate('TaskDetail', { taskId: task.id })}
+                      onPress={() => openTask(task.id)}
                     >
                       <Text style={styles.timeLabel}>{task.dueTime ? formatTime24to12(task.dueTime) : 'All day'}</Text>
                       <TaskCheckbox completed={task.completed} priority={task.priority} onPress={() => toggleComplete(task.id)} />
@@ -183,6 +181,7 @@ export default function CalendarScreen() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.screenBg },
+  paneWide: { width: '100%', maxWidth: PANE_MAX_WIDTH },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
