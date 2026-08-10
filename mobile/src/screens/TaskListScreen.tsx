@@ -13,7 +13,8 @@ import {
   inboxTasks,
   tasksForToday,
 } from '../data/selectors';
-import { isSameDay } from '../data/dateUtils';
+import { isSameDay, toISODate } from '../data/dateUtils';
+import { QuickAddDefaults } from '../data/TaskContext';
 import { groupTasks, viewKey } from '../data/viewOptions';
 import { Task } from '../data/types';
 import { TaskListFilter } from '../navigation/types';
@@ -126,6 +127,16 @@ export default function TaskListScreen({ mode, tabNavigation, filter }: Props) {
   const allSelected = selectedIds.length > 0 && selectedIds.length === active.length;
   const grouped = options.groupBy !== 'none';
 
+  // New tasks inherit whatever dimension this view is scoped to. All and Inbox
+  // are unscoped, so tasks created there stay untriaged.
+  const quickAddDefaults = ((): QuickAddDefaults | undefined => {
+    if (filter?.type === 'list') return { listId: filter.value };
+    if (filter?.type === 'tag') return { tags: [filter.value] };
+    if (mode === 'today') return { dueDate: toISODate(now) };
+    return undefined;
+  })();
+  const quickAddLabel = filter ? filter.label : mode === 'today' ? 'Today' : undefined;
+
   const renderTaskCard = (tasks: typeof active) => (
     <Card style={{ marginHorizontal: 12 }}>
       {tasks.map((task, i) => (
@@ -219,8 +230,11 @@ export default function TaskListScreen({ mode, tabNavigation, filter }: Props) {
         contentContainerStyle={[styles.scrollContent, wide && styles.paneWide]}
         keyboardShouldPersistTaps="handled"
       >
-        {(mode === 'inbox' || mode === 'all') && !selectionMode && !filter && (
-          <QuickAddBar onSubmit={addTaskFromQuickAdd} />
+        {!selectionMode && (
+          <QuickAddBar
+            onSubmit={(text) => addTaskFromQuickAdd(text, quickAddDefaults)}
+            contextLabel={quickAddLabel}
+          />
         )}
 
         {active.length === 0 && <Text style={styles.empty}>{query ? 'No matches.' : 'Nothing here. Nice work.'}</Text>}
