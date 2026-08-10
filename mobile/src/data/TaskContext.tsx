@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useMemo, useReducer } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useState } from 'react';
 import { FOLDERS, LISTS, buildMockTasks } from './mockData';
 import { FolderDef, ListDef, Priority, ReminderOption, Task } from './types';
 import { addDays, toISODate } from './dateUtils';
@@ -115,10 +115,23 @@ export interface QuickAddDefaults {
   dueDate?: string;
 }
 
+/** The most recent completion, offered for undo until it times out. */
+export interface PendingUndo {
+  taskId: string;
+  title: string;
+  /** Distinguishes repeat completions of the same task so the toast re-animates. */
+  token: number;
+}
+
+export const UNDO_TIMEOUT_MS = 5000;
+
 interface TaskContextValue {
   state: State;
   addTaskFromQuickAdd: (text: string, defaults?: QuickAddDefaults) => void;
   toggleComplete: (id: string) => void;
+  pendingUndo: PendingUndo | null;
+  undoComplete: () => void;
+  dismissUndo: () => void;
   updateTask: (id: string, patch: Partial<Task>) => void;
   deleteTasks: (ids: string[]) => void;
   bulkUpdate: (ids: string[], patch: Partial<Task>) => void;
@@ -159,7 +172,36 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     dispatch({ type: 'ADD_TASK', task });
   }, []);
 
-  const toggleComplete = useCallback((id: string) => dispatch({ type: 'TOGGLE_COMPLETE', id }), []);
+  const [pendingUndo, setPendingUndo] = useState<PendingUndo | null>(null);
+
+  // Only completing offers an undo — un-completing is already its own undo.
+  const toggleComplete = useCallback(
+    (id: string) => {
+      const task = state.tasks.find((t) => t.id === id);
+      dispatch({ type: 'TOGGLE_COMPLETE', id });
+      setPendingUndo(task && !task.completed ? { taskId: id, title: task.title, token: Date.now() } : null);
+    },
+    [state.tasks]
+  );
+
+  const dismissUndo = useCallback(() => setPendingUndo(null), []);
+
+  const undoComplete = useCallback(() => {
+    setPendingUndo((current) => {
+      if (current) {
+        // Set the flag directly rather than toggling, so this stays correct even if
+        // the task was un-completed by other means in the meantime.
+        dispatch({ type: 'UPDATE_TASK', id: current.taskId, patch: { completed: false, completedAt: undefined } });
+      }
+      return null;
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!pendingUndo) return;
+    const t = setTimeout(() => setPendingUndo(null), UNDO_TIMEOUT_MS);
+    return () => clearTimeout(t);
+  }, [pendingUndo]);
   const updateTask = useCallback((id: string, patch: Partial<Task>) => dispatch({ type: 'UPDATE_TASK', id, patch }), []);
   const deleteTasks = useCallback((ids: string[]) => dispatch({ type: 'DELETE_TASKS', ids }), []);
   const bulkUpdate = useCallback((ids: string[], patch: Partial<Task>) => dispatch({ type: 'BULK_UPDATE', ids, patch }), []);
@@ -196,6 +238,9 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       state,
       addTaskFromQuickAdd,
       toggleComplete,
+      pendingUndo,
+      undoComplete,
+      dismissUndo,
       updateTask,
       deleteTasks,
       bulkUpdate,
@@ -212,6 +257,9 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       state,
       addTaskFromQuickAdd,
       toggleComplete,
+      pendingUndo,
+      undoComplete,
+      dismissUndo,
       updateTask,
       deleteTasks,
       bulkUpdate,
