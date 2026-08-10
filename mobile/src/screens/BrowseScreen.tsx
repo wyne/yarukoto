@@ -20,14 +20,14 @@ import {
 import Card from '../components/Card';
 import Divider from '../components/Divider';
 import BottomSheet from '../components/BottomSheet';
-import { IconClock, IconInboxTray, IconPlusBig, IconStack, IconTrendUp } from '../icons/Icons';
+import { IconClock, IconInboxTray, IconMenu, IconPlusBig, IconStack, IconTrendUp } from '../icons/Icons';
 
 type Props = BottomTabScreenProps<MainTabParamList, 'BrowseTab'>;
 
 export default function BrowseScreen({ navigation }: Props) {
   const accent = useAccent();
   const insets = useSafeAreaInsets();
-  const { wide } = useSidebar();
+  const { wide, openDrawer } = useSidebar();
   const { state, addList, disconnect } = useTasks();
   const now = new Date();
   const counts = listCounts(state.tasks);
@@ -51,6 +51,11 @@ export default function BrowseScreen({ navigation }: Props) {
   return (
     <View style={[styles.screen, { paddingTop: insets.top + 6 }]}>
       <View style={[styles.header, wide && styles.paneWide]}>
+        {!wide && (
+          <Pressable onPress={openDrawer} hitSlop={8} style={styles.menuBtn}>
+            <IconMenu />
+          </Pressable>
+        )}
         <Text style={styles.title}>Browse</Text>
         <Pressable onPress={() => setAddOpen(true)} hitSlop={8}>
           <IconPlusBig color={accent} />
@@ -188,11 +193,15 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: 12,
     paddingHorizontal: 16,
     paddingBottom: 10,
   },
+  menuBtn: {
+    justifyContent: 'center',
+  },
   title: {
+    flex: 1,
     fontFamily: fonts.sansBold,
     fontSize: 22,
     color: colors.textPrimary,

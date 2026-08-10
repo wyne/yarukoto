@@ -23,7 +23,7 @@ import Card from '../components/Card';
 import Divider from '../components/Divider';
 import TaskCheckbox from '../components/TaskCheckbox';
 import QuickAddBar from '../components/QuickAddBar';
-import { IconChevronLeft, IconChevronRight } from '../icons/Icons';
+import { IconChevronLeft, IconChevronRight, IconMenu } from '../icons/Icons';
 
 const WEEKDAY_LETTERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 const AGENDA_WINDOW_DAYS = 45;
@@ -35,7 +35,7 @@ function priorityWeight(p: Task['priority']): number {
 export default function CalendarScreen() {
   const accent = useAccent();
   const insets = useSafeAreaInsets();
-  const { wide } = useSidebar();
+  const { wide, openDrawer } = useSidebar();
   const { openTask } = useDetail();
   const { state, toggleComplete, addTaskFromQuickAdd } = useTasks();
   const today = new Date();
@@ -71,6 +71,11 @@ export default function CalendarScreen() {
   return (
     <View style={[styles.screen, { paddingTop: insets.top + 6 }]}>
       <View style={[styles.header, wide && styles.paneWide]}>
+        {!wide && (
+          <Pressable onPress={openDrawer} hitSlop={8}>
+            <IconMenu />
+          </Pressable>
+        )}
         <Pressable onPress={() => setMonthAnchor((m) => addMonths(m, -1))} hitSlop={8}>
           <IconChevronLeft />
         </Pressable>

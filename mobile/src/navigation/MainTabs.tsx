@@ -1,9 +1,7 @@
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
-import { BottomTabBar, BottomTabBarProps, createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { BottomTabBarProps, createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { colors } from '../theme/colors';
-import { fonts } from '../theme/typography';
-import { useAccent } from '../theme/ThemeContext';
 import { MainTabParamList } from './types';
 import { SidebarProvider, useSidebar } from './SidebarContext';
 import { DetailProvider, useDetail } from './DetailContext';
@@ -11,28 +9,24 @@ import Sidebar from '../components/Sidebar';
 import SidebarDrawer from '../components/SidebarDrawer';
 import TaskDetailView from '../components/TaskDetailView';
 import TaskDetailSheet from '../components/TaskDetailSheet';
+import UndoToast from '../components/UndoToast';
 import AllScreen from '../screens/AllScreen';
 import InboxScreen from '../screens/InboxScreen';
 import TodayScreen from '../screens/TodayScreen';
 import CalendarScreen from '../screens/CalendarScreen';
 import BrowseScreen from '../screens/BrowseScreen';
-import { IconCalendar, IconClock, IconFolder, IconInboxTray, IconStack } from '../icons/Icons';
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
 
 /**
- * Wide layouts swap the bottom bar for a pinned sidebar; narrow ones keep the bar
- * and mount the same sidebar as a pull-out drawer.
+ * The sidebar is the only navigation: pinned as a left column on wide layouts,
+ * and mounted as a pull-out drawer on narrow ones. There is no bottom bar — it
+ * only duplicated the drawer's contents.
  */
 function TabBar(props: BottomTabBarProps) {
   const { wide } = useSidebar();
   if (wide) return <Sidebar {...props} />;
-  return (
-    <>
-      <BottomTabBar {...props} />
-      <SidebarDrawer {...props} />
-    </>
-  );
+  return <SidebarDrawer {...props} />;
 }
 
 export default function MainTabs() {
@@ -58,6 +52,7 @@ function Layout() {
     <View style={styles.row}>
       <View style={styles.flex}>
         <Tabs />
+        <UndoToast />
       </View>
       {showPane && (
         <View style={styles.detailColumn}>
@@ -70,68 +65,23 @@ function Layout() {
 }
 
 function Tabs() {
-  const accent = useAccent();
   const { wide } = useSidebar();
 
+  // Labels and icons live in Sidebar, which is the only thing rendering the tab
+  // list; `title` is kept because React Navigation uses it for the web page title.
   return (
     <Tab.Navigator
       tabBar={(props) => <TabBar {...props} />}
       screenOptions={{
         headerShown: false,
         tabBarPosition: wide ? 'left' : 'bottom',
-        tabBarActiveTintColor: accent,
-        tabBarInactiveTintColor: colors.textTertiary,
-        tabBarStyle: {
-          backgroundColor: colors.surfaceMuted,
-          borderTopColor: colors.border,
-          borderTopWidth: 1,
-        },
-        tabBarLabelStyle: {
-          fontFamily: fonts.sansSemiBold,
-          fontSize: 10,
-        },
       }}
     >
-      <Tab.Screen
-        name="AllTab"
-        component={AllScreen}
-        options={{
-          title: 'All',
-          tabBarIcon: ({ color }) => <IconStack color={color} />,
-        }}
-      />
-      <Tab.Screen
-        name="InboxTab"
-        component={InboxScreen}
-        options={{
-          title: 'Inbox',
-          tabBarIcon: ({ color }) => <IconInboxTray color={color} />,
-        }}
-      />
-      <Tab.Screen
-        name="TodayTab"
-        component={TodayScreen}
-        options={{
-          title: 'Today',
-          tabBarIcon: ({ color }) => <IconClock color={color} />,
-        }}
-      />
-      <Tab.Screen
-        name="CalendarTab"
-        component={CalendarScreen}
-        options={{
-          title: 'Calendar',
-          tabBarIcon: ({ color }) => <IconCalendar color={color} />,
-        }}
-      />
-      <Tab.Screen
-        name="BrowseTab"
-        component={BrowseScreen}
-        options={{
-          title: 'Browse',
-          tabBarIcon: ({ color }) => <IconFolder color={color} />,
-        }}
-      />
+      <Tab.Screen name="AllTab" component={AllScreen} options={{ title: 'All' }} />
+      <Tab.Screen name="InboxTab" component={InboxScreen} options={{ title: 'Inbox' }} />
+      <Tab.Screen name="TodayTab" component={TodayScreen} options={{ title: 'Today' }} />
+      <Tab.Screen name="CalendarTab" component={CalendarScreen} options={{ title: 'Calendar' }} />
+      <Tab.Screen name="BrowseTab" component={BrowseScreen} options={{ title: 'Browse' }} />
     </Tab.Navigator>
   );
 }

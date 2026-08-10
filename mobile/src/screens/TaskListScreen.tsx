@@ -1,4 +1,4 @@
-import React, { useLayoutEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../theme/colors';
@@ -70,12 +70,6 @@ export default function TaskListScreen({ mode, tabNavigation, filter }: Props) {
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const [moveOpen, setMoveOpen] = useState(false);
   const [tagOpen, setTagOpen] = useState(false);
-
-  useLayoutEffect(() => {
-    tabNavigation?.setOptions?.({
-      tabBarStyle: selectionMode ? { display: 'none' } : undefined,
-    });
-  }, [selectionMode, tabNavigation]);
 
   // The Inbox tab doubles as the host for list/tag filtered views, so the untriaged
   // restriction only applies when it's showing the actual Inbox.
