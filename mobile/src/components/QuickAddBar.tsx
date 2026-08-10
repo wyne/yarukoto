@@ -7,11 +7,15 @@ import { IconPlus } from '../icons/Icons';
 import { parseQuickAdd } from '../data/quickAdd';
 import { formatDueShort } from '../data/dateUtils';
 
+const HINT = 'Add a task… try “pay rent fri 6pm #home !high”';
+
 interface Props {
   onSubmit: (text: string) => void;
+  /** Where the task will land — shown in the placeholder on scoped views. */
+  contextLabel?: string;
 }
 
-export default function QuickAddBar({ onSubmit }: Props) {
+export default function QuickAddBar({ onSubmit, contextLabel }: Props) {
   const accent = useAccent();
   const [text, setText] = useState('');
   const parsed = text.trim() ? parseQuickAdd(text) : null;
@@ -34,7 +38,7 @@ export default function QuickAddBar({ onSubmit }: Props) {
         <TextInput
           value={text}
           onChangeText={setText}
-          placeholder="Add a task… try “pay rent fri 6pm #home !high”"
+          placeholder={contextLabel ? `Add a task to ${contextLabel}…` : HINT}
           placeholderTextColor={colors.textFaint}
           style={styles.input}
           returnKeyType="done"

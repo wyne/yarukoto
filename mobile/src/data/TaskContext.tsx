@@ -105,9 +105,19 @@ function initState(): State {
   };
 }
 
+/**
+ * Field values a view contributes to tasks created from it — e.g. the Admin list
+ * view files new tasks into Admin. Anything typed explicitly wins over these.
+ */
+export interface QuickAddDefaults {
+  listId?: string | null;
+  tags?: string[];
+  dueDate?: string;
+}
+
 interface TaskContextValue {
   state: State;
-  addTaskFromQuickAdd: (text: string) => void;
+  addTaskFromQuickAdd: (text: string, defaults?: QuickAddDefaults) => void;
   toggleComplete: (id: string) => void;
   updateTask: (id: string, patch: Partial<Task>) => void;
   deleteTasks: (ids: string[]) => void;
@@ -127,7 +137,7 @@ const TaskContext = createContext<TaskContextValue | null>(null);
 export function TaskProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(reducer, undefined, initState);
 
-  const addTaskFromQuickAdd = useCallback((text: string) => {
+  const addTaskFromQuickAdd = useCallback((text: string, defaults?: QuickAddDefaults) => {
     const parsed = parseQuickAdd(text);
     if (!parsed.title.trim()) return;
     const task: Task = {
@@ -135,11 +145,12 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       title: parsed.title,
       notes: '',
       priority: parsed.priority as Priority,
-      dueDate: parsed.dueDate,
+      // A typed date overrides the view's date; tags from both are merged.
+      dueDate: parsed.dueDate ?? defaults?.dueDate,
       dueTime: parsed.dueTime,
       reminder: 'none' as ReminderOption,
-      listId: null,
-      tags: parsed.tags,
+      listId: defaults?.listId ?? null,
+      tags: Array.from(new Set([...(defaults?.tags ?? []), ...parsed.tags])),
       subtasks: [],
       completed: false,
       createdAt: new Date().toISOString(),

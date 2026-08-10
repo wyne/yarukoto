@@ -22,6 +22,7 @@ import { Task } from '../data/types';
 import Card from '../components/Card';
 import Divider from '../components/Divider';
 import TaskCheckbox from '../components/TaskCheckbox';
+import QuickAddBar from '../components/QuickAddBar';
 import { IconChevronLeft, IconChevronRight } from '../icons/Icons';
 
 const WEEKDAY_LETTERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
@@ -36,7 +37,7 @@ export default function CalendarScreen() {
   const insets = useSafeAreaInsets();
   const { wide } = useSidebar();
   const { openTask } = useDetail();
-  const { state, toggleComplete } = useTasks();
+  const { state, toggleComplete, addTaskFromQuickAdd } = useTasks();
   const today = new Date();
 
   const [monthAnchor, setMonthAnchor] = useState(new Date(today.getFullYear(), today.getMonth(), 1));
@@ -134,6 +135,13 @@ export default function CalendarScreen() {
         </Card>
       </View>
 
+      <View style={[styles.quickAdd, wide && styles.paneWide]}>
+        <QuickAddBar
+          onSubmit={(text) => addTaskFromQuickAdd(text, { dueDate: toISODate(selectedDate) })}
+          contextLabel={`${weekdayShort(selectedDate)}, ${monthShort(selectedDate)} ${selectedDate.getDate()}`}
+        />
+      </View>
+
       <ScrollView contentContainerStyle={[styles.agenda, wide && styles.paneWide]}>
         {agendaDays.length === 0 && (
           <Text style={styles.empty}>Nothing scheduled in the next {AGENDA_WINDOW_DAYS} days.</Text>
@@ -182,6 +190,7 @@ export default function CalendarScreen() {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.screenBg },
   paneWide: { width: '100%', maxWidth: PANE_MAX_WIDTH },
+  quickAdd: { paddingTop: 12 },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
