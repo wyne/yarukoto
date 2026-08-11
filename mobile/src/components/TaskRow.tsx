@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { GestureResponderHandlers, Pressable, StyleSheet, Text, View } from 'react-native';
 import { colors } from '../theme/colors';
 import { fonts } from '../theme/typography';
 import { useAccent } from '../theme/ThemeContext';
@@ -7,7 +7,7 @@ import { Task, ListDef } from '../data/types';
 import { formatDueShort, isOverdue } from '../data/dateUtils';
 import TaskCheckbox from './TaskCheckbox';
 import SwipeableRow from './SwipeableRow';
-import { IconCheckBig, IconStar } from '../icons/Icons';
+import { IconCheckBig, IconGrip, IconStar } from '../icons/Icons';
 
 interface Props {
   task: Task;
@@ -24,6 +24,8 @@ interface Props {
   hideListId?: string;
   /** Suppressed as redundant when the whole view or group is already this tag. */
   hideTag?: string;
+  /** Present only when the row is reorderable; spread onto the drag handle. */
+  dragHandleProps?: GestureResponderHandlers;
   onPress: () => void;
   onLongPress?: () => void;
   onToggleComplete: () => void;
@@ -40,6 +42,7 @@ export default function TaskRow({
   showContext = true,
   hideListId,
   hideTag,
+  dragHandleProps,
   onPress,
   onLongPress,
   onToggleComplete,
@@ -106,6 +109,11 @@ export default function TaskRow({
           </Text>
         </View>
       )}
+      {dragHandleProps && (
+        <View style={styles.handle} accessibilityLabel="Drag to reorder" {...dragHandleProps}>
+          <IconGrip />
+        </View>
+      )}
     </Pressable>
   );
 
@@ -168,6 +176,14 @@ const styles = StyleSheet.create({
     fontFamily: fonts.monoRegular,
     fontSize: 11.5,
     color: colors.textTertiary,
+  },
+  handle: {
+    marginLeft: -2,
+    marginRight: -4,
+    paddingHorizontal: 4,
+    paddingVertical: 6,
+    // @ts-expect-error web-only affordance; ignored on native
+    cursor: 'grab',
   },
   badge: {
     backgroundColor: colors.chipBg,

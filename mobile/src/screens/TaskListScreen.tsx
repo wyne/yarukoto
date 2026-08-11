@@ -23,6 +23,7 @@ import { useDetail } from '../navigation/DetailContext';
 import TaskRow from '../components/TaskRow';
 import Card from '../components/Card';
 import Divider from '../components/Divider';
+import DragList from '../components/DragList';
 import SectionHeader from '../components/SectionHeader';
 import QuickAddBar from '../components/QuickAddBar';
 import BulkActionBar from '../components/BulkActionBar';
@@ -49,6 +50,7 @@ export default function TaskListScreen({ mode, tabNavigation, filter }: Props) {
     state,
     toggleComplete,
     snoozeTask,
+    reorderTasks,
     deleteTasks,
     bulkUpdate,
     addTaskFromQuickAdd,
@@ -143,33 +145,44 @@ export default function TaskListScreen({ mode, tabNavigation, filter }: Props) {
       options.groupBy === 'tag' && groupKey.startsWith('tag:') ? groupKey.slice(4) : filterHideTag,
   });
 
+  // Dragging only means anything under the manual order — any other sort would
+  // immediately override whatever the drag produced.
+  const canReorder = options.sortBy === 'manual' && !selectionMode && !query.trim();
+
   const renderTaskCard = (tasks: typeof active, hide?: { hideListId?: string; hideTag?: string }) => (
     <Card style={{ marginHorizontal: 12 }}>
-      {tasks.map((task, i) => (
-        <View key={task.id}>
-          <TaskRow
-            task={task}
-            list={getListById(state.lists, task.listId)}
-            now={now}
-            selectionMode={selectionMode}
-            showContext={wide}
-            hideListId={hide?.hideListId ?? filterHideListId}
-            hideTag={hide?.hideTag ?? filterHideTag}
-            selected={selectedIds.includes(task.id)}
-            onPress={() => (selectionMode ? toggleSelected(task.id) : openTask(task.id))}
-            onLongPress={() => {
-              if (!selectionMode) {
-                setSelectionMode(true);
-                setSelectedIds([task.id]);
-              }
-            }}
-            onToggleComplete={() => toggleComplete(task.id)}
-            onLater={() => snoozeTask(task.id)}
-            onDone={() => toggleComplete(task.id)}
-          />
-          {i < tasks.length - 1 && <Divider />}
-        </View>
-      ))}
+      <DragList
+        items={tasks}
+        keyExtractor={(task) => task.id}
+        enabled={canReorder}
+        onReorder={reorderTasks}
+        renderItem={(task, i, handleProps) => (
+          <>
+            <TaskRow
+              task={task}
+              list={getListById(state.lists, task.listId)}
+              now={now}
+              selectionMode={selectionMode}
+              showContext={wide}
+              hideListId={hide?.hideListId ?? filterHideListId}
+              hideTag={hide?.hideTag ?? filterHideTag}
+              dragHandleProps={handleProps}
+              selected={selectedIds.includes(task.id)}
+              onPress={() => (selectionMode ? toggleSelected(task.id) : openTask(task.id))}
+              onLongPress={() => {
+                if (!selectionMode) {
+                  setSelectionMode(true);
+                  setSelectedIds([task.id]);
+                }
+              }}
+              onToggleComplete={() => toggleComplete(task.id)}
+              onLater={() => snoozeTask(task.id)}
+              onDone={() => toggleComplete(task.id)}
+            />
+            {i < tasks.length - 1 && <Divider />}
+          </>
+        )}
+      />
     </Card>
   );
 

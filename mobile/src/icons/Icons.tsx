@@ -140,6 +140,20 @@ export function IconStack({ size = 20, color = '#8A8A82', strokeWidth = 1.7 }: I
   );
 }
 
+/** Two columns of dots — the drag handle for reordering. */
+export function IconGrip({ size = 16, color = '#B4B4AC' }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 16 16" fill="none">
+      {[4, 8, 12].map((cy) => (
+        <React.Fragment key={cy}>
+          <Circle cx={6} cy={cy} r={1.3} fill={color} />
+          <Circle cx={10} cy={cy} r={1.3} fill={color} />
+        </React.Fragment>
+      ))}
+    </Svg>
+  );
+}
+
 /** Sliders — opens the group/sort sheet. */
 export function IconViewOptions({ size = 20, color = '#1A1A18', strokeWidth = 1.8 }: IconProps) {
   return (

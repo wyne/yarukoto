@@ -25,6 +25,7 @@ type Action =
   | { type: 'ADD_SUBTASK'; taskId: string; title: string }
   | { type: 'TOGGLE_SUBTASK'; taskId: string; subtaskId: string }
   | { type: 'SNOOZE_TASK'; id: string }
+  | { type: 'REORDER_TASKS'; ids: string[] }
   | { type: 'ADD_LIST'; list: ListDef }
   | { type: 'UPDATE_LIST'; id: string; patch: Partial<ListDef> }
   | { type: 'SET_VIEW_OPTIONS'; key: string; options: ViewOptions }
@@ -82,6 +83,21 @@ function reducer(state: State, action: Action): State {
           t.id === action.id ? { ...t, dueDate: toISODate(addDays(new Date(), 1)) } : t
         ),
       };
+    case 'REORDER_TASKS': {
+      // `order` is global, but a reorder only ever happens inside one visible slice.
+      // Redistributing the order values that slice already holds rearranges those
+      // tasks relative to each other while leaving every other task's position alone.
+      const moving = new Set(action.ids);
+      const slots = state.tasks
+        .filter((t) => moving.has(t.id))
+        .map((t) => t.order)
+        .sort((a, b) => a - b);
+      const nextOrder = new Map(action.ids.map((id, i) => [id, slots[i]]));
+      return {
+        ...state,
+        tasks: state.tasks.map((t) => (nextOrder.has(t.id) ? { ...t, order: nextOrder.get(t.id)! } : t)),
+      };
+    }
     case 'ADD_LIST':
       return { ...state, lists: [...state.lists, action.list] };
     case 'UPDATE_LIST':
@@ -141,6 +157,8 @@ interface TaskContextValue {
   addSubtask: (taskId: string, title: string) => void;
   toggleSubtask: (taskId: string, subtaskId: string) => void;
   snoozeTask: (id: string) => void;
+  /** `ids` is the visible slice in its new order. */
+  reorderTasks: (ids: string[]) => void;
   addList: (name: string, folderId: string) => void;
   setListColor: (listId: string, color: string) => void;
   getViewOptions: (key: string) => ViewOptions;
@@ -215,6 +233,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     []
   );
   const snoozeTask = useCallback((id: string) => dispatch({ type: 'SNOOZE_TASK', id }), []);
+  const reorderTasks = useCallback((ids: string[]) => dispatch({ type: 'REORDER_TASKS', ids }), []);
   const addList = useCallback((name: string, folderId: string) => {
     dispatch({
       type: 'ADD_LIST',
@@ -255,6 +274,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       addSubtask,
       toggleSubtask,
       snoozeTask,
+      reorderTasks,
       addList,
       setListColor,
       getViewOptions,
@@ -275,6 +295,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       addSubtask,
       toggleSubtask,
       snoozeTask,
+      reorderTasks,
       addList,
       setListColor,
       getViewOptions,
