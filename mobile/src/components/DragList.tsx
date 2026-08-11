@@ -50,9 +50,11 @@ export default function DragList<T>({ items, keyExtractor, renderItem, onReorder
     () =>
       items.map((_, index) =>
         PanResponder.create({
-          // Capture so the enclosing ScrollView can't take the vertical gesture first.
-          onStartShouldSetPanResponderCapture: () => enabled,
-          onMoveShouldSetPanResponderCapture: () => enabled,
+          // Bubble phase, not capture: negotiation runs deepest-node-first, so the
+          // handle beats the row Pressable it sits inside. Capture runs root-down,
+          // which let the Pressable claim the gesture and swallowed every drag.
+          onStartShouldSetPanResponder: () => enabled,
+          onMoveShouldSetPanResponder: () => enabled,
           onPanResponderGrant: () => {
             dragY.setValue(0);
             dragRef.current = { from: index, to: index };
