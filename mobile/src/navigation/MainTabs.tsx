@@ -10,11 +10,14 @@ import SidebarDrawer from '../components/SidebarDrawer';
 import TaskDetailView from '../components/TaskDetailView';
 import TaskDetailSheet from '../components/TaskDetailSheet';
 import UndoToast from '../components/UndoToast';
+import { DragProvider } from '../drag/DragContext';
+import DragOverlay from '../drag/DragOverlay';
 import AllScreen from '../screens/AllScreen';
 import InboxScreen from '../screens/InboxScreen';
 import TodayScreen from '../screens/TodayScreen';
 import CalendarScreen from '../screens/CalendarScreen';
 import BrowseScreen from '../screens/BrowseScreen';
+import PlanScreen from '../screens/PlanScreen';
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
 
@@ -33,7 +36,9 @@ export default function MainTabs() {
   return (
     <SidebarProvider>
       <DetailProvider>
-        <Layout />
+        <DragProvider>
+          <Layout />
+        </DragProvider>
       </DetailProvider>
     </SidebarProvider>
   );
@@ -60,6 +65,7 @@ function Layout() {
         </View>
       )}
       {!wide && <TaskDetailSheet />}
+      <DragOverlay />
     </View>
   );
 }
@@ -81,6 +87,7 @@ function Tabs() {
       <Tab.Screen name="InboxTab" component={InboxScreen} options={{ title: 'Inbox' }} />
       <Tab.Screen name="TodayTab" component={TodayScreen} options={{ title: 'Today' }} />
       <Tab.Screen name="CalendarTab" component={CalendarScreen} options={{ title: 'Calendar' }} />
+      <Tab.Screen name="PlanTab" component={PlanScreen} options={{ title: 'Plan' }} />
       <Tab.Screen name="BrowseTab" component={BrowseScreen} options={{ title: 'Browse' }} />
     </Tab.Navigator>
   );

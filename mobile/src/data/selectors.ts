@@ -31,6 +31,11 @@ export function completedInboxTasks(tasks: Task[]): Task[] {
   return completedTasksList(tasks).filter(isUnfiled);
 }
 
+/** Everything still needing a date — the default slice to plan from. */
+export function unscheduledTasks(tasks: Task[]): Task[] {
+  return activeTasks(tasks).filter((t) => !t.dueDate);
+}
+
 export function listCounts(tasks: Task[]): Record<string, number> {
   const out: Record<string, number> = {};
   for (const t of tasks) {

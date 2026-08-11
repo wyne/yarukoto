@@ -8,19 +8,24 @@ import { useAccent } from '../theme/ThemeContext';
 import { useTasks } from '../data/TaskContext';
 import { inboxCount, listCounts, listsInFolder, tagCounts, tasksForToday } from '../data/selectors';
 import { TaskListFilter } from '../navigation/types';
+import { useSidebar } from '../navigation/SidebarContext';
 import { ListDef } from '../data/types';
 import ListColorPickerSheet from './pickers/ListColorPickerSheet';
-import { IconCalendar, IconClock, IconFolder, IconInboxTray, IconStack, IconTag } from '../icons/Icons';
+import { IconCalendar, IconClock, IconColumns, IconFolder, IconInboxTray, IconStack, IconTag } from '../icons/Icons';
 
 export const SIDEBAR_WIDTH = 260;
 
-const VIEWS = [
-  { route: 'AllTab', label: 'All', Icon: IconStack },
-  { route: 'InboxTab', label: 'Inbox', Icon: IconInboxTray },
-  { route: 'TodayTab', label: 'Today', Icon: IconClock },
-  { route: 'CalendarTab', label: 'Calendar', Icon: IconCalendar },
-  { route: 'BrowseTab', label: 'Browse', Icon: IconFolder },
-] as const;
+/** Plan is desktop-only: two panes can't survive a phone-width window. */
+function viewsFor(wide: boolean) {
+  return [
+    { route: 'AllTab', label: 'All', Icon: IconStack },
+    { route: 'InboxTab', label: 'Inbox', Icon: IconInboxTray },
+    { route: 'TodayTab', label: 'Today', Icon: IconClock },
+    { route: 'CalendarTab', label: 'Calendar', Icon: IconCalendar },
+    ...(wide ? [{ route: 'PlanTab', label: 'Plan', Icon: IconColumns }] : []),
+    { route: 'BrowseTab', label: 'Browse', Icon: IconFolder },
+  ];
+}
 
 interface Props extends BottomTabBarProps {
   /** Called after any navigation — the drawer uses it to close itself. */
@@ -30,6 +35,7 @@ interface Props extends BottomTabBarProps {
 export default function Sidebar({ state, navigation, onNavigate }: Props) {
   const accent = useAccent();
   const [colorTarget, setColorTarget] = useState<ListDef | null>(null);
+  const { wide } = useSidebar();
   const insets = useSafeAreaInsets();
   const { state: data } = useTasks();
   const now = new Date();
@@ -64,7 +70,7 @@ export default function Sidebar({ state, navigation, onNavigate }: Props) {
       <Text style={styles.brand}>Yarukoto</Text>
 
       <ScrollView style={styles.scrollArea} contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        {VIEWS.map(({ route, label, Icon }) => {
+        {viewsFor(wide).map(({ route, label, Icon }) => {
           const active = current.name === route && (route !== 'InboxTab' || !activeFilter);
           const count = viewCount(route);
           return (

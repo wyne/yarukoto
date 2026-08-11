@@ -1,36 +1,23 @@
 import React, { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors, priorityColor } from '../theme/colors';
+import { colors } from '../theme/colors';
 import { fonts } from '../theme/typography';
 import { useAccent } from '../theme/ThemeContext';
 import { PANE_MAX_WIDTH, useSidebar } from '../navigation/SidebarContext';
 import { useDetail } from '../navigation/DetailContext';
 import { useTasks } from '../data/TaskContext';
 import { getListById, tasksByDate } from '../data/selectors';
-import {
-  addDays,
-  addMonths,
-  buildMonthGrid,
-  formatTime24to12,
-  isSameDay,
-  monthShort,
-  toISODate,
-  weekdayShort,
-} from '../data/dateUtils';
+import { addDays, addMonths, formatTime24to12, monthShort, toISODate, weekdayShort } from '../data/dateUtils';
 import { Task } from '../data/types';
 import Card from '../components/Card';
 import Divider from '../components/Divider';
+import MonthGrid from './calendar/MonthGrid';
 import TaskCheckbox from '../components/TaskCheckbox';
 import QuickAddBar from '../components/QuickAddBar';
 import { IconChevronLeft, IconChevronRight, IconMenu } from '../icons/Icons';
 
-const WEEKDAY_LETTERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 const AGENDA_WINDOW_DAYS = 45;
-
-function priorityWeight(p: Task['priority']): number {
-  return { high: 3, medium: 2, low: 1, none: 0 }[p];
-}
 
 export default function CalendarScreen() {
   const accent = useAccent();
@@ -44,14 +31,6 @@ export default function CalendarScreen() {
   const [selectedDate, setSelectedDate] = useState(today);
 
   const byDate = useMemo(() => tasksByDate(state.tasks), [state.tasks]);
-  const grid = useMemo(() => buildMonthGrid(monthAnchor), [monthAnchor]);
-
-  const dotColorFor = (iso: string): string | null => {
-    const dayTasks = byDate.get(iso);
-    if (!dayTasks || dayTasks.length === 0) return null;
-    const top = dayTasks.reduce((best, t) => (priorityWeight(t.priority) > priorityWeight(best.priority) ? t : best));
-    return top.priority === 'none' ? colors.textTertiary : priorityColor(top.priority);
-  };
 
   const goToday = () => {
     setMonthAnchor(new Date(today.getFullYear(), today.getMonth(), 1));
@@ -92,52 +71,14 @@ export default function CalendarScreen() {
       </View>
 
       <View style={[styles.gridCardWrap, wide && styles.paneWide]}>
-        <Card style={styles.gridCard}>
-          <View style={styles.weekdayRow}>
-            {WEEKDAY_LETTERS.map((l, i) => (
-              <Text key={i} style={styles.weekdayLetter}>
-                {l}
-              </Text>
-            ))}
-          </View>
-          <View style={styles.grid}>
-            {grid.map(({ date, inMonth }) => {
-              const iso = toISODate(date);
-              const isToday = isSameDay(date, today);
-              const isSelected = isSameDay(date, selectedDate) && !isToday;
-              const dot = dotColorFor(iso);
-              return (
-                <Pressable
-                  key={iso}
-                  style={styles.cell}
-                  onPress={() => {
-                    setSelectedDate(date);
-                    if (!inMonth) setMonthAnchor(new Date(date.getFullYear(), date.getMonth(), 1));
-                  }}
-                >
-                  <View
-                    style={[
-                      styles.cellInner,
-                      isToday && { backgroundColor: accent },
-                      isSelected && { backgroundColor: colors.chipBg },
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.cellText,
-                        !inMonth && { color: colors.textFaint },
-                        isToday && { color: '#fff', fontFamily: fonts.sansSemiBold },
-                      ]}
-                    >
-                      {date.getDate()}
-                    </Text>
-                    {dot && !isToday && <View style={[styles.dot, { backgroundColor: dot }]} />}
-                  </View>
-                </Pressable>
-              );
-            })}
-          </View>
-        </Card>
+        <MonthGrid
+          monthAnchor={monthAnchor}
+          selectedDate={selectedDate}
+          today={today}
+          byDate={byDate}
+          onSelectDate={setSelectedDate}
+          onChangeMonth={setMonthAnchor}
+        />
       </View>
 
       <View style={[styles.quickAdd, wide && styles.paneWide]}>
@@ -228,46 +169,10 @@ const styles = StyleSheet.create({
   gridCardWrap: {
     paddingHorizontal: 12,
   },
-  gridCard: {
-    padding: 8,
-  },
-  weekdayRow: {
-    flexDirection: 'row',
-  },
-  weekdayLetter: {
-    flex: 1,
-    textAlign: 'center',
-    fontFamily: fonts.monoRegular,
-    fontSize: 10,
-    color: colors.textTertiary,
-  },
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
   cell: {
     width: `${100 / 7}%`,
     alignItems: 'center',
     paddingVertical: 2,
-  },
-  cellInner: {
-    width: 30,
-    height: 30,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  cellText: {
-    fontFamily: fonts.sansRegular,
-    fontSize: 14,
-    color: colors.textPrimary,
-  },
-  dot: {
-    position: 'absolute',
-    bottom: 2,
-    width: 4,
-    height: 4,
-    borderRadius: 2,
   },
   agenda: {
     paddingHorizontal: 12,
