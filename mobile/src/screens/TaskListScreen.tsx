@@ -131,7 +131,19 @@ export default function TaskListScreen({ mode, tabNavigation, filter }: Props) {
   })();
   const quickAddLabel = filter ? filter.label : mode === 'today' ? 'Today' : undefined;
 
-  const renderTaskCard = (tasks: typeof active) => (
+  // A filtered view implies its list/tag on every row; so does a group header when
+  // grouping by the same dimension. The group wins, since it's the narrower scope.
+  const filterHideListId = filter?.type === 'list' ? filter.value : undefined;
+  const filterHideTag = filter?.type === 'tag' ? filter.value : undefined;
+
+  const groupHide = (groupKey: string) => ({
+    hideListId:
+      options.groupBy === 'list' && groupKey !== '__inbox' ? groupKey : filterHideListId,
+    hideTag:
+      options.groupBy === 'tag' && groupKey.startsWith('tag:') ? groupKey.slice(4) : filterHideTag,
+  });
+
+  const renderTaskCard = (tasks: typeof active, hide?: { hideListId?: string; hideTag?: string }) => (
     <Card style={{ marginHorizontal: 12 }}>
       {tasks.map((task, i) => (
         <View key={task.id}>
@@ -140,10 +152,11 @@ export default function TaskListScreen({ mode, tabNavigation, filter }: Props) {
             list={getListById(state.lists, task.listId)}
             now={now}
             selectionMode={selectionMode}
+            showContext={wide}
+            hideListId={hide?.hideListId ?? filterHideListId}
+            hideTag={hide?.hideTag ?? filterHideTag}
             selected={selectedIds.includes(task.id)}
-            onPress={() =>
-              selectionMode ? toggleSelected(task.id) : openTask(task.id)
-            }
+            onPress={() => (selectionMode ? toggleSelected(task.id) : openTask(task.id))}
             onLongPress={() => {
               if (!selectionMode) {
                 setSelectionMode(true);
@@ -252,7 +265,7 @@ export default function TaskListScreen({ mode, tabNavigation, filter }: Props) {
                       }
                     />
                   </View>
-                  {!collapsed && renderTaskCard(group.tasks)}
+                  {!collapsed && renderTaskCard(group.tasks, groupHide(group.key))}
                 </View>
               );
             })
@@ -278,6 +291,7 @@ export default function TaskListScreen({ mode, tabNavigation, filter }: Props) {
                       list={getListById(state.lists, task.listId)}
                       now={now}
                       selectionMode={selectionMode}
+            showContext={wide}
                       selected={selectedIds.includes(task.id)}
                       onPress={() =>
                         selectionMode ? toggleSelected(task.id) : openTask(task.id)
