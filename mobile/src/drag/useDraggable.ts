@@ -35,6 +35,10 @@ export function useDraggable(payload: DragPayload): GestureResponderHandlers {
         onMoveShouldSetPanResponderCapture: (_e, g) => Math.hypot(g.dx, g.dy) > DRAG_THRESHOLD,
         onPanResponderGrant: (_e, g) => begin(payloadRef.current, { x: g.moveX, y: g.moveY }),
         onPanResponderMove: (_e, g) => move({ x: g.moveX, y: g.moveY }),
+        // A real mouse selects text as it sweeps across the row, and react-native-web
+        // terminates the responder on selectionchange (also scroll / contextmenu)
+        // unless termination is refused. Without this the ghost dies mid-drag.
+        onPanResponderTerminationRequest: () => false,
         onPanResponderRelease: () => end(),
         onPanResponderTerminate: () => cancel(),
       }).panHandlers,

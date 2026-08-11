@@ -174,7 +174,7 @@ function DraggableTask({
   const handlers = useDraggable({ taskId: task.id, title: task.title });
 
   return (
-    <View {...handlers}>
+    <View style={styles.draggable} {...handlers}>
       <TaskRow
         task={task}
         list={listName}
@@ -194,6 +194,16 @@ function DraggableTask({
 export const SCHEDULE_PANE_WIDTH = 320;
 
 const styles = StyleSheet.create({
+  /**
+   * If the sweep selects text, the browser fires selectionchange (refusable) and
+   * can then start a native text drag — dragstart, which terminates the responder
+   * with no refusal hook. Making rows unselectable stops both at the source.
+   */
+  draggable: {
+    userSelect: 'none',
+    // @ts-expect-error web-only affordance; ignored on native
+    cursor: 'grab',
+  },
   pane: {
     width: SCHEDULE_PANE_WIDTH,
     flexGrow: 0,
