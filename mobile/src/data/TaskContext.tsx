@@ -5,6 +5,7 @@ import { addDays, toISODate } from './dateUtils';
 import { parseQuickAdd } from './quickAdd';
 import { DEFAULT_VIEW_OPTIONS, ViewOptions } from './viewOptions';
 import { LIST_COLORS } from '../theme/colors';
+import { clearServerUrl, loadServerUrl, saveServerUrl } from './storage';
 
 interface State {
   tasks: Task[];
@@ -114,12 +115,14 @@ function reducer(state: State, action: Action): State {
 }
 
 function initState(): State {
+  // A stored URL means a previous session connected, so skip first-run.
+  const serverUrl = loadServerUrl();
   return {
     tasks: buildMockTasks(new Date()),
     lists: LISTS,
     folders: FOLDERS,
-    connected: false,
-    serverUrl: '',
+    connected: !!serverUrl,
+    serverUrl,
     viewOptions: {},
   };
 }
@@ -257,8 +260,14 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     (key: string, options: ViewOptions) => dispatch({ type: 'SET_VIEW_OPTIONS', key, options }),
     []
   );
-  const connect = useCallback((serverUrl: string) => dispatch({ type: 'CONNECT', serverUrl }), []);
-  const disconnect = useCallback(() => dispatch({ type: 'DISCONNECT' }), []);
+  const connect = useCallback((serverUrl: string) => {
+    saveServerUrl(serverUrl);
+    dispatch({ type: 'CONNECT', serverUrl });
+  }, []);
+  const disconnect = useCallback(() => {
+    clearServerUrl();
+    dispatch({ type: 'DISCONNECT' });
+  }, []);
 
   const value = useMemo<TaskContextValue>(
     () => ({

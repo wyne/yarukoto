@@ -12,6 +12,9 @@ interface SidebarValue {
   drawerOpen: boolean;
   openDrawer: () => void;
   closeDrawer: () => void;
+  /** Wide layouts only: the pinned sidebar shrinks to an icon rail. */
+  collapsed: boolean;
+  toggleCollapsed: () => void;
 }
 
 const SidebarContext = createContext<SidebarValue | null>(null);
@@ -20,6 +23,7 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
   const { width } = useWindowDimensions();
   const wide = width >= WIDE_BREAKPOINT;
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
 
   // The drawer is a narrow-layout affordance; going wide pins the sidebar instead.
   useEffect(() => {
@@ -32,8 +36,10 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
       drawerOpen,
       openDrawer: () => setDrawerOpen(true),
       closeDrawer: () => setDrawerOpen(false),
+      collapsed,
+      toggleCollapsed: () => setCollapsed((v) => !v),
     }),
-    [wide, drawerOpen]
+    [wide, drawerOpen, collapsed]
   );
 
   return <SidebarContext.Provider value={value}>{children}</SidebarContext.Provider>;

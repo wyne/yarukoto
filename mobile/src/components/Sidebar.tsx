@@ -11,9 +11,22 @@ import { TaskListFilter } from '../navigation/types';
 import { useSidebar } from '../navigation/SidebarContext';
 import { ListDef } from '../data/types';
 import ListColorPickerSheet from './pickers/ListColorPickerSheet';
-import { IconCalendar, IconClock, IconColumns, IconFolder, IconInboxTray, IconStack, IconTag } from '../icons/Icons';
+import ServerSheet from './pickers/ServerSheet';
+import {
+  IconCalendar,
+  IconChevronLeft,
+  IconChevronRight,
+  IconClock,
+  IconColumns,
+  IconFolder,
+  IconInboxTray,
+  IconStack,
+  IconTag,
+} from '../icons/Icons';
 
 export const SIDEBAR_WIDTH = 260;
+/** Icon-only rail when the pinned sidebar is collapsed. */
+export const SIDEBAR_COLLAPSED_WIDTH = 56;
 
 /** Plan is desktop-only: two panes can't survive a phone-width window. */
 function viewsFor(wide: boolean) {
@@ -35,7 +48,10 @@ interface Props extends BottomTabBarProps {
 export default function Sidebar({ state, navigation, onNavigate }: Props) {
   const accent = useAccent();
   const [colorTarget, setColorTarget] = useState<ListDef | null>(null);
-  const { wide } = useSidebar();
+  const { wide, collapsed: collapsedPref, toggleCollapsed } = useSidebar();
+  // The drawer is a transient overlay, so it always shows the full sidebar.
+  const collapsed = wide && collapsedPref;
+  const [serverOpen, setServerOpen] = useState(false);
   const insets = useSafeAreaInsets();
   const { state: data } = useTasks();
   const now = new Date();
@@ -66,8 +82,25 @@ export default function Sidebar({ state, navigation, onNavigate }: Props) {
     onInbox && activeFilter?.type === type && activeFilter.value === value;
 
   return (
-    <View style={[styles.sidebar, { paddingTop: insets.top + 14 }]}>
-      <Text style={styles.brand}>Yarukoto</Text>
+    <View
+      style={[
+        styles.sidebar,
+        collapsed && { width: SIDEBAR_COLLAPSED_WIDTH },
+        { paddingTop: insets.top + 14 },
+      ]}
+    >
+      <View style={[styles.brandRow, collapsed && styles.brandRowCollapsed]}>
+        {!collapsed && <Text style={styles.brand}>Yarukoto</Text>}
+        {wide && (
+          <Pressable
+            onPress={toggleCollapsed}
+            hitSlop={8}
+            accessibilityLabel={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          >
+            {collapsed ? <IconChevronRight size={16} /> : <IconChevronLeft size={16} />}
+          </Pressable>
+        )}
+      </View>
 
       <ScrollView style={styles.scrollArea} contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         {viewsFor(wide).map(({ route, label, Icon }) => {
@@ -76,14 +109,19 @@ export default function Sidebar({ state, navigation, onNavigate }: Props) {
           return (
             <Pressable
               key={route}
-              style={[styles.row, active && { backgroundColor: colors.selectedRowBg }]}
+              style={[styles.row, collapsed && styles.rowCollapsed, active && { backgroundColor: colors.selectedRowBg }]}
               onPress={() => go(route, route === 'InboxTab' ? { filter: undefined } : undefined)}
+              accessibilityLabel={label}
             >
               <Icon size={18} color={active ? accent : colors.textTertiary} />
-              <Text style={[styles.rowLabel, active && { color: accent, fontFamily: fonts.sansSemiBold }]}>
-                {label}
-              </Text>
-              {count !== null && <Text style={styles.rowCount}>{count}</Text>}
+              {!collapsed && (
+                <>
+                  <Text style={[styles.rowLabel, active && { color: accent, fontFamily: fonts.sansSemiBold }]}>
+                    {label}
+                  </Text>
+                  {count !== null && <Text style={styles.rowCount}>{count}</Text>}
+                </>
+              )}
             </Pressable>
           );
         })}
@@ -93,24 +131,29 @@ export default function Sidebar({ state, navigation, onNavigate }: Props) {
           if (lists.length === 0) return null;
           return (
             <View key={folder.id}>
-              <Text style={styles.sectionLabel}>{folder.name}</Text>
+              {!collapsed && <Text style={styles.sectionLabel}>{folder.name}</Text>}
               {lists.map((list) => {
                 const active = filterActive('list', list.id);
                 return (
                   <Pressable
                     key={list.id}
-                    style={[styles.row, active && { backgroundColor: colors.selectedRowBg }]}
+                    style={[styles.row, collapsed && styles.rowCollapsed, active && { backgroundColor: colors.selectedRowBg }]}
                     onPress={() => openFilter({ type: 'list', value: list.id, label: list.name })}
+                    accessibilityLabel={list.name}
                     onLongPress={() => setColorTarget(list)}
                     delayLongPress={350}
                   >
                     <Pressable onPress={() => setColorTarget(list)} hitSlop={8} accessibilityLabel={`Change ${list.name} colour`}>
                       <View style={[styles.dot, { backgroundColor: list.color }]} />
                     </Pressable>
-                    <Text style={[styles.rowLabel, active && { color: accent, fontFamily: fonts.sansSemiBold }]}>
-                      {list.name}
-                    </Text>
-                    <Text style={styles.rowCount}>{counts[list.id] ?? 0}</Text>
+                    {!collapsed && (
+                      <>
+                        <Text style={[styles.rowLabel, active && { color: accent, fontFamily: fonts.sansSemiBold }]}>
+                          {list.name}
+                        </Text>
+                        <Text style={styles.rowCount}>{counts[list.id] ?? 0}</Text>
+                      </>
+                    )}
                   </Pressable>
                 );
               })}
@@ -118,7 +161,7 @@ export default function Sidebar({ state, navigation, onNavigate }: Props) {
           );
         })}
 
-        {tags.length > 0 && (
+        {tags.length > 0 && !collapsed && (
           <View>
             <Text style={styles.sectionLabel}>Tags</Text>
             {tags.map(({ tag, count }) => {
@@ -144,14 +187,21 @@ export default function Sidebar({ state, navigation, onNavigate }: Props) {
         )}
       </ScrollView>
 
-      <View style={[styles.footer, { paddingBottom: Math.max(12, insets.bottom) }]}>
+      <Pressable
+        style={[styles.footer, collapsed && styles.footerCollapsed, { paddingBottom: Math.max(12, insets.bottom) }]}
+        onPress={() => setServerOpen(true)}
+        accessibilityLabel="Edit server"
+      >
         <View style={[styles.syncDot, { backgroundColor: colors.success }]} />
-        <Text style={styles.syncText} numberOfLines={1}>
-          {data.serverUrl.replace(/^https?:\/\//, '') || 'Not connected'}
-        </Text>
-      </View>
+        {!collapsed && (
+          <Text style={styles.syncText} numberOfLines={1}>
+            {data.serverUrl.replace(/^https?:\/\//, '') || 'Not connected'}
+          </Text>
+        )}
+      </Pressable>
 
       <ListColorPickerSheet list={colorTarget} onClose={() => setColorTarget(null)} />
+      <ServerSheet visible={serverOpen} onClose={() => setServerOpen(false)} />
     </View>
   );
 }
@@ -167,12 +217,30 @@ const styles = StyleSheet.create({
     borderRightWidth: 1,
     borderRightColor: colors.border,
   },
+  brandRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingRight: 12,
+    paddingBottom: 12,
+  },
+  brandRowCollapsed: {
+    justifyContent: 'center',
+    paddingRight: 0,
+  },
+  rowCollapsed: {
+    justifyContent: 'center',
+    paddingHorizontal: 0,
+  },
+  footerCollapsed: {
+    justifyContent: 'center',
+    paddingHorizontal: 0,
+  },
   brand: {
     fontFamily: fonts.sansBold,
     fontSize: 17,
+    flex: 1,
     color: colors.textPrimary,
     paddingHorizontal: 16,
-    paddingBottom: 12,
   },
   scrollArea: {
     flex: 1,
