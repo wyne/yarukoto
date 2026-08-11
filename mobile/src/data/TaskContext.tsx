@@ -4,6 +4,7 @@ import { FolderDef, ListDef, Priority, ReminderOption, Task } from './types';
 import { addDays, toISODate } from './dateUtils';
 import { parseQuickAdd } from './quickAdd';
 import { DEFAULT_VIEW_OPTIONS, ViewOptions } from './viewOptions';
+import { LIST_COLORS } from '../theme/colors';
 
 interface State {
   tasks: Task[];
@@ -25,11 +26,11 @@ type Action =
   | { type: 'TOGGLE_SUBTASK'; taskId: string; subtaskId: string }
   | { type: 'SNOOZE_TASK'; id: string }
   | { type: 'ADD_LIST'; list: ListDef }
+  | { type: 'UPDATE_LIST'; id: string; patch: Partial<ListDef> }
   | { type: 'SET_VIEW_OPTIONS'; key: string; options: ViewOptions }
   | { type: 'CONNECT'; serverUrl: string }
   | { type: 'DISCONNECT' };
 
-const LIST_COLOR_PALETTE = ['#2E62D9', '#DB8A00', '#1E7A3C', '#8A5FD6', '#C22B23', '#0E8A8A'];
 
 function reducer(state: State, action: Action): State {
   switch (action.type) {
@@ -83,6 +84,8 @@ function reducer(state: State, action: Action): State {
       };
     case 'ADD_LIST':
       return { ...state, lists: [...state.lists, action.list] };
+    case 'UPDATE_LIST':
+      return { ...state, lists: state.lists.map((l) => (l.id === action.id ? { ...l, ...action.patch } : l)) };
     case 'SET_VIEW_OPTIONS':
       return { ...state, viewOptions: { ...state.viewOptions, [action.key]: action.options } };
     case 'CONNECT':
@@ -139,6 +142,7 @@ interface TaskContextValue {
   toggleSubtask: (taskId: string, subtaskId: string) => void;
   snoozeTask: (id: string) => void;
   addList: (name: string, folderId: string) => void;
+  setListColor: (listId: string, color: string) => void;
   getViewOptions: (key: string) => ViewOptions;
   setViewOptions: (key: string, options: ViewOptions) => void;
   connect: (serverUrl: string) => void;
@@ -218,10 +222,14 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
         id: `l-${Date.now()}`,
         name,
         folderId,
-        color: LIST_COLOR_PALETTE[Math.floor(Math.random() * LIST_COLOR_PALETTE.length)],
+        color: LIST_COLORS[Math.floor(Math.random() * LIST_COLORS.length)],
       },
     });
   }, []);
+  const setListColor = useCallback(
+    (listId: string, color: string) => dispatch({ type: 'UPDATE_LIST', id: listId, patch: { color } }),
+    []
+  );
   const getViewOptions = useCallback(
     (key: string) => state.viewOptions[key] ?? DEFAULT_VIEW_OPTIONS,
     [state.viewOptions]
@@ -248,6 +256,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       toggleSubtask,
       snoozeTask,
       addList,
+      setListColor,
       getViewOptions,
       setViewOptions,
       connect,
@@ -267,6 +276,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       toggleSubtask,
       snoozeTask,
       addList,
+      setListColor,
       getViewOptions,
       setViewOptions,
       connect,

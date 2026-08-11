@@ -6,6 +6,18 @@ export type AccentColor = (typeof ACCENT_OPTIONS)[number];
 
 export const DEFAULT_ACCENT: AccentColor = '#2E52E0';
 
+/** Colours a list can be tagged with — the palette offered when picking a list colour. */
+export const LIST_COLORS = [
+  '#2E62D9',
+  '#0E8A8A',
+  '#1E7A3C',
+  '#DB8A00',
+  '#C22B23',
+  '#C2317F',
+  '#8A5FD6',
+  '#55554F',
+] as const;
+
 export const colors = {
   screenBg: '#F4F4F1',
   canvasBg: '#E9E9E4',

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -8,6 +8,8 @@ import { useAccent } from '../theme/ThemeContext';
 import { useTasks } from '../data/TaskContext';
 import { inboxCount, listCounts, listsInFolder, tagCounts, tasksForToday } from '../data/selectors';
 import { TaskListFilter } from '../navigation/types';
+import { ListDef } from '../data/types';
+import ListColorPickerSheet from './pickers/ListColorPickerSheet';
 import { IconCalendar, IconClock, IconFolder, IconInboxTray, IconStack, IconTag } from '../icons/Icons';
 
 export const SIDEBAR_WIDTH = 260;
@@ -27,6 +29,7 @@ interface Props extends BottomTabBarProps {
 
 export default function Sidebar({ state, navigation, onNavigate }: Props) {
   const accent = useAccent();
+  const [colorTarget, setColorTarget] = useState<ListDef | null>(null);
   const insets = useSafeAreaInsets();
   const { state: data } = useTasks();
   const now = new Date();
@@ -92,8 +95,12 @@ export default function Sidebar({ state, navigation, onNavigate }: Props) {
                     key={list.id}
                     style={[styles.row, active && { backgroundColor: colors.selectedRowBg }]}
                     onPress={() => openFilter({ type: 'list', value: list.id, label: list.name })}
+                    onLongPress={() => setColorTarget(list)}
+                    delayLongPress={350}
                   >
-                    <View style={[styles.dot, { backgroundColor: list.color }]} />
+                    <Pressable onPress={() => setColorTarget(list)} hitSlop={8} accessibilityLabel={`Change ${list.name} colour`}>
+                      <View style={[styles.dot, { backgroundColor: list.color }]} />
+                    </Pressable>
                     <Text style={[styles.rowLabel, active && { color: accent, fontFamily: fonts.sansSemiBold }]}>
                       {list.name}
                     </Text>
@@ -137,6 +144,8 @@ export default function Sidebar({ state, navigation, onNavigate }: Props) {
           {data.serverUrl.replace(/^https?:\/\//, '') || 'Not connected'}
         </Text>
       </View>
+
+      <ListColorPickerSheet list={colorTarget} onClose={() => setColorTarget(null)} />
     </View>
   );
 }

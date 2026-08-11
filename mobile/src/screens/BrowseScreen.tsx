@@ -20,6 +20,8 @@ import {
 import Card from '../components/Card';
 import Divider from '../components/Divider';
 import BottomSheet from '../components/BottomSheet';
+import ListColorPickerSheet from '../components/pickers/ListColorPickerSheet';
+import { ListDef } from '../data/types';
 import { IconClock, IconInboxTray, IconMenu, IconPlusBig, IconStack, IconTrendUp } from '../icons/Icons';
 
 type Props = BottomTabScreenProps<MainTabParamList, 'BrowseTab'>;
@@ -34,6 +36,7 @@ export default function BrowseScreen({ navigation }: Props) {
   const tags = tagCounts(state.tasks);
 
   const [addOpen, setAddOpen] = useState(false);
+  const [colorTarget, setColorTarget] = useState<ListDef | null>(null);
   const [newListName, setNewListName] = useState('');
   const [newListFolder, setNewListFolder] = useState(state.folders[0]?.id);
 
@@ -105,8 +108,16 @@ export default function BrowseScreen({ navigation }: Props) {
                     <Pressable
                       style={styles.smartRow}
                       onPress={() => openFilteredInbox({ type: 'list', value: list.id, label: list.name })}
+                      onLongPress={() => setColorTarget(list)}
+                      delayLongPress={350}
                     >
-                      <View style={[styles.dot, { backgroundColor: list.color }]} />
+                      <Pressable
+                        onPress={() => setColorTarget(list)}
+                        hitSlop={8}
+                        accessibilityLabel={`Change ${list.name} colour`}
+                      >
+                        <View style={[styles.dot, { backgroundColor: list.color }]} />
+                      </Pressable>
                       <Text style={styles.smartLabel}>{list.name}</Text>
                       <Text style={styles.smartCount}>{counts[list.id] ?? 0}</Text>
                     </Pressable>
@@ -183,6 +194,8 @@ export default function BrowseScreen({ navigation }: Props) {
           <Text style={styles.createBtnText}>Create list</Text>
         </Pressable>
       </BottomSheet>
+
+      <ListColorPickerSheet list={colorTarget} onClose={() => setColorTarget(null)} />
     </View>
   );
 }
