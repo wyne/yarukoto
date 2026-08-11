@@ -154,6 +154,16 @@ export function IconGrip({ size = 16, color = '#B4B4AC' }: IconProps) {
   );
 }
 
+/** Two columns — the Plan view's list-beside-calendar layout. */
+export function IconColumns({ size = 20, color = '#8A8A82', strokeWidth = 1.7 }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 20 20" fill="none">
+      <Rect x={3} y={4} width={5.5} height={12} rx={1.5} stroke={color} strokeWidth={strokeWidth} />
+      <Rect x={11.5} y={4} width={5.5} height={12} rx={1.5} stroke={color} strokeWidth={strokeWidth} />
+    </Svg>
+  );
+}
+
 /** Sliders — opens the group/sort sheet. */
 export function IconViewOptions({ size = 20, color = '#1A1A18', strokeWidth = 1.8 }: IconProps) {
   return (

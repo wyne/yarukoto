@@ -11,6 +11,7 @@ export type MainTabParamList = {
   InboxTab: { filter?: TaskListFilter } | undefined;
   TodayTab: undefined;
   CalendarTab: { focusDate?: string } | undefined;
+  PlanTab: undefined;
   BrowseTab: undefined;
 };
 
