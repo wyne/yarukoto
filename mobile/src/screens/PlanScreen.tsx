@@ -54,10 +54,10 @@ export default function PlanScreen({ navigation }: Props) {
     return out;
   }, [selectedDate, byDate]);
 
-  // Scheduling only sets the date — an existing time of day is left alone.
+  // Scheduling only sets the date — an existing time of day is left alone, and the
+  // day you're looking at stays put rather than following the drop.
   const scheduleTask = (taskId: string, iso: string) => {
     updateTask(taskId, { dueDate: iso });
-    setSelectedDate(new Date(Number(iso.slice(0, 4)), Number(iso.slice(5, 7)) - 1, Number(iso.slice(8, 10))));
   };
 
   if (!wide) return <View style={styles.screen} />;
