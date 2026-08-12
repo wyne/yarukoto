@@ -7,7 +7,8 @@
  * reload. Making this work on device would mean adding AsyncStorage, which isn't
  * worth a native dependency until there's a real server to persist against.
  */
-const KEY = 'yarukoto.serverUrl';
+const URL_KEY = 'yarukoto.serverUrl';
+const MODE_KEY = 'yarukoto.mode';
 
 function store(): Storage | null {
   try {
@@ -19,12 +20,12 @@ function store(): Storage | null {
 }
 
 export function loadServerUrl(): string {
-  return store()?.getItem(KEY) ?? '';
+  return store()?.getItem(URL_KEY) ?? '';
 }
 
 export function saveServerUrl(url: string): void {
   try {
-    store()?.setItem(KEY, url);
+    store()?.setItem(URL_KEY, url);
   } catch {
     // Full or blocked storage shouldn't break connecting.
   }
@@ -32,7 +33,30 @@ export function saveServerUrl(url: string): void {
 
 export function clearServerUrl(): void {
   try {
-    store()?.removeItem(KEY);
+    store()?.removeItem(URL_KEY);
+  } catch {
+    // ignore
+  }
+}
+
+/**
+ * Which mode the app is in. Only the *choice* is persisted — sample data itself
+ * is rebuilt on every launch rather than stored, which keeps its due dates
+ * relative to today instead of drifting into a wall of overdue tasks.
+ */
+export type AppMode = 'none' | 'sample' | 'server';
+
+export function loadMode(): AppMode {
+  const stored = store()?.getItem(MODE_KEY);
+  if (stored === 'sample' || stored === 'server') return stored;
+  // A URL saved before modes existed means a previous session connected.
+  return loadServerUrl() ? 'server' : 'none';
+}
+
+export function saveMode(mode: AppMode): void {
+  try {
+    if (mode === 'none') store()?.removeItem(MODE_KEY);
+    else store()?.setItem(MODE_KEY, mode);
   } catch {
     // ignore
   }

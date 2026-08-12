@@ -12,7 +12,7 @@ export default function RootNavigator() {
 
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
-      {!state.connected ? (
+      {state.mode === 'none' ? (
         <Stack.Screen name="FirstRun" component={FirstRunScreen} />
       ) : (
         <Stack.Screen name="Main" component={MainTabs} />

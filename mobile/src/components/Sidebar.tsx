@@ -234,10 +234,10 @@ export default function Sidebar({ state, navigation, onNavigate }: Props) {
         onPress={() => setServerOpen(true)}
         accessibilityLabel="Edit server"
       >
-        <View style={[styles.syncDot, { backgroundColor: colors.success }]} />
+        <View style={[styles.syncDot, { backgroundColor: data.mode === 'sample' ? colors.textFaint : colors.success }]} />
         {!collapsed && (
           <Text style={styles.syncText} numberOfLines={1}>
-            {data.serverUrl.replace(/^https?:\/\//, '') || 'Not connected'}
+            {data.mode === 'sample' ? 'Sample data' : data.serverUrl.replace(/^https?:\/\//, '') || 'Not connected'}
           </Text>
         )}
       </Pressable>

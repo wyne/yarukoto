@@ -11,7 +11,7 @@ import BottomSheet from '../components/BottomSheet';
 export default function FirstRunScreen() {
   const accent = useAccent();
   const insets = useSafeAreaInsets();
-  const { connect } = useTasks();
+  const { connect, useSampleData } = useTasks();
   const [serverUrl, setServerUrl] = useState('https://todo.selfhost.dev');
   const [token, setToken] = useState('');
   const [connecting, setConnecting] = useState(false);
@@ -81,6 +81,19 @@ export default function FirstRunScreen() {
           <IconShield />
           <Text style={styles.trustText}>Your data never leaves your server.</Text>
         </View>
+
+        <View style={styles.orRow}>
+          <View style={styles.orLine} />
+          <Text style={styles.orText}>or</Text>
+          <View style={styles.orLine} />
+        </View>
+
+        <Pressable style={styles.sampleBtn} onPress={useSampleData}>
+          <Text style={[styles.sampleText, { color: accent }]}>Explore with sample data</Text>
+        </Pressable>
+        <Text style={styles.sampleHint}>
+          No server needed. Everything stays on this device and resets when you reload.
+        </Text>
 
         <View style={{ flex: 1.4 }} />
         <Pressable onPress={() => setHelpOpen(true)} style={{ paddingBottom: Math.max(24, insets.bottom) }}>
@@ -176,6 +189,43 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     marginTop: 16,
+  },
+  orRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 22,
+  },
+  orLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: colors.border,
+  },
+  orText: {
+    fontFamily: fonts.monoRegular,
+    fontSize: 11,
+    color: colors.textFaint,
+  },
+  sampleBtn: {
+    marginTop: 14,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 10,
+    paddingVertical: 13,
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+  },
+  sampleText: {
+    fontFamily: fonts.sansSemiBold,
+    fontSize: 15,
+  },
+  sampleHint: {
+    marginTop: 8,
+    textAlign: 'center',
+    fontFamily: fonts.sansRegular,
+    fontSize: 12.5,
+    lineHeight: 17,
+    color: colors.textTertiary,
   },
   trustText: {
     fontFamily: fonts.monoRegular,

@@ -1,37 +1,46 @@
 import { FolderDef, ListDef, Task } from './types';
 import { addDays, toISODate } from './dateUtils';
 
-const SEEDED_AT = new Date().toISOString();
-
-export const FOLDERS: FolderDef[] = [
-  { id: 'f-work', name: 'Work', updatedAt: SEEDED_AT },
-  { id: 'f-personal', name: 'Personal', updatedAt: SEEDED_AT },
-];
-
-export const LISTS: ListDef[] = [
-  { id: 'l-engineering', name: 'Engineering', color: '#2E62D9', folderId: 'f-work', updatedAt: SEEDED_AT },
-  { id: 'l-admin', name: 'Admin', color: '#DB8A00', folderId: 'f-work', updatedAt: SEEDED_AT },
-  { id: 'l-home', name: 'Home', color: '#1E7A3C', folderId: 'f-personal', updatedAt: SEEDED_AT },
-  { id: 'l-errands', name: 'Errands', color: '#8A5FD6', folderId: 'f-personal', updatedAt: SEEDED_AT },
-];
-
-let seq = 0;
-function id(prefix: string): string {
-  seq += 1;
-  return `${prefix}-${seq}`;
+/**
+ * The sample dataset.
+ *
+ * Serves two purposes deliberately: it backs the app's "explore with sample
+ * data" mode, and it is the fixture test cases should build on. That second
+ * role is why this is a pure function of `now` — same input, same output,
+ * every id and timestamp included. Nothing here may read the wall clock or
+ * hold state between calls, or assertions written against it will flake.
+ *
+ * Dates are relative to `now` so "Today" / "Tomorrow" / weekday labels are
+ * always meaningful no matter when it's built.
+ */
+export interface SampleData {
+  tasks: Task[];
+  lists: ListDef[];
+  folders: FolderDef[];
 }
 
-function iso(now: Date, offsetDays: number): string {
-  return toISODate(addDays(now, offsetDays));
-}
+export function buildSampleData(now: Date): SampleData {
+  const stamp = now.toISOString();
+  // Local to the call: a module-level counter would make ids differ between runs
+  // and quietly break any test that names one. Counted per prefix so tasks read
+  // t-1, t-2, t-3 rather than being interleaved with the subtask numbering.
+  const seq: Record<string, number> = {};
+  const id = (prefix: string): string => `${prefix}-${(seq[prefix] = (seq[prefix] ?? 0) + 1)}`;
+  const iso = (offsetDays: number): string => toISODate(addDays(now, offsetDays));
 
-/** Builds a fresh mock dataset relative to `now`, so due-date labels
- * (Today / Yesterday / Tomorrow / weekday) are always correct. */
-export function buildMockTasks(now: Date): Task[] {
-  const nowIso = new Date().toISOString();
+  const folders: FolderDef[] = [
+    { id: 'f-work', name: 'Work', updatedAt: stamp },
+    { id: 'f-personal', name: 'Personal', updatedAt: stamp },
+  ];
+
+  const lists: ListDef[] = [
+    { id: 'l-engineering', name: 'Engineering', color: '#2E62D9', folderId: 'f-work', updatedAt: stamp },
+    { id: 'l-admin', name: 'Admin', color: '#DB8A00', folderId: 'f-work', updatedAt: stamp },
+    { id: 'l-home', name: 'Home', color: '#1E7A3C', folderId: 'f-personal', updatedAt: stamp },
+    { id: 'l-errands', name: 'Errands', color: '#8A5FD6', folderId: 'f-personal', updatedAt: stamp },
+  ];
+
   let order = 0;
-  const next = (): number => order++;
-
   const base = (partial: Partial<Task> & Pick<Task, 'title' | 'listId'>): Task => ({
     id: id('t'),
     notes: '',
@@ -39,26 +48,26 @@ export function buildMockTasks(now: Date): Task[] {
     tags: [],
     subtasks: [],
     completed: false,
-    createdAt: nowIso,
-    updatedAt: nowIso,
-    order: next(),
+    createdAt: stamp,
+    updatedAt: stamp,
+    order: order++,
     ...partial,
   });
 
-  return [
+  const tasks: Task[] = [
     base({
       title: 'Pay rent',
       listId: 'l-home',
       priority: 'high',
       tags: ['home'],
-      dueDate: iso(now, -1),
+      dueDate: iso(-1),
     }),
     base({
       title: 'Renew SSL cert',
       listId: 'l-admin',
       priority: 'medium',
       tags: ['server', 'recurring'],
-      dueDate: iso(now, 5),
+      dueDate: iso(5),
       dueTime: '18:00',
       notes:
         "Wildcard cert via Let's Encrypt. Check the DNS-01 challenge — the API token expires this month.",
@@ -74,7 +83,7 @@ export function buildMockTasks(now: Date): Task[] {
       listId: 'l-engineering',
       priority: 'low',
       tags: ['dev'],
-      dueDate: iso(now, 0),
+      dueDate: iso(0),
       subtasks: [
         { id: id('st'), title: 'Read the diff', done: true },
         { id: id('st'), title: 'Run tests locally', done: true },
@@ -88,13 +97,13 @@ export function buildMockTasks(now: Date): Task[] {
       listId: 'l-admin',
       priority: 'medium',
       tags: ['server', 'docs'],
-      dueDate: iso(now, 3),
+      dueDate: iso(3),
     }),
     base({
       title: 'Water plants',
       listId: 'l-home',
       completed: true,
-      completedAt: nowIso,
+      completedAt: stamp,
     }),
 
     // Engineering
@@ -103,31 +112,31 @@ export function buildMockTasks(now: Date): Task[] {
       listId: 'l-engineering',
       priority: 'medium',
       tags: ['dev'],
-      dueDate: iso(now, 0),
+      dueDate: iso(0),
     }),
     base({
       title: 'Update API docs',
       listId: 'l-engineering',
       priority: 'low',
       tags: ['dev', 'docs'],
-      dueDate: iso(now, 2),
+      dueDate: iso(2),
     }),
-    base({ title: 'Pair on auth refactor', listId: 'l-engineering', dueDate: iso(now, 1) }),
+    base({ title: 'Pair on auth refactor', listId: 'l-engineering', dueDate: iso(1) }),
     base({
       title: 'Investigate memory leak',
       listId: 'l-engineering',
       priority: 'high',
       tags: ['dev'],
-      dueDate: iso(now, 4),
+      dueDate: iso(4),
     }),
-    base({ title: 'Code review: dashboard PR', listId: 'l-engineering', priority: 'low', dueDate: iso(now, 0) }),
+    base({ title: 'Code review: dashboard PR', listId: 'l-engineering', priority: 'low', dueDate: iso(0) }),
     base({ title: 'Upgrade eslint config', listId: 'l-engineering' }),
     base({
       title: 'Write migration script',
       listId: 'l-engineering',
       priority: 'medium',
       tags: ['dev'],
-      dueDate: iso(now, 6),
+      dueDate: iso(6),
     }),
 
     // Admin
@@ -136,7 +145,7 @@ export function buildMockTasks(now: Date): Task[] {
       listId: 'l-admin',
       priority: 'medium',
       tags: ['server', 'recurring'],
-      dueDate: iso(now, 0),
+      dueDate: iso(0),
       dueTime: '09:00',
     }),
     base({
@@ -144,20 +153,20 @@ export function buildMockTasks(now: Date): Task[] {
       listId: 'l-admin',
       priority: 'high',
       tags: ['server', 'recurring'],
-      dueDate: iso(now, 2),
+      dueDate: iso(2),
     }),
-    base({ title: 'Renew domain registration', listId: 'l-admin', priority: 'medium', tags: ['server'], dueDate: iso(now, 10) }),
-    base({ title: 'File Q3 expense report', listId: 'l-admin', priority: 'low', dueDate: iso(now, 5) }),
+    base({ title: 'Renew domain registration', listId: 'l-admin', priority: 'medium', tags: ['server'], dueDate: iso(10) }),
+    base({ title: 'File Q3 expense report', listId: 'l-admin', priority: 'low', dueDate: iso(5) }),
 
     // Home
     base({
       title: 'Call parents',
       listId: 'l-home',
-      dueDate: iso(now, 0),
+      dueDate: iso(0),
       dueTime: '18:00',
     }),
     base({ title: 'Fix leaky faucet', listId: 'l-home' }),
-    base({ title: 'Renew car registration', listId: 'l-home', priority: 'medium', tags: ['home'], dueDate: iso(now, 9) }),
+    base({ title: 'Renew car registration', listId: 'l-home', priority: 'medium', tags: ['home'], dueDate: iso(9) }),
 
     // Errands
     base({
@@ -165,17 +174,19 @@ export function buildMockTasks(now: Date): Task[] {
       listId: 'l-errands',
       priority: 'low',
       tags: ['home'],
-      dueDate: iso(now, 0),
+      dueDate: iso(0),
       dueTime: '14:30',
     }),
     base({ title: 'Pick up dry cleaning', listId: 'l-errands' }),
-    base({ title: 'Return library books', listId: 'l-errands', priority: 'low', dueDate: iso(now, 2) }),
+    base({ title: 'Return library books', listId: 'l-errands', priority: 'low', dueDate: iso(2) }),
 
     // Unfiled — the Inbox triage pile: captured quickly, not yet sorted into a list.
     base({ title: 'Try the new pomodoro timer', listId: null }),
     base({ title: 'Look into standing desk options', listId: null }),
     base({ title: 'Book dentist appointment', listId: null, priority: 'medium' }),
-    base({ title: 'Reply to Sam about the cabin weekend', listId: null, dueDate: iso(now, 1) }),
+    base({ title: 'Reply to Sam about the cabin weekend', listId: null, dueDate: iso(1) }),
     base({ title: 'Cancel the unused domain', listId: null, tags: ['server'] }),
   ];
+
+  return { tasks, lists, folders };
 }
