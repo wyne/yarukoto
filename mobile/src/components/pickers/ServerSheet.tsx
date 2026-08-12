@@ -34,8 +34,15 @@ export default function ServerSheet({ visible, onClose }: Props) {
     onClose();
   };
 
+  const sample = state.mode === 'sample';
+
   return (
-    <BottomSheet visible={visible} onClose={onClose} title="Server">
+    <BottomSheet visible={visible} onClose={onClose} title={sample ? 'Connect to a server' : 'Server'}>
+      {sample && (
+        <Text style={styles.sampleNote}>
+          You're exploring with sample data. Connecting replaces it with your server's tasks.
+        </Text>
+      )}
       <TextInput
         value={url}
         onChangeText={setUrl}
@@ -60,13 +67,20 @@ export default function ServerSheet({ visible, onClose }: Props) {
           onClose();
         }}
       >
-        <Text style={styles.disconnectText}>Disconnect</Text>
+        <Text style={styles.disconnectText}>{sample ? 'Leave sample data' : 'Disconnect'}</Text>
       </Pressable>
     </BottomSheet>
   );
 }
 
 const styles = StyleSheet.create({
+  sampleNote: {
+    marginBottom: 12,
+    fontFamily: fonts.sansRegular,
+    fontSize: 13,
+    lineHeight: 18,
+    color: colors.textSecondary,
+  },
   input: {
     borderWidth: 1,
     borderColor: colors.border,
