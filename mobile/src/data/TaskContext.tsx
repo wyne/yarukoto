@@ -1,19 +1,19 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useState } from 'react';
 import { setAudioModeAsync, useAudioPlayer } from 'expo-audio';
-import { FOLDERS, LISTS, buildMockTasks } from './mockData';
+import { buildSampleData } from './sampleData';
 import { FolderDef, ListDef, Priority, Task } from './types';
 import { addDays, toISODate } from './dateUtils';
 import { parseQuickAdd } from './quickAdd';
 import { newFolderId, newListId, newSubtaskId, newTaskId } from './ids';
 import { DEFAULT_VIEW_OPTIONS, ViewOptions } from './viewOptions';
 import { LIST_COLORS } from '../theme/colors';
-import { clearServerUrl, loadServerUrl, saveServerUrl } from './storage';
+import { AppMode, clearServerUrl, loadMode, loadServerUrl, saveMode, saveServerUrl } from './storage';
 
 interface State {
   tasks: Task[];
   lists: ListDef[];
   folders: FolderDef[];
-  connected: boolean;
+  mode: AppMode;
   serverUrl: string;
   /** Grouping + sort per view, keyed by viewKey(). Views not in here use the default. */
   viewOptions: Record<string, ViewOptions>;
@@ -36,6 +36,7 @@ type Action =
   | { type: 'UPDATE_LIST'; id: string; patch: Partial<ListDef> }
   | { type: 'SET_VIEW_OPTIONS'; key: string; options: ViewOptions }
   | { type: 'CONNECT'; serverUrl: string }
+  | { type: 'USE_SAMPLE_DATA'; data: ReturnType<typeof buildSampleData> }
   | { type: 'DISCONNECT' };
 
 
@@ -127,9 +128,12 @@ function applyAction(state: State, action: Action): State {
     case 'SET_VIEW_OPTIONS':
       return { ...state, viewOptions: { ...state.viewOptions, [action.key]: action.options } };
     case 'CONNECT':
-      return { ...state, connected: true, serverUrl: action.serverUrl };
+      // Server data arrives via sync; nothing is seeded locally.
+      return { ...state, mode: 'server', serverUrl: action.serverUrl, tasks: [], lists: [], folders: [] };
+    case 'USE_SAMPLE_DATA':
+      return { ...state, mode: 'sample', serverUrl: '', ...action.data };
     case 'DISCONNECT':
-      return { ...state, connected: false };
+      return { ...state, mode: 'none', serverUrl: '', tasks: [], lists: [], folders: [] };
     default:
       return state;
   }
@@ -163,14 +167,14 @@ function reducer(state: State, action: Action): State {
 }
 
 function initState(): State {
-  // A stored URL means a previous session connected, so skip first-run.
-  const serverUrl = loadServerUrl();
+  const mode = loadMode();
+  // Sample data is rebuilt rather than restored, so its dates stay relative to
+  // today. Server data is empty until the first sync populates it.
+  const seeded = mode === 'sample' ? buildSampleData(new Date()) : { tasks: [], lists: [], folders: [] };
   return {
-    tasks: buildMockTasks(new Date()),
-    lists: LISTS,
-    folders: FOLDERS,
-    connected: !!serverUrl,
-    serverUrl,
+    ...seeded,
+    mode,
+    serverUrl: mode === 'server' ? loadServerUrl() : '',
     viewOptions: {},
   };
 }
@@ -218,6 +222,8 @@ interface TaskContextValue {
   getViewOptions: (key: string) => ViewOptions;
   setViewOptions: (key: string, options: ViewOptions) => void;
   connect: (serverUrl: string) => void;
+  /** Load the sample dataset and work entirely offline. */
+  useSampleData: () => void;
   disconnect: () => void;
 }
 
@@ -332,10 +338,17 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
   );
   const connect = useCallback((serverUrl: string) => {
     saveServerUrl(serverUrl);
+    saveMode('server');
     dispatch({ type: 'CONNECT', serverUrl });
+  }, []);
+  const useSampleData = useCallback(() => {
+    clearServerUrl();
+    saveMode('sample');
+    dispatch({ type: 'USE_SAMPLE_DATA', data: buildSampleData(new Date()) });
   }, []);
   const disconnect = useCallback(() => {
     clearServerUrl();
+    saveMode('none');
     dispatch({ type: 'DISCONNECT' });
   }, []);
 
@@ -362,6 +375,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       getViewOptions,
       setViewOptions,
       connect,
+      useSampleData,
       disconnect,
     }),
     [
@@ -386,6 +400,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       getViewOptions,
       setViewOptions,
       connect,
+      useSampleData,
       disconnect,
     ]
   );
