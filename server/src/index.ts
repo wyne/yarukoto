@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import Fastify from 'fastify';
+import fastifyCors from '@fastify/cors';
 import fastifyStatic from '@fastify/static';
 import { env } from './env';
 import { openDatabase } from './db';
@@ -14,6 +15,11 @@ async function main() {
   scheduleRetention(db);
 
   const app = Fastify({ logger: true });
+
+  // Auth is the real boundary (a bearer token), so CORS just needs to not get in
+  // the way of browser clients — including the Expo web dev server, which runs
+  // on a different origin than the server itself.
+  await app.register(fastifyCors, { origin: true });
 
   registerHealthRoute(app);
 

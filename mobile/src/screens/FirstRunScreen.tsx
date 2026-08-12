@@ -1,35 +1,74 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../theme/colors';
 import { fonts } from '../theme/typography';
 import { useAccent } from '../theme/ThemeContext';
-import { useTasks } from '../data/TaskContext';
+import { ApiError, useTasks } from '../data/TaskContext';
 import { IconCheckBig, IconLock, IconServer, IconShield } from '../icons/Icons';
 import BottomSheet from '../components/BottomSheet';
+
+/**
+ * When the web build is served by its own API server (the normal docker-compose
+ * deployment), the page's own origin already *is* the server — asking for a URL
+ * is friction with no purpose. This resolves to that origin only if it actually
+ * answers as a Yarukoto server; it stays null for the Expo dev server (a
+ * different port than the API) and for native, where there's no origin at all.
+ */
+function useSameOriginServer(): string | null | undefined {
+  const [origin, setOrigin] = useState<string | null | undefined>(Platform.OS === 'web' ? undefined : null);
+
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    const candidate = window.location.origin;
+    fetch(`${candidate}/api/v1/health`)
+      // A dev server (e.g. Metro) can 200 an unmatched path with its index.html
+      // SPA fallback, so res.ok alone isn't proof this origin is the API — the
+      // body has to actually be the health payload.
+      .then((res) => (res.ok ? res.json() : null))
+      .then((body) => setOrigin(body && body.ok === true ? candidate : null))
+      .catch(() => setOrigin(null));
+  }, []);
+
+  return origin;
+}
 
 export default function FirstRunScreen() {
   const accent = useAccent();
   const insets = useSafeAreaInsets();
   const { connect, useSampleData } = useTasks();
+  const sameOriginServer = useSameOriginServer();
   const [serverUrl, setServerUrl] = useState('https://todo.selfhost.dev');
   const [token, setToken] = useState('');
   const [connecting, setConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [helpOpen, setHelpOpen] = useState(false);
 
-  const handleConnect = () => {
-    const url = serverUrl.trim();
-    if (!/^https?:\/\/.+/i.test(url)) {
+  // Still resolving whether this page is itself the server — hold off rendering
+  // either form so it doesn't flash from simple to full a moment later.
+  if (sameOriginServer === undefined) return null;
+
+  const handleConnect = async () => {
+    const url = (sameOriginServer ?? serverUrl).trim();
+    if (!sameOriginServer && !/^https?:\/\/.+/i.test(url)) {
       setError('Enter a full server URL, starting with http:// or https://');
       return;
     }
     setError(null);
     setConnecting(true);
-    setTimeout(() => {
+    try {
+      await connect(url, token);
+    } catch (err) {
+      setError(
+        err instanceof ApiError
+          ? err.status === 401
+            ? 'That token was rejected. Check it and try again.'
+            : err.message
+          : 'Something went wrong connecting.'
+      );
+    } finally {
       setConnecting(false);
-      connect(url);
-    }, 600);
+    }
   };
 
   return (
@@ -43,22 +82,28 @@ export default function FirstRunScreen() {
           <IconCheckBig size={28} color={accent} strokeWidth={3} />
         </View>
         <Text style={styles.appName}>Yarukoto</Text>
-        <Text style={styles.tagline}>Your tasks, on your server. Point Yarukoto at your instance to get started.</Text>
+        <Text style={styles.tagline}>
+          {sameOriginServer
+            ? 'This page is served by your Yarukoto server. Enter its access token to get started.'
+            : 'Your tasks, on your server. Point Yarukoto at your instance to get started.'}
+        </Text>
 
         <View style={styles.form}>
-          <View style={styles.field}>
-            <IconServer />
-            <TextInput
-              value={serverUrl}
-              onChangeText={setServerUrl}
-              placeholder="https://your-server.example.com"
-              placeholderTextColor={colors.textFaint}
-              style={styles.fieldInput}
-              autoCapitalize="none"
-              autoCorrect={false}
-              keyboardType="url"
-            />
-          </View>
+          {!sameOriginServer && (
+            <View style={styles.field}>
+              <IconServer />
+              <TextInput
+                value={serverUrl}
+                onChangeText={setServerUrl}
+                placeholder="https://your-server.example.com"
+                placeholderTextColor={colors.textFaint}
+                style={styles.fieldInput}
+                autoCapitalize="none"
+                autoCorrect={false}
+                keyboardType="url"
+              />
+            </View>
+          )}
           <View style={styles.field}>
             <IconLock />
             <TextInput

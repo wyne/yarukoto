@@ -9,6 +9,8 @@
  */
 const URL_KEY = 'yarukoto.serverUrl';
 const MODE_KEY = 'yarukoto.mode';
+const TOKEN_KEY = 'yarukoto.token';
+const CURSOR_KEY = 'yarukoto.syncCursor';
 
 function store(): Storage | null {
   try {
@@ -57,6 +59,47 @@ export function saveMode(mode: AppMode): void {
   try {
     if (mode === 'none') store()?.removeItem(MODE_KEY);
     else store()?.setItem(MODE_KEY, mode);
+  } catch {
+    // ignore
+  }
+}
+
+export function loadToken(): string {
+  return store()?.getItem(TOKEN_KEY) ?? '';
+}
+
+export function saveToken(token: string): void {
+  try {
+    store()?.setItem(TOKEN_KEY, token);
+  } catch {
+    // ignore
+  }
+}
+
+export function clearToken(): void {
+  try {
+    store()?.removeItem(TOKEN_KEY);
+  } catch {
+    // ignore
+  }
+}
+
+/** The `updatedAt` cursor of the last successful pull, so the next one is incremental. */
+export function loadCursor(): string | undefined {
+  return store()?.getItem(CURSOR_KEY) ?? undefined;
+}
+
+export function saveCursor(cursor: string): void {
+  try {
+    store()?.setItem(CURSOR_KEY, cursor);
+  } catch {
+    // ignore
+  }
+}
+
+export function clearCursor(): void {
+  try {
+    store()?.removeItem(CURSOR_KEY);
   } catch {
     // ignore
   }
