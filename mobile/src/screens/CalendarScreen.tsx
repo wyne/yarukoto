@@ -7,13 +7,11 @@ import { useAccent } from '../theme/ThemeContext';
 import { PANE_MAX_WIDTH, useSidebar } from '../navigation/SidebarContext';
 import { useDetail } from '../navigation/DetailContext';
 import { useTasks } from '../data/TaskContext';
-import { getListById, tasksByDate } from '../data/selectors';
-import { addDays, addMonths, formatTime24to12, monthShort, toISODate, weekdayShort } from '../data/dateUtils';
+import { tasksByDate } from '../data/selectors';
+import { addDays, addMonths, monthShort, toISODate, weekdayShort } from '../data/dateUtils';
 import { Task } from '../data/types';
-import Card from '../components/Card';
-import Divider from '../components/Divider';
+import AgendaDayGroup from './calendar/AgendaDayGroup';
 import MonthGrid from './calendar/MonthGrid';
-import TaskCheckbox from '../components/TaskCheckbox';
 import QuickAddBar from '../components/QuickAddBar';
 import { IconChevronLeft, IconChevronRight, IconMenu } from '../icons/Icons';
 
@@ -24,7 +22,7 @@ export default function CalendarScreen() {
   const insets = useSafeAreaInsets();
   const { wide, openDrawer } = useSidebar();
   const { openTask } = useDetail();
-  const { state, toggleComplete, addTaskFromQuickAdd } = useTasks();
+  const { state, addTaskFromQuickAdd } = useTasks();
   const today = new Date();
 
   const [monthAnchor, setMonthAnchor] = useState(new Date(today.getFullYear(), today.getMonth(), 1));
@@ -93,40 +91,13 @@ export default function CalendarScreen() {
           <Text style={styles.empty}>Nothing scheduled in the next {AGENDA_WINDOW_DAYS} days.</Text>
         )}
         {agendaDays.map(({ date, tasks }) => (
-          <View key={toISODate(date)}>
-            <Text style={styles.agendaHeader}>
-              {weekdayShort(date)}, {monthShort(date)} {date.getDate()} · {tasks.length} task{tasks.length === 1 ? '' : 's'}
-            </Text>
-            <Card>
-              {tasks.map((task, i) => {
-                const list = getListById(state.lists, task.listId);
-                const tagsStr = task.tags.length ? task.tags.map((t) => `#${t}`).join(' ') : null;
-                const meta = [list?.name, tagsStr].filter(Boolean).join(' · ');
-                return (
-                  <View key={task.id}>
-                    <Pressable
-                      style={styles.taskRow}
-                      onPress={() => openTask(task.id)}
-                    >
-                      <Text style={styles.timeLabel}>{task.dueTime ? formatTime24to12(task.dueTime) : 'All day'}</Text>
-                      <TaskCheckbox completed={task.completed} priority={task.priority} onPress={() => toggleComplete(task.id)} />
-                      <View style={{ flex: 1, minWidth: 0 }}>
-                        <Text style={[styles.taskTitle, task.completed && styles.taskTitleDone]} numberOfLines={1}>
-                          {task.title}
-                        </Text>
-                        {!!meta && (
-                          <Text style={styles.taskMeta} numberOfLines={1}>
-                            {meta}
-                          </Text>
-                        )}
-                      </View>
-                    </Pressable>
-                    {i < tasks.length - 1 && <Divider indent={90} />}
-                  </View>
-                );
-              })}
-            </Card>
-          </View>
+          <AgendaDayGroup
+            key={toISODate(date)}
+            date={date}
+            tasks={tasks}
+            now={today}
+            onOpenTask={openTask}
+          />
         ))}
       </ScrollView>
     </View>
@@ -180,50 +151,11 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
     gap: 8,
   },
-  agendaHeader: {
-    fontFamily: fonts.monoRegular,
-    fontSize: 11,
-    letterSpacing: 1,
-    textTransform: 'uppercase',
-    color: colors.textTertiary,
-    paddingHorizontal: 6,
-    paddingBottom: 8,
-    paddingTop: 6,
-  },
   empty: {
     textAlign: 'center',
     marginTop: 24,
     fontFamily: fonts.sansRegular,
     fontSize: 14,
     color: colors.textTertiary,
-  },
-  taskRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 11,
-    minHeight: 44,
-  },
-  timeLabel: {
-    width: 62,
-    fontFamily: fonts.monoRegular,
-    fontSize: 12,
-    color: colors.textTertiary,
-  },
-  taskTitle: {
-    fontFamily: fonts.sansMedium,
-    fontSize: 15,
-    color: colors.textPrimary,
-  },
-  taskTitleDone: {
-    textDecorationLine: 'line-through',
-    color: colors.textTertiary,
-  },
-  taskMeta: {
-    fontFamily: fonts.monoRegular,
-    fontSize: 11.5,
-    color: colors.textTertiary,
-    marginTop: 2,
   },
 });

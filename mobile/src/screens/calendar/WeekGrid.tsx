@@ -10,30 +10,33 @@ import { useDropTarget } from '../../drag/useDropTarget';
 import { useDraggable } from '../../drag/useDraggable';
 
 interface Props {
-  weekStart: Date;
+  startDate: Date;
   selectedDate: Date;
   today: Date;
   byDate: Map<string, Task[]>;
+  /** How many day columns to show. Defaults to a full week. */
+  dayCount?: number;
   onSelectDate: (date: Date) => void;
   onDropTask: (taskId: string, iso: string) => void;
   onOpenTask: (taskId: string) => void;
 }
 
 /**
- * Seven day columns for the Plan view. Same `day:<iso>` drop targets as MonthGrid,
- * so this needed no new drag code — and its columns-per-day shape is what Phase 3's
- * time slots subdivide.
+ * Adjacent day columns for the Plan view — seven for a week, or a shorter run for
+ * the multi-day view. Same `day:<iso>` drop targets as MonthGrid, so this needed no
+ * new drag code — and its columns-per-day shape is what Phase 3's time slots subdivide.
  */
 export default function WeekGrid({
-  weekStart,
+  startDate,
   selectedDate,
   today,
   byDate,
+  dayCount = 7,
   onSelectDate,
   onDropTask,
   onOpenTask,
 }: Props) {
-  const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+  const days = Array.from({ length: dayCount }, (_, i) => addDays(startDate, i));
 
   return (
     <View style={styles.week}>
@@ -69,7 +72,7 @@ function DayColumn({ date, today, selectedDate, tasks, onSelectDate, onDropTask,
   const isToday = isSameDay(date, today);
   const isSelected = isSameDay(date, selectedDate) && !isToday;
 
-  const { ref, onLayout, isOver } = useDropTarget(dayTargetId(iso), (payload) => onDropTask(payload.taskId, iso));
+  const { ref, onLayout, isOver } = useDropTarget(dayTargetId(iso, 'cols'), (payload) => onDropTask(payload.taskId, iso));
 
   return (
     <View
@@ -108,7 +111,7 @@ function TaskChip({ task, onPress }: { task: Task; onPress: () => void }) {
 
   return (
     <View style={styles.chipWrap} {...handlers}>
-      <Pressable style={styles.chip} onPress={onPress}>
+      <Pressable style={[styles.chip, task.completed && styles.chipCompleted]} onPress={onPress}>
         <View style={[styles.chipDot, { backgroundColor: priorityColor(task.priority) }]} />
         <View style={styles.chipText}>
           <Text style={[styles.chipTitle, task.completed && styles.chipDone]} numberOfLines={2}>
@@ -181,6 +184,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceMuted,
     borderWidth: 1,
     borderColor: colors.border,
+  },
+  chipCompleted: {
+    opacity: 0.55,
   },
   chipDot: {
     width: 6,

@@ -45,6 +45,11 @@ export function DragProvider({ children }: { children: React.ReactNode }) {
 
   const registerTarget = useCallback(
     (id: string, entry: TargetEntry) => {
+      // Ids are registry keys, so a duplicate silently replaces the earlier target
+      // and that surface quietly stops accepting drops. Scope ids per surface.
+      if (__DEV__ && targets.has(id)) {
+        console.warn(`[drag] duplicate drop target id "${id}" — the earlier one is now unreachable`);
+      }
       targets.set(id, entry);
       return () => {
         targets.delete(id);

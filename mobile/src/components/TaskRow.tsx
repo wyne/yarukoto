@@ -26,6 +26,15 @@ interface Props {
   hideTag?: string;
   /** Present only when the row is reorderable; spread onto the drag handle. */
   dragHandleProps?: GestureResponderHandlers;
+  /**
+   * Shows the grip without attaching handlers — for rows where the whole row is
+   * the drag target and the grip is only the affordance.
+   */
+  showHandle?: boolean;
+  /** Rendered before the checkbox. The calendar puts the due time here. */
+  leading?: React.ReactNode;
+  /** Drop the due label when the surrounding view already states the date. */
+  hideDue?: boolean;
   onPress: () => void;
   onLongPress?: () => void;
   onToggleComplete: () => void;
@@ -43,6 +52,9 @@ export default function TaskRow({
   hideListId,
   hideTag,
   dragHandleProps,
+  showHandle,
+  leading,
+  hideDue,
   onPress,
   onLongPress,
   onToggleComplete,
@@ -50,7 +62,7 @@ export default function TaskRow({
   onDone,
 }: Props) {
   const accent = useAccent();
-  const dueLabel = formatDueShort(now, task.dueDate, task.dueTime);
+  const dueLabel = hideDue ? null : formatDueShort(now, task.dueDate, task.dueTime);
   const overdue = isOverdue(now, task);
   // Whatever the current view is already scoped to is dropped: repeating "Home" on
   // every row of the Home list is noise. Other tags on the task still show.
@@ -84,6 +96,7 @@ export default function TaskRow({
       ) : (
         <TaskCheckbox completed={task.completed} priority={task.priority} onPress={onToggleComplete} />
       )}
+      {leading}
       <Text style={[styles.title, task.completed && styles.titleCompleted]} numberOfLines={1}>
         {task.title}
       </Text>
@@ -109,8 +122,12 @@ export default function TaskRow({
           </Text>
         </View>
       )}
-      {dragHandleProps && (
-        <View style={styles.handle} accessibilityLabel="Drag to reorder" {...dragHandleProps}>
+      {(dragHandleProps || showHandle) && (
+        <View
+          style={styles.handle}
+          accessibilityLabel={dragHandleProps ? 'Drag to reorder' : undefined}
+          {...(dragHandleProps ?? {})}
+        >
           <IconGrip />
         </View>
       )}

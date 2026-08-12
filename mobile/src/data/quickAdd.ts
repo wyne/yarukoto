@@ -7,6 +7,8 @@ export interface ParsedQuickAdd {
   dueDate?: string;
   dueTime?: string;
   tags: string[];
+  /** Raw name from a ~list token, resolved to a list by the caller. */
+  listName?: string;
 }
 
 const WEEKDAYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
@@ -57,7 +59,7 @@ function matchTime(word: string): string | null {
 }
 
 /**
- * Parses input like "pay rent fri 6pm #home !high" into structured fields.
+ * Parses input like "pay rent fri 6pm #home !high ~admin" into structured fields.
  * Unrecognized tokens are kept, in order, as the task title.
  */
 export function parseQuickAdd(input: string, now: Date = new Date()): ParsedQuickAdd {
@@ -67,10 +69,15 @@ export function parseQuickAdd(input: string, now: Date = new Date()): ParsedQuic
   let priority: Priority = 'none';
   let dueDate: string | undefined;
   let dueTime: string | undefined;
+  let listName: string | undefined;
 
   for (const raw of tokens) {
     if (raw.startsWith('#') && raw.length > 1) {
       tags.push(raw.slice(1).toLowerCase());
+      continue;
+    }
+    if (raw.startsWith('~') && raw.length > 1) {
+      listName = raw.slice(1);
       continue;
     }
     if (raw.startsWith('!') && raw.length > 1) {
@@ -108,5 +115,6 @@ export function parseQuickAdd(input: string, now: Date = new Date()): ParsedQuic
     dueDate,
     dueTime,
     tags,
+    listName,
   };
 }

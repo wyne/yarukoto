@@ -9,9 +9,11 @@ import { useTasks } from '../data/TaskContext';
 import { inboxCount, listCounts, listsInFolder, tagCounts, tasksForToday } from '../data/selectors';
 import { TaskListFilter } from '../navigation/types';
 import { useSidebar } from '../navigation/SidebarContext';
-import { ListDef } from '../data/types';
+import { FolderDef, ListDef } from '../data/types';
 import ListColorPickerSheet from './pickers/ListColorPickerSheet';
 import ServerSheet from './pickers/ServerSheet';
+import NewListSheet from './pickers/NewListSheet';
+import NewFolderSheet from './pickers/NewFolderSheet';
 import {
   IconCalendar,
   IconChevronLeft,
@@ -20,6 +22,7 @@ import {
   IconColumns,
   IconFolder,
   IconInboxTray,
+  IconPlus,
   IconStack,
   IconTag,
 } from '../icons/Icons';
@@ -48,6 +51,8 @@ interface Props extends BottomTabBarProps {
 export default function Sidebar({ state, navigation, onNavigate }: Props) {
   const accent = useAccent();
   const [colorTarget, setColorTarget] = useState<ListDef | null>(null);
+  const [newListFolder, setNewListFolder] = useState<FolderDef | null>(null);
+  const [newFolderOpen, setNewFolderOpen] = useState(false);
   const { wide, collapsed: collapsedPref, toggleCollapsed } = useSidebar();
   // The drawer is a transient overlay, so it always shows the full sidebar.
   const collapsed = wide && collapsedPref;
@@ -128,10 +133,22 @@ export default function Sidebar({ state, navigation, onNavigate }: Props) {
 
         {data.folders.map((folder) => {
           const lists = listsInFolder(data.lists, folder.id);
-          if (lists.length === 0) return null;
           return (
             <View key={folder.id}>
-              {!collapsed && <Text style={styles.sectionLabel}>{folder.name}</Text>}
+              {!collapsed && (
+                <View style={styles.folderRow}>
+                  <Text style={[styles.sectionLabel, styles.folderLabel]} numberOfLines={1}>
+                    {folder.name}
+                  </Text>
+                  <Pressable
+                    onPress={() => setNewListFolder(folder)}
+                    hitSlop={8}
+                    accessibilityLabel={`New list in ${folder.name}`}
+                  >
+                    <IconPlus size={12} strokeWidth={1.6} color={colors.textFaint} />
+                  </Pressable>
+                </View>
+              )}
               {lists.map((list) => {
                 const active = filterActive('list', list.id);
                 return (
@@ -143,9 +160,15 @@ export default function Sidebar({ state, navigation, onNavigate }: Props) {
                     onLongPress={() => setColorTarget(list)}
                     delayLongPress={350}
                   >
-                    <Pressable onPress={() => setColorTarget(list)} hitSlop={8} accessibilityLabel={`Change ${list.name} colour`}>
-                      <View style={[styles.dot, { backgroundColor: list.color }]} />
-                    </Pressable>
+                    {collapsed ? (
+                      <View style={[styles.letterBadge, { backgroundColor: list.color }]}>
+                        <Text style={styles.letterBadgeText}>{list.name.charAt(0).toUpperCase()}</Text>
+                      </View>
+                    ) : (
+                      <Pressable onPress={() => setColorTarget(list)} hitSlop={8} accessibilityLabel={`Change ${list.name} colour`}>
+                        <View style={[styles.dot, { backgroundColor: list.color }]} />
+                      </Pressable>
+                    )}
                     {!collapsed && (
                       <>
                         <Text style={[styles.rowLabel, active && { color: accent, fontFamily: fonts.sansSemiBold }]}>
@@ -160,6 +183,13 @@ export default function Sidebar({ state, navigation, onNavigate }: Props) {
             </View>
           );
         })}
+
+        {!collapsed && (
+          <Pressable style={styles.newFolderRow} onPress={() => setNewFolderOpen(true)} accessibilityLabel="New folder">
+            <IconPlus size={15} color={colors.textTertiary} />
+            <Text style={styles.newFolderLabel}>New folder</Text>
+          </Pressable>
+        )}
 
         {tags.length > 0 && !collapsed && (
           <View>
@@ -201,6 +231,8 @@ export default function Sidebar({ state, navigation, onNavigate }: Props) {
       </Pressable>
 
       <ListColorPickerSheet list={colorTarget} onClose={() => setColorTarget(null)} />
+      <NewListSheet folder={newListFolder} onClose={() => setNewListFolder(null)} />
+      <NewFolderSheet visible={newFolderOpen} onClose={() => setNewFolderOpen(false)} />
       <ServerSheet visible={serverOpen} onClose={() => setServerOpen(false)} />
     </View>
   );
@@ -282,11 +314,58 @@ const styles = StyleSheet.create({
     paddingTop: 18,
     paddingBottom: 6,
   },
+  /**
+   * Only the folder heading flexes; sectionLabel is shared with Tags, which isn't
+   * in a row. Its vertical padding moves to the row, otherwise centring the label's
+   * lopsided 18/6 box against the icon pushes the text visibly below it.
+   */
+  folderLabel: {
+    flex: 1,
+    paddingTop: 0,
+    paddingBottom: 0,
+  },
+  folderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingTop: 18,
+    paddingBottom: 6,
+    // Trailing inset matches the 10 the rows below are padded by, so the + lines
+    // up with their counts.
+    paddingRight: 10,
+  },
+  /** Mirrors the sidebar row metrics so it sits on the same rhythm as the lists. */
+  newFolderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    minHeight: 36,
+    marginTop: 4,
+  },
+  /** Matches TaskDetailView's "Add subtask" — the app's other subordinate add row. */
+  newFolderLabel: {
+    fontFamily: fonts.sansRegular,
+    fontSize: 14,
+    color: colors.textTertiary,
+  },
   dot: {
     width: 10,
     height: 10,
     borderRadius: 3,
     marginHorizontal: 4,
+  },
+  letterBadge: {
+    width: 20,
+    height: 20,
+    borderRadius: 5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  letterBadgeText: {
+    fontFamily: fonts.sansBold,
+    fontSize: 12,
+    color: colors.surface,
   },
   footer: {
     flexDirection: 'row',

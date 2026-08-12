@@ -27,9 +27,18 @@ export function resolveDropTarget(targets: { id: string; rect: Rect | null }[], 
   return found;
 }
 
-/** Drop target ids encode their destination — `day:2026-08-20`, later `slot:…T09:00`. */
-export const dayTargetId = (iso: string): string => `day:${iso}`;
+/**
+ * Drop target ids encode their destination — `month/day:2026-08-20`, later
+ * `…/slot:…T09:00`.
+ *
+ * The scope matters: the Plan view shows the month grid above the day columns, so
+ * the same date is a drop target on two surfaces at once. Ids are registry keys, so
+ * without a scope the second registration silently replaces the first and one of the
+ * two surfaces stops accepting drops.
+ */
+export const dayTargetId = (iso: string, scope: string): string => `${scope}/day:${iso}`;
 
 export function isoFromDayTarget(id: string): string | null {
-  return id.startsWith('day:') ? id.slice(4) : null;
+  const at = id.indexOf('/day:');
+  return at === -1 ? null : id.slice(at + '/day:'.length);
 }
