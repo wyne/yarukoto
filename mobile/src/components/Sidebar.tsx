@@ -6,7 +6,15 @@ import { colors } from '../theme/colors';
 import { fonts } from '../theme/typography';
 import { useAccent } from '../theme/ThemeContext';
 import { useTasks } from '../data/TaskContext';
-import { inboxCount, listCounts, listsInFolder, tagCounts, tasksForToday } from '../data/selectors';
+import {
+  activeTasks,
+  inboxCount,
+  listCounts,
+  listsInFolder,
+  tagCounts,
+  tasksForToday,
+  trashedTasks,
+} from '../data/selectors';
 import { TaskListFilter } from '../navigation/types';
 import { useSidebar } from '../navigation/SidebarContext';
 import { FolderDef, ListDef } from '../data/types';
@@ -25,6 +33,7 @@ import {
   IconPlus,
   IconStack,
   IconTag,
+  IconTrash,
 } from '../icons/Icons';
 
 export const SIDEBAR_WIDTH = 260;
@@ -40,6 +49,7 @@ function viewsFor(wide: boolean) {
     { route: 'CalendarTab', label: 'Calendar', Icon: IconCalendar },
     ...(wide ? [{ route: 'PlanTab', label: 'Plan', Icon: IconColumns }] : []),
     { route: 'BrowseTab', label: 'Browse', Icon: IconFolder },
+    { route: 'TrashTab', label: 'Trash', Icon: IconTrash },
   ];
 }
 
@@ -63,7 +73,8 @@ export default function Sidebar({ state, navigation, onNavigate }: Props) {
 
   const counts = listCounts(data.tasks);
   const tags = tagCounts(data.tasks);
-  const activeCount = data.tasks.filter((t) => !t.completed).length;
+  // Via the selector, so trashed rows are excluded the same way every view excludes them.
+  const activeCount = activeTasks(data.tasks).length;
 
   const current = state.routes[state.index];
   const inboxRoute = state.routes.find((r) => r.name === 'InboxTab');
@@ -79,6 +90,7 @@ export default function Sidebar({ state, navigation, onNavigate }: Props) {
     if (route === 'AllTab') return activeCount;
     if (route === 'InboxTab') return inboxCount(data.tasks);
     if (route === 'TodayTab') return tasksForToday(data.tasks, now).length;
+    if (route === 'TrashTab') return trashedTasks(data.tasks).length || null;
     return null;
   };
 

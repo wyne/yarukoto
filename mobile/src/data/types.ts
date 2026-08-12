@@ -1,14 +1,20 @@
 export type Priority = 'none' | 'low' | 'medium' | 'high';
 
-export type ReminderOption = 'none' | 'at_time' | '30m' | '1h' | '1d';
-
 export interface Subtask {
   id: string;
   title: string;
   done: boolean;
 }
 
-export interface Task {
+/** Fields every synced record carries, so last-write-wins has something to compare. */
+export interface Synced {
+  /** ISO timestamp of the last change. Stamped centrally by the reducer. */
+  updatedAt: string;
+  /** Set = in the trash. Rows are kept so they can be restored. */
+  deletedAt?: string;
+}
+
+export interface Task extends Synced {
   id: string;
   title: string;
   notes: string;
@@ -17,7 +23,6 @@ export interface Task {
   dueDate?: string;
   /** 24h 'HH:mm'. Undefined = all-day. */
   dueTime?: string;
-  reminder: ReminderOption;
   /** null = Inbox (unfiled). */
   listId: string | null;
   tags: string[];
@@ -28,14 +33,14 @@ export interface Task {
   order: number;
 }
 
-export interface ListDef {
+export interface ListDef extends Synced {
   id: string;
   name: string;
   color: string;
   folderId: string;
 }
 
-export interface FolderDef {
+export interface FolderDef extends Synced {
   id: string;
   name: string;
 }

@@ -1,16 +1,18 @@
 import { FolderDef, ListDef, Task } from './types';
 import { addDays, toISODate } from './dateUtils';
 
+const SEEDED_AT = new Date().toISOString();
+
 export const FOLDERS: FolderDef[] = [
-  { id: 'f-work', name: 'Work' },
-  { id: 'f-personal', name: 'Personal' },
+  { id: 'f-work', name: 'Work', updatedAt: SEEDED_AT },
+  { id: 'f-personal', name: 'Personal', updatedAt: SEEDED_AT },
 ];
 
 export const LISTS: ListDef[] = [
-  { id: 'l-engineering', name: 'Engineering', color: '#2E62D9', folderId: 'f-work' },
-  { id: 'l-admin', name: 'Admin', color: '#DB8A00', folderId: 'f-work' },
-  { id: 'l-home', name: 'Home', color: '#1E7A3C', folderId: 'f-personal' },
-  { id: 'l-errands', name: 'Errands', color: '#8A5FD6', folderId: 'f-personal' },
+  { id: 'l-engineering', name: 'Engineering', color: '#2E62D9', folderId: 'f-work', updatedAt: SEEDED_AT },
+  { id: 'l-admin', name: 'Admin', color: '#DB8A00', folderId: 'f-work', updatedAt: SEEDED_AT },
+  { id: 'l-home', name: 'Home', color: '#1E7A3C', folderId: 'f-personal', updatedAt: SEEDED_AT },
+  { id: 'l-errands', name: 'Errands', color: '#8A5FD6', folderId: 'f-personal', updatedAt: SEEDED_AT },
 ];
 
 let seq = 0;
@@ -34,11 +36,11 @@ export function buildMockTasks(now: Date): Task[] {
     id: id('t'),
     notes: '',
     priority: 'none',
-    reminder: 'none',
     tags: [],
     subtasks: [],
     completed: false,
     createdAt: nowIso,
+    updatedAt: nowIso,
     order: next(),
     ...partial,
   });
@@ -58,7 +60,6 @@ export function buildMockTasks(now: Date): Task[] {
       tags: ['server', 'recurring'],
       dueDate: iso(now, 5),
       dueTime: '18:00',
-      reminder: '30m',
       notes:
         "Wildcard cert via Let's Encrypt. Check the DNS-01 challenge — the API token expires this month.",
       subtasks: [

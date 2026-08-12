@@ -96,21 +96,6 @@ export function isOverdue(now: Date, task: { dueDate?: string; completed: boolea
   return isBeforeDay(fromISODate(task.dueDate), now);
 }
 
-export function reminderLabel(reminder: string): string {
-  switch (reminder) {
-    case 'at_time':
-      return 'At time of due';
-    case '30m':
-      return '30 min before';
-    case '1h':
-      return '1 hour before';
-    case '1d':
-      return '1 day before';
-    default:
-      return 'None';
-  }
-}
-
 /** Days in a Monday-first grid for the month containing `monthAnchor`, including
  * the leading/trailing days from adjacent months needed to fill the grid. */
 export function buildMonthGrid(monthAnchor: Date): { date: Date; inMonth: boolean }[] {

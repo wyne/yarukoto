@@ -13,6 +13,7 @@ export type MainTabParamList = {
   CalendarTab: { focusDate?: string } | undefined;
   PlanTab: undefined;
   BrowseTab: undefined;
+  TrashTab: undefined;
 };
 
 export type RootStackParamList = {
