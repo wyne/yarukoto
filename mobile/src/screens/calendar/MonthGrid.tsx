@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { colors, priorityColor } from '../../theme/colors';
 import { fonts } from '../../theme/typography';
 import { useAccent } from '../../theme/ThemeContext';
-import { buildMonthGrid, isSameDay, toISODate } from '../../data/dateUtils';
+import { buildMonthGrid, isSameDay, startOfDay, toISODate } from '../../data/dateUtils';
 import { Task } from '../../data/types';
 import Card from '../../components/Card';
 import { dayTargetId } from '../../drag/hitTest';
@@ -24,6 +24,9 @@ interface Props {
   onChangeMonth: (date: Date) => void;
   /** Plan view only: makes every day cell a drop target for scheduling. */
   onDropTask?: (taskId: string, iso: string) => void;
+  /** Shades the span the day-column views are showing, so the grid doubles as a locator. */
+  rangeStart?: Date;
+  rangeEnd?: Date;
 }
 
 export default function MonthGrid({
@@ -34,8 +37,19 @@ export default function MonthGrid({
   onSelectDate,
   onChangeMonth,
   onDropTask,
+  rangeStart,
+  rangeEnd,
 }: Props) {
   const grid = React.useMemo(() => buildMonthGrid(monthAnchor), [monthAnchor]);
+
+  // Compared as day numbers so a partial-day time never shifts the band.
+  const rangeFrom = rangeStart ? startOfDay(rangeStart).getTime() : null;
+  const rangeTo = rangeEnd ? startOfDay(rangeEnd).getTime() : null;
+  const rangeFor = (date: Date) => {
+    if (rangeFrom === null || rangeTo === null) return { inRange: false, isFirst: false, isLast: false };
+    const t = startOfDay(date).getTime();
+    return { inRange: t >= rangeFrom && t <= rangeTo, isFirst: t === rangeFrom, isLast: t === rangeTo };
+  };
 
   const dotColorFor = (iso: string): string | null => {
     const dayTasks = byDate.get(iso);
@@ -65,6 +79,7 @@ export default function MonthGrid({
             onSelectDate={onSelectDate}
             onChangeMonth={onChangeMonth}
             onDropTask={onDropTask}
+            {...rangeFor(date)}
           />
         ))}
       </View>
@@ -81,19 +96,44 @@ interface CellProps {
   onSelectDate: (d: Date) => void;
   onChangeMonth: (d: Date) => void;
   onDropTask?: (taskId: string, iso: string) => void;
+  inRange: boolean;
+  isFirst: boolean;
+  isLast: boolean;
 }
 
-function DayCell({ date, inMonth, today, selectedDate, dot, onSelectDate, onChangeMonth, onDropTask }: CellProps) {
+function DayCell({
+  date,
+  inMonth,
+  today,
+  selectedDate,
+  dot,
+  onSelectDate,
+  onChangeMonth,
+  onDropTask,
+  inRange,
+  isFirst,
+  isLast,
+}: CellProps) {
   const accent = useAccent();
   const iso = toISODate(date);
   const isToday = isSameDay(date, today);
   const isSelected = isSameDay(date, selectedDate) && !isToday;
 
-  const { ref, onLayout, isOver } = useDropTarget(dayTargetId(iso), (payload) => onDropTask?.(payload.taskId, iso));
+  const { ref, onLayout, isOver } = useDropTarget(
+    dayTargetId(iso, 'month'),
+    (payload) => onDropTask?.(payload.taskId, iso),
+    !!onDropTask
+  );
 
   return (
     <View
-      style={styles.cell}
+      style={[
+        styles.cell,
+        // Banded on the outer cell, not the day badge, so consecutive days join up.
+        inRange && styles.cellInRange,
+        inRange && isFirst && styles.cellRangeStart,
+        inRange && isLast && styles.cellRangeEnd,
+      ]}
       // Only measured and registered when the grid is droppable.
       ref={onDropTask ? ref : undefined}
       onLayout={onDropTask ? onLayout : undefined}
@@ -151,6 +191,17 @@ const styles = StyleSheet.create({
     width: `${100 / 7}%`,
     alignItems: 'center',
     paddingVertical: 2,
+  },
+  cellInRange: {
+    backgroundColor: colors.accentTintBg,
+  },
+  cellRangeStart: {
+    borderTopLeftRadius: 8,
+    borderBottomLeftRadius: 8,
+  },
+  cellRangeEnd: {
+    borderTopRightRadius: 8,
+    borderBottomRightRadius: 8,
   },
   cellInner: {
     width: 30,

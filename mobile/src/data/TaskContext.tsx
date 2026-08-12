@@ -1,4 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useState } from 'react';
+import { setAudioModeAsync, useAudioPlayer } from 'expo-audio';
 import { FOLDERS, LISTS, buildMockTasks } from './mockData';
 import { FolderDef, ListDef, Priority, ReminderOption, Task } from './types';
 import { addDays, toISODate } from './dateUtils';
@@ -28,6 +29,7 @@ type Action =
   | { type: 'SNOOZE_TASK'; id: string }
   | { type: 'REORDER_TASKS'; ids: string[] }
   | { type: 'ADD_LIST'; list: ListDef }
+  | { type: 'ADD_FOLDER'; folder: FolderDef }
   | { type: 'UPDATE_LIST'; id: string; patch: Partial<ListDef> }
   | { type: 'SET_VIEW_OPTIONS'; key: string; options: ViewOptions }
   | { type: 'CONNECT'; serverUrl: string }
@@ -101,6 +103,8 @@ function reducer(state: State, action: Action): State {
     }
     case 'ADD_LIST':
       return { ...state, lists: [...state.lists, action.list] };
+    case 'ADD_FOLDER':
+      return { ...state, folders: [...state.folders, action.folder] };
     case 'UPDATE_LIST':
       return { ...state, lists: state.lists.map((l) => (l.id === action.id ? { ...l, ...action.patch } : l)) };
     case 'SET_VIEW_OPTIONS':
@@ -163,6 +167,7 @@ interface TaskContextValue {
   /** `ids` is the visible slice in its new order. */
   reorderTasks: (ids: string[]) => void;
   addList: (name: string, folderId: string) => void;
+  addFolder: (name: string) => void;
   setListColor: (listId: string, color: string) => void;
   getViewOptions: (key: string) => ViewOptions;
   setViewOptions: (key: string, options: ViewOptions) => void;
@@ -174,10 +179,19 @@ const TaskContext = createContext<TaskContextValue | null>(null);
 
 export function TaskProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(reducer, undefined, initState);
+  const ding = useAudioPlayer(require('../../assets/sounds/ding.wav'));
+
+  // A completion ding should sound even with the phone in silent mode.
+  useEffect(() => {
+    setAudioModeAsync({ playsInSilentMode: true });
+  }, []);
 
   const addTaskFromQuickAdd = useCallback((text: string, defaults?: QuickAddDefaults) => {
     const parsed = parseQuickAdd(text);
     if (!parsed.title.trim()) return;
+    const typedList = parsed.listName
+      ? state.lists.find((l) => l.name.toLowerCase() === parsed.listName!.toLowerCase())
+      : undefined;
     const task: Task = {
       id: `t-${Date.now()}`,
       title: parsed.title,
@@ -187,7 +201,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       dueDate: parsed.dueDate ?? defaults?.dueDate,
       dueTime: parsed.dueTime,
       reminder: 'none' as ReminderOption,
-      listId: defaults?.listId ?? null,
+      listId: typedList ? typedList.id : (defaults?.listId ?? null),
       tags: Array.from(new Set([...(defaults?.tags ?? []), ...parsed.tags])),
       subtasks: [],
       completed: false,
@@ -195,7 +209,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       order: -Date.now(),
     };
     dispatch({ type: 'ADD_TASK', task });
-  }, []);
+  }, [state.lists]);
 
   const [pendingUndo, setPendingUndo] = useState<PendingUndo | null>(null);
 
@@ -204,9 +218,13 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     (id: string) => {
       const task = state.tasks.find((t) => t.id === id);
       dispatch({ type: 'TOGGLE_COMPLETE', id });
+      if (task && !task.completed) {
+        ding.seekTo(0);
+        ding.play();
+      }
       setPendingUndo(task && !task.completed ? { taskId: id, title: task.title, token: Date.now() } : null);
     },
-    [state.tasks]
+    [state.tasks, ding]
   );
 
   const dismissUndo = useCallback(() => setPendingUndo(null), []);
@@ -252,6 +270,9 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     (listId: string, color: string) => dispatch({ type: 'UPDATE_LIST', id: listId, patch: { color } }),
     []
   );
+  const addFolder = useCallback((name: string) => {
+    dispatch({ type: 'ADD_FOLDER', folder: { id: `f-${Date.now()}`, name } });
+  }, []);
   const getViewOptions = useCallback(
     (key: string) => state.viewOptions[key] ?? DEFAULT_VIEW_OPTIONS,
     [state.viewOptions]
@@ -285,6 +306,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       snoozeTask,
       reorderTasks,
       addList,
+      addFolder,
       setListColor,
       getViewOptions,
       setViewOptions,
@@ -306,6 +328,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       snoozeTask,
       reorderTasks,
       addList,
+      addFolder,
       setListColor,
       getViewOptions,
       setViewOptions,

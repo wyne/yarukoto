@@ -18,6 +18,15 @@ export function addMonths(d: Date, n: number): Date {
   return new Date(d.getFullYear(), d.getMonth() + n, 1);
 }
 
+/** Monday-first, matching buildMonthGrid. */
+export function startOfWeek(d: Date): Date {
+  return addDays(d, -((d.getDay() + 6) % 7));
+}
+
+export function addWeeks(d: Date, n: number): Date {
+  return addDays(d, n * 7);
+}
+
 export function toISODate(d: Date): string {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, '0');

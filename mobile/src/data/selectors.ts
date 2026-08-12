@@ -70,16 +70,19 @@ export function inboxCount(tasks: Task[]): number {
 }
 
 /** Groups active, dated tasks by ISO date for the calendar agenda + dots. */
-export function tasksByDate(tasks: Task[]): Map<string, Task[]> {
+export function tasksByDate(tasks: Task[], includeCompleted = false): Map<string, Task[]> {
   const out = new Map<string, Task[]>();
   for (const t of tasks) {
-    if (t.completed || !t.dueDate) continue;
+    if (!t.dueDate || (t.completed && !includeCompleted)) continue;
     const arr = out.get(t.dueDate) ?? [];
     arr.push(t);
     out.set(t.dueDate, arr);
   }
   for (const arr of out.values()) {
-    arr.sort((a, b) => (a.dueTime ?? '99:99').localeCompare(b.dueTime ?? '99:99'));
+    // Time first, all-day last. All-day tasks all tie, so fall back to the same
+    // manual `order` the list views sort by rather than leaving them in whatever
+    // sequence the task array happened to be in.
+    arr.sort((a, b) => (a.dueTime ?? '99:99').localeCompare(b.dueTime ?? '99:99') || a.order - b.order);
   }
   return out;
 }
