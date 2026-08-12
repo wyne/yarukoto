@@ -1,0 +1,22 @@
+services:
+  yarukoto:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      # openssl rand -hex 32
+      YARUKOTO_TOKEN: ${YARUKOTO_TOKEN:?set a long random token in .env}
+      PORT: 8080
+      DATABASE_PATH: /data/yarukoto.db
+      TRASH_RETENTION_DAYS: 30
+      HISTORY_REVISIONS_PER_TASK: 50
+    volumes:
+      - ./data:/data
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/api/v1/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
