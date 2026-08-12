@@ -10,12 +10,27 @@ export function listsInFolder(lists: ListDef[], folderId: string): ListDef[] {
   return lists.filter((l) => l.folderId === folderId);
 }
 
+/**
+ * In the trash. Deleted rows are kept so they can be restored and so the deletion
+ * can reach other devices, which means every view has to exclude them explicitly.
+ */
+export function isTrashed(task: Task): boolean {
+  return !!task.deletedAt;
+}
+
 export function activeTasks(tasks: Task[]): Task[] {
-  return tasks.filter((t) => !t.completed).sort((a, b) => a.order - b.order);
+  return tasks.filter((t) => !t.completed && !isTrashed(t)).sort((a, b) => a.order - b.order);
 }
 
 export function completedTasksList(tasks: Task[]): Task[] {
-  return tasks.filter((t) => t.completed).sort((a, b) => a.order - b.order);
+  return tasks.filter((t) => t.completed && !isTrashed(t)).sort((a, b) => a.order - b.order);
+}
+
+/** Newest deletion first — the order you'd want when hunting for something. */
+export function trashedTasks(tasks: Task[]): Task[] {
+  return tasks
+    .filter(isTrashed)
+    .sort((a, b) => (b.deletedAt ?? '').localeCompare(a.deletedAt ?? ''));
 }
 
 /** Inbox is the untriaged pile: anything not yet filed into a list. */
@@ -39,7 +54,7 @@ export function unscheduledTasks(tasks: Task[]): Task[] {
 export function listCounts(tasks: Task[]): Record<string, number> {
   const out: Record<string, number> = {};
   for (const t of tasks) {
-    if (t.completed || !t.listId) continue;
+    if (t.completed || isTrashed(t) || !t.listId) continue;
     out[t.listId] = (out[t.listId] || 0) + 1;
   }
   return out;
@@ -48,7 +63,7 @@ export function listCounts(tasks: Task[]): Record<string, number> {
 export function tagCounts(tasks: Task[]): { tag: string; count: number }[] {
   const out: Record<string, number> = {};
   for (const t of tasks) {
-    if (t.completed) continue;
+    if (t.completed || isTrashed(t)) continue;
     for (const tag of t.tags) out[tag] = (out[tag] || 0) + 1;
   }
   return Object.entries(out)
@@ -62,7 +77,9 @@ export function tasksForToday(tasks: Task[], now: Date): Task[] {
 
 export function tasksUpcomingCount(tasks: Task[], now: Date): number {
   const today = startOfDay(now).getTime();
-  return tasks.filter((t) => !t.completed && t.dueDate && startOfDay(fromISODate(t.dueDate)).getTime() > today).length;
+  return tasks.filter(
+    (t) => !t.completed && !isTrashed(t) && t.dueDate && startOfDay(fromISODate(t.dueDate)).getTime() > today
+  ).length;
 }
 
 export function inboxCount(tasks: Task[]): number {
@@ -73,7 +90,7 @@ export function inboxCount(tasks: Task[]): number {
 export function tasksByDate(tasks: Task[], includeCompleted = false): Map<string, Task[]> {
   const out = new Map<string, Task[]>();
   for (const t of tasks) {
-    if (!t.dueDate || (t.completed && !includeCompleted)) continue;
+    if (!t.dueDate || isTrashed(t) || (t.completed && !includeCompleted)) continue;
     const arr = out.get(t.dueDate) ?? [];
     arr.push(t);
     out.set(t.dueDate, arr);

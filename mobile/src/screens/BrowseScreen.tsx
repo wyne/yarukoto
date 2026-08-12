@@ -9,6 +9,7 @@ import { MainTabParamList } from '../navigation/types';
 import { PANE_MAX_WIDTH, useSidebar } from '../navigation/SidebarContext';
 import { useTasks } from '../data/TaskContext';
 import {
+  activeTasks,
   folderTotal,
   inboxCount,
   listCounts,
@@ -70,7 +71,7 @@ export default function BrowseScreen({ navigation }: Props) {
           <Pressable style={styles.smartRow} onPress={() => navigation.navigate('AllTab')}>
             <IconStack size={18} color={accent} />
             <Text style={styles.smartLabel}>All</Text>
-            <Text style={styles.smartCount}>{state.tasks.filter((t) => !t.completed).length}</Text>
+            <Text style={styles.smartCount}>{activeTasks(state.tasks).length}</Text>
           </Pressable>
           <Divider indent={44} />
           <Pressable style={styles.smartRow} onPress={() => navigation.navigate('TodayTab')}>

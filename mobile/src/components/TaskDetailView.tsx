@@ -6,15 +6,14 @@ import { fonts } from '../theme/typography';
 import { useAccent } from '../theme/ThemeContext';
 import { useTasks } from '../data/TaskContext';
 import { getListById } from '../data/selectors';
-import { formatDueFull, reminderLabel } from '../data/dateUtils';
+import { formatDueFull } from '../data/dateUtils';
 import { confirmDestructive } from '../data/confirm';
 import { Priority } from '../data/types';
 import Card from './Card';
 import Divider from './Divider';
 import TaskCheckbox from './TaskCheckbox';
-import { IconBell, IconCalendarBox, IconDotsHorizontal, IconFolder, IconPlus, IconTag } from '../icons/Icons';
+import { IconCalendarBox, IconDotsHorizontal, IconFolder, IconPlus, IconTag } from '../icons/Icons';
 import DueDatePickerSheet from './pickers/DueDatePickerSheet';
-import ReminderPickerSheet from './pickers/ReminderPickerSheet';
 import ListPickerSheet from './pickers/ListPickerSheet';
 import TagPickerSheet from './pickers/TagPickerSheet';
 
@@ -41,7 +40,6 @@ export default function TaskDetailView({ taskId, onClose, variant }: Props) {
   const topPad = variant === 'pane' ? insets.top + 6 : 6;
 
   const [dueOpen, setDueOpen] = useState(false);
-  const [reminderOpen, setReminderOpen] = useState(false);
   const [listOpen, setListOpen] = useState(false);
   const [tagOpen, setTagOpen] = useState(false);
   const [addingSubtask, setAddingSubtask] = useState(false);
@@ -123,12 +121,6 @@ export default function TaskDetailView({ taskId, onClose, variant }: Props) {
             <Text style={[styles.metaValue, task.dueDate && { color: accent }]}>
               {formatDueFull(task.dueDate, task.dueTime)}
             </Text>
-          </Pressable>
-          <Divider indent={44} />
-          <Pressable style={styles.metaRow} onPress={() => setReminderOpen(true)}>
-            <IconBell size={18} color={colors.textSecondary} />
-            <Text style={styles.metaLabel}>Reminder</Text>
-            <Text style={styles.metaValue}>{reminderLabel(task.reminder)}</Text>
           </Pressable>
           <Divider indent={44} />
           <Pressable style={styles.metaRow} onPress={() => setListOpen(true)}>
@@ -224,12 +216,6 @@ export default function TaskDetailView({ taskId, onClose, variant }: Props) {
         initialDate={task.dueDate}
         initialTime={task.dueTime}
         onApply={(dueDate, dueTime) => updateTask(task.id, { dueDate, dueTime })}
-      />
-      <ReminderPickerSheet
-        visible={reminderOpen}
-        onClose={() => setReminderOpen(false)}
-        value={task.reminder}
-        onApply={(reminder) => updateTask(task.id, { reminder })}
       />
       <ListPickerSheet
         visible={listOpen}

@@ -1,9 +1,10 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useState } from 'react';
 import { setAudioModeAsync, useAudioPlayer } from 'expo-audio';
 import { FOLDERS, LISTS, buildMockTasks } from './mockData';
-import { FolderDef, ListDef, Priority, ReminderOption, Task } from './types';
+import { FolderDef, ListDef, Priority, Task } from './types';
 import { addDays, toISODate } from './dateUtils';
 import { parseQuickAdd } from './quickAdd';
+import { newFolderId, newListId, newSubtaskId, newTaskId } from './ids';
 import { DEFAULT_VIEW_OPTIONS, ViewOptions } from './viewOptions';
 import { LIST_COLORS } from '../theme/colors';
 import { clearServerUrl, loadServerUrl, saveServerUrl } from './storage';
@@ -23,6 +24,8 @@ type Action =
   | { type: 'TOGGLE_COMPLETE'; id: string }
   | { type: 'UPDATE_TASK'; id: string; patch: Partial<Task> }
   | { type: 'DELETE_TASKS'; ids: string[] }
+  | { type: 'RESTORE_TASKS'; ids: string[] }
+  | { type: 'PURGE_TASKS'; ids: string[] }
   | { type: 'BULK_UPDATE'; ids: string[]; patch: Partial<Task> }
   | { type: 'ADD_SUBTASK'; taskId: string; title: string }
   | { type: 'TOGGLE_SUBTASK'; taskId: string; subtaskId: string }
@@ -36,7 +39,7 @@ type Action =
   | { type: 'DISCONNECT' };
 
 
-function reducer(state: State, action: Action): State {
+function applyAction(state: State, action: Action): State {
   switch (action.type) {
     case 'ADD_TASK':
       return { ...state, tasks: [action.task, ...state.tasks] };
@@ -51,7 +54,21 @@ function reducer(state: State, action: Action): State {
       };
     case 'UPDATE_TASK':
       return { ...state, tasks: state.tasks.map((t) => (t.id === action.id ? { ...t, ...action.patch } : t)) };
-    case 'DELETE_TASKS':
+    case 'DELETE_TASKS': {
+      // Soft delete: the row stays so Trash can show and restore it, and so other
+      // devices learn about the deletion instead of resurrecting the task.
+      const now = new Date().toISOString();
+      return {
+        ...state,
+        tasks: state.tasks.map((t) => (action.ids.includes(t.id) ? { ...t, deletedAt: now } : t)),
+      };
+    }
+    case 'RESTORE_TASKS':
+      return {
+        ...state,
+        tasks: state.tasks.map((t) => (action.ids.includes(t.id) ? { ...t, deletedAt: undefined } : t)),
+      };
+    case 'PURGE_TASKS':
       return { ...state, tasks: state.tasks.filter((t) => !action.ids.includes(t.id)) };
     case 'BULK_UPDATE':
       return {
@@ -63,7 +80,7 @@ function reducer(state: State, action: Action): State {
         ...state,
         tasks: state.tasks.map((t) =>
           t.id === action.taskId
-            ? { ...t, subtasks: [...t.subtasks, { id: `st-${Date.now()}`, title: action.title, done: false }] }
+            ? { ...t, subtasks: [...t.subtasks, { id: newSubtaskId(), title: action.title, done: false }] }
             : t
         ),
       };
@@ -118,6 +135,33 @@ function reducer(state: State, action: Action): State {
   }
 }
 
+/**
+ * Stamps `updatedAt` on whatever the action actually changed.
+ *
+ * Every mutating case builds new objects with `.map()`, which returns the *same*
+ * reference for untouched rows — so an identity comparison against the previous
+ * state finds exactly the changed records. Doing it here rather than in each case
+ * means a future action gets correct timestamps without its author remembering to.
+ */
+function reducer(state: State, action: Action): State {
+  const next = applyAction(state, action);
+  if (next === state) return next;
+
+  const now = new Date().toISOString();
+  const stamp = <T extends { id: string; updatedAt: string }>(before: T[], after: T[]): T[] => {
+    if (after === before) return after;
+    const previous = new Map(before.map((r) => [r.id, r]));
+    return after.map((r) => (previous.get(r.id) === r ? r : { ...r, updatedAt: now }));
+  };
+
+  return {
+    ...next,
+    tasks: stamp(state.tasks, next.tasks),
+    lists: stamp(state.lists, next.lists),
+    folders: stamp(state.folders, next.folders),
+  };
+}
+
 function initState(): State {
   // A stored URL means a previous session connected, so skip first-run.
   const serverUrl = loadServerUrl();
@@ -160,6 +204,8 @@ interface TaskContextValue {
   dismissUndo: () => void;
   updateTask: (id: string, patch: Partial<Task>) => void;
   deleteTasks: (ids: string[]) => void;
+  restoreTasks: (ids: string[]) => void;
+  purgeTasks: (ids: string[]) => void;
   bulkUpdate: (ids: string[], patch: Partial<Task>) => void;
   addSubtask: (taskId: string, title: string) => void;
   toggleSubtask: (taskId: string, subtaskId: string) => void;
@@ -193,19 +239,19 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       ? state.lists.find((l) => l.name.toLowerCase() === parsed.listName!.toLowerCase())
       : undefined;
     const task: Task = {
-      id: `t-${Date.now()}`,
+      id: newTaskId(),
       title: parsed.title,
       notes: '',
       priority: parsed.priority as Priority,
       // A typed date overrides the view's date; tags from both are merged.
       dueDate: parsed.dueDate ?? defaults?.dueDate,
       dueTime: parsed.dueTime,
-      reminder: 'none' as ReminderOption,
       listId: typedList ? typedList.id : (defaults?.listId ?? null),
       tags: Array.from(new Set([...(defaults?.tags ?? []), ...parsed.tags])),
       subtasks: [],
       completed: false,
       createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
       order: -Date.now(),
     };
     dispatch({ type: 'ADD_TASK', task });
@@ -247,6 +293,8 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
   }, [pendingUndo]);
   const updateTask = useCallback((id: string, patch: Partial<Task>) => dispatch({ type: 'UPDATE_TASK', id, patch }), []);
   const deleteTasks = useCallback((ids: string[]) => dispatch({ type: 'DELETE_TASKS', ids }), []);
+  const restoreTasks = useCallback((ids: string[]) => dispatch({ type: 'RESTORE_TASKS', ids }), []);
+  const purgeTasks = useCallback((ids: string[]) => dispatch({ type: 'PURGE_TASKS', ids }), []);
   const bulkUpdate = useCallback((ids: string[], patch: Partial<Task>) => dispatch({ type: 'BULK_UPDATE', ids, patch }), []);
   const addSubtask = useCallback((taskId: string, title: string) => dispatch({ type: 'ADD_SUBTASK', taskId, title }), []);
   const toggleSubtask = useCallback(
@@ -259,10 +307,11 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     dispatch({
       type: 'ADD_LIST',
       list: {
-        id: `l-${Date.now()}`,
+        id: newListId(),
         name,
         folderId,
         color: LIST_COLORS[Math.floor(Math.random() * LIST_COLORS.length)],
+        updatedAt: new Date().toISOString(),
       },
     });
   }, []);
@@ -271,7 +320,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     []
   );
   const addFolder = useCallback((name: string) => {
-    dispatch({ type: 'ADD_FOLDER', folder: { id: `f-${Date.now()}`, name } });
+    dispatch({ type: 'ADD_FOLDER', folder: { id: newFolderId(), name, updatedAt: new Date().toISOString() } });
   }, []);
   const getViewOptions = useCallback(
     (key: string) => state.viewOptions[key] ?? DEFAULT_VIEW_OPTIONS,
@@ -300,6 +349,8 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       dismissUndo,
       updateTask,
       deleteTasks,
+      restoreTasks,
+      purgeTasks,
       bulkUpdate,
       addSubtask,
       toggleSubtask,
@@ -322,6 +373,8 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       dismissUndo,
       updateTask,
       deleteTasks,
+      restoreTasks,
+      purgeTasks,
       bulkUpdate,
       addSubtask,
       toggleSubtask,
