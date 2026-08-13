@@ -76,6 +76,41 @@ Your database lives in `./data` on the host and is untouched by rebuilds.
 
 ---
 
+## Running it on a Synology NAS
+
+Container Manager can run this as a **Project** without cloning the repo or building anything —
+`main` publishes a prebuilt image to `ghcr.io/wyne/yarukoto` for `linux/amd64` and `linux/arm64`,
+which covers both the Intel and ARM Synology models.
+
+Don't point Container Manager at this repo's `docker-compose.yml`: it uses `build:`, which would
+make the NAS install several hundred npm packages, run the Metro bundler and compile
+better-sqlite3 from source. That's slow on NAS hardware and can run out of memory. Use
+[`docker-compose.synology.yml`](docker-compose.synology.yml) instead, which pulls the image.
+
+1. **Make a folder** in File Station for the database, e.g. `docker/yarukoto/data`.
+2. **Generate a token** on any machine: `openssl rand -hex 32`
+3. **Container Manager → Project → Create.** Point it at a folder, choose *Create docker-compose.yml*,
+   and paste in [`docker-compose.synology.yml`](docker-compose.synology.yml).
+4. **Edit two things** in the pasted file: put your token in `YARUKOTO_TOKEN`, and correct the
+   volume path if your data isn't on `volume1`.
+5. **Build/start the project**, then open `http://<nas-ip>:8080` and paste the same token.
+
+The token is written in plain text in the project file. That's normal for Container Manager — the
+folder is only readable by NAS admins — but keep it out of anything you share.
+
+If port 8080 is taken (DSM itself uses 5000/5001, and other packages often claim 8080), change the
+left-hand side of `"8080:8080"` and use that port in the URL.
+
+**Updating** is Container Manager's *Action → Build* on the project, or *Reset* — either re-pulls
+`:latest`. Pin a version instead (`ghcr.io/wyne/yarukoto:v1.2.3`) if you'd rather updates be
+deliberate. Your database is in the mounted folder and survives either way.
+
+**Reaching it from your phone** means using the NAS's LAN address, not `localhost`. Over plain HTTP
+that's fine on a home network; put it behind DSM's reverse proxy with a certificate before exposing
+it to the internet, since the access token rides on every request.
+
+---
+
 ## Configuration
 
 Set these in `docker-compose.yml` or your `.env`.
