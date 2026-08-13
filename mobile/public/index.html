@@ -40,6 +40,17 @@
     <meta name="apple-mobile-web-app-title" content="Yarukoto" />
     <meta name="theme-color" content="#F4F4F1" />
 
+    <!--
+      Icons, all cut from assets/brand-mark.svg. Without an apple-touch-icon iOS
+      screenshots the page and uses that on the Home Screen; it ignores the manifest
+      icons for this. The hrefs are relative on purpose — the app is served from the
+      domain root when self-hosted but from /<repo>/ on GitHub Pages (see
+      app.config.js), and it never pushes a URL path, so relative always resolves.
+      Expo injects the <link rel="icon"> for favicon.ico itself, baseUrl included.
+    -->
+    <link rel="apple-touch-icon" href="apple-touch-icon.png" />
+    <link rel="manifest" href="manifest.webmanifest" />
+
     <!-- The `react-native-web` recommended style reset: https://necolas.github.io/react-native-web/docs/setup/#root-element -->
     <style id="expo-reset">
       /* These styles make the body full-height */
