@@ -105,6 +105,25 @@ export default function PlanScreen({ navigation }: Props) {
     setSelectedDate(today);
   };
 
+  // Rendered below the month grid in both modes: a filter belongs with the days it
+  // filters, not crowded in among the range controls.
+  const completedToggle = (
+    <View style={styles.filterRow}>
+      <Pressable
+        style={[
+          styles.todayBtn,
+          { borderColor: showCompleted ? accent : colors.border },
+          showCompleted && { backgroundColor: colors.accentTintBg },
+        ]}
+        onPress={() => setShowCompleted((v) => !v)}
+      >
+        <Text style={[styles.todayBtnText, { color: showCompleted ? accent : colors.textTertiary }]}>
+          Completed
+        </Text>
+      </Pressable>
+    </View>
+  );
+
   const rangeEnd = addDays(rangeStart, mode === 'multi' ? MULTI_DAY_COUNT - 1 : 6);
   const rangeLabel =
     mode !== 'day'
@@ -121,27 +140,15 @@ export default function PlanScreen({ navigation }: Props) {
 
       <View style={[styles.calendarCol]}>
         <View style={styles.header}>
+          <Text style={styles.title}>{rangeLabel}</Text>
           <Pressable onPress={() => step(-1)} hitSlop={8}>
             <Text style={styles.navArrow}>‹</Text>
           </Pressable>
-          <Text style={styles.title}>{rangeLabel}</Text>
           <Pressable onPress={() => step(1)} hitSlop={8}>
             <Text style={styles.navArrow}>›</Text>
           </Pressable>
           <Pressable style={[styles.todayBtn, { borderColor: colors.border }]} onPress={goToday}>
             <Text style={[styles.todayBtnText, { color: accent }]}>Today</Text>
-          </Pressable>
-          <Pressable
-            style={[
-              styles.todayBtn,
-              { borderColor: showCompleted ? accent : colors.border },
-              showCompleted && { backgroundColor: colors.accentTintBg },
-            ]}
-            onPress={() => setShowCompleted((v) => !v)}
-          >
-            <Text style={[styles.todayBtnText, { color: showCompleted ? accent : colors.textTertiary }]}>
-              Completed
-            </Text>
           </Pressable>
           <View style={styles.modeToggle}>
             {(['day', 'multi', 'week'] as const).map((m) => (
@@ -173,6 +180,7 @@ export default function PlanScreen({ navigation }: Props) {
                 rangeEnd={rangeEnd}
               />
             </View>
+            {completedToggle}
             <WeekGrid
               startDate={rangeStart}
               dayCount={mode === 'multi' ? MULTI_DAY_COUNT : 7}
@@ -197,6 +205,7 @@ export default function PlanScreen({ navigation }: Props) {
               onDropTask={scheduleTask}
             />
           </View>
+          {completedToggle}
 
           <ScrollView contentContainerStyle={styles.agenda}>
             {agendaDays.length === 0 && <Text style={styles.empty}>Nothing scheduled from here on.</Text>}
@@ -256,6 +265,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   gridWrap: { paddingHorizontal: 12 },
+  filterRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    paddingHorizontal: 12,
+    paddingTop: 8,
+  },
   modeToggle: {
     flexDirection: 'row',
     borderWidth: 1,
