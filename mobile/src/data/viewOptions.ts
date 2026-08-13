@@ -1,8 +1,7 @@
-import { FolderDef, ListDef, Priority, Task } from './types';
+import { FolderDef, GroupBy, ListDef, Priority, SortBy, Task, ViewPref } from './types';
 import { fromISODate, startOfDay } from './dateUtils';
 
-export type GroupBy = 'none' | 'list' | 'date' | 'tag' | 'priority';
-export type SortBy = 'manual' | 'date' | 'title' | 'tag' | 'priority';
+export type { GroupBy, SortBy };
 
 export interface ViewOptions {
   groupBy: GroupBy;
@@ -28,9 +27,19 @@ export const SORT_BY_OPTIONS: { value: SortBy; label: string }[] = [
   { value: 'priority', label: 'Priority' },
 ];
 
-/** Stable per-view identity so each view remembers its own grouping and sort. */
+/**
+ * Stable per-view identity so each view remembers its own grouping and sort.
+ * It doubles as the id of the synced `ViewPref` record, so it has to stay stable
+ * across launches and devices — never derive it from anything session-scoped.
+ */
 export function viewKey(mode: string, filter?: { type: string; value: string }): string {
   return filter ? `${mode}:${filter.type}:${filter.value}` : mode;
+}
+
+/** The saved options for a view, or the defaults when it has never been configured. */
+export function viewOptionsFor(prefs: ViewPref[], key: string): ViewOptions {
+  const pref = prefs.find((p) => p.id === key && !p.deletedAt);
+  return pref ? { groupBy: pref.groupBy, sortBy: pref.sortBy } : DEFAULT_VIEW_OPTIONS;
 }
 
 const PRIORITY_RANK: Record<Priority, number> = { high: 0, medium: 1, low: 2, none: 3 };

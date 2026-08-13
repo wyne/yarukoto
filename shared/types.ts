@@ -44,3 +44,20 @@ export interface FolderDef extends Synced {
   id: string;
   name: string;
 }
+
+export type GroupBy = 'none' | 'list' | 'date' | 'tag' | 'priority';
+export type SortBy = 'manual' | 'date' | 'title' | 'tag' | 'priority';
+
+export const GROUP_BY_VALUES: GroupBy[] = ['none', 'list', 'date', 'tag', 'priority'];
+export const SORT_BY_VALUES: SortBy[] = ['manual', 'date', 'title', 'tag', 'priority'];
+
+/**
+ * Grouping + sort saved for one view, so each list remembers its own arrangement.
+ * `id` is the view key — 'today', 'inbox:list:l_home', 'inbox:tag:dev' — which
+ * makes a view's preferences an ordinary synced record like any other.
+ */
+export interface ViewPref extends Synced {
+  id: string;
+  groupBy: GroupBy;
+  sortBy: SortBy;
+}

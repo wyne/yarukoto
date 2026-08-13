@@ -1,5 +1,5 @@
 import { Api, ApiError, SyncBatch } from './api';
-import { FolderDef, ListDef, Task } from './types';
+import { FolderDef, ListDef, Task, ViewPref } from './types';
 
 export { ApiError };
 
@@ -58,6 +58,7 @@ interface Collections {
   tasks: Task[];
   lists: ListDef[];
   folders: FolderDef[];
+  viewPrefs: ViewPref[];
 }
 
 /** Sends every dirty record. Returns the server's (possibly corrected) versions. */
@@ -65,9 +66,15 @@ export async function pushDirty(api: Api, outbox: Outbox, state: Collections): P
   const tasks = state.tasks.filter((t) => outbox.has(t.id));
   const lists = state.lists.filter((l) => outbox.has(l.id));
   const folders = state.folders.filter((f) => outbox.has(f.id));
+  const viewPrefs = state.viewPrefs.filter((v) => outbox.has(v.id));
 
-  const result = await api.push({ tasks, lists, folders });
-  outbox.clear([...tasks.map((t) => t.id), ...lists.map((l) => l.id), ...folders.map((f) => f.id)]);
+  const result = await api.push({ tasks, lists, folders, viewPrefs });
+  outbox.clear([
+    ...tasks.map((t) => t.id),
+    ...lists.map((l) => l.id),
+    ...folders.map((f) => f.id),
+    ...viewPrefs.map((v) => v.id),
+  ]);
   return result;
 }
 

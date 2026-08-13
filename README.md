@@ -19,6 +19,8 @@ a working instance. The same codebase builds an iOS/Android app via Expo.
 - **Quick add with natural syntax** — `pay rent fri 6pm #home !high ~admin` parses the due date
   and time, the `#tag`, the `!priority`, and the `~list`. Anything unrecognized stays as the title.
 - **Subtasks, notes, tags, priorities, due dates and times.**
+- **Per-view grouping and sort** — each view keeps its own arrangement, synced with everything else,
+  so a list set to group by tag and sort by priority looks that way on every device.
 - **Trash** — deleting is a soft delete. Restore from Trash, or delete forever. The server hard-deletes
   anything left there past its retention window.
 - **Task history** — every change writes a full snapshot server-side, capped per task.
@@ -209,7 +211,7 @@ All endpoints are under `/api/v1` and require `Authorization: Bearer <token>`, e
 |---|---|
 | `GET /health` | Unauthenticated liveness check. |
 | `GET /sync?since=<iso>` | Changes since a cursor, including trashed rows. Omit `since` for a full hydrate. |
-| `POST /sync` | Upsert tasks/lists/folders. Rejects any record older than the stored copy and returns the authoritative version. |
+| `POST /sync` | Upsert tasks/lists/folders/view prefs. Rejects any record older than the stored copy and returns the authoritative version. |
 | `GET /tasks/:id/history` | Revisions for one task, newest first. |
 
 ---

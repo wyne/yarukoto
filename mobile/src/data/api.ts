@@ -1,4 +1,4 @@
-import { FolderDef, ListDef, Task } from './types';
+import { FolderDef, ListDef, Task, ViewPref } from './types';
 
 export class ApiError extends Error {
   status: number;
@@ -13,12 +13,14 @@ export interface SyncBatch {
   tasks: Task[];
   lists: ListDef[];
   folders: FolderDef[];
+  viewPrefs: ViewPref[];
 }
 
 export interface SyncPush {
   tasks?: Task[];
   lists?: ListDef[];
   folders?: FolderDef[];
+  viewPrefs?: ViewPref[];
 }
 
 export interface Api {
@@ -46,6 +48,13 @@ export function createApi(serverUrl: string, token: string): Api {
     return res.json();
   }
 
+  // A server older than view-option syncing answers without a `viewPrefs` key at
+  // all; filling it in here keeps every caller downstream working with a real array.
+  async function syncRequest(path: string, init?: RequestInit): Promise<SyncBatch> {
+    const batch = await request(path, init);
+    return { ...batch, viewPrefs: batch.viewPrefs ?? [] };
+  }
+
   return {
     health: async () => {
       try {
@@ -55,7 +64,7 @@ export function createApi(serverUrl: string, token: string): Api {
         return false;
       }
     },
-    pull: (since) => request(`/api/v1/sync${since ? `?since=${encodeURIComponent(since)}` : ''}`),
-    push: (batch) => request('/api/v1/sync', { method: 'POST', body: JSON.stringify(batch) }),
+    pull: (since) => syncRequest(`/api/v1/sync${since ? `?since=${encodeURIComponent(since)}` : ''}`),
+    push: (batch) => syncRequest('/api/v1/sync', { method: 'POST', body: JSON.stringify(batch) }),
   };
 }

@@ -1,5 +1,5 @@
 import Database from 'better-sqlite3';
-import { FolderDef, ListDef, Task } from '../../shared/types';
+import { FolderDef, GROUP_BY_VALUES, GroupBy, ListDef, SORT_BY_VALUES, SortBy, Task, ViewPref } from '../../shared/types';
 import { env } from './env';
 
 export interface TaskRow {
@@ -32,6 +32,14 @@ export interface ListRow {
 export interface FolderRow {
   id: string;
   name: string;
+  updated_at: string;
+  deleted_at: string | null;
+}
+
+export interface ViewPrefRow {
+  id: string;
+  group_by: string;
+  sort_by: string;
   updated_at: string;
   deleted_at: string | null;
 }
@@ -71,6 +79,29 @@ export function folderFromRow(row: FolderRow): FolderDef {
   return {
     id: row.id,
     name: row.name,
+    updatedAt: row.updated_at,
+    deletedAt: row.deleted_at ?? undefined,
+  };
+}
+
+/**
+ * An unrecognised grouping or sort — an older server meeting a newer client, or a
+ * hand-rolled request — falls back to the default rather than being stored, so a
+ * client can never be handed a value it has no way to render.
+ */
+function asGroupBy(value: string): GroupBy {
+  return GROUP_BY_VALUES.includes(value as GroupBy) ? (value as GroupBy) : 'none';
+}
+
+function asSortBy(value: string): SortBy {
+  return SORT_BY_VALUES.includes(value as SortBy) ? (value as SortBy) : 'manual';
+}
+
+export function viewPrefFromRow(row: ViewPrefRow): ViewPref {
+  return {
+    id: row.id,
+    groupBy: asGroupBy(row.group_by),
+    sortBy: asSortBy(row.sort_by),
     updatedAt: row.updated_at,
     deletedAt: row.deleted_at ?? undefined,
   };
