@@ -22,13 +22,19 @@ phone app, and several things are native-only or changed startup:
 - `mobile/src/data/ids.ts` uses `randomUUID()` from `expo-crypto`.
 - The 5s sync loop keeps running while backgrounded; iOS may suspend timers differently.
 
+**The build config is in place now** — `mobile/eas.json`, an `ios.bundleIdentifier`, and the ATS
+keys below are committed, and `expo prebuild` produces a valid Xcode project. What is still
+untouched is the part that needs a Mac: actually compiling and running it. See
+[Building the iOS app](README.md#building-the-ios-app).
+
 **Done when:** `npm run ios` (or `android`) launches, first-run connects to a server on the LAN,
 a task created on the phone appears in the web client and vice versa, and force-quitting and
 reopening keeps you signed in.
 
 **Watch for:** the phone can't reach `localhost` — use the host's LAN IP, and note the server
-listens on `0.0.0.0` already. HTTP to a LAN IP is fine on iOS for now but ATS may complain in a
-release build.
+listens on `0.0.0.0` already. HTTP to a LAN IP needs an ATS exception, which `mobile/app.json`
+now carries as `NSAllowsLocalNetworking` plus `NSLocalNetworkUsageDescription` — if the very
+first connection attempt fails silently, that permission prompt is the thing to check.
 
 ---
 
