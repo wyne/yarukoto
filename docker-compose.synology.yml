@@ -20,14 +20,24 @@ services:
     restart: unless-stopped
 
     ports:
-      # HOST:CONTAINER. Change 8080 if something on the NAS already uses it —
-      # DSM itself takes 5000/5001, and other packages often claim 8080.
+      # Format is "HOST:CONTAINER".
+      #
+      # Only change the LEFT number — that's the port you'll use in the browser.
+      # DSM takes 5000/5001 and other packages often claim 8080, so if 8080 is
+      # already in use pick something free, e.g.:
+      #
+      #     - "8322:8080"      then browse to http://<nas-ip>:8322
+      #
+      # Leave the RIGHT number as 8080: it's the port inside the container, and
+      # it has to keep matching the PORT value below.
       - "8080:8080"
 
     environment:
       # ---- paste your generated token here ----
       YARUKOTO_TOKEN: CHANGE_ME_RUN_openssl_rand_hex_32
       # -----------------------------------------
+      # The port inside the container. Leave this alone — it pairs with the
+      # right-hand number in `ports:` above, not the one you browse to.
       PORT: 8080
       DATABASE_PATH: /data/yarukoto.db
       TRASH_RETENTION_DAYS: 30
