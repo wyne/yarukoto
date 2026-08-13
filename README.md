@@ -237,7 +237,8 @@ For the reason not to use `sqlite3 .backup` here, see the warning above.
 
 ## Limitations
 
-Worth knowing before you rely on it:
+Worth knowing before you rely on it. For what's planned about them — and what's simply not built
+yet — see [ROADMAP.md](ROADMAP.md).
 
 - **One shared token, no user accounts.** Anyone with the token has full access. This is a
   personal-instance design, not multi-tenant.
