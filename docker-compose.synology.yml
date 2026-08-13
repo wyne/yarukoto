@@ -16,6 +16,12 @@
 
 services:
   yarukoto:
+    # `latest` tracks the main branch. Updates are NOT automatic: the NAS keeps
+    # whatever it pulled and won't look again until told to, so updating means
+    #     docker compose pull && docker compose up -d
+    # Pin an immutable build instead if you'd rather decide when to move, e.g.
+    # ghcr.io/wyne/yarukoto:sha-366ba58 — that's also the only way to roll back,
+    # since `latest` just moves to the newest build.
     image: ghcr.io/wyne/yarukoto:latest
     restart: unless-stopped
 
