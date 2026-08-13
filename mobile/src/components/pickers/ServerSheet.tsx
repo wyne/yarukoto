@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import BottomSheet from '../BottomSheet';
 import SyncIndicator from '../SyncIndicator';
 import { colors } from '../../theme/colors';
 import { fonts } from '../../theme/typography';
-import { ApiError, useTasks } from '../../data/TaskContext';
+import { useTasks } from '../../data/TaskContext';
 import { ServerInfo, createApi } from '../../data/api';
 import { lastSyncedLabel } from '../../data/dateUtils';
 
@@ -26,23 +26,14 @@ interface Props {
   onClose: () => void;
 }
 
-/** Point the app at a different server, or drop the connection entirely. */
+/**
+ * What the app is connected to, and the way out of it. Changing servers isn't
+ * edited in place: disconnecting returns to the first-run screen, which is where
+ * a URL and token get entered.
+ */
 export default function ServerSheet({ visible, onClose }: Props) {
-  const { state, connect, disconnect, syncStatus } = useTasks();
-  const [url, setUrl] = useState(state.serverUrl);
-  const [token, setToken] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
+  const { state, disconnect, syncStatus } = useTasks();
   const [info, setInfo] = useState<ServerInfo | null | undefined>(undefined);
-
-  // Reopening should show what's actually connected, not stale edits.
-  useEffect(() => {
-    if (visible) {
-      setUrl(state.serverUrl);
-      setToken('');
-      setError(null);
-    }
-  }, [visible, state.serverUrl]);
 
   // Which build the server is running, re-read on every open so it reflects a
   // deploy that happened while the app stayed put. /health needs no token, so this
@@ -64,82 +55,47 @@ export default function ServerSheet({ visible, onClose }: Props) {
     };
   }, [visible, state.mode, state.serverUrl]);
 
-  const save = async () => {
-    const next = url.trim();
-    if (!/^https?:\/\/.+/i.test(next)) {
-      setError('Enter a full server URL, starting with http:// or https://');
-      return;
-    }
-    setError(null);
-    setSaving(true);
-    try {
-      await connect(next, token);
-      onClose();
-    } catch (err) {
-      setError(
-        err instanceof ApiError
-          ? err.status === 401
-            ? 'That token was rejected. Check it and try again.'
-            : err.message
-          : 'Something went wrong connecting.'
-      );
-    } finally {
-      setSaving(false);
-    }
-  };
-
   const sample = state.mode === 'sample';
 
   return (
-    <BottomSheet visible={visible} onClose={onClose} title={sample ? 'Connect to a server' : 'Server'}>
+    <BottomSheet visible={visible} onClose={onClose} title={sample ? 'Sample data' : 'Server'}>
       {sample && (
         <Text style={styles.sampleNote}>
-          You're exploring with sample data. Connecting replaces it with your server's tasks.
+          You're exploring with sample data. Leaving it takes you back to the connect screen, where you can point
+          Yarukoto at your own server.
         </Text>
       )}
 
       {state.mode === 'server' && (
-        <View style={styles.statusRow}>
-          <SyncIndicator mode={state.mode} status={syncStatus} serverUrl={state.serverUrl} />
-          <Text style={styles.statusTime}>{lastSyncedLabel(new Date(), syncStatus.lastSyncedAt)}</Text>
-        </View>
-      )}
-      {state.mode === 'server' && info && (
-        <View style={styles.buildBlock}>
-          <View style={styles.buildRow}>
-            <Text style={styles.buildLabel}>Server build</Text>
-            <Text style={styles.buildValue} selectable numberOfLines={1}>
-              {buildLabel(info)}
-            </Text>
+        <>
+          <View style={styles.statusRow}>
+            <SyncIndicator mode={state.mode} status={syncStatus} serverUrl={state.serverUrl} />
+            <Text style={styles.statusTime}>{lastSyncedLabel(new Date(), syncStatus.lastSyncedAt)}</Text>
           </View>
-          {info.builtAt && <Text style={styles.buildMeta}>Built {formatBuiltAt(info.builtAt)}</Text>}
-        </View>
+          <View style={styles.detailBlock}>
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>Address</Text>
+              <Text style={styles.detailValue} selectable numberOfLines={1}>
+                {state.serverUrl}
+              </Text>
+            </View>
+            {info && (
+              <>
+                <View style={[styles.detailRow, { marginTop: 6 }]}>
+                  <Text style={styles.detailLabel}>Server build</Text>
+                  <Text style={styles.detailValue} selectable numberOfLines={1}>
+                    {buildLabel(info)}
+                  </Text>
+                </View>
+                {info.builtAt && <Text style={styles.detailMeta}>Built {formatBuiltAt(info.builtAt)}</Text>}
+              </>
+            )}
+          </View>
+          <Text style={styles.changeNote}>
+            To connect to a different server, disconnect and enter the new details on the connect screen.
+          </Text>
+        </>
       )}
-      <TextInput
-        value={url}
-        onChangeText={setUrl}
-        placeholder="https://your-server.example.com"
-        placeholderTextColor={colors.textFaint}
-        style={styles.input}
-        autoCapitalize="none"
-        autoCorrect={false}
-        keyboardType="url"
-      />
-      <TextInput
-        value={token}
-        onChangeText={setToken}
-        placeholder="Access token"
-        placeholderTextColor={colors.textFaint}
-        style={[styles.input, { marginTop: 8 }]}
-        secureTextEntry
-        autoCapitalize="none"
-        onSubmitEditing={save}
-      />
-      {error && <Text style={styles.error}>{error}</Text>}
-
-      <Pressable style={styles.saveBtn} onPress={save} disabled={saving}>
-        {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveText}>Save</Text>}
-      </Pressable>
 
       <Pressable
         style={styles.disconnectBtn}
@@ -172,74 +128,51 @@ const styles = StyleSheet.create({
     fontSize: 11.5,
     color: colors.textTertiary,
   },
-  buildBlock: {
-    // The status row above it already carries the gap to the inputs below.
+  detailBlock: {
+    // The status row above it already carries the gap.
     marginTop: -6,
-    marginBottom: 14,
     paddingHorizontal: 2,
   },
-  buildRow: {
+  detailRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 8,
   },
-  buildLabel: {
+  detailLabel: {
     fontFamily: fonts.sansRegular,
     fontSize: 12.5,
     color: colors.textTertiary,
   },
-  buildValue: {
+  detailValue: {
     flexShrink: 1,
     fontFamily: fonts.monoRegular,
     fontSize: 12.5,
     color: colors.textSecondary,
   },
-  buildMeta: {
+  detailMeta: {
     marginTop: 2,
     fontFamily: fonts.sansRegular,
     fontSize: 11.5,
     color: colors.textFaint,
   },
+  changeNote: {
+    marginTop: 14,
+    paddingHorizontal: 2,
+    fontFamily: fonts.sansRegular,
+    fontSize: 12.5,
+    lineHeight: 17,
+    color: colors.textFaint,
+  },
 
   sampleNote: {
-    marginBottom: 12,
     fontFamily: fonts.sansRegular,
     fontSize: 13,
     lineHeight: 18,
     color: colors.textSecondary,
   },
-  input: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontFamily: fonts.monoRegular,
-    fontSize: 14,
-    color: colors.textPrimary,
-    backgroundColor: colors.surface,
-  },
-  error: {
-    marginTop: 8,
-    fontFamily: fonts.sansRegular,
-    fontSize: 12.5,
-    color: colors.priorityHigh,
-  },
-  saveBtn: {
-    marginTop: 14,
-    borderRadius: 10,
-    paddingVertical: 14,
-    alignItems: 'center',
-    backgroundColor: colors.textPrimary,
-  },
-  saveText: {
-    fontFamily: fonts.sansSemiBold,
-    fontSize: 15,
-    color: '#fff',
-  },
   disconnectBtn: {
-    marginTop: 4,
+    marginTop: 14,
     paddingVertical: 14,
     alignItems: 'center',
   },
