@@ -1,0 +1,46 @@
+# Yarukoto on a Synology NAS (Container Manager → Project).
+#
+# Paste this as the project's compose file. It pulls a prebuilt image, so the NAS
+# never has to compile anything — building on-device would need the Metro bundler
+# and a native better-sqlite3 compile, which is slow at best on NAS hardware.
+#
+# Two edits before you start it:
+#   1. YARUKOTO_TOKEN below — generate one and paste it in.
+#   2. The volume path, if your data isn't on volume1.
+#
+# Generate a token (any machine):  openssl rand -hex 32
+#
+# The token is written in plain text here, which is normal for a Container
+# Manager project — the file sits in a folder only NAS admins can read. Keep it
+# out of anything you'd share, and don't reuse a password you use elsewhere.
+
+services:
+  yarukoto:
+    image: ghcr.io/wyne/yarukoto:latest
+    restart: unless-stopped
+
+    ports:
+      # HOST:CONTAINER. Change 8080 if something on the NAS already uses it —
+      # DSM itself takes 5000/5001, and other packages often claim 8080.
+      - "8080:8080"
+
+    environment:
+      # ---- paste your generated token here ----
+      YARUKOTO_TOKEN: CHANGE_ME_RUN_openssl_rand_hex_32
+      # -----------------------------------------
+      PORT: 8080
+      DATABASE_PATH: /data/yarukoto.db
+      TRASH_RETENTION_DAYS: 30
+      HISTORY_REVISIONS_PER_TASK: 50
+
+    volumes:
+      # Create this folder first in File Station (e.g. docker/yarukoto/data).
+      # Everything Yarukoto stores lives in one SQLite file inside it — back the
+      # app up by stopping the project and copying that folder.
+      - /volume1/docker/yarukoto/data:/data
+
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/api/v1/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3

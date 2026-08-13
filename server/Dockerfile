@@ -1,4 +1,8 @@
-FROM node:22-alpine AS web-build
+# The web bundle and the compiled server are plain JavaScript — identical whatever
+# the target CPU — so both stages pin to the *build* platform. Without this a
+# multi-arch build would run Metro and tsc under QEMU emulation once per
+# architecture, which is slow enough to dominate the whole build.
+FROM --platform=$BUILDPLATFORM node:22-alpine AS web-build
 WORKDIR /repo
 COPY mobile/package*.json mobile/
 RUN cd mobile && npm ci
@@ -6,7 +10,7 @@ COPY shared shared
 COPY mobile mobile
 RUN cd mobile && npx expo export --platform web --output-dir /web
 
-FROM node:22-alpine AS server-build
+FROM --platform=$BUILDPLATFORM node:22-alpine AS server-build
 RUN apk add --no-cache python3 make g++
 WORKDIR /app
 COPY server/package*.json server/
