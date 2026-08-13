@@ -98,6 +98,22 @@ the usual approach.
 
 ---
 
+## Publishing a demo to GitHub Pages
+
+`.github/workflows/pages.yml` builds the web client and deploys it to Pages on every push to
+`main`. Enable it once under **Settings → Pages → Source → GitHub Actions**.
+
+**It's a sample-data demo, not a usable instance.** Pages is HTTPS, and a self-hosted server on
+plain HTTP is mixed content that browsers block — so "Connect" can't reach a local instance from
+there. Visitors get "Explore with sample data", which runs entirely client-side.
+
+The one build-time subtlety: a Pages *project* site is served from `/<repo>/`, and the export
+hard-codes absolute asset URLs. `mobile/app.config.js` reads `EXPO_BASE_URL` so the workflow can
+set that prefix while the Docker build — which serves from the domain root — leaves it empty.
+Setting it globally would break self-hosting. A user/org site or a custom domain needs no prefix.
+
+---
+
 ## Repo layout
 
 ```
