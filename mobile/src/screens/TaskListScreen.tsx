@@ -156,7 +156,7 @@ export default function TaskListScreen({ mode, tabNavigation, filter }: Props) {
         keyExtractor={(task) => task.id}
         enabled={canReorder}
         onReorder={reorderTasks}
-        renderItem={(task, i, handleProps) => (
+        renderItem={(task, i, dragProps) => (
           <>
             <TaskRow
               task={task}
@@ -166,15 +166,11 @@ export default function TaskListScreen({ mode, tabNavigation, filter }: Props) {
               showContext={wide}
               hideListId={hide?.hideListId ?? filterHideListId}
               hideTag={hide?.hideTag ?? filterHideTag}
-              dragHandleProps={handleProps}
+              dragHandleProps={dragProps.handleProps}
               selected={selectedIds.includes(task.id)}
               onPress={() => (selectionMode ? toggleSelected(task.id) : openTask(task.id))}
-              onLongPress={() => {
-                if (!selectionMode) {
-                  setSelectionMode(true);
-                  setSelectedIds([task.id]);
-                }
-              }}
+              // Holding a row picks it up to reorder; selection mode is the header button.
+              onLongPress={dragProps.onLongPress}
               onToggleComplete={() => toggleComplete(task.id)}
               onLater={() => snoozeTask(task.id)}
               onDone={() => toggleComplete(task.id)}
