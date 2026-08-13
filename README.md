@@ -67,6 +67,18 @@ To confirm it's healthy:
 curl -fsS localhost:8080/api/v1/health
 ```
 
+That also names the build that's running:
+
+```json
+{"ok":true,"version":"1.0.0","commit":"366ba58…","commitShort":"366ba58","builtAt":"2026-01-30T12:04:11Z"}
+```
+
+The same version and short sha appear in the app under the sidebar's server sheet,
+so you can tell whether an instance actually picked up an update. `commit` is empty
+for a local build unless you stamp it: `GIT_SHA=$(git rev-parse HEAD) docker compose
+build`. Published images (`ghcr.io/wyne/yarukoto`) always carry it, and the short sha
+matches their `sha-<short>` tag.
+
 ### Updating
 
 ```bash
@@ -209,7 +221,7 @@ All endpoints are under `/api/v1` and require `Authorization: Bearer <token>`, e
 
 | Endpoint | Purpose |
 |---|---|
-| `GET /health` | Unauthenticated liveness check. |
+| `GET /health` | Unauthenticated liveness check; also reports the running build (`version`, `commit`, `commitShort`, `builtAt`). |
 | `GET /sync?since=<iso>` | Changes since a cursor, including trashed rows. Omit `since` for a full hydrate. |
 | `POST /sync` | Upsert tasks/lists/folders/view prefs. Rejects any record older than the stored copy and returns the authoritative version. |
 | `GET /tasks/:id/history` | Revisions for one task, newest first. |
