@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import BottomSheet from '../BottomSheet';
+import SyncIndicator from '../SyncIndicator';
 import { colors } from '../../theme/colors';
 import { fonts } from '../../theme/typography';
 import { ApiError, useTasks } from '../../data/TaskContext';
+import { lastSyncedLabel } from '../../data/dateUtils';
 
 interface Props {
   visible: boolean;
@@ -12,7 +14,7 @@ interface Props {
 
 /** Point the app at a different server, or drop the connection entirely. */
 export default function ServerSheet({ visible, onClose }: Props) {
-  const { state, connect, disconnect } = useTasks();
+  const { state, connect, disconnect, syncStatus } = useTasks();
   const [url, setUrl] = useState(state.serverUrl);
   const [token, setToken] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -60,6 +62,13 @@ export default function ServerSheet({ visible, onClose }: Props) {
           You're exploring with sample data. Connecting replaces it with your server's tasks.
         </Text>
       )}
+
+      {state.mode === 'server' && (
+        <View style={styles.statusRow}>
+          <SyncIndicator mode={state.mode} status={syncStatus} serverUrl={state.serverUrl} />
+          <Text style={styles.statusTime}>{lastSyncedLabel(new Date(), syncStatus.lastSyncedAt)}</Text>
+        </View>
+      )}
       <TextInput
         value={url}
         onChangeText={setUrl}
@@ -100,6 +109,23 @@ export default function ServerSheet({ visible, onClose }: Props) {
 }
 
 const styles = StyleSheet.create({
+  statusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: colors.surfaceMuted,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 8,
+  },
+  statusTime: {
+    fontFamily: fonts.monoRegular,
+    fontSize: 11.5,
+    color: colors.textTertiary,
+  },
   sampleNote: {
     marginBottom: 12,
     fontFamily: fonts.sansRegular,
