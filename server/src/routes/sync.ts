@@ -34,15 +34,20 @@ export function registerSyncRoutes(app: FastifyInstance, db: Database.Database):
       }
     }
 
+    // Filter on server_updated_at, never updated_at: the latter is the *client's*
+    // clock, while `now` above is this server's. Comparing across those two
+    // clocks silently drops any record written by a client running behind the
+    // server — it lands older than a cursor already in another client's hand,
+    // and no incremental pull ever returns it again.
     const cursor = since ?? '';
-    const tasks = (db.prepare('SELECT * FROM tasks WHERE updated_at > ? ORDER BY updated_at').all(cursor) as TaskRow[]).map(
-      taskFromRow
-    );
-    const lists = (db.prepare('SELECT * FROM lists WHERE updated_at > ? ORDER BY updated_at').all(cursor) as ListRow[]).map(
-      listFromRow
-    );
+    const tasks = (
+      db.prepare('SELECT * FROM tasks WHERE server_updated_at > ? ORDER BY server_updated_at').all(cursor) as TaskRow[]
+    ).map(taskFromRow);
+    const lists = (
+      db.prepare('SELECT * FROM lists WHERE server_updated_at > ? ORDER BY server_updated_at').all(cursor) as ListRow[]
+    ).map(listFromRow);
     const folders = (
-      db.prepare('SELECT * FROM folders WHERE updated_at > ? ORDER BY updated_at').all(cursor) as FolderRow[]
+      db.prepare('SELECT * FROM folders WHERE server_updated_at > ? ORDER BY server_updated_at').all(cursor) as FolderRow[]
     ).map(folderFromRow);
     const viewPrefs = (
       db.prepare('SELECT * FROM view_prefs WHERE updated_at > ? ORDER BY updated_at').all(cursor) as ViewPrefRow[]
@@ -92,10 +97,12 @@ function upsertList(db: Database.Database, list: ListDef): ListDef {
     return listFromRow(db.prepare('SELECT * FROM lists WHERE id = ?').get(list.id) as ListRow);
   }
   db.prepare(
-    `INSERT INTO lists (id, name, color, folder_id, updated_at, deleted_at) VALUES (@id, @name, @color, @folderId, @updatedAt, @deletedAt)
+    `INSERT INTO lists (id, name, color, folder_id, updated_at, deleted_at, server_updated_at)
+     VALUES (@id, @name, @color, @folderId, @updatedAt, @deletedAt, @serverUpdatedAt)
      ON CONFLICT(id) DO UPDATE SET name = excluded.name, color = excluded.color, folder_id = excluded.folder_id,
-       updated_at = excluded.updated_at, deleted_at = excluded.deleted_at`
-  ).run({ ...list, deletedAt: list.deletedAt ?? null });
+       updated_at = excluded.updated_at, deleted_at = excluded.deleted_at,
+       server_updated_at = excluded.server_updated_at`
+  ).run({ ...list, deletedAt: list.deletedAt ?? null, serverUpdatedAt: new Date().toISOString() });
   return list;
 }
 
@@ -122,8 +129,10 @@ function upsertFolder(db: Database.Database, folder: FolderDef): FolderDef {
     return folderFromRow(db.prepare('SELECT * FROM folders WHERE id = ?').get(folder.id) as FolderRow);
   }
   db.prepare(
-    `INSERT INTO folders (id, name, updated_at, deleted_at) VALUES (@id, @name, @updatedAt, @deletedAt)
-     ON CONFLICT(id) DO UPDATE SET name = excluded.name, updated_at = excluded.updated_at, deleted_at = excluded.deleted_at`
-  ).run({ ...folder, deletedAt: folder.deletedAt ?? null });
+    `INSERT INTO folders (id, name, updated_at, deleted_at, server_updated_at)
+     VALUES (@id, @name, @updatedAt, @deletedAt, @serverUpdatedAt)
+     ON CONFLICT(id) DO UPDATE SET name = excluded.name, updated_at = excluded.updated_at,
+       deleted_at = excluded.deleted_at, server_updated_at = excluded.server_updated_at`
+  ).run({ ...folder, deletedAt: folder.deletedAt ?? null, serverUpdatedAt: new Date().toISOString() });
   return folder;
 }
