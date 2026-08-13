@@ -243,7 +243,7 @@ export default function Sidebar({ state, navigation, onNavigate }: Props) {
       <Pressable
         style={[styles.footer, collapsed && styles.footerCollapsed, { paddingBottom: Math.max(12, insets.bottom) }]}
         onPress={() => setServerOpen(true)}
-        accessibilityLabel="Edit server"
+        accessibilityLabel="Server connection"
       >
         <SyncIndicator
           mode={data.mode}
