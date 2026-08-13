@@ -1,0 +1,67 @@
+name: Deploy demo to GitHub Pages
+
+# Publishes the web client as a sample-data demo. It is only that: a Pages site is
+# HTTPS, and a self-hosted Yarukoto server on plain HTTP is mixed content that
+# browsers block, so "Connect" can't reach a local instance from here.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'mobile/**'
+      - 'shared/**'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Let a running deploy finish rather than cancelling it midway.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+
+      - name: Install
+        working-directory: mobile
+        run: npm ci
+
+      - name: Export web
+        working-directory: mobile
+        # Project sites are served from /<repo>/, so bundled asset URLs need that
+        # prefix. Taken from the repo name so renaming the repo can't silently
+        # break it. A user/org site or custom domain would set this to ''.
+        env:
+          EXPO_BASE_URL: /${{ github.event.repository.name }}
+        run: npx expo export --platform web --output-dir dist
+
+      - name: Disable Jekyll
+        # The bundle lives in _expo/, and a leading underscore is exactly what
+        # Jekyll strips. Cheap insurance against an empty-looking deploy.
+        run: touch mobile/dist/.nojekyll
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: mobile/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
