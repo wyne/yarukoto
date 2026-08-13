@@ -1,4 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import { AppState } from 'react-native';
 import { setAudioModeAsync, useAudioPlayer } from 'expo-audio';
 import { buildSampleData } from './sampleData';
 import { FolderDef, ListDef, Priority, Task, ViewPref } from './types';
@@ -328,6 +329,15 @@ export interface PendingUndo {
 
 export const UNDO_TIMEOUT_MS = 5000;
 
+/** How often a foregrounded client syncs. */
+export const ACTIVE_SYNC_MS = 5000;
+/**
+ * How often a backgrounded one does. Long, because nobody is watching — and on a
+ * phone the difference is battery. Foregrounding syncs immediately regardless,
+ * so this delay is never what you wait through when you pick a device up.
+ */
+export const IDLE_SYNC_MS = 60000;
+
 interface TaskContextValue {
   state: State;
   addTaskFromQuickAdd: (text: string, defaults?: QuickAddDefaults) => void;
@@ -643,16 +653,35 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     dispatch({ type: 'DISCONNECT' });
   }, []);
 
-  // Push dirty records, then pull. Runs once on connect and on a timer while
-  // connected; a change in between waits for the next tick rather than firing
-  // its own request, which keeps concurrent pushes from racing each other.
+  // Push dirty records, then pull. Runs once on connect, again whenever the app
+  // comes to the foreground, and on a timer in between; a change mid-cycle waits
+  // for the next tick rather than firing its own request, which keeps concurrent
+  // pushes from racing each other.
   useEffect(() => {
     if (state.mode !== 'server') return;
     const api = createApi(state.serverUrl, state.token);
     let cancelled = false;
+    let running = false;
     let timer: ReturnType<typeof setTimeout>;
 
+    /**
+     * Polling every few seconds forever is wasted work when nobody is looking —
+     * and on a phone it's wasted battery. Backgrounded clients fall back to a
+     * slow tick, *unless* there are unsent edits: those shouldn't wait a minute
+     * to reach the server just because the user switched away right after making
+     * them.
+     */
+    const nextDelay = (): number => {
+      const foreground = AppState.currentState === 'active';
+      if (foreground || outboxRef.current.size > 0) return ACTIVE_SYNC_MS;
+      return IDLE_SYNC_MS;
+    };
+
     const cycle = async () => {
+      // Foregrounding fires an immediate cycle; guard against overlapping one
+      // that's already in flight.
+      if (running || cancelled) return;
+      running = true;
       setSyncStatus((s) => ({ ...s, state: 'syncing' }));
       try {
         if (outboxRef.current.size > 0) {
@@ -696,13 +725,23 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
           pending: outboxRef.current.size,
         }));
       }
-      if (!cancelled) timer = setTimeout(cycle, 5000);
+      running = false;
+      if (!cancelled) timer = setTimeout(cycle, nextDelay());
     };
+
+    // The moment you look at a device is exactly when staleness is visible, so
+    // don't wait out the timer — sync straight away.
+    const subscription = AppState.addEventListener('change', (next) => {
+      if (next !== 'active' || cancelled) return;
+      clearTimeout(timer);
+      cycle();
+    });
 
     cycle();
     return () => {
       cancelled = true;
       clearTimeout(timer);
+      subscription.remove();
     };
   }, [state.mode, state.serverUrl, state.token]);
 
