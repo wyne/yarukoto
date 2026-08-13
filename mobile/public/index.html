@@ -83,6 +83,13 @@
         /* Drops the 300ms double-tap-to-zoom delay on taps. */
         touch-action: manipulation;
       }
+      #root {
+        /* Holding a task row picks it up to reorder it. iOS reads the same hold as a
+           long press on the text and pops the selection/copy callout over the row
+           being dragged; there's no style-prop equivalent, so it has to live here.
+           Text fields are unaffected — this suppresses the callout, not editing. */
+        -webkit-touch-callout: none;
+      }
     </style>
   </head>
 

@@ -1,7 +1,8 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, GestureResponderHandlers, PanResponder, StyleSheet, View } from 'react-native';
 import { useAccent } from '../theme/ThemeContext';
 import { colors } from '../theme/colors';
+import { lockDragGestures, unlockDragGestures } from '../drag/webDragLock';
 
 /** Bindings a row must wire up to become draggable. */
 export interface RowDragProps {
@@ -43,6 +44,10 @@ export default function DragList<T>({ items, keyExtractor, renderItem, onReorder
   const itemsRef = useRef(items);
   itemsRef.current = items;
 
+  // Unmounting mid-drag (navigating away, the list re-filtering) skips endDrag, and
+  // a lock left on would leave the whole page unscrollable.
+  useEffect(() => unlockDragGestures, []);
+
   const targetFor = (from: number, dy: number): number => {
     const h = heights.current;
     let top = 0;
@@ -59,6 +64,7 @@ export default function DragList<T>({ items, keyExtractor, renderItem, onReorder
   };
 
   const beginDrag = (index: number) => {
+    lockDragGestures();
     dragY.setValue(0);
     dragRef.current = { from: index, to: index };
     setDrag(dragRef.current);
@@ -74,6 +80,7 @@ export default function DragList<T>({ items, keyExtractor, renderItem, onReorder
   };
 
   const endDrag = (commit: boolean) => {
+    unlockDragGestures();
     const d = dragRef.current;
     if (commit && d && d.to !== d.from) {
       const keys = itemsRef.current.map(keyExtractor);
@@ -98,6 +105,10 @@ export default function DragList<T>({ items, keyExtractor, renderItem, onReorder
           onMoveShouldSetPanResponder: () => enabled,
           onPanResponderGrant: () => beginDrag(index),
           onPanResponderMove: (_e, g) => moveDrag(index, g.dy),
+          // react-native-web asks the responder to give up the gesture on
+          // selectionchange, scroll and contextmenu — all three of which a held
+          // finger on mobile web triggers, which killed the drag mid-flight.
+          onPanResponderTerminationRequest: () => false,
           onPanResponderRelease: () => endDrag(true),
           onPanResponderTerminate: () => endDrag(false),
         })
@@ -115,6 +126,7 @@ export default function DragList<T>({ items, keyExtractor, renderItem, onReorder
           onMoveShouldSetPanResponderCapture: () => enabled && armedRef.current === index,
           onPanResponderGrant: () => beginDrag(index),
           onPanResponderMove: (_e, g) => moveDrag(index, g.dy),
+          onPanResponderTerminationRequest: () => false,
           onPanResponderRelease: () => endDrag(true),
           onPanResponderTerminate: () => endDrag(false),
         })
