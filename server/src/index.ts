@@ -9,6 +9,7 @@ import { registerHealthRoute } from './routes/health';
 import { registerSyncRoutes } from './routes/sync';
 import { registerHistoryRoutes } from './routes/history';
 import { scheduleRetention } from './retention';
+import { buildInfo } from './version';
 
 async function main() {
   const db = openDatabase();
@@ -61,7 +62,14 @@ async function main() {
 
   await app.listen({ host: '0.0.0.0', port: env.port });
   app.log.info(
-    { webRoot: env.webRoot, servingWebClient: webRootExists, database: env.databasePath },
+    {
+      version: buildInfo.version,
+      commit: buildInfo.commitShort,
+      builtAt: buildInfo.builtAt,
+      webRoot: env.webRoot,
+      servingWebClient: webRootExists,
+      database: env.databasePath,
+    },
     'Yarukoto ready'
   );
 }

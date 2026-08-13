@@ -31,6 +31,13 @@ COPY --from=server-build /app/server/dist ./dist
 COPY server/migrations ./migrations
 COPY --from=web-build /web ../web
 
+# Stamped into the image so /api/v1/health can say exactly which build is running.
+# They land in the final stage only, so changing them doesn't bust any build cache.
+ARG GIT_SHA=""
+ARG BUILD_TIME=""
+ENV GIT_SHA=$GIT_SHA
+ENV BUILD_TIME=$BUILD_TIME
+
 # Pinned rather than left to env.ts's cwd-relative default, so the web client is
 # found regardless of what directory the process is started from.
 ENV WEB_ROOT=/app/web
