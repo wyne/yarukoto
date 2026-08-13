@@ -3,19 +3,28 @@ import { Animated, GestureResponderHandlers, PanResponder, StyleSheet, View } fr
 import { useAccent } from '../theme/ThemeContext';
 import { colors } from '../theme/colors';
 
+/** Bindings a row must wire up to become draggable. */
+export interface RowDragProps {
+  /** Spread onto the grab handle; starts a drag as soon as the handle is touched. */
+  handleProps?: GestureResponderHandlers;
+  /** Wire to the row's long press; holding anywhere on the row arms a drag. */
+  onLongPress?: () => void;
+}
+
 interface Props<T> {
   items: T[];
   keyExtractor: (item: T) => string;
-  /** `handleProps` must be spread onto whatever grabs the row; nothing else starts a drag. */
-  renderItem: (item: T, index: number, handleProps: GestureResponderHandlers | undefined) => React.ReactNode;
+  /** Nothing starts a drag unless the row wires up one of the given bindings. */
+  renderItem: (item: T, index: number, drag: RowDragProps) => React.ReactNode;
   /** Receives every key in its new order. */
   onReorder: (keys: string[]) => void;
   enabled: boolean;
 }
 
 /**
- * Reorderable column driven by a per-row drag handle. Only the handle claims the
- * gesture, so taps, row swipes and list scrolling keep working untouched.
+ * Reorderable column. A drag starts either from the row's grab handle or from a
+ * long press anywhere on the row; taps, row swipes and list scrolling are left
+ * alone until one of those happens.
  *
  * The dragged row floats under the pointer and an accent line marks where it will
  * land, rather than animating every other row out of the way — far less state to
@@ -27,6 +36,9 @@ export default function DragList<T>({ items, keyExtractor, renderItem, onReorder
   const heights = useRef<number[]>([]);
   const dragRef = useRef<{ from: number; to: number } | null>(null);
   const [drag, setDrag] = useState<{ from: number; to: number } | null>(null);
+  // A long press only *arms* the row: the drag itself begins on the next move, so
+  // a hold that goes nowhere costs nothing but the lifted look.
+  const armedRef = useRef<number | null>(null);
 
   const itemsRef = useRef(items);
   itemsRef.current = items;
@@ -46,7 +58,36 @@ export default function DragList<T>({ items, keyExtractor, renderItem, onReorder
     return items.length - 1;
   };
 
-  const responders = useMemo(
+  const beginDrag = (index: number) => {
+    dragY.setValue(0);
+    dragRef.current = { from: index, to: index };
+    setDrag(dragRef.current);
+  };
+
+  const moveDrag = (index: number, dy: number) => {
+    dragY.setValue(dy);
+    const to = targetFor(index, dy);
+    if (dragRef.current && dragRef.current.to !== to) {
+      dragRef.current = { from: index, to };
+      setDrag(dragRef.current);
+    }
+  };
+
+  const endDrag = (commit: boolean) => {
+    const d = dragRef.current;
+    if (commit && d && d.to !== d.from) {
+      const keys = itemsRef.current.map(keyExtractor);
+      const [moved] = keys.splice(d.from, 1);
+      keys.splice(d.to, 0, moved);
+      onReorder(keys);
+    }
+    armedRef.current = null;
+    dragRef.current = null;
+    setDrag(null);
+    dragY.setValue(0);
+  };
+
+  const handleResponders = useMemo(
     () =>
       items.map((_, index) =>
         PanResponder.create({
@@ -55,41 +96,38 @@ export default function DragList<T>({ items, keyExtractor, renderItem, onReorder
           // which let the Pressable claim the gesture and swallowed every drag.
           onStartShouldSetPanResponder: () => enabled,
           onMoveShouldSetPanResponder: () => enabled,
-          onPanResponderGrant: () => {
-            dragY.setValue(0);
-            dragRef.current = { from: index, to: index };
-            setDrag(dragRef.current);
-          },
-          onPanResponderMove: (_e, g) => {
-            dragY.setValue(g.dy);
-            const to = targetFor(index, g.dy);
-            if (dragRef.current && dragRef.current.to !== to) {
-              dragRef.current = { from: index, to };
-              setDrag(dragRef.current);
-            }
-          },
-          onPanResponderRelease: () => {
-            const d = dragRef.current;
-            if (d && d.to !== d.from) {
-              const keys = itemsRef.current.map(keyExtractor);
-              const [moved] = keys.splice(d.from, 1);
-              keys.splice(d.to, 0, moved);
-              onReorder(keys);
-            }
-            dragRef.current = null;
-            setDrag(null);
-            dragY.setValue(0);
-          },
-          onPanResponderTerminate: () => {
-            dragRef.current = null;
-            setDrag(null);
-            dragY.setValue(0);
-          },
+          onPanResponderGrant: () => beginDrag(index),
+          onPanResponderMove: (_e, g) => moveDrag(index, g.dy),
+          onPanResponderRelease: () => endDrag(true),
+          onPanResponderTerminate: () => endDrag(false),
         })
       ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [items, enabled]
   );
+
+  const rowResponders = useMemo(
+    () =>
+      items.map((_, index) =>
+        PanResponder.create({
+          // Capture phase this time: once the hold has armed the row, the drag has to
+          // outrank the swipe handler nested inside it, which capture (root-down) does.
+          onMoveShouldSetPanResponderCapture: () => enabled && armedRef.current === index,
+          onPanResponderGrant: () => beginDrag(index),
+          onPanResponderMove: (_e, g) => moveDrag(index, g.dy),
+          onPanResponderRelease: () => endDrag(true),
+          onPanResponderTerminate: () => endDrag(false),
+        })
+      ),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [items, enabled]
+  );
+
+  // A hold that never turns into a move ends here: the touch handlers fire whether or
+  // not the pan responder ever took over, so the row can't stay stuck in its lifted state.
+  const releaseRow = (index: number) => {
+    if (armedRef.current === index || dragRef.current?.from === index) endDrag(false);
+  };
 
   return (
     <View>
@@ -103,8 +141,19 @@ export default function DragList<T>({ items, keyExtractor, renderItem, onReorder
               heights.current[i] = e.nativeEvent.layout.height;
             }}
             style={dragging ? [styles.dragging, { transform: [{ translateY: dragY }] }] : undefined}
+            onTouchEnd={() => releaseRow(i)}
+            onTouchCancel={() => releaseRow(i)}
+            {...(enabled ? rowResponders[i].panHandlers : {})}
           >
-            {renderItem(item, i, enabled ? responders[i].panHandlers : undefined)}
+            {renderItem(item, i, {
+              handleProps: enabled ? handleResponders[i].panHandlers : undefined,
+              onLongPress: enabled
+                ? () => {
+                    armedRef.current = i;
+                    beginDrag(i);
+                  }
+                : undefined,
+            })}
             {isTarget && (
               <View
                 style={[
