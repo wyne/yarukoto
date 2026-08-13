@@ -5,7 +5,10 @@ import { colors } from '../../theme/colors';
 import { fonts } from '../../theme/typography';
 import { useAccent } from '../../theme/ThemeContext';
 import { useTasks } from '../../data/TaskContext';
-import { listsInFolder } from '../../data/selectors';
+import {
+  activeFolders,
+  listsInFolder,
+} from '../../data/selectors';
 
 interface Props {
   visible: boolean;
@@ -28,7 +31,7 @@ export default function ListPickerSheet({ visible, onClose, value, onApply }: Pr
       <Pressable style={styles.row} onPress={() => choose(null)}>
         <Text style={[styles.rowText, value === null && { color: accent, fontFamily: fonts.sansSemiBold }]}>Inbox</Text>
       </Pressable>
-      {state.folders.map((folder) => (
+      {activeFolders(state.folders).map((folder) => (
         <View key={folder.id}>
           <Text style={styles.folderLabel}>{folder.name}</Text>
           {listsInFolder(state.lists, folder.id).map((list) => (

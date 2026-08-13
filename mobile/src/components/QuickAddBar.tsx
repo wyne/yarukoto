@@ -7,6 +7,7 @@ import { useTasks } from '../data/TaskContext';
 import { IconPlus } from '../icons/Icons';
 import { parseQuickAdd } from '../data/quickAdd';
 import { formatDueShort } from '../data/dateUtils';
+import { activeFolders, activeLists } from '../data/selectors';
 
 const HINT = 'Add a task… try "pay rent fri 6pm #home !high ~admin"';
 
@@ -44,12 +45,12 @@ export default function QuickAddBar({ onSubmit, contextLabel }: Props) {
     [state.tasks]
   );
   const folderName = useMemo(
-    () => new Map(state.folders.map((f) => [f.id, f.name])),
+    () => new Map(activeFolders(state.folders).map((f) => [f.id, f.name])),
     [state.folders]
   );
   const listSuggestions = useMemo(
     () =>
-      state.lists.map((l) => ({
+      activeLists(state.lists).map((l) => ({
         label: l.name,
         hint: folderName.get(l.folderId),
       })),

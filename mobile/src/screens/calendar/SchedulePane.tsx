@@ -5,7 +5,15 @@ import { fonts } from '../../theme/typography';
 import { useAccent } from '../../theme/ThemeContext';
 import { useTasks } from '../../data/TaskContext';
 import { useDetail } from '../../navigation/DetailContext';
-import { activeTasks, getListById, inboxTasks, listsInFolder, tagCounts, unscheduledTasks } from '../../data/selectors';
+import {
+  activeFolders,
+  activeTasks,
+  getListById,
+  inboxTasks,
+  listsInFolder,
+  tagCounts,
+  unscheduledTasks,
+} from '../../data/selectors';
 import { Task } from '../../data/types';
 import TaskRow from '../../components/TaskRow';
 import Card from '../../components/Card';
@@ -96,7 +104,7 @@ export default function SchedulePane() {
               setPickerOpen(false);
             }} />
           ))}
-          {state.folders.map((folder) => (
+          {activeFolders(state.folders).map((folder) => (
             <View key={folder.id}>
               <Text style={styles.sectionLabel}>{folder.name}</Text>
               {listsInFolder(state.lists, folder.id).map((list) => (

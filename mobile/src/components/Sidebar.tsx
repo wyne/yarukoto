@@ -7,6 +7,7 @@ import { fonts } from '../theme/typography';
 import { useAccent } from '../theme/ThemeContext';
 import { useTasks } from '../data/TaskContext';
 import {
+  activeFolders,
   activeTasks,
   inboxCount,
   listCounts,
@@ -18,7 +19,8 @@ import {
 import { TaskListFilter } from '../navigation/types';
 import { useSidebar } from '../navigation/SidebarContext';
 import { FolderDef, ListDef } from '../data/types';
-import ListColorPickerSheet from './pickers/ListColorPickerSheet';
+import ListOptionsSheet from './pickers/ListOptionsSheet';
+import FolderOptionsSheet from './pickers/FolderOptionsSheet';
 import ServerSheet from './pickers/ServerSheet';
 import NewListSheet from './pickers/NewListSheet';
 import NewFolderSheet from './pickers/NewFolderSheet';
@@ -61,7 +63,8 @@ interface Props extends BottomTabBarProps {
 
 export default function Sidebar({ state, navigation, onNavigate }: Props) {
   const accent = useAccent();
-  const [colorTarget, setColorTarget] = useState<ListDef | null>(null);
+  const [listTarget, setListTarget] = useState<ListDef | null>(null);
+  const [folderTarget, setFolderTarget] = useState<FolderDef | null>(null);
   const [newListFolder, setNewListFolder] = useState<FolderDef | null>(null);
   const [newFolderOpen, setNewFolderOpen] = useState(false);
   const { wide, collapsed: collapsedPref, toggleCollapsed } = useSidebar();
@@ -144,15 +147,22 @@ export default function Sidebar({ state, navigation, onNavigate }: Props) {
           );
         })}
 
-        {data.folders.map((folder) => {
+        {activeFolders(data.folders).map((folder) => {
           const lists = listsInFolder(data.lists, folder.id);
           return (
             <View key={folder.id}>
               {!collapsed && (
                 <View style={styles.folderRow}>
-                  <Text style={[styles.sectionLabel, styles.folderLabel]} numberOfLines={1}>
-                    {folder.name}
-                  </Text>
+                  <Pressable
+                    style={styles.folderLabelPress}
+                    onLongPress={() => setFolderTarget(folder)}
+                    delayLongPress={350}
+                    accessibilityLabel={`Edit folder ${folder.name}`}
+                  >
+                    <Text style={[styles.sectionLabel, styles.folderLabel]} numberOfLines={1}>
+                      {folder.name}
+                    </Text>
+                  </Pressable>
                   <Pressable
                     onPress={() => setNewListFolder(folder)}
                     hitSlop={8}
@@ -170,7 +180,7 @@ export default function Sidebar({ state, navigation, onNavigate }: Props) {
                     style={[styles.row, collapsed && styles.rowCollapsed, active && { backgroundColor: colors.selectedRowBg }]}
                     onPress={() => openFilter({ type: 'list', value: list.id, label: list.name })}
                     accessibilityLabel={list.name}
-                    onLongPress={() => setColorTarget(list)}
+                    onLongPress={() => setListTarget(list)}
                     delayLongPress={350}
                   >
                     {collapsed ? (
@@ -178,7 +188,7 @@ export default function Sidebar({ state, navigation, onNavigate }: Props) {
                         <Text style={styles.letterBadgeText}>{list.name.charAt(0).toUpperCase()}</Text>
                       </View>
                     ) : (
-                      <Pressable onPress={() => setColorTarget(list)} hitSlop={8} accessibilityLabel={`Change ${list.name} colour`}>
+                      <Pressable onPress={() => setListTarget(list)} hitSlop={8} accessibilityLabel={`Change ${list.name} colour`}>
                         <View style={[styles.dot, { backgroundColor: list.color }]} />
                       </Pressable>
                     )}
@@ -243,7 +253,8 @@ export default function Sidebar({ state, navigation, onNavigate }: Props) {
         />
       </Pressable>
 
-      <ListColorPickerSheet list={colorTarget} onClose={() => setColorTarget(null)} />
+      <ListOptionsSheet list={listTarget} onClose={() => setListTarget(null)} />
+      <FolderOptionsSheet folder={folderTarget} onClose={() => setFolderTarget(null)} />
       <NewListSheet folder={newListFolder} onClose={() => setNewListFolder(null)} />
       <NewFolderSheet visible={newFolderOpen} onClose={() => setNewFolderOpen(false)} />
       <ServerSheet visible={serverOpen} onClose={() => setServerOpen(false)} />
@@ -336,6 +347,10 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingTop: 0,
     paddingBottom: 0,
+  },
+  folderLabelPress: {
+    flex: 1,
+    minWidth: 0,
   },
   folderRow: {
     flexDirection: 'row',
