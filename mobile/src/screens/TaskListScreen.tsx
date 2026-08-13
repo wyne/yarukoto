@@ -217,7 +217,7 @@ export default function TaskListScreen({ mode, tabNavigation, filter }: Props) {
             <Pressable
               style={styles.titleRow}
               disabled={!filter}
-              onPress={() => tabNavigation.navigate('InboxTab', { filter: undefined })}
+              onPress={() => tabNavigation.navigate('InboxTab')}
             >
               <Text style={styles.title}>{filter ? filter.label : TITLES[mode]}</Text>
               <Text style={styles.count}>{active.length}</Text>

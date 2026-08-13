@@ -45,8 +45,13 @@
       screenshots the page and uses that on the Home Screen; it ignores the manifest
       icons for this. The hrefs are relative on purpose — the app is served from the
       domain root when self-hosted but from /<repo>/ on GitHub Pages (see
-      app.config.js), and it never pushes a URL path, so relative always resolves.
-      Expo injects the <link rel="icon"> for favicon.ico itself, baseUrl included.
+      app.config.js), and only a relative href resolves under both. Expo injects the
+      <link rel="icon"> for favicon.ico itself, baseUrl included.
+
+      Relative means resolved against whatever URL the page was loaded from, which is
+      why the routes in App.tsx are all a single path segment: at /today these still
+      resolve to the directory the app is served from, but at a /list/<id> they'd go
+      looking one level deeper and 404.
     -->
     <link rel="apple-touch-icon" href="apple-touch-icon.png" />
     <link rel="manifest" href="manifest.webmanifest" />
