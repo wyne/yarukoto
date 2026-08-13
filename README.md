@@ -242,5 +242,6 @@ Worth knowing before you rely on it:
 ## Design origins
 
 This started as an HTML/CSS prototype from [Claude Design](https://claude.ai/design). The original
-handoff bundle is still in the repo for reference: `project/` holds the design files and `chats/`
-holds the conversation that produced them. Neither is used at build time.
+handoff bundle — the design files and the conversation that produced them — has been removed now
+that the app itself is the reference; it was never used at build time. It remains in the git
+history if you ever want it back.
