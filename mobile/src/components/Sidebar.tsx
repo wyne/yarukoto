@@ -22,6 +22,7 @@ import ListColorPickerSheet from './pickers/ListColorPickerSheet';
 import ServerSheet from './pickers/ServerSheet';
 import NewListSheet from './pickers/NewListSheet';
 import NewFolderSheet from './pickers/NewFolderSheet';
+import SyncIndicator from './SyncIndicator';
 import {
   IconCalendar,
   IconChevronLeft,
@@ -68,7 +69,7 @@ export default function Sidebar({ state, navigation, onNavigate }: Props) {
   const collapsed = wide && collapsedPref;
   const [serverOpen, setServerOpen] = useState(false);
   const insets = useSafeAreaInsets();
-  const { state: data } = useTasks();
+  const { state: data, syncStatus } = useTasks();
   const now = new Date();
 
   const counts = listCounts(data.tasks);
@@ -234,12 +235,12 @@ export default function Sidebar({ state, navigation, onNavigate }: Props) {
         onPress={() => setServerOpen(true)}
         accessibilityLabel="Edit server"
       >
-        <View style={[styles.syncDot, { backgroundColor: data.mode === 'sample' ? colors.textFaint : colors.success }]} />
-        {!collapsed && (
-          <Text style={styles.syncText} numberOfLines={1}>
-            {data.mode === 'sample' ? 'Sample data' : data.serverUrl.replace(/^https?:\/\//, '') || 'Not connected'}
-          </Text>
-        )}
+        <SyncIndicator
+          mode={data.mode}
+          status={syncStatus}
+          serverUrl={data.serverUrl}
+          compact={collapsed}
+        />
       </Pressable>
 
       <ListColorPickerSheet list={colorTarget} onClose={() => setColorTarget(null)} />
@@ -387,16 +388,5 @@ const styles = StyleSheet.create({
     paddingTop: 10,
     borderTopWidth: 1,
     borderTopColor: colors.border,
-  },
-  syncDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 4,
-  },
-  syncText: {
-    flex: 1,
-    fontFamily: fonts.monoRegular,
-    fontSize: 11,
-    color: colors.textTertiary,
   },
 });

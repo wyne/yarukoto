@@ -19,6 +19,7 @@ import {
   tasksUpcomingCount,
 } from '../data/selectors';
 import Card from '../components/Card';
+import SyncIndicator from '../components/SyncIndicator';
 import Divider from '../components/Divider';
 import BottomSheet from '../components/BottomSheet';
 import ListColorPickerSheet from '../components/pickers/ListColorPickerSheet';
@@ -31,7 +32,7 @@ export default function BrowseScreen({ navigation }: Props) {
   const accent = useAccent();
   const insets = useSafeAreaInsets();
   const { wide, openDrawer } = useSidebar();
-  const { state, addList, disconnect } = useTasks();
+  const { state, addList, disconnect, syncStatus } = useTasks();
   const now = new Date();
   const counts = listCounts(state.tasks);
   const tags = tagCounts(state.tasks);
@@ -154,10 +155,7 @@ export default function BrowseScreen({ navigation }: Props) {
       </ScrollView>
 
       <Pressable style={[styles.syncRow, wide && styles.paneWide]} onPress={confirmDisconnect}>
-        <View style={[styles.syncDot, { backgroundColor: colors.success }]} />
-        <Text style={styles.syncText}>Synced just now</Text>
-        <View style={{ flex: 1 }} />
-        <Text style={styles.syncHost}>{state.serverUrl.replace(/^https?:\/\//, '')}</Text>
+        <SyncIndicator mode={state.mode} status={syncStatus} serverUrl={state.serverUrl} />
       </Pressable>
 
       <BottomSheet visible={addOpen} onClose={() => setAddOpen(false)} title="New list">
@@ -305,21 +303,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: 10,
-  },
-  syncDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  syncText: {
-    fontFamily: fonts.monoRegular,
-    fontSize: 12,
-    color: colors.textSecondary,
-  },
-  syncHost: {
-    fontFamily: fonts.monoRegular,
-    fontSize: 12,
-    color: colors.textTertiary,
   },
   newListInput: {
     borderWidth: 1,

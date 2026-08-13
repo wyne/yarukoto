@@ -55,6 +55,29 @@ export function monthShort(d: Date): string {
   return MONTH_SHORT[d.getMonth()];
 }
 
+/**
+ * Compact elapsed time for the sync indicator: 'now', '3m', '2h', '4d'.
+ *
+ * Deliberately coarse — the sidebar has room for a few characters, and knowing a
+ * sync was "3m" ago is the useful part; the seconds never are.
+ */
+export function elapsedShort(now: Date, iso: string): string {
+  const seconds = Math.max(0, Math.round((now.getTime() - new Date(iso).getTime()) / 1000));
+  if (seconds < 45) return 'now';
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 60) return `${minutes}m`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `${hours}h`;
+  return `${Math.round(hours / 24)}d`;
+}
+
+/** The same value as a sentence, for places with room to spell it out. */
+export function lastSyncedLabel(now: Date, iso?: string): string {
+  if (!iso) return 'Not synced yet';
+  const elapsed = elapsedShort(now, iso);
+  return elapsed === 'now' ? 'Last synced just now' : `Last synced ${elapsed} ago`;
+}
+
 export function formatTime24to12(hhmm: string): string {
   const [hStr, mStr] = hhmm.split(':');
   let h = Number(hStr);

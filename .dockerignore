@@ -1,0 +1,21 @@
+# node_modules must never enter the build context: each stage runs `npm ci`
+# first and then COPYs the source over it, so host modules (built for the host's
+# OS/arch) would overwrite the container's Linux install — and better-sqlite3's
+# native binding would be the wrong platform entirely.
+node_modules
+**/node_modules
+
+# The live database and any local secrets are not build inputs.
+data
+.env
+
+# Build output, regenerated inside the image.
+server/dist
+mobile/dist
+mobile/.expo
+mobile/web-build
+
+.git
+.gitignore
+**/*.log
+**/.DS_Store

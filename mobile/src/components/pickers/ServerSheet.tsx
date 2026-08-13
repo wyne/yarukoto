@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import BottomSheet from '../BottomSheet';
+import SyncIndicator from '../SyncIndicator';
 import { colors } from '../../theme/colors';
 import { fonts } from '../../theme/typography';
-import { useTasks } from '../../data/TaskContext';
+import { ApiError, useTasks } from '../../data/TaskContext';
+import { lastSyncedLabel } from '../../data/dateUtils';
 
 interface Props {
   visible: boolean;
@@ -12,26 +14,43 @@ interface Props {
 
 /** Point the app at a different server, or drop the connection entirely. */
 export default function ServerSheet({ visible, onClose }: Props) {
-  const { state, connect, disconnect } = useTasks();
+  const { state, connect, disconnect, syncStatus } = useTasks();
   const [url, setUrl] = useState(state.serverUrl);
+  const [token, setToken] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
   // Reopening should show what's actually connected, not stale edits.
   useEffect(() => {
     if (visible) {
       setUrl(state.serverUrl);
+      setToken('');
       setError(null);
     }
   }, [visible, state.serverUrl]);
 
-  const save = () => {
+  const save = async () => {
     const next = url.trim();
     if (!/^https?:\/\/.+/i.test(next)) {
       setError('Enter a full server URL, starting with http:// or https://');
       return;
     }
-    connect(next);
-    onClose();
+    setError(null);
+    setSaving(true);
+    try {
+      await connect(next, token);
+      onClose();
+    } catch (err) {
+      setError(
+        err instanceof ApiError
+          ? err.status === 401
+            ? 'That token was rejected. Check it and try again.'
+            : err.message
+          : 'Something went wrong connecting.'
+      );
+    } finally {
+      setSaving(false);
+    }
   };
 
   const sample = state.mode === 'sample';
@@ -43,6 +62,13 @@ export default function ServerSheet({ visible, onClose }: Props) {
           You're exploring with sample data. Connecting replaces it with your server's tasks.
         </Text>
       )}
+
+      {state.mode === 'server' && (
+        <View style={styles.statusRow}>
+          <SyncIndicator mode={state.mode} status={syncStatus} serverUrl={state.serverUrl} />
+          <Text style={styles.statusTime}>{lastSyncedLabel(new Date(), syncStatus.lastSyncedAt)}</Text>
+        </View>
+      )}
       <TextInput
         value={url}
         onChangeText={setUrl}
@@ -52,12 +78,21 @@ export default function ServerSheet({ visible, onClose }: Props) {
         autoCapitalize="none"
         autoCorrect={false}
         keyboardType="url"
+      />
+      <TextInput
+        value={token}
+        onChangeText={setToken}
+        placeholder="Access token"
+        placeholderTextColor={colors.textFaint}
+        style={[styles.input, { marginTop: 8 }]}
+        secureTextEntry
+        autoCapitalize="none"
         onSubmitEditing={save}
       />
       {error && <Text style={styles.error}>{error}</Text>}
 
-      <Pressable style={styles.saveBtn} onPress={save}>
-        <Text style={styles.saveText}>Save</Text>
+      <Pressable style={styles.saveBtn} onPress={save} disabled={saving}>
+        {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveText}>Save</Text>}
       </Pressable>
 
       <Pressable
@@ -74,6 +109,23 @@ export default function ServerSheet({ visible, onClose }: Props) {
 }
 
 const styles = StyleSheet.create({
+  statusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: colors.surfaceMuted,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 8,
+  },
+  statusTime: {
+    fontFamily: fonts.monoRegular,
+    fontSize: 11.5,
+    color: colors.textTertiary,
+  },
   sampleNote: {
     marginBottom: 12,
     fontFamily: fonts.sansRegular,

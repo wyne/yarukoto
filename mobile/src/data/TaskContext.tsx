@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { setAudioModeAsync, useAudioPlayer } from 'expo-audio';
 import { buildSampleData } from './sampleData';
 import { FolderDef, ListDef, Priority, Task } from './types';
@@ -7,7 +7,21 @@ import { parseQuickAdd } from './quickAdd';
 import { newFolderId, newListId, newSubtaskId, newTaskId } from './ids';
 import { DEFAULT_VIEW_OPTIONS, ViewOptions } from './viewOptions';
 import { LIST_COLORS } from '../theme/colors';
-import { AppMode, clearServerUrl, loadMode, loadServerUrl, saveMode, saveServerUrl } from './storage';
+import {
+  AppMode,
+  clearServerUrl,
+  clearToken,
+  loadMode,
+  loadServerUrl,
+  loadToken,
+  saveMode,
+  saveServerUrl,
+  saveToken,
+} from './storage';
+import { ApiError, createApi } from './api';
+import { Outbox, SyncStatus, mergeBatch, pullSince, pushDirty } from './sync';
+export { ApiError } from './api';
+export type { SyncState, SyncStatus } from './sync';
 
 interface State {
   tasks: Task[];
@@ -15,6 +29,7 @@ interface State {
   folders: FolderDef[];
   mode: AppMode;
   serverUrl: string;
+  token: string;
   /** Grouping + sort per view, keyed by viewKey(). Views not in here use the default. */
   viewOptions: Record<string, ViewOptions>;
 }
@@ -35,9 +50,11 @@ type Action =
   | { type: 'ADD_FOLDER'; folder: FolderDef }
   | { type: 'UPDATE_LIST'; id: string; patch: Partial<ListDef> }
   | { type: 'SET_VIEW_OPTIONS'; key: string; options: ViewOptions }
-  | { type: 'CONNECT'; serverUrl: string }
+  | { type: 'CONNECT'; serverUrl: string; token: string }
   | { type: 'USE_SAMPLE_DATA'; data: ReturnType<typeof buildSampleData> }
-  | { type: 'DISCONNECT' };
+  | { type: 'DISCONNECT' }
+  | { type: 'HYDRATE'; tasks: Task[]; lists: ListDef[]; folders: FolderDef[] }
+  | { type: 'MERGE'; tasks: Task[]; lists: ListDef[]; folders: FolderDef[] };
 
 
 function applyAction(state: State, action: Action): State {
@@ -129,14 +146,35 @@ function applyAction(state: State, action: Action): State {
       return { ...state, viewOptions: { ...state.viewOptions, [action.key]: action.options } };
     case 'CONNECT':
       // Server data arrives via sync; nothing is seeded locally.
-      return { ...state, mode: 'server', serverUrl: action.serverUrl, tasks: [], lists: [], folders: [] };
+      return { ...state, mode: 'server', serverUrl: action.serverUrl, token: action.token, tasks: [], lists: [], folders: [] };
     case 'USE_SAMPLE_DATA':
-      return { ...state, mode: 'sample', serverUrl: '', ...action.data };
+      return { ...state, mode: 'sample', serverUrl: '', token: '', ...action.data };
     case 'DISCONNECT':
-      return { ...state, mode: 'none', serverUrl: '', tasks: [], lists: [], folders: [] };
+      return { ...state, mode: 'none', serverUrl: '', token: '', tasks: [], lists: [], folders: [] };
+    case 'HYDRATE':
+      return { ...state, tasks: action.tasks, lists: action.lists, folders: action.folders };
+    case 'MERGE':
+      return {
+        ...state,
+        tasks: mergeBatch(state.tasks, action.tasks, mergeDirtyIds),
+        lists: mergeBatch(state.lists, action.lists, mergeDirtyIds),
+        folders: mergeBatch(state.folders, action.folders, mergeDirtyIds),
+      };
     default:
       return state;
   }
+}
+
+/**
+ * `MERGE` needs to know which ids are still dirty (a local edit not yet pushed),
+ * but the reducer is a pure function with no access to the outbox. The dispatcher
+ * stashes a snapshot here immediately before dispatching MERGE — safe because JS
+ * is single-threaded, so nothing else can run between the snapshot and the
+ * reducer picking it up.
+ */
+let mergeDirtyIds = new Set<string>();
+export function setMergeDirtyIds(ids: Set<string>): void {
+  mergeDirtyIds = ids;
 }
 
 /**
@@ -150,6 +188,9 @@ function applyAction(state: State, action: Action): State {
 function reducer(state: State, action: Action): State {
   const next = applyAction(state, action);
   if (next === state) return next;
+  // Rows from the server already carry their true updatedAt; restamping them
+  // here would make every pull look like a fresh local edit.
+  if (action.type === 'HYDRATE' || action.type === 'MERGE') return next;
 
   const now = new Date().toISOString();
   const stamp = <T extends { id: string; updatedAt: string }>(before: T[], after: T[]): T[] => {
@@ -175,6 +216,7 @@ function initState(): State {
     ...seeded,
     mode,
     serverUrl: mode === 'server' ? loadServerUrl() : '',
+    token: mode === 'server' ? loadToken() : '',
     viewOptions: {},
   };
 }
@@ -221,10 +263,13 @@ interface TaskContextValue {
   setListColor: (listId: string, color: string) => void;
   getViewOptions: (key: string) => ViewOptions;
   setViewOptions: (key: string, options: ViewOptions) => void;
-  connect: (serverUrl: string) => void;
+  /** Validates against the server before committing; throws ApiError on failure. */
+  connect: (serverUrl: string, token: string) => Promise<void>;
   /** Load the sample dataset and work entirely offline. */
   useSampleData: () => void;
   disconnect: () => void;
+  /** Live sync state, for the indicator in the sidebar. Only meaningful in server mode. */
+  syncStatus: SyncStatus;
 }
 
 const TaskContext = createContext<TaskContextValue | null>(null);
@@ -236,6 +281,38 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
   // A completion ding should sound even with the phone in silent mode.
   useEffect(() => {
     setAudioModeAsync({ playsInSilentMode: true });
+  }, []);
+
+  // Ids changed locally since the last successful push. A ref, not state: it's
+  // mutated on every edit, and none of that should trigger a re-render.
+  const outboxRef = useRef(new Outbox());
+
+  // The sync loop below runs on its own timer, outside React's render cycle, so
+  // it reads state through a ref to always see the latest values.
+  const stateRef = useRef(state);
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
+
+  // Session-scoped, deliberately not persisted — see the note in storage.ts.
+  // Undefined means the next pull is a full hydrate.
+  const cursorRef = useRef<string | undefined>(undefined);
+
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>({ state: 'syncing', pending: 0 });
+
+  // Marking dirty updates the indicator immediately, so an edit reads as pending
+  // the moment it's made rather than up to a cycle later.
+  const markDirty = useCallback((ids: string[]) => {
+    outboxRef.current.mark(ids);
+    setSyncStatus((s) => {
+      const pending = outboxRef.current.size;
+      // 'offline' and 'unauthorized' are more important to keep on screen than
+      // 'pending', and their labels already carry the count. 'syncing' means a
+      // cycle is mid-flight, and it will settle the state when it finishes.
+      const state = s.state === 'synced' && pending > 0 ? 'pending' : s.state;
+      if (s.pending === pending && s.state === state) return s;
+      return { ...s, pending, state };
+    });
   }, []);
 
   const addTaskFromQuickAdd = useCallback((text: string, defaults?: QuickAddDefaults) => {
@@ -261,7 +338,8 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       order: -Date.now(),
     };
     dispatch({ type: 'ADD_TASK', task });
-  }, [state.lists]);
+    markDirty([task.id]);
+  }, [state.lists, markDirty]);
 
   const [pendingUndo, setPendingUndo] = useState<PendingUndo | null>(null);
 
@@ -270,13 +348,14 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     (id: string) => {
       const task = state.tasks.find((t) => t.id === id);
       dispatch({ type: 'TOGGLE_COMPLETE', id });
+      markDirty([id]);
       if (task && !task.completed) {
         ding.seekTo(0);
         ding.play();
       }
       setPendingUndo(task && !task.completed ? { taskId: id, title: task.title, token: Date.now() } : null);
     },
-    [state.tasks, ding]
+    [state.tasks, ding, markDirty]
   );
 
   const dismissUndo = useCallback(() => setPendingUndo(null), []);
@@ -287,47 +366,106 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
         // Set the flag directly rather than toggling, so this stays correct even if
         // the task was un-completed by other means in the meantime.
         dispatch({ type: 'UPDATE_TASK', id: current.taskId, patch: { completed: false, completedAt: undefined } });
+        markDirty([current.taskId]);
       }
       return null;
     });
-  }, []);
+  }, [markDirty]);
 
   useEffect(() => {
     if (!pendingUndo) return;
     const t = setTimeout(() => setPendingUndo(null), UNDO_TIMEOUT_MS);
     return () => clearTimeout(t);
   }, [pendingUndo]);
-  const updateTask = useCallback((id: string, patch: Partial<Task>) => dispatch({ type: 'UPDATE_TASK', id, patch }), []);
-  const deleteTasks = useCallback((ids: string[]) => dispatch({ type: 'DELETE_TASKS', ids }), []);
-  const restoreTasks = useCallback((ids: string[]) => dispatch({ type: 'RESTORE_TASKS', ids }), []);
-  const purgeTasks = useCallback((ids: string[]) => dispatch({ type: 'PURGE_TASKS', ids }), []);
-  const bulkUpdate = useCallback((ids: string[], patch: Partial<Task>) => dispatch({ type: 'BULK_UPDATE', ids, patch }), []);
-  const addSubtask = useCallback((taskId: string, title: string) => dispatch({ type: 'ADD_SUBTASK', taskId, title }), []);
-  const toggleSubtask = useCallback(
-    (taskId: string, subtaskId: string) => dispatch({ type: 'TOGGLE_SUBTASK', taskId, subtaskId }),
-    []
+  const updateTask = useCallback(
+    (id: string, patch: Partial<Task>) => {
+      dispatch({ type: 'UPDATE_TASK', id, patch });
+      markDirty([id]);
+    },
+    [markDirty]
   );
-  const snoozeTask = useCallback((id: string) => dispatch({ type: 'SNOOZE_TASK', id }), []);
-  const reorderTasks = useCallback((ids: string[]) => dispatch({ type: 'REORDER_TASKS', ids }), []);
-  const addList = useCallback((name: string, folderId: string) => {
-    dispatch({
-      type: 'ADD_LIST',
-      list: {
+  const deleteTasks = useCallback(
+    (ids: string[]) => {
+      dispatch({ type: 'DELETE_TASKS', ids });
+      markDirty(ids);
+    },
+    [markDirty]
+  );
+  const restoreTasks = useCallback(
+    (ids: string[]) => {
+      dispatch({ type: 'RESTORE_TASKS', ids });
+      markDirty(ids);
+    },
+    [markDirty]
+  );
+  // Purging is a hard, local-only delete: the sync protocol only ever upserts, so
+  // there is nothing to push. The server's own retention job removes the row
+  // independently once its trash window elapses.
+  const purgeTasks = useCallback((ids: string[]) => dispatch({ type: 'PURGE_TASKS', ids }), []);
+  const bulkUpdate = useCallback(
+    (ids: string[], patch: Partial<Task>) => {
+      dispatch({ type: 'BULK_UPDATE', ids, patch });
+      markDirty(ids);
+    },
+    [markDirty]
+  );
+  const addSubtask = useCallback(
+    (taskId: string, title: string) => {
+      dispatch({ type: 'ADD_SUBTASK', taskId, title });
+      markDirty([taskId]);
+    },
+    [markDirty]
+  );
+  const toggleSubtask = useCallback(
+    (taskId: string, subtaskId: string) => {
+      dispatch({ type: 'TOGGLE_SUBTASK', taskId, subtaskId });
+      markDirty([taskId]);
+    },
+    [markDirty]
+  );
+  const snoozeTask = useCallback(
+    (id: string) => {
+      dispatch({ type: 'SNOOZE_TASK', id });
+      markDirty([id]);
+    },
+    [markDirty]
+  );
+  const reorderTasks = useCallback(
+    (ids: string[]) => {
+      dispatch({ type: 'REORDER_TASKS', ids });
+      markDirty(ids);
+    },
+    [markDirty]
+  );
+  const addList = useCallback(
+    (name: string, folderId: string) => {
+      const list = {
         id: newListId(),
         name,
         folderId,
         color: LIST_COLORS[Math.floor(Math.random() * LIST_COLORS.length)],
         updatedAt: new Date().toISOString(),
-      },
-    });
-  }, []);
-  const setListColor = useCallback(
-    (listId: string, color: string) => dispatch({ type: 'UPDATE_LIST', id: listId, patch: { color } }),
-    []
+      };
+      dispatch({ type: 'ADD_LIST', list });
+      markDirty([list.id]);
+    },
+    [markDirty]
   );
-  const addFolder = useCallback((name: string) => {
-    dispatch({ type: 'ADD_FOLDER', folder: { id: newFolderId(), name, updatedAt: new Date().toISOString() } });
-  }, []);
+  const setListColor = useCallback(
+    (listId: string, color: string) => {
+      dispatch({ type: 'UPDATE_LIST', id: listId, patch: { color } });
+      markDirty([listId]);
+    },
+    [markDirty]
+  );
+  const addFolder = useCallback(
+    (name: string) => {
+      const folder = { id: newFolderId(), name, updatedAt: new Date().toISOString() };
+      dispatch({ type: 'ADD_FOLDER', folder });
+      markDirty([folder.id]);
+    },
+    [markDirty]
+  );
   const getViewOptions = useCallback(
     (key: string) => state.viewOptions[key] ?? DEFAULT_VIEW_OPTIONS,
     [state.viewOptions]
@@ -336,21 +474,87 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     (key: string, options: ViewOptions) => dispatch({ type: 'SET_VIEW_OPTIONS', key, options }),
     []
   );
-  const connect = useCallback((serverUrl: string) => {
-    saveServerUrl(serverUrl);
+  const connect = useCallback(async (serverUrl: string, token: string) => {
+    const url = serverUrl.replace(/\/+$/, '');
+    const api = createApi(url, token);
+    // A full hydrate doubles as validation: a bad URL or token throws ApiError
+    // here, before anything is persisted or the UI leaves FirstRun.
+    const batch = await api.pull(undefined);
+
+    saveServerUrl(url);
+    saveToken(token);
     saveMode('server');
-    dispatch({ type: 'CONNECT', serverUrl });
+    cursorRef.current = batch.now;
+    outboxRef.current = new Outbox();
+
+    dispatch({ type: 'CONNECT', serverUrl: url, token });
+    dispatch({ type: 'HYDRATE', tasks: batch.tasks, lists: batch.lists, folders: batch.folders });
   }, []);
   const useSampleData = useCallback(() => {
     clearServerUrl();
+    clearToken();
+    cursorRef.current = undefined;
     saveMode('sample');
     dispatch({ type: 'USE_SAMPLE_DATA', data: buildSampleData(new Date()) });
   }, []);
   const disconnect = useCallback(() => {
     clearServerUrl();
+    clearToken();
+    cursorRef.current = undefined;
     saveMode('none');
     dispatch({ type: 'DISCONNECT' });
   }, []);
+
+  // Push dirty records, then pull. Runs once on connect and on a timer while
+  // connected; a change in between waits for the next tick rather than firing
+  // its own request, which keeps concurrent pushes from racing each other.
+  useEffect(() => {
+    if (state.mode !== 'server') return;
+    const api = createApi(state.serverUrl, state.token);
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout>;
+
+    const cycle = async () => {
+      setSyncStatus((s) => ({ ...s, state: 'syncing' }));
+      try {
+        if (outboxRef.current.size > 0) {
+          const pushed = await pushDirty(api, outboxRef.current, stateRef.current);
+          setMergeDirtyIds(outboxRef.current.snapshot());
+          dispatch({ type: 'MERGE', tasks: pushed.tasks, lists: pushed.lists, folders: pushed.folders });
+        }
+        const pulled = await pullSince(api, cursorRef.current);
+        cursorRef.current = pulled.now;
+        setMergeDirtyIds(outboxRef.current.snapshot());
+        dispatch({ type: 'MERGE', tasks: pulled.tasks, lists: pulled.lists, folders: pulled.folders });
+
+        // Anything marked dirty *during* the request is still queued, so this is
+        // only fully "synced" if the outbox came out empty.
+        const pending = outboxRef.current.size;
+        setSyncStatus({
+          state: pending > 0 ? 'pending' : 'synced',
+          pending,
+          lastSyncedAt: new Date().toISOString(),
+        });
+      } catch (err) {
+        // Local edits stay queued either way; the next tick retries. A rejected
+        // token is called out separately because, unlike being offline, waiting
+        // will never fix it.
+        const unauthorized = err instanceof ApiError && err.status === 401;
+        setSyncStatus((s) => ({
+          ...s,
+          state: unauthorized ? 'unauthorized' : 'offline',
+          pending: outboxRef.current.size,
+        }));
+      }
+      if (!cancelled) timer = setTimeout(cycle, 5000);
+    };
+
+    cycle();
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [state.mode, state.serverUrl, state.token]);
 
   const value = useMemo<TaskContextValue>(
     () => ({
@@ -377,6 +581,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       connect,
       useSampleData,
       disconnect,
+      syncStatus,
     }),
     [
       state,
@@ -402,6 +607,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       connect,
       useSampleData,
       disconnect,
+      syncStatus,
     ]
   );
 
