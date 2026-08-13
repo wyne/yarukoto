@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Platform, StyleSheet, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { NavigationContainer } from '@react-navigation/native';
+import { LinkingOptions, NavigationContainer } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useFonts } from 'expo-font';
 import { fontMap } from './src/theme/typography';
@@ -10,6 +10,52 @@ import { ThemeProvider } from './src/theme/ThemeContext';
 import { TaskProvider } from './src/data/TaskContext';
 import { initStorage } from './src/data/storage';
 import RootNavigator from './src/navigation/RootNavigator';
+import { RootStackParamList } from './src/navigation/types';
+
+/**
+ * Web URLs. Without this the address bar never moves off `/`, so a reload — or a
+ * link someone sent you — always lands on All rather than the view you were
+ * looking at, and Back leaves the app instead of retracing it.
+ *
+ * Two things about the paths:
+ *
+ * `config.path` is the deployment prefix. The self-hosted server serves from the
+ * domain root, but a Pages project site lives under /<repo>/, and React Navigation
+ * reads `location.pathname` raw — an unprefixed config would match nothing there.
+ * `EXPO_BASE_URL` is the same value app.config.js bakes into the asset URLs, inlined
+ * into the bundle by babel-preset-expo, so both sides agree by construction.
+ *
+ * Every route is a *single* path segment on purpose. public/index.html links its
+ * icons and manifest relatively so they resolve under either deployment, and those
+ * are resolved against the current URL: a second segment would send them looking
+ * one directory too deep. That's why a filtered Inbox carries its list or tag as a
+ * query param rather than as `/list/<id>`.
+ */
+const baseUrl = process.env.EXPO_BASE_URL?.replace(/\/+$/, '');
+
+const linking: LinkingOptions<RootStackParamList> = {
+  // Web-only: this exists to keep the address bar in step with the app, and no
+  // native deep-link scheme is registered for the prefixes to strip.
+  enabled: Platform.OS === 'web',
+  prefixes: [],
+  config: {
+    path: baseUrl || undefined,
+    screens: {
+      FirstRun: 'connect',
+      Main: {
+        screens: {
+          AllTab: '',
+          InboxTab: 'inbox',
+          TodayTab: 'today',
+          CalendarTab: 'calendar',
+          PlanTab: 'plan',
+          BrowseTab: 'browse',
+          TrashTab: 'trash',
+        },
+      },
+    },
+  },
+};
 
 export default function App() {
   const [fontsLoaded] = useFonts(fontMap);
@@ -30,7 +76,7 @@ export default function App() {
     <SafeAreaProvider>
       <ThemeProvider>
         <TaskProvider>
-          <NavigationContainer>
+          <NavigationContainer linking={linking}>
             <StatusBar style="dark" />
             <RootNavigator />
           </NavigationContainer>

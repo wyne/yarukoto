@@ -47,6 +47,14 @@ jobs:
           EXPO_BASE_URL: /${{ github.event.repository.name }}
         run: npx expo export --platform web --output-dir dist
 
+      - name: SPA fallback
+        # Every view has a URL now, and Pages has no rewrite rules: a link to
+        # /<repo>/today is a request for a file that isn't there. 404.html is what
+        # it serves in that case, so a copy of index.html boots the app, which reads
+        # the path and shows the right view. The self-hosted server does the same
+        # thing with its notFound handler.
+        run: cp mobile/dist/index.html mobile/dist/404.html
+
       - name: Disable Jekyll
         # The bundle lives in _expo/, and a leading underscore is exactly what
         # Jekyll strips. Cheap insurance against an empty-looking deploy.

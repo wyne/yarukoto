@@ -19,6 +19,9 @@ a working instance. The same codebase builds an iOS/Android app via Expo.
 - **Quick add with natural syntax** — `pay rent fri 6pm #home !high ~admin` parses the due date
   and time, the `#tag`, the `!priority`, and the `~list`. Anything unrecognized stays as the title.
 - **Subtasks, notes, tags, priorities, due dates and times.**
+- **Real URLs on the web** — every view is an address (`/today`, `/inbox?listId=…`), so a reload
+  stays where you were, Back retraces the views you visited, and a filtered list is a link you can
+  bookmark.
 - **Per-view grouping and sort** — each view keeps its own arrangement, synced with everything else,
   so a list set to group by tag and sort by priority looks that way on every device.
 - **Trash** — deleting is a soft delete. Restore from Trash, or delete forever. The server hard-deletes
@@ -182,10 +185,17 @@ the usual approach.
 plain HTTP is mixed content that browsers block — so "Connect" can't reach a local instance from
 there. Visitors get "Explore with sample data", which runs entirely client-side.
 
-The one build-time subtlety: a Pages *project* site is served from `/<repo>/`, and the export
+The build-time subtlety: a Pages *project* site is served from `/<repo>/`, and the export
 hard-codes absolute asset URLs. `mobile/app.config.js` reads `EXPO_BASE_URL` so the workflow can
 set that prefix while the Docker build — which serves from the domain root — leaves it empty.
 Setting it globally would break self-hosting. A user/org site or a custom domain needs no prefix.
+The same value reaches the app itself as `process.env.EXPO_BASE_URL`, which is how the URL routing
+knows what to strip off the front of the path.
+
+The other one: Pages has no rewrite rules, so `/<repo>/today` is a request for a file that isn't
+there. The workflow copies `index.html` to `404.html`, which is what Pages serves instead — the app
+boots from it, reads the path and shows the right view. The self-hosted server does the same job
+with a not-found handler.
 
 ---
 

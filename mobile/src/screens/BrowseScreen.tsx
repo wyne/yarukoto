@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../theme/colors';
 import { fonts } from '../theme/typography';
 import { useAccent } from '../theme/ThemeContext';
-import { MainTabParamList } from '../navigation/types';
+import { InboxParams, MainTabParamList } from '../navigation/types';
 import { PANE_MAX_WIDTH, useSidebar } from '../navigation/SidebarContext';
 import { useTasks } from '../data/TaskContext';
 import {
@@ -43,8 +43,8 @@ export default function BrowseScreen({ navigation }: Props) {
   const [newListName, setNewListName] = useState('');
   const [newListFolder, setNewListFolder] = useState(state.folders[0]?.id);
 
-  const openFilteredInbox = (filter: { type: 'list' | 'tag'; value: string; label: string }) => {
-    navigation.navigate('InboxTab', { filter });
+  const openFilteredInbox = (filter: InboxParams) => {
+    navigation.navigate('InboxTab', filter);
   };
 
   const confirmDisconnect = () => {
@@ -88,7 +88,7 @@ export default function BrowseScreen({ navigation }: Props) {
             <Text style={styles.smartCount}>{tasksUpcomingCount(state.tasks, now)}</Text>
           </Pressable>
           <Divider indent={44} />
-          <Pressable style={styles.smartRow} onPress={() => navigation.navigate('InboxTab', { filter: undefined })}>
+          <Pressable style={styles.smartRow} onPress={() => navigation.navigate('InboxTab')}>
             <IconInboxTray size={18} color={accent} />
             <Text style={styles.smartLabel}>Inbox</Text>
             <Text style={styles.smartCount}>{inboxCount(state.tasks)}</Text>
@@ -110,7 +110,7 @@ export default function BrowseScreen({ navigation }: Props) {
                   <View key={list.id}>
                     <Pressable
                       style={styles.smartRow}
-                      onPress={() => openFilteredInbox({ type: 'list', value: list.id, label: list.name })}
+                      onPress={() => openFilteredInbox({ listId: list.id })}
                       onLongPress={() => setListTarget(list)}
                       delayLongPress={350}
                     >
@@ -143,7 +143,7 @@ export default function BrowseScreen({ navigation }: Props) {
                 <Pressable
                   key={tag}
                   style={styles.tagChip}
-                  onPress={() => openFilteredInbox({ type: 'tag', value: tag, label: `#${tag}` })}
+                  onPress={() => openFilteredInbox({ tag })}
                 >
                   <Text style={styles.tagChipText}>
                     #{tag} <Text style={styles.tagChipCount}>{count}</Text>
