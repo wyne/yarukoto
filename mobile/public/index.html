@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<!--
+  Overrides the default index.html that `expo export --platform web` would otherwise
+  generate (@expo/cli picks up public/index.html as its template and substitutes the
+  %PLACEHOLDER% values). Everything here exists because Expo's stock template targets
+  desktop web and gets mobile Safari wrong in two ways:
+
+  1. Its viewport has no maximum-scale, so iOS auto-zooms whenever a text field smaller
+     than 16px takes focus — which is every field in this app, the type scale is 11-15px
+     by design — and never zooms back out afterwards.
+  2. It has no viewport-fit=cover, so env(safe-area-inset-*) reads 0 on web. The app
+     already pads by useSafeAreaInsets() everywhere, so on a Home Screen web app the
+     header ends up underneath the iOS status bar, which in iOS 26 renders as a glass
+     blur over whatever content is behind it.
+-->
+<html lang="%LANG_ISO_CODE%">
+  <head>
+    <meta charset="utf-8" />
+    <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
+    <!--
+      maximum-scale suppresses the focus auto-zoom; the odd 1.00001 is Expo Router's own
+      value for this, and users can still pinch-zoom (iOS has ignored attempts to forbid
+      that since iOS 10). viewport-fit=cover makes the safe-area insets real so the app
+      lays itself out below the status bar and home indicator instead of under them.
+    -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1.00001, viewport-fit=cover"
+    />
+    <title>%WEB_TITLE%</title>
+
+    <!--
+      Home Screen install: standalone chrome, and a status bar drawn in the system's
+      default style — dark glyphs, legible against the light screen background. The
+      status bar area itself is painted by the background-color below.
+    -->
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Yarukoto" />
+    <meta name="theme-color" content="#F4F4F1" />
+
+    <!-- The `react-native-web` recommended style reset: https://necolas.github.io/react-native-web/docs/setup/#root-element -->
+    <style id="expo-reset">
+      /* These styles make the body full-height */
+      html,
+      body {
+        height: 100%;
+      }
+      /* These styles disable body scrolling if you are using <ScrollView> */
+      body {
+        overflow: hidden;
+      }
+      /* These styles make the root element full-height */
+      #root {
+        display: flex;
+        height: 100%;
+        flex: 1;
+      }
+    </style>
+    <style id="yarukoto-mobile-web">
+      html,
+      body {
+        /* colors.screenBg — fills the status bar strip and any overscroll gutter, so
+           neither shows white while the app itself is the only thing on screen. */
+        background-color: #f4f4f1;
+        /* Safari inflates text in landscape without this, which would undo the type scale. */
+        -webkit-text-size-adjust: 100%;
+        overscroll-behavior: none;
+      }
+      body {
+        /* Drops the 300ms double-tap-to-zoom delay on taps. */
+        touch-action: manipulation;
+      }
+    </style>
+  </head>
+
+  <body>
+    <!-- Use static rendering with Expo Router to support running without JavaScript. -->
+    <noscript>
+      You need to enable JavaScript to run this app.
+    </noscript>
+    <!-- The root element for your Expo app. -->
+    <div id="root"></div>
+  </body>
+</html>
