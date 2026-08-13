@@ -20,6 +20,7 @@ import {
 } from './storage';
 import { ApiError, createApi } from './api';
 import { Outbox, SyncStatus, mergeBatch, pullSince, pushDirty } from './sync';
+import { activeLists } from './selectors';
 export { ApiError } from './api';
 export type { SyncState, SyncStatus } from './sync';
 
@@ -49,6 +50,9 @@ type Action =
   | { type: 'ADD_LIST'; list: ListDef }
   | { type: 'ADD_FOLDER'; folder: FolderDef }
   | { type: 'UPDATE_LIST'; id: string; patch: Partial<ListDef> }
+  | { type: 'UPDATE_FOLDER'; id: string; patch: Partial<FolderDef> }
+  | { type: 'DELETE_LIST'; id: string }
+  | { type: 'DELETE_FOLDER'; id: string }
   | { type: 'SET_VIEW_OPTIONS'; key: string; options: ViewOptions }
   | { type: 'CONNECT'; serverUrl: string; token: string }
   | { type: 'USE_SAMPLE_DATA'; data: ReturnType<typeof buildSampleData> }
@@ -142,6 +146,32 @@ function applyAction(state: State, action: Action): State {
       return { ...state, folders: [...state.folders, action.folder] };
     case 'UPDATE_LIST':
       return { ...state, lists: state.lists.map((l) => (l.id === action.id ? { ...l, ...action.patch } : l)) };
+    case 'UPDATE_FOLDER':
+      return { ...state, folders: state.folders.map((f) => (f.id === action.id ? { ...f, ...action.patch } : f)) };
+    case 'DELETE_LIST': {
+      // Deleting a container never destroys tasks — they fall back to Inbox, which
+      // is the one place that can hold a task with no list.
+      const now = new Date().toISOString();
+      return {
+        ...state,
+        lists: state.lists.map((l) => (l.id === action.id ? { ...l, deletedAt: now } : l)),
+        tasks: state.tasks.map((t) => (t.listId === action.id ? { ...t, listId: null } : t)),
+      };
+    }
+    case 'DELETE_FOLDER': {
+      // A list can't exist outside a folder (`folderId` is required), so deleting
+      // one has to take its lists with it. Their tasks still land in Inbox.
+      const now = new Date().toISOString();
+      const doomed = new Set(
+        state.lists.filter((l) => l.folderId === action.id && !l.deletedAt).map((l) => l.id)
+      );
+      return {
+        ...state,
+        folders: state.folders.map((f) => (f.id === action.id ? { ...f, deletedAt: now } : f)),
+        lists: state.lists.map((l) => (doomed.has(l.id) ? { ...l, deletedAt: now } : l)),
+        tasks: state.tasks.map((t) => (t.listId && doomed.has(t.listId) ? { ...t, listId: null } : t)),
+      };
+    }
     case 'SET_VIEW_OPTIONS':
       return { ...state, viewOptions: { ...state.viewOptions, [action.key]: action.options } };
     case 'CONNECT':
@@ -261,6 +291,12 @@ interface TaskContextValue {
   addList: (name: string, folderId: string) => void;
   addFolder: (name: string) => void;
   setListColor: (listId: string, color: string) => void;
+  renameList: (listId: string, name: string) => void;
+  renameFolder: (folderId: string, name: string) => void;
+  /** Soft-deletes the list; its tasks fall back to Inbox rather than being lost. */
+  deleteList: (listId: string) => void;
+  /** Soft-deletes the folder and its lists; their tasks fall back to Inbox. */
+  deleteFolder: (folderId: string) => void;
   getViewOptions: (key: string) => ViewOptions;
   setViewOptions: (key: string, options: ViewOptions) => void;
   /** Validates against the server before committing; throws ApiError on failure. */
@@ -319,7 +355,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     const parsed = parseQuickAdd(text);
     if (!parsed.title.trim()) return;
     const typedList = parsed.listName
-      ? state.lists.find((l) => l.name.toLowerCase() === parsed.listName!.toLowerCase())
+      ? activeLists(state.lists).find((l) => l.name.toLowerCase() === parsed.listName!.toLowerCase())
       : undefined;
     const task: Task = {
       id: newTaskId(),
@@ -458,6 +494,40 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     },
     [markDirty]
   );
+  const renameList = useCallback(
+    (listId: string, name: string) => {
+      dispatch({ type: 'UPDATE_LIST', id: listId, patch: { name } });
+      markDirty([listId]);
+    },
+    [markDirty]
+  );
+  const renameFolder = useCallback(
+    (folderId: string, name: string) => {
+      dispatch({ type: 'UPDATE_FOLDER', id: folderId, patch: { name } });
+      markDirty([folderId]);
+    },
+    [markDirty]
+  );
+  // The tasks being moved to Inbox are edits in their own right, so they have to
+  // be marked dirty too — otherwise the list deletion would sync while the tasks
+  // stayed pointing at it on every other device.
+  const deleteList = useCallback(
+    (listId: string) => {
+      const moved = state.tasks.filter((t) => t.listId === listId).map((t) => t.id);
+      dispatch({ type: 'DELETE_LIST', id: listId });
+      markDirty([listId, ...moved]);
+    },
+    [state.tasks, markDirty]
+  );
+  const deleteFolder = useCallback(
+    (folderId: string) => {
+      const doomed = state.lists.filter((l) => l.folderId === folderId && !l.deletedAt).map((l) => l.id);
+      const moved = state.tasks.filter((t) => t.listId && doomed.includes(t.listId)).map((t) => t.id);
+      dispatch({ type: 'DELETE_FOLDER', id: folderId });
+      markDirty([folderId, ...doomed, ...moved]);
+    },
+    [state.lists, state.tasks, markDirty]
+  );
   const addFolder = useCallback(
     (name: string) => {
       const folder = { id: newFolderId(), name, updatedAt: new Date().toISOString() };
@@ -576,6 +646,10 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       addList,
       addFolder,
       setListColor,
+      renameList,
+      renameFolder,
+      deleteList,
+      deleteFolder,
       getViewOptions,
       setViewOptions,
       connect,
@@ -602,6 +676,10 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       addList,
       addFolder,
       setListColor,
+      renameList,
+      renameFolder,
+      deleteList,
+      deleteFolder,
       getViewOptions,
       setViewOptions,
       connect,

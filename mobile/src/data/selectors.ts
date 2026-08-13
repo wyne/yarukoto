@@ -1,13 +1,32 @@
 import { FolderDef, ListDef, Task } from './types';
 import { fromISODate, isSameDay, startOfDay } from './dateUtils';
 
+/**
+ * Lists and folders are soft-deleted like tasks — the row stays so the deletion
+ * reaches other devices instead of the container reappearing on the next pull.
+ * Every view therefore has to exclude them, which is what these two are for:
+ * enumerate through `activeLists`/`activeFolders` rather than raw state.
+ */
+export function activeLists(lists: ListDef[]): ListDef[] {
+  return lists.filter((l) => !l.deletedAt);
+}
+
+export function activeFolders(folders: FolderDef[]): FolderDef[] {
+  return folders.filter((f) => !f.deletedAt);
+}
+
+/**
+ * Undefined for a deleted list as well as a missing one, so a task still
+ * pointing at a list that another device deleted simply reads as Inbox rather
+ * than rendering a ghost.
+ */
 export function getListById(lists: ListDef[], id: string | null): ListDef | undefined {
   if (!id) return undefined;
-  return lists.find((l) => l.id === id);
+  return lists.find((l) => l.id === id && !l.deletedAt);
 }
 
 export function listsInFolder(lists: ListDef[], folderId: string): ListDef[] {
-  return lists.filter((l) => l.folderId === folderId);
+  return activeLists(lists).filter((l) => l.folderId === folderId);
 }
 
 /**
@@ -109,5 +128,5 @@ export function folderTotal(lists: ListDef[], counts: Record<string, number>, fo
 }
 
 export function unusedFolders(folders: FolderDef[]): FolderDef[] {
-  return folders;
+  return activeFolders(folders);
 }

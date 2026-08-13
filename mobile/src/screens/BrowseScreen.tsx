@@ -9,6 +9,7 @@ import { MainTabParamList } from '../navigation/types';
 import { PANE_MAX_WIDTH, useSidebar } from '../navigation/SidebarContext';
 import { useTasks } from '../data/TaskContext';
 import {
+  activeFolders,
   activeTasks,
   folderTotal,
   inboxCount,
@@ -22,7 +23,7 @@ import Card from '../components/Card';
 import SyncIndicator from '../components/SyncIndicator';
 import Divider from '../components/Divider';
 import BottomSheet from '../components/BottomSheet';
-import ListColorPickerSheet from '../components/pickers/ListColorPickerSheet';
+import ListOptionsSheet from '../components/pickers/ListOptionsSheet';
 import { ListDef } from '../data/types';
 import { IconClock, IconInboxTray, IconMenu, IconPlusBig, IconStack, IconTrendUp } from '../icons/Icons';
 
@@ -38,7 +39,7 @@ export default function BrowseScreen({ navigation }: Props) {
   const tags = tagCounts(state.tasks);
 
   const [addOpen, setAddOpen] = useState(false);
-  const [colorTarget, setColorTarget] = useState<ListDef | null>(null);
+  const [listTarget, setListTarget] = useState<ListDef | null>(null);
   const [newListName, setNewListName] = useState('');
   const [newListFolder, setNewListFolder] = useState(state.folders[0]?.id);
 
@@ -94,7 +95,7 @@ export default function BrowseScreen({ navigation }: Props) {
           </Pressable>
         </Card>
 
-        {state.folders.map((folder) => {
+        {activeFolders(state.folders).map((folder) => {
           const lists = listsInFolder(state.lists, folder.id);
           if (lists.length === 0) return null;
           return (
@@ -110,11 +111,11 @@ export default function BrowseScreen({ navigation }: Props) {
                     <Pressable
                       style={styles.smartRow}
                       onPress={() => openFilteredInbox({ type: 'list', value: list.id, label: list.name })}
-                      onLongPress={() => setColorTarget(list)}
+                      onLongPress={() => setListTarget(list)}
                       delayLongPress={350}
                     >
                       <Pressable
-                        onPress={() => setColorTarget(list)}
+                        onPress={() => setListTarget(list)}
                         hitSlop={8}
                         accessibilityLabel={`Change ${list.name} colour`}
                       >
@@ -167,7 +168,7 @@ export default function BrowseScreen({ navigation }: Props) {
           style={styles.newListInput}
         />
         <View style={styles.folderPicker}>
-          {state.folders.map((f) => {
+          {activeFolders(state.folders).map((f) => {
             const active = f.id === newListFolder;
             return (
               <Pressable
@@ -194,7 +195,7 @@ export default function BrowseScreen({ navigation }: Props) {
         </Pressable>
       </BottomSheet>
 
-      <ListColorPickerSheet list={colorTarget} onClose={() => setColorTarget(null)} />
+      <ListOptionsSheet list={listTarget} onClose={() => setListTarget(null)} />
     </View>
   );
 }
