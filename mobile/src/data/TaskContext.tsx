@@ -9,21 +9,19 @@ import { DEFAULT_VIEW_OPTIONS, ViewOptions } from './viewOptions';
 import { LIST_COLORS } from '../theme/colors';
 import {
   AppMode,
-  clearCursor,
   clearServerUrl,
   clearToken,
-  loadCursor,
   loadMode,
   loadServerUrl,
   loadToken,
-  saveCursor,
   saveMode,
   saveServerUrl,
   saveToken,
 } from './storage';
-import { createApi } from './api';
-import { Outbox, mergeBatch, pullSince, pushDirty } from './sync';
+import { ApiError, createApi } from './api';
+import { Outbox, SyncStatus, mergeBatch, pullSince, pushDirty } from './sync';
 export { ApiError } from './api';
+export type { SyncState, SyncStatus } from './sync';
 
 interface State {
   tasks: Task[];
@@ -270,8 +268,8 @@ interface TaskContextValue {
   /** Load the sample dataset and work entirely offline. */
   useSampleData: () => void;
   disconnect: () => void;
-  /** True while a push or pull is in flight. */
-  syncing: boolean;
+  /** Live sync state, for the indicator in the sidebar. Only meaningful in server mode. */
+  syncStatus: SyncStatus;
 }
 
 const TaskContext = createContext<TaskContextValue | null>(null);
@@ -288,7 +286,6 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
   // Ids changed locally since the last successful push. A ref, not state: it's
   // mutated on every edit, and none of that should trigger a re-render.
   const outboxRef = useRef(new Outbox());
-  const markDirty = useCallback((ids: string[]) => outboxRef.current.mark(ids), []);
 
   // The sync loop below runs on its own timer, outside React's render cycle, so
   // it reads state through a ref to always see the latest values.
@@ -297,7 +294,26 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     stateRef.current = state;
   }, [state]);
 
-  const [syncing, setSyncing] = useState(false);
+  // Session-scoped, deliberately not persisted — see the note in storage.ts.
+  // Undefined means the next pull is a full hydrate.
+  const cursorRef = useRef<string | undefined>(undefined);
+
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>({ state: 'syncing', pending: 0 });
+
+  // Marking dirty updates the indicator immediately, so an edit reads as pending
+  // the moment it's made rather than up to a cycle later.
+  const markDirty = useCallback((ids: string[]) => {
+    outboxRef.current.mark(ids);
+    setSyncStatus((s) => {
+      const pending = outboxRef.current.size;
+      // 'offline' and 'unauthorized' are more important to keep on screen than
+      // 'pending', and their labels already carry the count. 'syncing' means a
+      // cycle is mid-flight, and it will settle the state when it finishes.
+      const state = s.state === 'synced' && pending > 0 ? 'pending' : s.state;
+      if (s.pending === pending && s.state === state) return s;
+      return { ...s, pending, state };
+    });
+  }, []);
 
   const addTaskFromQuickAdd = useCallback((text: string, defaults?: QuickAddDefaults) => {
     const parsed = parseQuickAdd(text);
@@ -468,7 +484,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     saveServerUrl(url);
     saveToken(token);
     saveMode('server');
-    saveCursor(batch.now);
+    cursorRef.current = batch.now;
     outboxRef.current = new Outbox();
 
     dispatch({ type: 'CONNECT', serverUrl: url, token });
@@ -477,14 +493,14 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
   const useSampleData = useCallback(() => {
     clearServerUrl();
     clearToken();
-    clearCursor();
+    cursorRef.current = undefined;
     saveMode('sample');
     dispatch({ type: 'USE_SAMPLE_DATA', data: buildSampleData(new Date()) });
   }, []);
   const disconnect = useCallback(() => {
     clearServerUrl();
     clearToken();
-    clearCursor();
+    cursorRef.current = undefined;
     saveMode('none');
     dispatch({ type: 'DISCONNECT' });
   }, []);
@@ -499,22 +515,37 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     let timer: ReturnType<typeof setTimeout>;
 
     const cycle = async () => {
-      setSyncing(true);
+      setSyncStatus((s) => ({ ...s, state: 'syncing' }));
       try {
         if (outboxRef.current.size > 0) {
           const pushed = await pushDirty(api, outboxRef.current, stateRef.current);
           setMergeDirtyIds(outboxRef.current.snapshot());
           dispatch({ type: 'MERGE', tasks: pushed.tasks, lists: pushed.lists, folders: pushed.folders });
         }
-        const pulled = await pullSince(api, loadCursor());
-        saveCursor(pulled.now);
+        const pulled = await pullSince(api, cursorRef.current);
+        cursorRef.current = pulled.now;
         setMergeDirtyIds(outboxRef.current.snapshot());
         dispatch({ type: 'MERGE', tasks: pulled.tasks, lists: pulled.lists, folders: pulled.folders });
-      } catch {
-        // Offline or a transient server error — the next tick retries. Local
-        // edits stay queued in the outbox either way.
+
+        // Anything marked dirty *during* the request is still queued, so this is
+        // only fully "synced" if the outbox came out empty.
+        const pending = outboxRef.current.size;
+        setSyncStatus({
+          state: pending > 0 ? 'pending' : 'synced',
+          pending,
+          lastSyncedAt: new Date().toISOString(),
+        });
+      } catch (err) {
+        // Local edits stay queued either way; the next tick retries. A rejected
+        // token is called out separately because, unlike being offline, waiting
+        // will never fix it.
+        const unauthorized = err instanceof ApiError && err.status === 401;
+        setSyncStatus((s) => ({
+          ...s,
+          state: unauthorized ? 'unauthorized' : 'offline',
+          pending: outboxRef.current.size,
+        }));
       }
-      setSyncing(false);
       if (!cancelled) timer = setTimeout(cycle, 5000);
     };
 
@@ -550,7 +581,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       connect,
       useSampleData,
       disconnect,
-      syncing,
+      syncStatus,
     }),
     [
       state,
@@ -576,7 +607,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       connect,
       useSampleData,
       disconnect,
-      syncing,
+      syncStatus,
     ]
   );
 

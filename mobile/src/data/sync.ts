@@ -3,6 +3,26 @@ import { FolderDef, ListDef, Task } from './types';
 
 export { ApiError };
 
+export type SyncState =
+  /** Everything local has reached the server. */
+  | 'synced'
+  /** A push or pull is in flight. */
+  | 'syncing'
+  /** Local edits are queued, waiting for the next cycle. */
+  | 'pending'
+  /** The last cycle couldn't reach the server. Edits stay queued. */
+  | 'offline'
+  /** The server rejected the token — this one won't fix itself. */
+  | 'unauthorized';
+
+export interface SyncStatus {
+  state: SyncState;
+  /** Records changed locally that haven't reached the server yet. */
+  pending: number;
+  /** ISO timestamp of the last cycle that completed without error. */
+  lastSyncedAt?: string;
+}
+
 /**
  * Tracks record ids changed locally since the last successful push, so push()
  * sends only what's dirty and merge() knows which incoming rows to defer to

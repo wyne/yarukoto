@@ -1,44 +1,75 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
 /**
- * Minimal persistence for the server connection, so a browser refresh doesn't
- * land on the first-run screen every time.
+ * Persistence for the server connection: which mode the app is in, the server
+ * URL and access token, and the sync cursor.
  *
- * Web only, by design: it's a development convenience, and everything else in the
- * app (tasks, lists, view options) is still in-memory mock data that resets on
- * reload. Making this work on device would mean adding AsyncStorage, which isn't
- * worth a native dependency until there's a real server to persist against.
+ * AsyncStorage is async on every platform (on web it's localStorage underneath),
+ * but the callers here are reducer initialisers and render paths that can't await.
+ * So the whole keyspace — four small strings — is read once into memory by
+ * `initStorage()` at startup, and every read after that is synchronous against
+ * that cache. Writes update the cache immediately and persist in the background.
+ *
+ * The alternative, making every caller async, would mean a loading state
+ * threaded through `initState()` and the provider for the sake of a few hundred
+ * bytes read once per launch.
  */
+
 const URL_KEY = 'yarukoto.serverUrl';
 const MODE_KEY = 'yarukoto.mode';
 const TOKEN_KEY = 'yarukoto.token';
-const CURSOR_KEY = 'yarukoto.syncCursor';
 
-function store(): Storage | null {
+const ALL_KEYS = [URL_KEY, MODE_KEY, TOKEN_KEY];
+
+let cache: Record<string, string | null> = {};
+let primed = false;
+
+/**
+ * Loads the persisted keys into memory. Must resolve before anything renders —
+ * a read before this lands looks exactly like a first run, which would drop a
+ * returning user back on the connect screen.
+ */
+export async function initStorage(): Promise<void> {
   try {
-    return typeof localStorage === 'undefined' ? null : localStorage;
+    const entries = await AsyncStorage.multiGet(ALL_KEYS);
+    cache = Object.fromEntries(entries);
   } catch {
-    // Private-mode Safari throws on access rather than returning null.
-    return null;
+    // Blocked or unavailable storage (private-mode Safari, for one) shouldn't
+    // stop the app from starting — it just won't remember anything.
+    cache = {};
   }
+  primed = true;
+}
+
+function read(key: string): string | null {
+  if (__DEV__ && !primed) {
+    console.warn(`storage: read of "${key}" before initStorage() resolved; treated as unset.`);
+  }
+  return cache[key] ?? null;
+}
+
+function write(key: string, value: string): void {
+  cache[key] = value;
+  // Fire-and-forget: the cache is already authoritative for this session, so a
+  // failed write costs a re-connect next launch rather than breaking anything now.
+  AsyncStorage.setItem(key, value).catch(() => {});
+}
+
+function remove(key: string): void {
+  cache[key] = null;
+  AsyncStorage.removeItem(key).catch(() => {});
 }
 
 export function loadServerUrl(): string {
-  return store()?.getItem(URL_KEY) ?? '';
+  return read(URL_KEY) ?? '';
 }
 
 export function saveServerUrl(url: string): void {
-  try {
-    store()?.setItem(URL_KEY, url);
-  } catch {
-    // Full or blocked storage shouldn't break connecting.
-  }
+  write(URL_KEY, url);
 }
 
 export function clearServerUrl(): void {
-  try {
-    store()?.removeItem(URL_KEY);
-  } catch {
-    // ignore
-  }
+  remove(URL_KEY);
 }
 
 /**
@@ -49,58 +80,37 @@ export function clearServerUrl(): void {
 export type AppMode = 'none' | 'sample' | 'server';
 
 export function loadMode(): AppMode {
-  const stored = store()?.getItem(MODE_KEY);
+  const stored = read(MODE_KEY);
   if (stored === 'sample' || stored === 'server') return stored;
   // A URL saved before modes existed means a previous session connected.
   return loadServerUrl() ? 'server' : 'none';
 }
 
 export function saveMode(mode: AppMode): void {
-  try {
-    if (mode === 'none') store()?.removeItem(MODE_KEY);
-    else store()?.setItem(MODE_KEY, mode);
-  } catch {
-    // ignore
-  }
+  if (mode === 'none') remove(MODE_KEY);
+  else write(MODE_KEY, mode);
 }
 
 export function loadToken(): string {
-  return store()?.getItem(TOKEN_KEY) ?? '';
+  return read(TOKEN_KEY) ?? '';
 }
 
 export function saveToken(token: string): void {
-  try {
-    store()?.setItem(TOKEN_KEY, token);
-  } catch {
-    // ignore
-  }
+  write(TOKEN_KEY, token);
 }
 
 export function clearToken(): void {
-  try {
-    store()?.removeItem(TOKEN_KEY);
-  } catch {
-    // ignore
-  }
+  remove(TOKEN_KEY);
 }
 
-/** The `updatedAt` cursor of the last successful pull, so the next one is incremental. */
-export function loadCursor(): string | undefined {
-  return store()?.getItem(CURSOR_KEY) ?? undefined;
-}
-
-export function saveCursor(cursor: string): void {
-  try {
-    store()?.setItem(CURSOR_KEY, cursor);
-  } catch {
-    // ignore
-  }
-}
-
-export function clearCursor(): void {
-  try {
-    store()?.removeItem(CURSOR_KEY);
-  } catch {
-    // ignore
-  }
-}
+/**
+ * The sync cursor is deliberately *not* persisted. Task data isn't cached
+ * locally, so state starts empty on every launch — and a saved cursor would then
+ * make the first pull incremental, asking only for rows changed since last time
+ * and silently returning nothing. Every existing task would stay invisible until
+ * something happened to touch it server-side.
+ *
+ * Keeping the cursor in memory means each launch does one full hydrate, which is
+ * cheap for a personal task list and correct by construction. Persisting it only
+ * becomes worthwhile alongside a local cache of the tasks themselves.
+ */

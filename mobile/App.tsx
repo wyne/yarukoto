@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { NavigationContainer } from '@react-navigation/native';
@@ -8,12 +8,21 @@ import { fontMap } from './src/theme/typography';
 import { colors } from './src/theme/colors';
 import { ThemeProvider } from './src/theme/ThemeContext';
 import { TaskProvider } from './src/data/TaskContext';
+import { initStorage } from './src/data/storage';
 import RootNavigator from './src/navigation/RootNavigator';
 
 export default function App() {
   const [fontsLoaded] = useFonts(fontMap);
+  const [storageReady, setStorageReady] = useState(false);
 
-  if (!fontsLoaded) {
+  // TaskProvider reads the persisted mode and token synchronously as it
+  // initialises, so this has to land before anything mounts — otherwise a
+  // returning user gets a flash of the connect screen, or worse, stays on it.
+  useEffect(() => {
+    initStorage().then(() => setStorageReady(true));
+  }, []);
+
+  if (!fontsLoaded || !storageReady) {
     return <View style={styles.loading} />;
   }
 
