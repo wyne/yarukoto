@@ -30,7 +30,8 @@ async function main() {
     done();
   });
 
-  if (fs.existsSync(env.webRoot)) {
+  const webRootExists = fs.existsSync(env.webRoot);
+  if (webRootExists) {
     app.register(fastifyStatic, { root: env.webRoot });
     app.setNotFoundHandler((request, reply) => {
       if (request.raw.url?.startsWith('/api/')) {
@@ -39,12 +40,34 @@ async function main() {
       }
       reply.sendFile('index.html');
     });
+  } else {
+    // Without this, `/` falls through to Fastify's default JSON 404 and the only
+    // symptom is "the web app serves JSON" — with nothing anywhere saying why.
+    app.log.warn(
+      { webRoot: env.webRoot },
+      'No web build found; serving the API only. Set WEB_ROOT, or build the image so the client is present.'
+    );
+    app.setNotFoundHandler((request, reply) => {
+      if (request.raw.url?.startsWith('/api/')) {
+        reply.code(404).send({ error: 'not_found' });
+        return;
+      }
+      reply.code(404).send({
+        error: 'no_web_build',
+        message: `No web client at ${env.webRoot}. This server is running API-only.`,
+      });
+    });
   }
 
   await app.listen({ host: '0.0.0.0', port: env.port });
+  app.log.info(
+    { webRoot: env.webRoot, servingWebClient: webRootExists, database: env.databasePath },
+    'Yarukoto ready'
+  );
 }
 
 main().catch((err) => {
   console.error(err);
   process.exit(1);
 });
+
