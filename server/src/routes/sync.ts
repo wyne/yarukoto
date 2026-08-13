@@ -1,13 +1,24 @@
 import { FastifyInstance } from 'fastify';
 import Database from 'better-sqlite3';
-import { FolderDef, ListDef, Task } from '../../../shared/types';
+import { FolderDef, ListDef, Task, ViewPref } from '../../../shared/types';
 import { env } from '../env';
-import { FolderRow, ListRow, TaskRow, folderFromRow, listFromRow, taskFromRow, upsertTask } from '../model';
+import {
+  FolderRow,
+  ListRow,
+  TaskRow,
+  ViewPrefRow,
+  folderFromRow,
+  listFromRow,
+  taskFromRow,
+  upsertTask,
+  viewPrefFromRow,
+} from '../model';
 
 interface SyncPushBody {
   tasks?: Task[];
   lists?: ListDef[];
   folders?: FolderDef[];
+  viewPrefs?: ViewPref[];
 }
 
 export function registerSyncRoutes(app: FastifyInstance, db: Database.Database): void {
@@ -33,16 +44,20 @@ export function registerSyncRoutes(app: FastifyInstance, db: Database.Database):
     const folders = (
       db.prepare('SELECT * FROM folders WHERE updated_at > ? ORDER BY updated_at').all(cursor) as FolderRow[]
     ).map(folderFromRow);
+    const viewPrefs = (
+      db.prepare('SELECT * FROM view_prefs WHERE updated_at > ? ORDER BY updated_at').all(cursor) as ViewPrefRow[]
+    ).map(viewPrefFromRow);
 
-    reply.send({ now, tasks, lists, folders });
+    reply.send({ now, tasks, lists, folders, viewPrefs });
   });
 
   app.post<{ Body: SyncPushBody }>('/api/v1/sync', async (request, reply) => {
-    const { tasks = [], lists = [], folders = [] } = request.body ?? {};
+    const { tasks = [], lists = [], folders = [], viewPrefs = [] } = request.body ?? {};
 
     const acceptedTasks: Task[] = [];
     const acceptedLists: ListDef[] = [];
     const acceptedFolders: FolderDef[] = [];
+    const acceptedViewPrefs: ViewPref[] = [];
 
     const run = db.transaction(() => {
       for (const task of tasks) {
@@ -55,10 +70,19 @@ export function registerSyncRoutes(app: FastifyInstance, db: Database.Database):
       for (const folder of folders) {
         acceptedFolders.push(upsertFolder(db, folder));
       }
+      for (const pref of viewPrefs) {
+        acceptedViewPrefs.push(upsertViewPref(db, pref));
+      }
     });
     run();
 
-    reply.send({ now: new Date().toISOString(), tasks: acceptedTasks, lists: acceptedLists, folders: acceptedFolders });
+    reply.send({
+      now: new Date().toISOString(),
+      tasks: acceptedTasks,
+      lists: acceptedLists,
+      folders: acceptedFolders,
+      viewPrefs: acceptedViewPrefs,
+    });
   });
 }
 
@@ -73,6 +97,23 @@ function upsertList(db: Database.Database, list: ListDef): ListDef {
        updated_at = excluded.updated_at, deleted_at = excluded.deleted_at`
   ).run({ ...list, deletedAt: list.deletedAt ?? null });
   return list;
+}
+
+function upsertViewPref(db: Database.Database, pref: ViewPref): ViewPref {
+  const existing = db.prepare('SELECT updated_at FROM view_prefs WHERE id = ?').get(pref.id) as
+    | { updated_at: string }
+    | undefined;
+  if (existing && existing.updated_at >= pref.updatedAt) {
+    return viewPrefFromRow(db.prepare('SELECT * FROM view_prefs WHERE id = ?').get(pref.id) as ViewPrefRow);
+  }
+  db.prepare(
+    `INSERT INTO view_prefs (id, group_by, sort_by, updated_at, deleted_at) VALUES (@id, @groupBy, @sortBy, @updatedAt, @deletedAt)
+     ON CONFLICT(id) DO UPDATE SET group_by = excluded.group_by, sort_by = excluded.sort_by,
+       updated_at = excluded.updated_at, deleted_at = excluded.deleted_at`
+  ).run({ ...pref, deletedAt: pref.deletedAt ?? null });
+  // Read back so an unrecognised grouping or sort is normalised the same way a
+  // pull would normalise it, rather than the pusher keeping a value nothing else sees.
+  return viewPrefFromRow(db.prepare('SELECT * FROM view_prefs WHERE id = ?').get(pref.id) as ViewPrefRow);
 }
 
 function upsertFolder(db: Database.Database, folder: FolderDef): FolderDef {
