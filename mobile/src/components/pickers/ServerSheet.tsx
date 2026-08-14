@@ -2,8 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import BottomSheet from '../BottomSheet';
 import SyncIndicator from '../SyncIndicator';
-import { colors } from '../../theme/colors';
+import { ACCENT_OPTIONS, colors } from '../../theme/colors';
 import { fonts } from '../../theme/typography';
+import { useTheme } from '../../theme/ThemeContext';
 import { ApiError, useTasks } from '../../data/TaskContext';
 import { lastSyncedLabel } from '../../data/dateUtils';
 
@@ -12,9 +13,10 @@ interface Props {
   onClose: () => void;
 }
 
-/** Point the app at a different server, or drop the connection entirely. */
+/** Appearance, and where the app syncs to. */
 export default function ServerSheet({ visible, onClose }: Props) {
   const { state, connect, disconnect, syncStatus } = useTasks();
+  const { accent, setAccent } = useTheme();
   const [url, setUrl] = useState(state.serverUrl);
   const [token, setToken] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -56,12 +58,29 @@ export default function ServerSheet({ visible, onClose }: Props) {
   const sample = state.mode === 'sample';
 
   return (
-    <BottomSheet visible={visible} onClose={onClose} title={sample ? 'Connect to a server' : 'Server'}>
+    <BottomSheet visible={visible} onClose={onClose} title={sample ? 'Connect to a server' : 'Settings'}>
       {sample && (
         <Text style={styles.sampleNote}>
           You're exploring with sample data. Connecting replaces it with your server's tasks.
         </Text>
       )}
+
+      <Text style={styles.sectionLabel}>Accent</Text>
+      <View style={styles.accentRow}>
+        {ACCENT_OPTIONS.map((option) => (
+          <Pressable
+            key={option}
+            onPress={() => setAccent(option)}
+            style={[styles.swatchRing, option === accent && { borderColor: colors.textPrimary }]}
+            accessibilityLabel={`Accent colour ${option}`}
+            accessibilityState={{ selected: option === accent }}
+          >
+            <View style={[styles.swatch, { backgroundColor: option }]} />
+          </Pressable>
+        ))}
+      </View>
+
+      <Text style={styles.sectionLabel}>Server</Text>
 
       {state.mode === 'server' && (
         <View style={styles.statusRow}>
@@ -109,6 +128,31 @@ export default function ServerSheet({ visible, onClose }: Props) {
 }
 
 const styles = StyleSheet.create({
+  sectionLabel: {
+    marginBottom: 8,
+    fontFamily: fonts.monoRegular,
+    fontSize: 11,
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+    color: colors.textTertiary,
+  },
+  accentRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 18,
+  },
+  /** The ring, not the swatch, carries the selection — the fill stays true to the colour. */
+  swatchRing: {
+    padding: 3,
+    borderWidth: 1.5,
+    borderColor: 'transparent',
+    borderRadius: 999,
+  },
+  swatch: {
+    width: 24,
+    height: 24,
+    borderRadius: 999,
+  },
   statusRow: {
     flexDirection: 'row',
     alignItems: 'center',
