@@ -236,6 +236,28 @@ npm run ios     # expo run:ios — prebuilds, compiles, and launches
 `npm run ios` is a full native build now that the project has a dev client. For a quick check
 against Expo Go with no native build at all, `npx expo start --go` still works.
 
+### Getting it onto TestFlight
+
+Needs a paid Apple Developer Program membership and an app record in App Store Connect whose
+bundle ID matches `mobile/app.json`. Create the record first — `eas submit` can do it for you on
+the first run, but only if the identifier is free.
+
+```bash
+eas build --platform ios --profile production
+eas submit --platform ios --profile production
+```
+
+`eas submit` prompts for the Apple ID, team, and App Store Connect app ID on the first run and
+remembers them; put them in `eas.json` under `submit.production.ios` if you'd rather not be asked.
+
+Processing on Apple's side takes a few minutes, after which the build appears under TestFlight.
+Internal testers (up to 100, on your team) get it immediately. External testers need Apple's
+review of the *build*, which is lighter than App Store review but not instant.
+
+> `ITSAppUsesNonExemptEncryption` is set to `false` in `mobile/app.json`. The app only uses
+> encryption for HTTPS, which is exempt, and declaring that up front is what stops every single
+> build from landing in TestFlight as "Missing Compliance" waiting on a manual answer.
+
 ### Why the app can talk to an HTTP server
 
 iOS App Transport Security blocks plain HTTP, and the common Yarukoto setup is exactly that — a

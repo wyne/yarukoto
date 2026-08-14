@@ -10,6 +10,7 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.wyne.yarukoto",
       "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
         "NSAppTransportSecurity": {
           "NSAllowsLocalNetworking": true
         },
