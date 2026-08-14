@@ -7,7 +7,15 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.wyne.yarukoto",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSAppTransportSecurity": {
+          "NSAllowsLocalNetworking": true
+        },
+        "NSLocalNetworkUsageDescription": "Yarukoto connects to the Yarukoto server you run on your own network."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -23,6 +31,12 @@
     },
     "plugins": [
       "expo-audio"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "6f8fe6b9-f159-4704-a238-c4d074ee15fd"
+      }
+    },
+    "owner": "wyne"
   }
 }

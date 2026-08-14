@@ -1,14 +1,28 @@
 import { NavigatorScreenParams } from '@react-navigation/native';
 
+/** A resolved list/tag filter, ready to render. Built from `InboxParams`. */
 export interface TaskListFilter {
   type: 'list' | 'tag';
   value: string;
   label: string;
 }
 
+/**
+ * The Inbox tab doubles as the host for filtered list/tag views, and these say
+ * which. They're ids rather than a resolved filter because on web they *are*
+ * the URL query — `/inbox?listId=l-…` — so they have to survive a page load,
+ * which a display label looked up from state can't. InboxScreen resolves them
+ * against the current lists on every render, which also means renaming a list
+ * retitles the open view instead of leaving the name it was opened with.
+ */
+export interface InboxParams {
+  listId?: string;
+  tag?: string;
+}
+
 export type MainTabParamList = {
   AllTab: undefined;
-  InboxTab: { filter?: TaskListFilter } | undefined;
+  InboxTab: InboxParams | undefined;
   TodayTab: undefined;
   CalendarTab: { focusDate?: string } | undefined;
   PlanTab: undefined;

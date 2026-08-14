@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Platform, StyleSheet, View } from 'react-native';
 import { BottomTabBarProps, createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { colors } from '../theme/colors';
 import { MainTabParamList } from './types';
@@ -79,6 +79,18 @@ function Tabs() {
   return (
     <Tab.Navigator
       tabBar={(props) => <TabBar {...props} />}
+      /**
+       * Web only. Every view has a URL (see App.tsx), but the browser only gains a
+       * history entry for one if this navigator's own history grows with it — under
+       * the default 'firstRoute' it never does, so Back would jump to All from
+       * wherever you were and then leave the app. 'fullHistory' keeps repeat visits
+       * distinct as well, which plain 'history' de-duplicates: with that, going All →
+       * Today → All and pressing Back skips over the Today you just came from.
+       *
+       * Native keeps 'firstRoute': there, back is the Android system button, and
+       * retracing a long trail of views before it exits isn't what that button means.
+       */
+      backBehavior={Platform.OS === 'web' ? 'fullHistory' : 'firstRoute'}
       screenOptions={{
         headerShown: false,
         tabBarPosition: wide ? 'left' : 'bottom',

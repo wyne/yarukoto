@@ -143,6 +143,15 @@ export default function TaskRow({
   );
 }
 
+/**
+ * Web-only, and spread through `as object` so the native typings don't have to know
+ * these keys. A row is held to pick it up and reorder it; mobile browsers read that
+ * same hold as "select the word under the finger", which lands a selection and a
+ * callout bar on top of the drag. (The callout itself is suppressed in
+ * public/index.html — it has no style-prop equivalent.)
+ */
+const noTextSelect = { userSelect: 'none' } as const;
+
 const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
@@ -152,6 +161,7 @@ const styles = StyleSheet.create({
     paddingVertical: 11,
     minHeight: 44,
     backgroundColor: colors.surface,
+    ...(noTextSelect as object),
   },
   rowCompleted: {
     opacity: 0.55,
@@ -199,8 +209,10 @@ const styles = StyleSheet.create({
     marginRight: -4,
     paddingHorizontal: 4,
     paddingVertical: 6,
-    // @ts-expect-error web-only affordance; ignored on native
-    cursor: 'grab',
+    // Web-only, ignored on native. `touchAction: none` is the important one: a touch
+    // that starts on the handle only ever drags, so the browser must hand the whole
+    // gesture over instead of scrolling the list with it.
+    ...({ cursor: 'grab', touchAction: 'none', userSelect: 'none' } as object),
   },
   badge: {
     backgroundColor: colors.chipBg,

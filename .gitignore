@@ -2,5 +2,7 @@ node_modules/
 /data/
 server/data/
 .env
+# Any other env file too — .synology.env and friends carry real tokens.
+*.env
 *.tsbuildinfo
 server/dist/

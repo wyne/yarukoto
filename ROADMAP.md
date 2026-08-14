@@ -22,39 +22,23 @@ phone app, and several things are native-only or changed startup:
 - `mobile/src/data/ids.ts` uses `randomUUID()` from `expo-crypto`.
 - The 5s sync loop keeps running while backgrounded; iOS may suspend timers differently.
 
+**The build config is in place now** — `mobile/eas.json`, an `ios.bundleIdentifier`, and the ATS
+keys below are committed, and `expo prebuild` produces a valid Xcode project. What is still
+untouched is the part that needs a Mac: actually compiling and running it. See
+[Building the iOS app](README.md#building-the-ios-app).
+
 **Done when:** `npm run ios` (or `android`) launches, first-run connects to a server on the LAN,
 a task created on the phone appears in the web client and vice versa, and force-quitting and
 reopening keeps you signed in.
 
 **Watch for:** the phone can't reach `localhost` — use the host's LAN IP, and note the server
-listens on `0.0.0.0` already. HTTP to a LAN IP is fine on iOS for now but ATS may complain in a
-release build.
+listens on `0.0.0.0` already. HTTP to a LAN IP needs an ATS exception, which `mobile/app.json`
+now carries as `NSAllowsLocalNetworking` plus `NSLocalNetworkUsageDescription` — if the very
+first connection attempt fails silently, that permission prompt is the thing to check.
 
 ---
 
-## 2. Lists and folders can't be deleted or renamed
-
-The most visible functional hole. A mistyped list name is permanent, and an unwanted list can't
-be removed.
-
-The plumbing is already there — this is only missing UI plus two reducer actions:
-
-- `ListDef`/`FolderDef` in `shared/types.ts` already extend `Synced`, so they carry `deletedAt`.
-- The server already upserts and soft-deletes them (`server/src/routes/sync.ts`), and retention
-  already hard-deletes expired ones (`server/src/retention.ts`).
-- `mobile/src/data/TaskContext.tsx` has only `ADD_LIST`, `ADD_FOLDER`, and `UPDATE_LIST` — and
-  `UPDATE_LIST` is wired solely to colour, via `setListColor`.
-
-**Latent bug to fix at the same time:** `listsInFolder()` in `mobile/src/data/selectors.ts` does
-not filter `deletedAt`, so a list tombstoned by another client would still render. It's currently
-unreachable *because* nothing can delete a list — fixing one without the other reveals it.
-
-**Done when:** a list can be renamed and deleted, tasks in a deleted list fall back to Inbox (or
-are handled deliberately some other way), and the deletion reaches a second client.
-
----
-
-## 3. Cache tasks locally for offline launch
+## 2. Cache tasks locally for offline launch
 
 Right now every launch does a full hydrate and starts from an empty list, so opening the app
 without a connection shows nothing until sync completes. On a phone that's the common case.
@@ -69,11 +53,11 @@ cache instantly, then sync incrementally in the background.
 
 **Done when:** launching offline shows the last known tasks, and the sync cursor can be persisted
 again without the empty-on-refresh failure returning. Add a regression test for that specific
-case (see item 4).
+case (see item 3).
 
 ---
 
-## 4. There are no tests
+## 3. There are no tests
 
 Zero test runner, zero tests. `buildSampleData()` in `mobile/src/data/sampleData.ts` was
 deliberately written pure and deterministic — ids from a per-call counter, every timestamp derived
@@ -92,7 +76,7 @@ Highest-value targets, roughly in order:
 
 ---
 
-## 5. Task history has no UI
+## 4. Task history has no UI
 
 The server has captured a full snapshot of every task change since the schema existed — that was
 deliberate, because history you didn't record is gone forever. It's still only reachable by hand:
@@ -103,6 +87,34 @@ curl -s localhost:8080/api/v1/tasks/<id>/history -H "Authorization: Bearer $YARU
 
 **Done when:** the task detail sheet lists revisions, and ideally restoring one writes the old
 values back through the normal sync path.
+
+---
+
+## Considered and deferred: realtime updates
+
+Sync polls every 5 seconds in the foreground, so a change made on one device can take that long to
+appear on another. The obvious reach is WebSockets. It isn't the right first move, and the reasoning
+is worth keeping so it doesn't get relitigated from scratch.
+
+**The cheap wins came first and are already done.** A client now syncs the instant it comes to the
+foreground, and backs off to a slow tick when it isn't. Latency you actually *notice* is latency at
+the moment you pick up a device, and that is now near zero. Side-by-side windows are the one case
+polling still loses — and they're the least representative way the app gets used.
+
+**If that stops being enough, use SSE rather than WebSockets.** The requirement is one-directional:
+*"something changed, go pull."* The client then syncs through the endpoint it already has, with the
+auth it already has. `EventSource` reconnects by itself, and it's ordinary HTTP, so a reverse proxy
+is far likelier to pass it untouched. WebSockets add full duplex nothing here needs, and DSM's
+reverse proxy requires WebSocket support enabled per rule — a new failure mode on precisely the path
+that produced the clock-skew bug.
+
+**Either way, polling stays.** Missed messages, sleep/wake, and iOS suspending connections in the
+background all mean a push channel can only ever be an accelerator over a poll that still has to be
+correct on its own. That second code path — able to disagree with the first — is the real cost, not
+the transport.
+
+**Worth doing when:** two devices are genuinely used side by side often enough that 5 seconds
+grates. Until then it's a second sync path to keep honest for no felt benefit.
 
 ---
 

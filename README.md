@@ -19,6 +19,9 @@ a working instance. The same codebase builds an iOS/Android app via Expo.
 - **Quick add with natural syntax** — `pay rent fri 6pm #home !high ~admin` parses the due date
   and time, the `#tag`, the `!priority`, and the `~list`. Anything unrecognized stays as the title.
 - **Subtasks, notes, tags, priorities, due dates and times.**
+- **Real URLs on the web** — every view is an address (`/today`, `/inbox?listId=…`), so a reload
+  stays where you were, Back retraces the views you visited, and a filtered list is a link you can
+  bookmark.
 - **Per-view grouping and sort** — each view keeps its own arrangement, synced with everything else,
   so a list set to group by tag and sort by priority looks that way on every device.
 - **Trash** — deleting is a soft delete. Restore from Trash, or delete forever. The server hard-deletes
@@ -66,6 +69,18 @@ To confirm it's healthy:
 ```bash
 curl -fsS localhost:8080/api/v1/health
 ```
+
+That also names the build that's running:
+
+```json
+{"ok":true,"version":"1.0.0","commit":"366ba58…","commitShort":"366ba58","builtAt":"2026-01-30T12:04:11Z"}
+```
+
+The same version and short sha appear in the app under the sidebar's server sheet,
+so you can tell whether an instance actually picked up an update. `commit` is empty
+for a local build unless you stamp it: `GIT_SHA=$(git rev-parse HEAD) docker compose
+build`. Published images (`ghcr.io/wyne/yarukoto`) always carry it, and the short sha
+matches their `sha-<short>` tag.
 
 ### Updating
 
@@ -170,10 +185,118 @@ the usual approach.
 plain HTTP is mixed content that browsers block — so "Connect" can't reach a local instance from
 there. Visitors get "Explore with sample data", which runs entirely client-side.
 
-The one build-time subtlety: a Pages *project* site is served from `/<repo>/`, and the export
+The build-time subtlety: a Pages *project* site is served from `/<repo>/`, and the export
 hard-codes absolute asset URLs. `mobile/app.config.js` reads `EXPO_BASE_URL` so the workflow can
 set that prefix while the Docker build — which serves from the domain root — leaves it empty.
 Setting it globally would break self-hosting. A user/org site or a custom domain needs no prefix.
+The same value reaches the app itself as `process.env.EXPO_BASE_URL`, which is how the URL routing
+knows what to strip off the front of the path.
+
+The other one: Pages has no rewrite rules, so `/<repo>/today` is a request for a file that isn't
+there. The workflow copies `index.html` to `404.html`, which is what Pages serves instead — the app
+boots from it, reads the path and shows the right view. The self-hosted server does the same job
+with a not-found handler.
+
+---
+
+## Building the iOS app
+
+The same `mobile/` project that produces the web bundle builds the iOS app — the screens are
+React Native either way, so there is no separate codebase to keep in step.
+
+Native folders are not committed (`mobile/.gitignore` ignores `/ios` and `/android`); they are
+generated from `app.json` on each build. Edit the config, not the generated project.
+
+### One-time setup
+
+```bash
+cd mobile
+npm install
+npm install -g eas-cli
+eas login
+eas init          # links the project and writes extra.eas.projectId into app.json
+```
+
+`eas init` is the only step that writes back to the repo. Everything else it needs —
+`ios.bundleIdentifier`, the build profiles — is already committed.
+
+> **The bundle identifier is `com.wyne.yarukoto`.** Change it in `mobile/app.json` before the
+> first build if you want your own; changing it later means a new app record in App Store Connect.
+
+### Build profiles
+
+`mobile/eas.json` defines four:
+
+| Profile | What it produces | Needs an Apple account? |
+|---|---|---|
+| `simulator` | A `.app` for the iOS Simulator. No code signing. | No |
+| `development` | A dev-client build for a real device, loads JS from Metro. | Yes |
+| `preview` | A signed build for internal distribution. | Yes |
+| `production` | A store build, with `autoIncrement` for the build number. | Yes |
+
+`cli.appVersionSource` is `remote`, so EAS keeps the build number on its side and bumps it per
+production build. `version` in `app.json` seeds it on the first build and is otherwise ignored —
+that is deliberate, it keeps build-number churn out of git.
+
+The fastest way to see the app on a Mac without any Apple account:
+
+```bash
+eas build --platform ios --profile simulator
+```
+
+then press `Y` when it offers to install it on a running simulator. For a device:
+
+```bash
+eas build --platform ios --profile development
+npx expo start --dev-client
+```
+
+Building locally instead of on EAS works too, but needs Xcode and a Mac:
+
+```bash
+npm run ios     # expo run:ios — prebuilds, compiles, and launches
+```
+
+`npm run ios` is a full native build now that the project has a dev client. For a quick check
+against Expo Go with no native build at all, `npx expo start --go` still works.
+
+### Getting it onto TestFlight
+
+Needs a paid Apple Developer Program membership and an app record in App Store Connect whose
+bundle ID matches `mobile/app.json`. Create the record first — `eas submit` can do it for you on
+the first run, but only if the identifier is free.
+
+```bash
+eas build --platform ios --profile production
+eas submit --platform ios --profile production
+```
+
+`eas submit` prompts for the Apple ID, team, and App Store Connect app ID on the first run and
+remembers them; put them in `eas.json` under `submit.production.ios` if you'd rather not be asked.
+
+Processing on Apple's side takes a few minutes, after which the build appears under TestFlight.
+Internal testers (up to 100, on your team) get it immediately. External testers need Apple's
+review of the *build*, which is lighter than App Store review but not instant.
+
+> `ITSAppUsesNonExemptEncryption` is set to `false` in `mobile/app.json`. The app only uses
+> encryption for HTTPS, which is exempt, and declaring that up front is what stops every single
+> build from landing in TestFlight as "Missing Compliance" waiting on a manual answer.
+
+### Why the app can talk to an HTTP server
+
+iOS App Transport Security blocks plain HTTP, and the common Yarukoto setup is exactly that — a
+server on your LAN at `http://192.168.x.x:8080`. `mobile/app.json` sets two Info.plist keys to
+allow it:
+
+- `NSAllowsLocalNetworking` permits HTTP to private-range and `.local` addresses. It is the
+  narrow exception; `NSAllowsArbitraryLoads` would allow HTTP *everywhere* and draws questions at
+  App Store review.
+- `NSLocalNetworkUsageDescription` is the string in the permission prompt. Since iOS 14, reaching
+  any device on the local network needs the user's consent, and without this key the connection
+  fails rather than prompting.
+
+Neither helps a server exposed over the internet on plain HTTP — that still needs HTTPS, which
+is what you should be doing anyway. See [TLS](#tls).
 
 ---
 
@@ -201,6 +324,18 @@ Conflicts resolve **last-write-wins per record**, compared on `updatedAt`. Delet
 next pull. A pull whose cursor predates the retention window is rejected, and the client re-hydrates
 fully — otherwise a client offline long enough could miss a hard delete and resurrect the task.
 
+**Two timestamps, deliberately.** `updated_at` is stamped by the client that made the edit and is
+only ever used for that last-write-wins comparison, because resolving a conflict wants to know when
+something was *edited*. `server_updated_at` is written by the server on every accepted upsert, and
+is the only thing sync cursors compare against.
+
+They have to be separate. Cursors handed out by `GET /sync` come from the server's clock, so
+filtering on a client-stamped column compares two clocks that are never quite in step: an edit made
+on a device running a few seconds behind the server arrives already older than a cursor another
+device is holding, and `>` skips it on every subsequent pull. The record sits on the server, correct
+and complete, and simply never reaches the other client until something happens to touch it again.
+Sync appears to work "most of the time", which is the worst way for it to fail.
+
 ---
 
 ## API
@@ -209,7 +344,7 @@ All endpoints are under `/api/v1` and require `Authorization: Bearer <token>`, e
 
 | Endpoint | Purpose |
 |---|---|
-| `GET /health` | Unauthenticated liveness check. |
+| `GET /health` | Unauthenticated liveness check; also reports the running build (`version`, `commit`, `commitShort`, `builtAt`). |
 | `GET /sync?since=<iso>` | Changes since a cursor, including trashed rows. Omit `since` for a full hydrate. |
 | `POST /sync` | Upsert tasks/lists/folders/view prefs. Rejects any record older than the stored copy and returns the authoritative version. |
 | `GET /tasks/:id/history` | Revisions for one task, newest first. |
@@ -233,8 +368,11 @@ YARUKOTO_TOKEN=devtoken DATABASE_PATH=./data/dev.db MIGRATIONS_DIR=./migrations 
 ```bash
 cd mobile
 npm install
-npm run web     # or: npm run ios / npm run android
+npm run web
 ```
+
+`npm run ios` and `npm run android` compile the native app instead, which needs the platform
+toolchain installed — see [Building the iOS app](#building-the-ios-app).
 
 The Expo dev server runs on a different port than the API, so the first-run screen will ask for
 both the server URL (`http://localhost:8080`) and the token. That's expected — the

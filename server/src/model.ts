@@ -115,14 +115,15 @@ export function upsertTask(db: Database.Database, task: Task, op: 'create' | 'up
   }
 
   db.prepare(
-    `INSERT INTO tasks (id, title, notes, priority, due_date, due_time, list_id, tags, subtasks, completed, completed_at, created_at, order_key, updated_at, deleted_at)
-     VALUES (@id, @title, @notes, @priority, @dueDate, @dueTime, @listId, @tags, @subtasks, @completed, @completedAt, @createdAt, @order, @updatedAt, @deletedAt)
+    `INSERT INTO tasks (id, title, notes, priority, due_date, due_time, list_id, tags, subtasks, completed, completed_at, created_at, order_key, updated_at, deleted_at, server_updated_at)
+     VALUES (@id, @title, @notes, @priority, @dueDate, @dueTime, @listId, @tags, @subtasks, @completed, @completedAt, @createdAt, @order, @updatedAt, @deletedAt, @serverUpdatedAt)
      ON CONFLICT(id) DO UPDATE SET
        title = excluded.title, notes = excluded.notes, priority = excluded.priority,
        due_date = excluded.due_date, due_time = excluded.due_time, list_id = excluded.list_id,
        tags = excluded.tags, subtasks = excluded.subtasks, completed = excluded.completed,
        completed_at = excluded.completed_at, created_at = excluded.created_at, order_key = excluded.order_key,
-       updated_at = excluded.updated_at, deleted_at = excluded.deleted_at`
+       updated_at = excluded.updated_at, deleted_at = excluded.deleted_at,
+       server_updated_at = excluded.server_updated_at`
   ).run({
     id: task.id,
     title: task.title,
@@ -139,6 +140,8 @@ export function upsertTask(db: Database.Database, task: Task, op: 'create' | 'up
     order: task.order,
     updatedAt: task.updatedAt,
     deletedAt: task.deletedAt ?? null,
+    // Server clock, not the client's — this is what cursors compare against.
+    serverUpdatedAt: new Date().toISOString(),
   });
 
   recordRevision(db, task, op);

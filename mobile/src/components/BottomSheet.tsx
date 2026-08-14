@@ -1,8 +1,9 @@
 import React from 'react';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../theme/colors';
 import { fonts } from '../theme/typography';
+import SlideUpModal from './SlideUpModal';
 
 interface Props {
   visible: boolean;
@@ -14,22 +15,19 @@ interface Props {
 export default function BottomSheet({ visible, onClose, title, children }: Props) {
   const insets = useSafeAreaInsets();
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable style={styles.backdrop} onPress={onClose} />
-      <View style={[styles.sheet, { paddingBottom: Math.max(20, insets.bottom) }]}>
-        <View style={styles.grabber} />
-        <Text style={styles.title}>{title}</Text>
-        {children}
-      </View>
-    </Modal>
+    <SlideUpModal
+      visible={visible}
+      onClose={onClose}
+      sheetStyle={[styles.sheet, { paddingBottom: Math.max(20, insets.bottom) }]}
+    >
+      <View style={styles.grabber} />
+      <Text style={styles.title}>{title}</Text>
+      {children}
+    </SlideUpModal>
   );
 }
 
 const styles = StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(20,20,15,0.35)',
-  },
   sheet: {
     backgroundColor: colors.surface,
     borderTopLeftRadius: 18,
