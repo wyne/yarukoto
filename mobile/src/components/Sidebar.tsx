@@ -16,7 +16,7 @@ import {
   tasksForToday,
   trashedTasks,
 } from '../data/selectors';
-import { TaskListFilter } from '../navigation/types';
+import { InboxParams } from '../navigation/types';
 import { useSidebar } from '../navigation/SidebarContext';
 import { FolderDef, ListDef } from '../data/types';
 import ListOptionsSheet from './pickers/ListOptionsSheet';
@@ -82,7 +82,8 @@ export default function Sidebar({ state, navigation, onNavigate }: Props) {
 
   const current = state.routes[state.index];
   const inboxRoute = state.routes.find((r) => r.name === 'InboxTab');
-  const activeFilter = (inboxRoute?.params as { filter?: TaskListFilter } | undefined)?.filter;
+  const inboxParams = inboxRoute?.params as InboxParams | undefined;
+  const filtered = !!(inboxParams?.listId || inboxParams?.tag);
   const onInbox = current.name === 'InboxTab';
 
   const go = (route: string, params?: object) => {
@@ -98,9 +99,10 @@ export default function Sidebar({ state, navigation, onNavigate }: Props) {
     return null;
   };
 
-  const openFilter = (filter: TaskListFilter) => go('InboxTab', { filter });
+  // Params replace rather than merge, so setting one of the two clears the other.
+  const openFilter = (filter: InboxParams) => go('InboxTab', filter);
   const filterActive = (type: 'list' | 'tag', value: string) =>
-    onInbox && activeFilter?.type === type && activeFilter.value === value;
+    onInbox && (type === 'list' ? inboxParams?.listId : inboxParams?.tag) === value;
 
   return (
     <View
@@ -125,13 +127,13 @@ export default function Sidebar({ state, navigation, onNavigate }: Props) {
 
       <ScrollView style={styles.scrollArea} contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         {viewsFor(wide).map(({ route, label, Icon }) => {
-          const active = current.name === route && (route !== 'InboxTab' || !activeFilter);
+          const active = current.name === route && (route !== 'InboxTab' || !filtered);
           const count = viewCount(route);
           return (
             <Pressable
               key={route}
               style={[styles.row, collapsed && styles.rowCollapsed, active && { backgroundColor: colors.selectedRowBg }]}
-              onPress={() => go(route, route === 'InboxTab' ? { filter: undefined } : undefined)}
+              onPress={() => go(route)}
               accessibilityLabel={label}
             >
               <Icon size={18} color={active ? accent : colors.textTertiary} />
@@ -178,7 +180,7 @@ export default function Sidebar({ state, navigation, onNavigate }: Props) {
                   <Pressable
                     key={list.id}
                     style={[styles.row, collapsed && styles.rowCollapsed, active && { backgroundColor: colors.selectedRowBg }]}
-                    onPress={() => openFilter({ type: 'list', value: list.id, label: list.name })}
+                    onPress={() => openFilter({ listId: list.id })}
                     accessibilityLabel={list.name}
                     onLongPress={() => setListTarget(list)}
                     delayLongPress={350}
@@ -223,7 +225,7 @@ export default function Sidebar({ state, navigation, onNavigate }: Props) {
                 <Pressable
                   key={tag}
                   style={[styles.row, active && { backgroundColor: colors.selectedRowBg }]}
-                  onPress={() => openFilter({ type: 'tag', value: tag, label: `#${tag}` })}
+                  onPress={() => openFilter({ tag })}
                 >
                   <IconTag size={16} color={active ? accent : colors.textTertiary} />
                   <Text
@@ -243,7 +245,7 @@ export default function Sidebar({ state, navigation, onNavigate }: Props) {
       <Pressable
         style={[styles.footer, collapsed && styles.footerCollapsed, { paddingBottom: Math.max(12, insets.bottom) }]}
         onPress={() => setServerOpen(true)}
-        accessibilityLabel="Edit server"
+        accessibilityLabel="Server connection"
       >
         <SyncIndicator
           mode={data.mode}

@@ -1,5 +1,5 @@
 import Database from 'better-sqlite3';
-import { FolderDef, ListDef, Task } from '../../shared/types';
+import { FolderDef, GROUP_BY_VALUES, GroupBy, ListDef, SORT_BY_VALUES, SortBy, Task, ViewPref } from '../../shared/types';
 import { env } from './env';
 
 export interface TaskRow {
@@ -32,6 +32,14 @@ export interface ListRow {
 export interface FolderRow {
   id: string;
   name: string;
+  updated_at: string;
+  deleted_at: string | null;
+}
+
+export interface ViewPrefRow {
+  id: string;
+  group_by: string;
+  sort_by: string;
   updated_at: string;
   deleted_at: string | null;
 }
@@ -76,6 +84,29 @@ export function folderFromRow(row: FolderRow): FolderDef {
   };
 }
 
+/**
+ * An unrecognised grouping or sort — an older server meeting a newer client, or a
+ * hand-rolled request — falls back to the default rather than being stored, so a
+ * client can never be handed a value it has no way to render.
+ */
+function asGroupBy(value: string): GroupBy {
+  return GROUP_BY_VALUES.includes(value as GroupBy) ? (value as GroupBy) : 'none';
+}
+
+function asSortBy(value: string): SortBy {
+  return SORT_BY_VALUES.includes(value as SortBy) ? (value as SortBy) : 'manual';
+}
+
+export function viewPrefFromRow(row: ViewPrefRow): ViewPref {
+  return {
+    id: row.id,
+    groupBy: asGroupBy(row.group_by),
+    sortBy: asSortBy(row.sort_by),
+    updatedAt: row.updated_at,
+    deletedAt: row.deleted_at ?? undefined,
+  };
+}
+
 export function upsertTask(db: Database.Database, task: Task, op: 'create' | 'update' | 'delete' | 'restore'): Task {
   const existing = db.prepare('SELECT updated_at FROM tasks WHERE id = ?').get(task.id) as { updated_at: string } | undefined;
   if (existing && existing.updated_at >= task.updatedAt) {
@@ -84,14 +115,15 @@ export function upsertTask(db: Database.Database, task: Task, op: 'create' | 'up
   }
 
   db.prepare(
-    `INSERT INTO tasks (id, title, notes, priority, due_date, due_time, list_id, tags, subtasks, completed, completed_at, created_at, order_key, updated_at, deleted_at)
-     VALUES (@id, @title, @notes, @priority, @dueDate, @dueTime, @listId, @tags, @subtasks, @completed, @completedAt, @createdAt, @order, @updatedAt, @deletedAt)
+    `INSERT INTO tasks (id, title, notes, priority, due_date, due_time, list_id, tags, subtasks, completed, completed_at, created_at, order_key, updated_at, deleted_at, server_updated_at)
+     VALUES (@id, @title, @notes, @priority, @dueDate, @dueTime, @listId, @tags, @subtasks, @completed, @completedAt, @createdAt, @order, @updatedAt, @deletedAt, @serverUpdatedAt)
      ON CONFLICT(id) DO UPDATE SET
        title = excluded.title, notes = excluded.notes, priority = excluded.priority,
        due_date = excluded.due_date, due_time = excluded.due_time, list_id = excluded.list_id,
        tags = excluded.tags, subtasks = excluded.subtasks, completed = excluded.completed,
        completed_at = excluded.completed_at, created_at = excluded.created_at, order_key = excluded.order_key,
-       updated_at = excluded.updated_at, deleted_at = excluded.deleted_at`
+       updated_at = excluded.updated_at, deleted_at = excluded.deleted_at,
+       server_updated_at = excluded.server_updated_at`
   ).run({
     id: task.id,
     title: task.title,
@@ -108,6 +140,8 @@ export function upsertTask(db: Database.Database, task: Task, op: 'create' | 'up
     order: task.order,
     updatedAt: task.updatedAt,
     deletedAt: task.deletedAt ?? null,
+    // Server clock, not the client's — this is what cursors compare against.
+    serverUpdatedAt: new Date().toISOString(),
   });
 
   recordRevision(db, task, op);

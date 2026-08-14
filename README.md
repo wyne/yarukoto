@@ -19,6 +19,11 @@ a working instance. The same codebase builds an iOS/Android app via Expo.
 - **Quick add with natural syntax** — `pay rent fri 6pm #home !high ~admin` parses the due date
   and time, the `#tag`, the `!priority`, and the `~list`. Anything unrecognized stays as the title.
 - **Subtasks, notes, tags, priorities, due dates and times.**
+- **Real URLs on the web** — every view is an address (`/today`, `/inbox?listId=…`), so a reload
+  stays where you were, Back retraces the views you visited, and a filtered list is a link you can
+  bookmark.
+- **Per-view grouping and sort** — each view keeps its own arrangement, synced with everything else,
+  so a list set to group by tag and sort by priority looks that way on every device.
 - **Trash** — deleting is a soft delete. Restore from Trash, or delete forever. The server hard-deletes
   anything left there past its retention window.
 - **Task history** — every change writes a full snapshot server-side, capped per task.
@@ -64,6 +69,18 @@ To confirm it's healthy:
 ```bash
 curl -fsS localhost:8080/api/v1/health
 ```
+
+That also names the build that's running:
+
+```json
+{"ok":true,"version":"1.0.0","commit":"366ba58…","commitShort":"366ba58","builtAt":"2026-01-30T12:04:11Z"}
+```
+
+The same version and short sha appear in the app under the sidebar's server sheet,
+so you can tell whether an instance actually picked up an update. `commit` is empty
+for a local build unless you stamp it: `GIT_SHA=$(git rev-parse HEAD) docker compose
+build`. Published images (`ghcr.io/wyne/yarukoto`) always carry it, and the short sha
+matches their `sha-<short>` tag.
 
 ### Updating
 
@@ -168,10 +185,17 @@ the usual approach.
 plain HTTP is mixed content that browsers block — so "Connect" can't reach a local instance from
 there. Visitors get "Explore with sample data", which runs entirely client-side.
 
-The one build-time subtlety: a Pages *project* site is served from `/<repo>/`, and the export
+The build-time subtlety: a Pages *project* site is served from `/<repo>/`, and the export
 hard-codes absolute asset URLs. `mobile/app.config.js` reads `EXPO_BASE_URL` so the workflow can
 set that prefix while the Docker build — which serves from the domain root — leaves it empty.
 Setting it globally would break self-hosting. A user/org site or a custom domain needs no prefix.
+The same value reaches the app itself as `process.env.EXPO_BASE_URL`, which is how the URL routing
+knows what to strip off the front of the path.
+
+The other one: Pages has no rewrite rules, so `/<repo>/today` is a request for a file that isn't
+there. The workflow copies `index.html` to `404.html`, which is what Pages serves instead — the app
+boots from it, reads the path and shows the right view. The self-hosted server does the same job
+with a not-found handler.
 
 ---
 
@@ -300,6 +324,18 @@ Conflicts resolve **last-write-wins per record**, compared on `updatedAt`. Delet
 next pull. A pull whose cursor predates the retention window is rejected, and the client re-hydrates
 fully — otherwise a client offline long enough could miss a hard delete and resurrect the task.
 
+**Two timestamps, deliberately.** `updated_at` is stamped by the client that made the edit and is
+only ever used for that last-write-wins comparison, because resolving a conflict wants to know when
+something was *edited*. `server_updated_at` is written by the server on every accepted upsert, and
+is the only thing sync cursors compare against.
+
+They have to be separate. Cursors handed out by `GET /sync` come from the server's clock, so
+filtering on a client-stamped column compares two clocks that are never quite in step: an edit made
+on a device running a few seconds behind the server arrives already older than a cursor another
+device is holding, and `>` skips it on every subsequent pull. The record sits on the server, correct
+and complete, and simply never reaches the other client until something happens to touch it again.
+Sync appears to work "most of the time", which is the worst way for it to fail.
+
 ---
 
 ## API
@@ -308,9 +344,9 @@ All endpoints are under `/api/v1` and require `Authorization: Bearer <token>`, e
 
 | Endpoint | Purpose |
 |---|---|
-| `GET /health` | Unauthenticated liveness check. |
+| `GET /health` | Unauthenticated liveness check; also reports the running build (`version`, `commit`, `commitShort`, `builtAt`). |
 | `GET /sync?since=<iso>` | Changes since a cursor, including trashed rows. Omit `since` for a full hydrate. |
-| `POST /sync` | Upsert tasks/lists/folders. Rejects any record older than the stored copy and returns the authoritative version. |
+| `POST /sync` | Upsert tasks/lists/folders/view prefs. Rejects any record older than the stored copy and returns the authoritative version. |
 | `GET /tasks/:id/history` | Revisions for one task, newest first. |
 
 ---

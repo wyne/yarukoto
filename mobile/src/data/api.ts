@@ -1,4 +1,4 @@
-import { FolderDef, ListDef, Task } from './types';
+import { FolderDef, ListDef, Task, ViewPref } from './types';
 
 export class ApiError extends Error {
   status: number;
@@ -13,16 +13,27 @@ export interface SyncBatch {
   tasks: Task[];
   lists: ListDef[];
   folders: FolderDef[];
+  viewPrefs: ViewPref[];
 }
 
 export interface SyncPush {
   tasks?: Task[];
   lists?: ListDef[];
   folders?: FolderDef[];
+  viewPrefs?: ViewPref[];
+}
+
+/** What `/api/v1/health` reports about the build it's running. */
+export interface ServerInfo {
+  version: string;
+  commit: string | null;
+  commitShort: string | null;
+  builtAt: string | null;
 }
 
 export interface Api {
-  health: () => Promise<boolean>;
+  /** Server build info, or null when the server can't be reached. */
+  health: () => Promise<ServerInfo | null>;
   pull: (since?: string) => Promise<SyncBatch>;
   push: (batch: SyncPush) => Promise<SyncBatch>;
 }
@@ -46,16 +57,33 @@ export function createApi(serverUrl: string, token: string): Api {
     return res.json();
   }
 
+  // A server older than view-option syncing answers without a `viewPrefs` key at
+  // all; filling it in here keeps every caller downstream working with a real array.
+  async function syncRequest(path: string, init?: RequestInit): Promise<SyncBatch> {
+    const batch = await request(path, init);
+    return { ...batch, viewPrefs: batch.viewPrefs ?? [] };
+  }
+
   return {
     health: async () => {
       try {
         const res = await fetch(`${base}/api/v1/health`);
-        return res.ok;
+        if (!res.ok) return null;
+        const body = await res.json();
+        if (!body || body.ok !== true) return null;
+        // A server older than this field reports nothing; the sheet says so rather
+        // than pretending a version it doesn't know.
+        return {
+          version: typeof body.version === 'string' ? body.version : '',
+          commit: typeof body.commit === 'string' ? body.commit : null,
+          commitShort: typeof body.commitShort === 'string' ? body.commitShort : null,
+          builtAt: typeof body.builtAt === 'string' ? body.builtAt : null,
+        };
       } catch {
-        return false;
+        return null;
       }
     },
-    pull: (since) => request(`/api/v1/sync${since ? `?since=${encodeURIComponent(since)}` : ''}`),
-    push: (batch) => request('/api/v1/sync', { method: 'POST', body: JSON.stringify(batch) }),
+    pull: (since) => syncRequest(`/api/v1/sync${since ? `?since=${encodeURIComponent(since)}` : ''}`),
+    push: (batch) => syncRequest('/api/v1/sync', { method: 'POST', body: JSON.stringify(batch) }),
   };
 }

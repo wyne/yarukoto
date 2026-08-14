@@ -1,11 +1,12 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import { AppState } from 'react-native';
 import { setAudioModeAsync, useAudioPlayer } from 'expo-audio';
 import { buildSampleData } from './sampleData';
-import { FolderDef, ListDef, Priority, Task } from './types';
+import { FolderDef, ListDef, Priority, Task, ViewPref } from './types';
 import { addDays, toISODate } from './dateUtils';
 import { parseQuickAdd } from './quickAdd';
 import { newFolderId, newListId, newSubtaskId, newTaskId } from './ids';
-import { DEFAULT_VIEW_OPTIONS, ViewOptions } from './viewOptions';
+import { ViewOptions, viewOptionsFor } from './viewOptions';
 import { LIST_COLORS } from '../theme/colors';
 import {
   AppMode,
@@ -31,8 +32,11 @@ interface State {
   mode: AppMode;
   serverUrl: string;
   token: string;
-  /** Grouping + sort per view, keyed by viewKey(). Views not in here use the default. */
-  viewOptions: Record<string, ViewOptions>;
+  /**
+   * Grouping + sort per view, one synced record per view keyed by viewKey().
+   * Views without a record use the default.
+   */
+  viewPrefs: ViewPref[];
 }
 
 type Action =
@@ -57,9 +61,27 @@ type Action =
   | { type: 'CONNECT'; serverUrl: string; token: string }
   | { type: 'USE_SAMPLE_DATA'; data: ReturnType<typeof buildSampleData> }
   | { type: 'DISCONNECT' }
-  | { type: 'HYDRATE'; tasks: Task[]; lists: ListDef[]; folders: FolderDef[] }
-  | { type: 'MERGE'; tasks: Task[]; lists: ListDef[]; folders: FolderDef[] };
+  | { type: 'HYDRATE'; tasks: Task[]; lists: ListDef[]; folders: FolderDef[]; viewPrefs: ViewPref[] }
+  | { type: 'MERGE'; tasks: Task[]; lists: ListDef[]; folders: FolderDef[]; viewPrefs: ViewPref[] };
 
+
+/**
+ * Soft-deletes the saved view options belonging to lists that were just deleted,
+ * so a deleted list doesn't leave its grouping behind on every device forever.
+ * Filtered views are hosted by whichever tab opened them, so the list id is matched
+ * on the filter part of the key rather than on the whole thing.
+ */
+function viewPrefIdsForLists(prefs: ViewPref[], listIds: string[]): string[] {
+  const suffixes = listIds.map((id) => `:list:${id}`);
+  return prefs.filter((p) => !p.deletedAt && suffixes.some((s) => p.id.endsWith(s))).map((p) => p.id);
+}
+
+function tombstoneListPrefs(prefs: ViewPref[], listIds: string[], now: string): ViewPref[] {
+  if (listIds.length === 0) return prefs;
+  const doomed = new Set(viewPrefIdsForLists(prefs, listIds));
+  if (doomed.size === 0) return prefs;
+  return prefs.map((p) => (doomed.has(p.id) ? { ...p, deletedAt: now } : p));
+}
 
 function applyAction(state: State, action: Action): State {
   switch (action.type) {
@@ -156,6 +178,7 @@ function applyAction(state: State, action: Action): State {
         ...state,
         lists: state.lists.map((l) => (l.id === action.id ? { ...l, deletedAt: now } : l)),
         tasks: state.tasks.map((t) => (t.listId === action.id ? { ...t, listId: null } : t)),
+        viewPrefs: tombstoneListPrefs(state.viewPrefs, [action.id], now),
       };
     }
     case 'DELETE_FOLDER': {
@@ -170,25 +193,58 @@ function applyAction(state: State, action: Action): State {
         folders: state.folders.map((f) => (f.id === action.id ? { ...f, deletedAt: now } : f)),
         lists: state.lists.map((l) => (doomed.has(l.id) ? { ...l, deletedAt: now } : l)),
         tasks: state.tasks.map((t) => (t.listId && doomed.has(t.listId) ? { ...t, listId: null } : t)),
+        viewPrefs: tombstoneListPrefs(state.viewPrefs, [...doomed], now),
       };
     }
-    case 'SET_VIEW_OPTIONS':
-      return { ...state, viewOptions: { ...state.viewOptions, [action.key]: action.options } };
+    case 'SET_VIEW_OPTIONS': {
+      const existing = state.viewPrefs.find((p) => p.id === action.key);
+      const pref: ViewPref = {
+        id: action.key,
+        groupBy: action.options.groupBy,
+        sortBy: action.options.sortBy,
+        // A view configured again after its list was deleted and restored should
+        // come back to life rather than stay tombstoned.
+        deletedAt: undefined,
+        updatedAt: existing?.updatedAt ?? new Date().toISOString(),
+      };
+      return {
+        ...state,
+        viewPrefs: existing
+          ? state.viewPrefs.map((p) => (p.id === action.key ? pref : p))
+          : [...state.viewPrefs, pref],
+      };
+    }
     case 'CONNECT':
       // Server data arrives via sync; nothing is seeded locally.
-      return { ...state, mode: 'server', serverUrl: action.serverUrl, token: action.token, tasks: [], lists: [], folders: [] };
+      return {
+        ...state,
+        mode: 'server',
+        serverUrl: action.serverUrl,
+        token: action.token,
+        tasks: [],
+        lists: [],
+        folders: [],
+        viewPrefs: [],
+      };
     case 'USE_SAMPLE_DATA':
-      return { ...state, mode: 'sample', serverUrl: '', token: '', ...action.data };
+      return { ...state, mode: 'sample', serverUrl: '', token: '', viewPrefs: [], ...action.data };
     case 'DISCONNECT':
-      return { ...state, mode: 'none', serverUrl: '', token: '', tasks: [], lists: [], folders: [] };
+      return { ...state, mode: 'none', serverUrl: '', token: '', tasks: [], lists: [], folders: [], viewPrefs: [] };
     case 'HYDRATE':
-      return { ...state, tasks: action.tasks, lists: action.lists, folders: action.folders };
+      return {
+        ...state,
+        tasks: action.tasks,
+        lists: action.lists,
+        folders: action.folders,
+        viewPrefs: action.viewPrefs,
+      };
     case 'MERGE':
       return {
         ...state,
         tasks: mergeBatch(state.tasks, action.tasks, mergeDirtyIds),
         lists: mergeBatch(state.lists, action.lists, mergeDirtyIds),
         folders: mergeBatch(state.folders, action.folders, mergeDirtyIds),
+        viewPrefs: mergeBatch(state.viewPrefs, action.viewPrefs, mergeDirtyIds),
       };
     default:
       return state;
@@ -234,6 +290,7 @@ function reducer(state: State, action: Action): State {
     tasks: stamp(state.tasks, next.tasks),
     lists: stamp(state.lists, next.lists),
     folders: stamp(state.folders, next.folders),
+    viewPrefs: stamp(state.viewPrefs, next.viewPrefs),
   };
 }
 
@@ -247,7 +304,8 @@ function initState(): State {
     mode,
     serverUrl: mode === 'server' ? loadServerUrl() : '',
     token: mode === 'server' ? loadToken() : '',
-    viewOptions: {},
+    // Like tasks, saved view options arrive with the first sync.
+    viewPrefs: [],
   };
 }
 
@@ -270,6 +328,15 @@ export interface PendingUndo {
 }
 
 export const UNDO_TIMEOUT_MS = 5000;
+
+/** How often a foregrounded client syncs. */
+export const ACTIVE_SYNC_MS = 5000;
+/**
+ * How often a backgrounded one does. Long, because nobody is watching — and on a
+ * phone the difference is battery. Foregrounding syncs immediately regardless,
+ * so this delay is never what you wait through when you pick a device up.
+ */
+export const IDLE_SYNC_MS = 60000;
 
 interface TaskContextValue {
   state: State;
@@ -514,19 +581,21 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
   const deleteList = useCallback(
     (listId: string) => {
       const moved = state.tasks.filter((t) => t.listId === listId).map((t) => t.id);
+      const prefs = viewPrefIdsForLists(state.viewPrefs, [listId]);
       dispatch({ type: 'DELETE_LIST', id: listId });
-      markDirty([listId, ...moved]);
+      markDirty([listId, ...moved, ...prefs]);
     },
-    [state.tasks, markDirty]
+    [state.tasks, state.viewPrefs, markDirty]
   );
   const deleteFolder = useCallback(
     (folderId: string) => {
       const doomed = state.lists.filter((l) => l.folderId === folderId && !l.deletedAt).map((l) => l.id);
       const moved = state.tasks.filter((t) => t.listId && doomed.includes(t.listId)).map((t) => t.id);
+      const prefs = viewPrefIdsForLists(state.viewPrefs, doomed);
       dispatch({ type: 'DELETE_FOLDER', id: folderId });
-      markDirty([folderId, ...doomed, ...moved]);
+      markDirty([folderId, ...doomed, ...moved, ...prefs]);
     },
-    [state.lists, state.tasks, markDirty]
+    [state.lists, state.tasks, state.viewPrefs, markDirty]
   );
   const addFolder = useCallback(
     (name: string) => {
@@ -537,12 +606,15 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     [markDirty]
   );
   const getViewOptions = useCallback(
-    (key: string) => state.viewOptions[key] ?? DEFAULT_VIEW_OPTIONS,
-    [state.viewOptions]
+    (key: string) => viewOptionsFor(state.viewPrefs, key),
+    [state.viewPrefs]
   );
   const setViewOptions = useCallback(
-    (key: string, options: ViewOptions) => dispatch({ type: 'SET_VIEW_OPTIONS', key, options }),
-    []
+    (key: string, options: ViewOptions) => {
+      dispatch({ type: 'SET_VIEW_OPTIONS', key, options });
+      markDirty([key]);
+    },
+    [markDirty]
   );
   const connect = useCallback(async (serverUrl: string, token: string) => {
     const url = serverUrl.replace(/\/+$/, '');
@@ -558,7 +630,13 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     outboxRef.current = new Outbox();
 
     dispatch({ type: 'CONNECT', serverUrl: url, token });
-    dispatch({ type: 'HYDRATE', tasks: batch.tasks, lists: batch.lists, folders: batch.folders });
+    dispatch({
+      type: 'HYDRATE',
+      tasks: batch.tasks,
+      lists: batch.lists,
+      folders: batch.folders,
+      viewPrefs: batch.viewPrefs,
+    });
   }, []);
   const useSampleData = useCallback(() => {
     clearServerUrl();
@@ -575,27 +653,58 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     dispatch({ type: 'DISCONNECT' });
   }, []);
 
-  // Push dirty records, then pull. Runs once on connect and on a timer while
-  // connected; a change in between waits for the next tick rather than firing
-  // its own request, which keeps concurrent pushes from racing each other.
+  // Push dirty records, then pull. Runs once on connect, again whenever the app
+  // comes to the foreground, and on a timer in between; a change mid-cycle waits
+  // for the next tick rather than firing its own request, which keeps concurrent
+  // pushes from racing each other.
   useEffect(() => {
     if (state.mode !== 'server') return;
     const api = createApi(state.serverUrl, state.token);
     let cancelled = false;
+    let running = false;
     let timer: ReturnType<typeof setTimeout>;
 
+    /**
+     * Polling every few seconds forever is wasted work when nobody is looking —
+     * and on a phone it's wasted battery. Backgrounded clients fall back to a
+     * slow tick, *unless* there are unsent edits: those shouldn't wait a minute
+     * to reach the server just because the user switched away right after making
+     * them.
+     */
+    const nextDelay = (): number => {
+      const foreground = AppState.currentState === 'active';
+      if (foreground || outboxRef.current.size > 0) return ACTIVE_SYNC_MS;
+      return IDLE_SYNC_MS;
+    };
+
     const cycle = async () => {
+      // Foregrounding fires an immediate cycle; guard against overlapping one
+      // that's already in flight.
+      if (running || cancelled) return;
+      running = true;
       setSyncStatus((s) => ({ ...s, state: 'syncing' }));
       try {
         if (outboxRef.current.size > 0) {
           const pushed = await pushDirty(api, outboxRef.current, stateRef.current);
           setMergeDirtyIds(outboxRef.current.snapshot());
-          dispatch({ type: 'MERGE', tasks: pushed.tasks, lists: pushed.lists, folders: pushed.folders });
+          dispatch({
+            type: 'MERGE',
+            tasks: pushed.tasks,
+            lists: pushed.lists,
+            folders: pushed.folders,
+            viewPrefs: pushed.viewPrefs,
+          });
         }
         const pulled = await pullSince(api, cursorRef.current);
         cursorRef.current = pulled.now;
         setMergeDirtyIds(outboxRef.current.snapshot());
-        dispatch({ type: 'MERGE', tasks: pulled.tasks, lists: pulled.lists, folders: pulled.folders });
+        dispatch({
+          type: 'MERGE',
+          tasks: pulled.tasks,
+          lists: pulled.lists,
+          folders: pulled.folders,
+          viewPrefs: pulled.viewPrefs,
+        });
 
         // Anything marked dirty *during* the request is still queued, so this is
         // only fully "synced" if the outbox came out empty.
@@ -616,13 +725,23 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
           pending: outboxRef.current.size,
         }));
       }
-      if (!cancelled) timer = setTimeout(cycle, 5000);
+      running = false;
+      if (!cancelled) timer = setTimeout(cycle, nextDelay());
     };
+
+    // The moment you look at a device is exactly when staleness is visible, so
+    // don't wait out the timer — sync straight away.
+    const subscription = AppState.addEventListener('change', (next) => {
+      if (next !== 'active' || cancelled) return;
+      clearTimeout(timer);
+      cycle();
+    });
 
     cycle();
     return () => {
       cancelled = true;
       clearTimeout(timer);
+      subscription.remove();
     };
   }, [state.mode, state.serverUrl, state.token]);
 

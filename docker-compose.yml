@@ -3,6 +3,10 @@ services:
     build:
       context: .
       dockerfile: server/Dockerfile
+      args:
+        # Optional: `GIT_SHA=$(git rev-parse HEAD) docker compose build` stamps the
+        # image so the app's server sheet can name the commit it's running.
+        GIT_SHA: ${GIT_SHA:-}
     restart: unless-stopped
     ports:
       - "8080:8080"
