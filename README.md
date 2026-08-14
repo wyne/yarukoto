@@ -199,6 +199,107 @@ with a not-found handler.
 
 ---
 
+## Building the iOS app
+
+The same `mobile/` project that produces the web bundle builds the iOS app — the screens are
+React Native either way, so there is no separate codebase to keep in step.
+
+Native folders are not committed (`mobile/.gitignore` ignores `/ios` and `/android`); they are
+generated from `app.json` on each build. Edit the config, not the generated project.
+
+### One-time setup
+
+```bash
+cd mobile
+npm install
+npm install -g eas-cli
+eas login
+eas init          # links the project and writes extra.eas.projectId into app.json
+```
+
+`eas init` is the only step that writes back to the repo. Everything else it needs —
+`ios.bundleIdentifier`, the build profiles — is already committed.
+
+> **The bundle identifier is `com.wyne.yarukoto`.** Change it in `mobile/app.json` before the
+> first build if you want your own; changing it later means a new app record in App Store Connect.
+
+### Build profiles
+
+`mobile/eas.json` defines four:
+
+| Profile | What it produces | Needs an Apple account? |
+|---|---|---|
+| `simulator` | A `.app` for the iOS Simulator. No code signing. | No |
+| `development` | A dev-client build for a real device, loads JS from Metro. | Yes |
+| `preview` | A signed build for internal distribution. | Yes |
+| `production` | A store build, with `autoIncrement` for the build number. | Yes |
+
+`cli.appVersionSource` is `remote`, so EAS keeps the build number on its side and bumps it per
+production build. `version` in `app.json` seeds it on the first build and is otherwise ignored —
+that is deliberate, it keeps build-number churn out of git.
+
+The fastest way to see the app on a Mac without any Apple account:
+
+```bash
+eas build --platform ios --profile simulator
+```
+
+then press `Y` when it offers to install it on a running simulator. For a device:
+
+```bash
+eas build --platform ios --profile development
+npx expo start --dev-client
+```
+
+Building locally instead of on EAS works too, but needs Xcode and a Mac:
+
+```bash
+npm run ios     # expo run:ios — prebuilds, compiles, and launches
+```
+
+`npm run ios` is a full native build now that the project has a dev client. For a quick check
+against Expo Go with no native build at all, `npx expo start --go` still works.
+
+### Getting it onto TestFlight
+
+Needs a paid Apple Developer Program membership and an app record in App Store Connect whose
+bundle ID matches `mobile/app.json`. Create the record first — `eas submit` can do it for you on
+the first run, but only if the identifier is free.
+
+```bash
+eas build --platform ios --profile production
+eas submit --platform ios --profile production
+```
+
+`eas submit` prompts for the Apple ID, team, and App Store Connect app ID on the first run and
+remembers them; put them in `eas.json` under `submit.production.ios` if you'd rather not be asked.
+
+Processing on Apple's side takes a few minutes, after which the build appears under TestFlight.
+Internal testers (up to 100, on your team) get it immediately. External testers need Apple's
+review of the *build*, which is lighter than App Store review but not instant.
+
+> `ITSAppUsesNonExemptEncryption` is set to `false` in `mobile/app.json`. The app only uses
+> encryption for HTTPS, which is exempt, and declaring that up front is what stops every single
+> build from landing in TestFlight as "Missing Compliance" waiting on a manual answer.
+
+### Why the app can talk to an HTTP server
+
+iOS App Transport Security blocks plain HTTP, and the common Yarukoto setup is exactly that — a
+server on your LAN at `http://192.168.x.x:8080`. `mobile/app.json` sets two Info.plist keys to
+allow it:
+
+- `NSAllowsLocalNetworking` permits HTTP to private-range and `.local` addresses. It is the
+  narrow exception; `NSAllowsArbitraryLoads` would allow HTTP *everywhere* and draws questions at
+  App Store review.
+- `NSLocalNetworkUsageDescription` is the string in the permission prompt. Since iOS 14, reaching
+  any device on the local network needs the user's consent, and without this key the connection
+  fails rather than prompting.
+
+Neither helps a server exposed over the internet on plain HTTP — that still needs HTTPS, which
+is what you should be doing anyway. See [TLS](#tls).
+
+---
+
 ## Repo layout
 
 ```
@@ -267,8 +368,11 @@ YARUKOTO_TOKEN=devtoken DATABASE_PATH=./data/dev.db MIGRATIONS_DIR=./migrations 
 ```bash
 cd mobile
 npm install
-npm run web     # or: npm run ios / npm run android
+npm run web
 ```
+
+`npm run ios` and `npm run android` compile the native app instead, which needs the platform
+toolchain installed — see [Building the iOS app](#building-the-ios-app).
 
 The Expo dev server runs on a different port than the API, so the first-run screen will ask for
 both the server URL (`http://localhost:8080`) and the token. That's expected — the
