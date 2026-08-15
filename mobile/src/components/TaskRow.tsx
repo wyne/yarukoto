@@ -1,5 +1,5 @@
 import React from 'react';
-import { GestureResponderHandlers, Pressable, StyleSheet, Text, View } from 'react-native';
+import { GestureResponderEvent, GestureResponderHandlers, Pressable, StyleSheet, Text, View } from 'react-native';
 import { colors } from '../theme/colors';
 import { fonts } from '../theme/typography';
 import { useAccent } from '../theme/ThemeContext';
@@ -36,7 +36,7 @@ interface Props {
   /** Drop the due label when the surrounding view already states the date. */
   hideDue?: boolean;
   onPress: () => void;
-  onLongPress?: () => void;
+  onLongPress?: (e: GestureResponderEvent) => void;
   onToggleComplete: () => void;
   onLater: () => void;
   onDone: () => void;

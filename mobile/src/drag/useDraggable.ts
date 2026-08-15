@@ -1,47 +1,95 @@
-import { useMemo, useRef } from 'react';
-import { GestureResponderHandlers, PanResponder } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { GestureResponderEvent, GestureResponderHandlers, PanResponder } from 'react-native';
 import { DragPayload, useDrag } from './DragContext';
+import { lockDragGestures, unlockDragGestures } from './webDragLock';
 
-/** Movement before a press becomes a drag, so a plain tap still opens the task. */
-const DRAG_THRESHOLD = 6;
+/**
+ * Bindings for a draggable row: spread the responder + touch handlers onto a
+ * wrapper View and wire `onLongPress` to the row's own Pressable.
+ */
+export interface DraggableBindings extends GestureResponderHandlers {
+  /** Arms the drag. Wire to the row's Pressable onLongPress (~350ms). */
+  onLongPress: (e: GestureResponderEvent) => void;
+  /** Ends a pickup that never moved — spread onto the wrapper View. */
+  onTouchEnd: () => void;
+  onTouchCancel: () => void;
+}
 
 /**
  * Spread the returned handlers onto a wrapper around a row to make it draggable.
  *
- * Never claims on touch down, only after {@link DRAG_THRESHOLD} of movement, so the
- * row's own Pressable still receives taps.
+ * A drag is *armed* by the row's long press, never by touch down or small
+ * movements, so the list keeps scrolling normally until a row is deliberately
+ * picked up. Once armed, the next movement claims the pan responder and the ghost
+ * follows the finger; a hold that goes nowhere is cleared by the wrapper's
+ * touch-end handlers, and the browser's scroll/text-selection gestures are locked
+ * out for the duration of the drag (web only).
  *
  * Claims on the **capture** phase, which is the opposite of what DragList's handle
  * needs (see PR #6) and for the opposite reason. Responder negotiation runs
  * root-down in capture and deepest-first in bubble, so the phase to use is decided
  * by who you have to beat:
  *
- *   DragList handle  beats an *ancestor* Pressable            -> bubble
- *   this wrapper     beats a *descendant* SwipeableRow        -> capture
+ *   DragList handle  beats an *ancestor* Pressable        -> bubble
+ *   this wrapper     beats a *descendant* SwipeableRow    -> capture
  *
- * Dragging a task from the pane to the calendar is mostly sideways, which is
- * exactly the gesture SwipeableRow treats as swipe-to-Done. Capture settles it in
- * the drag's favour; swipe still works everywhere the pane isn't.
+ * Dragging a task to the calendar is mostly sideways, which is exactly the gesture
+ * SwipeableRow treats as swipe-to-Done. Capture settles it in the drag's favour;
+ * swipe still works everywhere the pane isn't.
  */
-export function useDraggable(payload: DragPayload): GestureResponderHandlers {
+export function useDraggable(payload: DragPayload): DraggableBindings {
   const { begin, move, end, cancel } = useDrag();
   const payloadRef = useRef(payload);
   payloadRef.current = payload;
+  const armedRef = useRef(false);
+
+  // Unmounting mid-hold skips the release handlers, and a lock left on would leave
+  // the whole page unscrollable.
+  useEffect(() => unlockDragGestures, []);
+
+  const arm = useCallback(
+    (e: GestureResponderEvent) => {
+      armedRef.current = true;
+      lockDragGestures();
+      begin(payloadRef.current, { x: e.nativeEvent.pageX, y: e.nativeEvent.pageY });
+    },
+    [begin]
+  );
+
+  // A drag can finish twice — once when the pan responder releases, once when the
+  // wrapper's touch-end fires — so the armed flag makes the second call a no-op.
+  const finish = useCallback(
+    (commit: boolean) => {
+      if (!armedRef.current) return;
+      armedRef.current = false;
+      unlockDragGestures();
+      if (commit) end();
+      else cancel();
+    },
+    [end, cancel]
+  );
 
   return useMemo(
-    () =>
-      PanResponder.create({
+    () => ({
+      onLongPress: arm,
+      onTouchEnd: () => finish(true),
+      onTouchCancel: () => finish(false),
+      ...PanResponder.create({
+        // Never claims on touch down, so the row's own Pressable still receives taps.
         onStartShouldSetPanResponderCapture: () => false,
-        onMoveShouldSetPanResponderCapture: (_e, g) => Math.hypot(g.dx, g.dy) > DRAG_THRESHOLD,
+        // Claims only once a long press has armed the row — scrolling is untouched
+        // until then.
+        onMoveShouldSetPanResponderCapture: () => armedRef.current,
         onPanResponderGrant: (_e, g) => begin(payloadRef.current, { x: g.moveX, y: g.moveY }),
         onPanResponderMove: (_e, g) => move({ x: g.moveX, y: g.moveY }),
         // A real mouse selects text as it sweeps across the row, and react-native-web
         // terminates the responder on selectionchange (also scroll / contextmenu)
         // unless termination is refused. Without this the ghost dies mid-drag.
         onPanResponderTerminationRequest: () => false,
-        onPanResponderRelease: () => end(),
-        onPanResponderTerminate: () => cancel(),
+        onPanResponderRelease: () => finish(true),
+        onPanResponderTerminate: () => finish(false),
       }).panHandlers,
-    [begin, move, end, cancel]
+    }),
+    [arm, begin, finish, move]
   );
 }

@@ -107,11 +107,15 @@ function DayColumn({ date, today, selectedDate, tasks, onSelectDate, onDropTask,
 
 /** Draggable so a task can be moved between days without leaving the week. */
 function TaskChip({ task, onPress }: { task: Task; onPress: () => void }) {
-  const handlers = useDraggable({ taskId: task.id, title: task.title });
+  const { onLongPress, ...handlers } = useDraggable({ taskId: task.id, title: task.title });
 
   return (
     <View style={styles.chipWrap} {...handlers}>
-      <Pressable style={[styles.chip, task.completed && styles.chipCompleted]} onPress={onPress}>
+      <Pressable
+        style={[styles.chip, task.completed && styles.chipCompleted]}
+        onPress={onPress}
+        onLongPress={onLongPress}
+      >
         <View style={[styles.chipDot, { backgroundColor: priorityColor(task.priority) }]} />
         <View style={styles.chipText}>
           <Text style={[styles.chipTitle, task.completed && styles.chipDone]} numberOfLines={2}>

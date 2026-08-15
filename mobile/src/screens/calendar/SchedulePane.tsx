@@ -179,7 +179,7 @@ function DraggableTask({
   onPress: () => void;
 }) {
   const { toggleComplete, snoozeTask } = useTasks();
-  const handlers = useDraggable({ taskId: task.id, title: task.title });
+  const { onLongPress, ...handlers } = useDraggable({ taskId: task.id, title: task.title });
 
   return (
     <View style={styles.draggable} {...handlers}>
@@ -191,6 +191,7 @@ function DraggableTask({
         hideListId={hideListId}
         hideTag={hideTag}
         onPress={onPress}
+        onLongPress={onLongPress}
         onToggleComplete={() => toggleComplete(task.id)}
         onLater={() => snoozeTask(task.id)}
         onDone={() => toggleComplete(task.id)}

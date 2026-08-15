@@ -26,7 +26,7 @@ interface Props {
  */
 export default function AgendaRow({ task, now, onPress, draggable }: Props) {
   const { state, toggleComplete, snoozeTask } = useTasks();
-  const handlers = useDraggable({ taskId: task.id, title: task.title });
+  const { onLongPress, ...handlers } = useDraggable({ taskId: task.id, title: task.title });
 
   const row = (
     <TaskRow
@@ -39,6 +39,7 @@ export default function AgendaRow({ task, now, onPress, draggable }: Props) {
         <Text style={styles.time}>{task.dueTime ? formatTime24to12(task.dueTime) : 'All day'}</Text>
       }
       onPress={onPress}
+      onLongPress={onLongPress}
       onToggleComplete={() => toggleComplete(task.id)}
       onLater={() => snoozeTask(task.id)}
       onDone={() => toggleComplete(task.id)}
