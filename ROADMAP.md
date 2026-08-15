@@ -4,8 +4,16 @@ What's left, in the order I'd tackle it. Each item says why it matters, where th
 what "done" looks like — so it can be picked up cold.
 
 The three phases of the original backend plan (client prep, server, client sync layer) are all
-merged. The app syncs, persists, and survives restarts. Everything below is either unverified,
-a gap the UI never grew, or a deliberate deferral.
+merged. The app syncs, persists, and survives restarts — now genuinely across restarts, not just
+within a session: tasks are cached locally (`mobile/src/data/cache.ts`) so a launch with no
+connection shows the last-known list instead of an empty one, a queued outbox edit survives the
+process dying, and a service worker (`mobile/public/sw.js`) gives the installed web app a shell
+to load into when there's no network at all. That work also cleared out three latent correctness
+bugs in the sync path (an outbox race that could silently lose an edit made mid-push, `view_prefs`
+comparing a client clock to a server cursor, and a 409 recovery that couldn't act on a hard
+delete) and some platform-specific tuning (gzip on the server, exponential backoff and chunked
+pushes on the client). Everything below is either unverified, a gap the UI never grew, or a
+deliberate deferral.
 
 ---
 
@@ -38,45 +46,27 @@ first connection attempt fails silently, that permission prompt is the thing to 
 
 ---
 
-## 2. Cache tasks locally for offline launch
+## 2. Finish test coverage
 
-Right now every launch does a full hydrate and starts from an empty list, so opening the app
-without a connection shows nothing until sync completes. On a phone that's the common case.
+A harness exists now (`node --test` via `tsx`, no bundler, `npm test` runs in both packages) and
+covers what the sync mechanism audit touched: `Outbox`/`pushDirty`/`mergeBatch`/`mergeFullHydrate`
+in `mobile/src/data/sync.ts`, `cache.ts`'s validation (including a regression test pinning the
+exact cursor-without-data bug `storage.ts` documents), and the server's `view_prefs` clock-skew
+fix exercised end-to-end through real routes. Not yet covered, from the original list:
 
-This is a deliberate consequence of a bug fix, documented in `mobile/src/data/storage.ts`: the
-sync cursor used to be persisted, which meant a reload started empty and then asked only for
-changes *since* that cursor — so existing tasks were never re-fetched and the app looked wiped.
-Keeping the cursor in memory made every launch correct by construction.
-
-Caching the tasks themselves is what makes persisting the cursor worthwhile again: hydrate from
-cache instantly, then sync incrementally in the background.
-
-**Done when:** launching offline shows the last known tasks, and the sync cursor can be persisted
-again without the empty-on-refresh failure returning. Add a regression test for that specific
-case (see item 3).
-
----
-
-## 3. There are no tests
-
-Zero test runner, zero tests. `buildSampleData()` in `mobile/src/data/sampleData.ts` was
-deliberately written pure and deterministic — ids from a per-call counter, every timestamp derived
-from the injected `now` — precisely so it can back a suite. Nothing uses it yet.
-
-Highest-value targets, roughly in order:
-
-- `mergeBatch()` in `mobile/src/data/sync.ts` — last-write-wins and the skip-if-dirty rule are
-  easy to regress and hard to notice by hand.
 - The `updatedAt` stamping wrapper in `mobile/src/data/TaskContext.tsx`, which relies on array
   identity to detect what changed.
 - `parseQuickAdd()` — pure, lots of cases, cheap to cover.
-- Server sync upsert: rejecting a record older than the stored copy.
+- `buildSampleData()` in `mobile/src/data/sampleData.ts` — written pure and deterministic (ids
+  from a per-call counter, every timestamp derived from the injected `now`) precisely so it can
+  back a suite. Nothing uses it yet.
 
-**Done when:** `npm test` runs in both packages in CI on every PR.
+**Done when:** the list above is covered too, and `npm test` runs in both packages in CI on every
+PR (no workflow does yet — the harness exists, but nothing invokes it automatically).
 
 ---
 
-## 4. Task history has no UI
+## 3. Task history has no UI
 
 The server has captured a full snapshot of every task change since the schema existed — that was
 deliberate, because history you didn't record is gone forever. It's still only reachable by hand:
@@ -115,6 +105,43 @@ the transport.
 
 **Worth doing when:** two devices are genuinely used side by side often enough that 5 seconds
 grates. Until then it's a second sync path to keep honest for no felt benefit.
+
+---
+
+## Considered and deferred: native reachability signal
+
+On web, a `window.online` listener triggers an immediate sync the moment the connection comes
+back, rather than waiting out the exponential backoff. There's no equivalent on native yet.
+
+**The native equivalent is `@react-native-community/netinfo`, and it's a native module** — taking
+it on means a new `expo prebuild`. Item 1 above is still open: nothing in the native path has ever
+been executed, and adding a native dependency before that first run would muddy exactly the build
+it's trying to verify.
+
+**What already covers it:** the exponential backoff caps out at the same slow idle tick regardless,
+and foregrounding the app already triggers an immediate cycle — so the gap is narrow (an
+unattended background app, backgrounded, whose connectivity returns) and the existing behavior
+degrades to "wait out the backoff" rather than anything broken.
+
+**Worth doing when:** the app has actually run on a device and that gap turns out to matter in
+practice, not before.
+
+---
+
+## Considered and deferred: one sync loop per browser tab
+
+Each open tab runs its own independent poller and does its own full hydrate on load. Three tabs
+open on the same account is three times the polling and three times the initial hydrate cost.
+
+**The fix would be a `BroadcastChannel` leader election** — one tab actually polls, the rest listen
+for its results. That's a second code path (leader/follower state, handling the leader tab closing)
+for a scenario this app's own design argues against: it's built for one person on one device at a
+time, and multiple tabs on the same account is the least representative way it gets used, same
+reasoning as the realtime-updates deferral above.
+
+**Worth doing when:** it actually shows up as a real cost — a slow connection where three parallel
+hydrates on load are felt, or a server CPU/battery concern from redundant polling. Until then it's
+not worth the second code path.
 
 ---
 
