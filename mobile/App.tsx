@@ -48,7 +48,6 @@ const linking: LinkingOptions<RootStackParamList> = {
           InboxTab: 'inbox',
           TodayTab: 'today',
           CalendarTab: 'calendar',
-          PlanTab: 'plan',
           BrowseTab: 'browse',
           TrashTab: 'trash',
         },

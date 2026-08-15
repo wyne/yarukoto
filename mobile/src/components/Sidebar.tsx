@@ -30,7 +30,6 @@ import {
   IconChevronLeft,
   IconChevronRight,
   IconClock,
-  IconColumns,
   IconFolder,
   IconInboxTray,
   IconPlus,
@@ -43,14 +42,12 @@ export const SIDEBAR_WIDTH = 260;
 /** Icon-only rail when the pinned sidebar is collapsed. */
 export const SIDEBAR_COLLAPSED_WIDTH = 56;
 
-/** Plan is desktop-only: two panes can't survive a phone-width window. */
-function viewsFor(wide: boolean) {
+function viewsFor() {
   return [
     { route: 'AllTab', label: 'All', Icon: IconStack },
     { route: 'InboxTab', label: 'Inbox', Icon: IconInboxTray },
     { route: 'TodayTab', label: 'Today', Icon: IconClock },
     { route: 'CalendarTab', label: 'Calendar', Icon: IconCalendar },
-    ...(wide ? [{ route: 'PlanTab', label: 'Plan', Icon: IconColumns }] : []),
     { route: 'BrowseTab', label: 'Browse', Icon: IconFolder },
     { route: 'TrashTab', label: 'Trash', Icon: IconTrash },
   ];
@@ -126,7 +123,7 @@ export default function Sidebar({ state, navigation, onNavigate }: Props) {
       </View>
 
       <ScrollView style={styles.scrollArea} contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        {viewsFor(wide).map(({ route, label, Icon }) => {
+        {viewsFor().map(({ route, label, Icon }) => {
           const active = current.name === route && (route !== 'InboxTab' || !filtered);
           const count = viewCount(route);
           return (
