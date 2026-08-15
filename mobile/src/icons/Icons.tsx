@@ -217,6 +217,31 @@ export function IconTag({ size = 18, color = '#55554F', strokeWidth = 1.6 }: Ico
   );
 }
 
+/**
+ * Priority. `filled` tints the pennant so a chosen priority reads at a glance,
+ * the way the flag rows in the composer's priority menu do; unfilled is the
+ * neutral "no priority" outline.
+ */
+export function IconFlag({ size = 18, color = '#55554F', strokeWidth = 1.6, filled = false }: IconProps & { filled?: boolean }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 18 18" fill="none">
+      <Path
+        d="M4.75 15.5V2.75"
+        stroke={color}
+        strokeWidth={strokeWidth}
+        strokeLinecap="round"
+      />
+      <Path
+        d="M4.75 3.25h8.5l-2 3 2 3h-8.5z"
+        fill={filled ? color : 'none'}
+        stroke={color}
+        strokeWidth={strokeWidth}
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
 export function IconTrash({ size = 18, color = '#C22B23', strokeWidth = 1.6 }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 18 18" fill="none">

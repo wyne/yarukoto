@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../theme/colors';
 import { fonts } from '../theme/typography';
@@ -28,6 +28,7 @@ import DragList from '../components/DragList';
 import SectionHeader from '../components/SectionHeader';
 import QuickAddBar from '../components/QuickAddBar';
 import BulkActionBar from '../components/BulkActionBar';
+import AddTaskFab from '../components/AddTaskFab';
 import ViewOptionsSheet from '../components/ViewOptionsSheet';
 import DueDatePickerSheet from '../components/pickers/DueDatePickerSheet';
 import ListPickerSheet from '../components/pickers/ListPickerSheet';
@@ -35,6 +36,13 @@ import TagPickerSheet from '../components/pickers/TagPickerSheet';
 import { IconMenu, IconSearch, IconSelectMode, IconViewOptions } from '../icons/Icons';
 
 const TITLES = { all: 'All', inbox: 'Inbox', today: 'Today' } as const;
+
+/**
+ * Web types into a pinned field; native taps a floating button that opens the
+ * composer. Split by platform rather than width — the difference that matters is
+ * having a keyboard already in front of you, not how many pixels are.
+ */
+const WEB_ENTRY = Platform.OS === 'web';
 
 interface Props {
   mode: 'all' | 'inbox' | 'today';
@@ -242,17 +250,24 @@ export default function TaskListScreen({ mode, tabNavigation, filter }: Props) {
         </View>
       )}
 
-      <ScrollView
-        contentContainerStyle={[styles.scrollContent, wide && styles.paneWide]}
-        keyboardShouldPersistTaps="handled"
-      >
-        {!selectionMode && (
+      {/* Outside the ScrollView so it stays put instead of scrolling away. */}
+      {WEB_ENTRY && !selectionMode && (
+        <View style={[styles.quickAddBand, wide && styles.paneWide]}>
           <QuickAddBar
             onSubmit={(text) => addTaskFromQuickAdd(text, quickAddDefaults)}
             contextLabel={quickAddLabel}
           />
-        )}
+        </View>
+      )}
 
+      <ScrollView
+        contentContainerStyle={[
+          styles.scrollContent,
+          !WEB_ENTRY && styles.scrollContentFab,
+          wide && styles.paneWide,
+        ]}
+        keyboardShouldPersistTaps="handled"
+      >
         {active.length === 0 && <Text style={styles.empty}>{query ? 'No matches.' : 'Nothing here. Nice work.'}</Text>}
 
         {active.length > 0 &&
@@ -313,6 +328,10 @@ export default function TaskListScreen({ mode, tabNavigation, filter }: Props) {
           </>
         )}
       </ScrollView>
+
+      {!WEB_ENTRY && (
+        <AddTaskFab defaults={quickAddDefaults} contextLabel={quickAddLabel} hidden={selectionMode} />
+      )}
 
       {selectionMode && (
         <BulkActionBar
@@ -428,6 +447,13 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingBottom: 24,
     gap: 12,
+  },
+  /** Clears the floating button so it never covers the last row. */
+  scrollContentFab: {
+    paddingBottom: 96,
+  },
+  quickAddBand: {
+    paddingBottom: 2,
   },
   group: {
     gap: 2,

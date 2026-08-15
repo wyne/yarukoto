@@ -317,6 +317,12 @@ export interface QuickAddDefaults {
   listId?: string | null;
   tags?: string[];
   dueDate?: string;
+  /**
+   * The composer sets these two from its buttons rather than from typed tokens,
+   * so unlike the fields above they can arrive without any text expressing them.
+   */
+  dueTime?: string;
+  priority?: Priority;
 }
 
 /** The most recent completion, offered for undo until it times out. */
@@ -428,10 +434,12 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       id: newTaskId(),
       title: parsed.title,
       notes: '',
-      priority: parsed.priority as Priority,
+      // 'none' is what the parser returns when no !token was typed, so it reads
+      // as "unspecified" here and lets the composer's flag through.
+      priority: parsed.priority !== 'none' ? parsed.priority : (defaults?.priority ?? 'none'),
       // A typed date overrides the view's date; tags from both are merged.
       dueDate: parsed.dueDate ?? defaults?.dueDate,
-      dueTime: parsed.dueTime,
+      dueTime: parsed.dueTime ?? defaults?.dueTime,
       listId: typedList ? typedList.id : (defaults?.listId ?? null),
       tags: Array.from(new Set([...(defaults?.tags ?? []), ...parsed.tags])),
       subtasks: [],
