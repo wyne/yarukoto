@@ -9,6 +9,7 @@ import { MainTabParamList } from '../navigation/types';
 import { useSidebar } from '../navigation/SidebarContext';
 import { useDetail } from '../navigation/DetailContext';
 import { useTasks } from '../data/TaskContext';
+import { PlanMode, loadPlanPrefs, savePlanPrefs } from '../data/storage';
 import { tasksByDate } from '../data/selectors';
 import { addDays, addMonths, addWeeks, monthShort, startOfWeek, toISODate } from '../data/dateUtils';
 import { Task } from '../data/types';
@@ -20,7 +21,7 @@ import WeekGrid from './calendar/WeekGrid';
 const AGENDA_WINDOW_DAYS = 45;
 const MULTI_DAY_COUNT = 3;
 
-type Mode = 'day' | 'multi' | 'week';
+type Mode = PlanMode;
 
 type Props = BottomTabScreenProps<MainTabParamList, 'PlanTab'>;
 
@@ -38,9 +39,18 @@ export default function PlanScreen({ navigation }: Props) {
 
   const [monthAnchor, setMonthAnchor] = useState(new Date(today.getFullYear(), today.getMonth(), 1));
   const [selectedDate, setSelectedDate] = useState(today);
-  const [mode, setMode] = useState<Mode>('day');
-  const [rangeStart, setRangeStart] = useState(() => startOfWeek(today));
-  const [showCompleted, setShowCompleted] = useState(false);
+
+  // Layout and the completed filter are how this screen is set up, not where you
+  // are in it — so they're restored, while the date always opens on today.
+  const [prefs, setPrefs] = useState(loadPlanPrefs);
+  const { mode, showCompleted } = prefs;
+  const updatePrefs = (patch: Partial<typeof prefs>) => {
+    const next = { ...prefs, ...patch };
+    setPrefs(next);
+    savePlanPrefs(next);
+  };
+
+  const [rangeStart, setRangeStart] = useState(() => (mode === 'multi' ? today : startOfWeek(today)));
 
   // Two panes can't survive a phone-width window; Calendar is the equivalent there.
   useEffect(() => {
@@ -76,7 +86,7 @@ export default function PlanScreen({ navigation }: Props) {
     if (next === mode) return;
     if (next === 'week') setRangeStart(startOfWeek(selectedDate));
     else if (next === 'multi') setRangeStart(selectedDate);
-    setMode(next);
+    updatePrefs({ mode: next });
   };
 
   // The arrows and title track whichever range is on screen. Paging the range also
@@ -115,7 +125,7 @@ export default function PlanScreen({ navigation }: Props) {
           { borderColor: showCompleted ? accent : colors.border },
           showCompleted && { backgroundColor: colors.accentTintBg },
         ]}
-        onPress={() => setShowCompleted((v) => !v)}
+        onPress={() => updatePrefs({ showCompleted: !showCompleted })}
       >
         <Text style={[styles.todayBtnText, { color: showCompleted ? accent : colors.textTertiary }]}>
           Completed

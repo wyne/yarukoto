@@ -1,12 +1,19 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { ACCENT_OPTIONS, AccentColor, DEFAULT_ACCENT } from '../theme/colors';
 
 /**
- * Persistence for the server connection: which mode the app is in, the server
- * URL and access token, and the sync cursor.
+ * Persistence for the server connection — which mode the app is in, the server
+ * URL and access token — and for the device-local UI preferences: accent colour,
+ * the Plan screen's layout, and which sections a view has collapsed.
+ *
+ * These preferences stay on the device rather than syncing. Unlike grouping and
+ * sort, which describe how you want a list arranged everywhere, they describe how
+ * one screen is set up on one machine — a phone and a desktop have no reason to
+ * agree about a collapsed sidebar section or which pane layout is on screen.
  *
  * AsyncStorage is async on every platform (on web it's localStorage underneath),
  * but the callers here are reducer initialisers and render paths that can't await.
- * So the whole keyspace — four small strings — is read once into memory by
+ * So the whole keyspace — a handful of small strings — is read once into memory by
  * `initStorage()` at startup, and every read after that is synchronous against
  * that cache. Writes update the cache immediately and persist in the background.
  *
@@ -18,8 +25,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 const URL_KEY = 'yarukoto.serverUrl';
 const MODE_KEY = 'yarukoto.mode';
 const TOKEN_KEY = 'yarukoto.token';
+const ACCENT_KEY = 'yarukoto.accent';
+const PLAN_KEY = 'yarukoto.planPrefs';
+const COLLAPSED_KEY = 'yarukoto.collapsedSections';
 
-const ALL_KEYS = [URL_KEY, MODE_KEY, TOKEN_KEY];
+const ALL_KEYS = [URL_KEY, MODE_KEY, TOKEN_KEY, ACCENT_KEY, PLAN_KEY, COLLAPSED_KEY];
 
 let cache: Record<string, string | null> = {};
 let primed = false;
@@ -101,6 +111,106 @@ export function saveToken(token: string): void {
 
 export function clearToken(): void {
   remove(TOKEN_KEY);
+}
+
+/** Parses a stored JSON value, treating anything unreadable as unset. */
+function readJson<T>(key: string): T | null {
+  const raw = read(key);
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? (parsed as T) : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeJson(key: string, value: unknown): void {
+  write(key, JSON.stringify(value));
+}
+
+/**
+ * The accent colour. A value that's no longer in the palette — an older build's
+ * choice, or a hand-edited store — falls back to the default rather than tinting
+ * the app with something the picker can't show as selected.
+ */
+export function loadAccent(): AccentColor {
+  const stored = read(ACCENT_KEY);
+  return ACCENT_OPTIONS.includes(stored as AccentColor) ? (stored as AccentColor) : DEFAULT_ACCENT;
+}
+
+export function saveAccent(accent: AccentColor): void {
+  write(ACCENT_KEY, accent);
+}
+
+/** Which calendar layout the Plan screen is in. 'multi' is the few-day column view. */
+export type PlanMode = 'day' | 'multi' | 'week';
+
+const PLAN_MODES: PlanMode[] = ['day', 'multi', 'week'];
+
+export interface PlanPrefs {
+  mode: PlanMode;
+  showCompleted: boolean;
+}
+
+export const DEFAULT_PLAN_PREFS: PlanPrefs = { mode: 'day', showCompleted: false };
+
+export function loadPlanPrefs(): PlanPrefs {
+  const stored = readJson<Partial<PlanPrefs>>(PLAN_KEY);
+  if (!stored) return DEFAULT_PLAN_PREFS;
+  return {
+    mode: PLAN_MODES.includes(stored.mode as PlanMode) ? (stored.mode as PlanMode) : DEFAULT_PLAN_PREFS.mode,
+    showCompleted: typeof stored.showCompleted === 'boolean' ? stored.showCompleted : DEFAULT_PLAN_PREFS.showCompleted,
+  };
+}
+
+export function savePlanPrefs(prefs: PlanPrefs): void {
+  writeJson(PLAN_KEY, prefs);
+}
+
+/** Which sections of one view are folded shut. */
+export interface CollapsedSections {
+  /** Group header keys, as produced by `groupTasks`. */
+  groups: string[];
+  /** The Completed section at the bottom of a list. */
+  completed: boolean;
+}
+
+export const NO_COLLAPSED_SECTIONS: CollapsedSections = { groups: [], completed: false };
+
+function isDefaultCollapse(value: CollapsedSections): boolean {
+  return value.groups.length === 0 && !value.completed;
+}
+
+/**
+ * Collapse state for every view lives under one key, keyed by the same view key
+ * that identifies a `ViewPref` — so a list and a tag filter each remember their
+ * own folded sections.
+ */
+function collapsedMap(): Record<string, CollapsedSections> {
+  return readJson<Record<string, CollapsedSections>>(COLLAPSED_KEY) ?? {};
+}
+
+export function loadCollapsedSections(viewKey: string): CollapsedSections {
+  const stored = collapsedMap()[viewKey];
+  if (!stored) return NO_COLLAPSED_SECTIONS;
+  return {
+    groups: Array.isArray(stored.groups) ? stored.groups.filter((g) => typeof g === 'string') : [],
+    completed: stored.completed === true,
+  };
+}
+
+export function saveCollapsedSections(viewKey: string, value: CollapsedSections): void {
+  const map = collapsedMap();
+  // A view that's back to fully expanded drops out of the map entirely, so this
+  // doesn't accumulate an entry for every view ever opened.
+  if (isDefaultCollapse(value)) {
+    if (!(viewKey in map)) return;
+    delete map[viewKey];
+  } else {
+    map[viewKey] = value;
+  }
+  writeJson(COLLAPSED_KEY, map);
 }
 
 /**

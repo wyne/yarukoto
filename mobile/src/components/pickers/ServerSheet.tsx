@@ -2,8 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import BottomSheet from '../BottomSheet';
 import SyncIndicator from '../SyncIndicator';
-import { colors } from '../../theme/colors';
+import { ACCENT_OPTIONS, colors } from '../../theme/colors';
 import { fonts } from '../../theme/typography';
+import { useTheme } from '../../theme/ThemeContext';
 import { useTasks } from '../../data/TaskContext';
 import { ServerInfo, createApi } from '../../data/api';
 import { lastSyncedLabel } from '../../data/dateUtils';
@@ -27,12 +28,13 @@ interface Props {
 }
 
 /**
- * What the app is connected to, and the way out of it. Changing servers isn't
- * edited in place: disconnecting returns to the first-run screen, which is where
- * a URL and token get entered.
+ * Appearance, and what the app is connected to. Changing servers isn't edited in
+ * place: disconnecting returns to the first-run screen, which is where a URL and
+ * token get entered.
  */
 export default function ServerSheet({ visible, onClose }: Props) {
   const { state, disconnect, syncStatus } = useTasks();
+  const { accent, setAccent } = useTheme();
   const [info, setInfo] = useState<ServerInfo | null | undefined>(undefined);
 
   // Which build the server is running, re-read on every open so it reflects a
@@ -58,13 +60,30 @@ export default function ServerSheet({ visible, onClose }: Props) {
   const sample = state.mode === 'sample';
 
   return (
-    <BottomSheet visible={visible} onClose={onClose} title={sample ? 'Sample data' : 'Server'}>
+    <BottomSheet visible={visible} onClose={onClose} title={sample ? 'Sample data' : 'Settings'}>
       {sample && (
         <Text style={styles.sampleNote}>
           You're exploring with sample data. Leaving it takes you back to the connect screen, where you can point
           Yarukoto at your own server.
         </Text>
       )}
+
+      <Text style={styles.sectionLabel}>Accent</Text>
+      <View style={styles.accentRow}>
+        {ACCENT_OPTIONS.map((option) => (
+          <Pressable
+            key={option}
+            onPress={() => setAccent(option)}
+            style={[styles.swatchRing, option === accent && { borderColor: colors.textPrimary }]}
+            accessibilityLabel={`Accent colour ${option}`}
+            accessibilityState={{ selected: option === accent }}
+          >
+            <View style={[styles.swatch, { backgroundColor: option }]} />
+          </Pressable>
+        ))}
+      </View>
+
+      <Text style={styles.sectionLabel}>Server</Text>
 
       {state.mode === 'server' && (
         <>
@@ -111,6 +130,31 @@ export default function ServerSheet({ visible, onClose }: Props) {
 }
 
 const styles = StyleSheet.create({
+  sectionLabel: {
+    marginBottom: 8,
+    fontFamily: fonts.monoRegular,
+    fontSize: 11,
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+    color: colors.textTertiary,
+  },
+  accentRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 18,
+  },
+  /** The ring, not the swatch, carries the selection — the fill stays true to the colour. */
+  swatchRing: {
+    padding: 3,
+    borderWidth: 1.5,
+    borderColor: 'transparent',
+    borderRadius: 999,
+  },
+  swatch: {
+    width: 24,
+    height: 24,
+    borderRadius: 999,
+  },
   statusRow: {
     flexDirection: 'row',
     alignItems: 'center',

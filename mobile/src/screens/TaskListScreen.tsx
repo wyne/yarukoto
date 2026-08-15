@@ -16,6 +16,7 @@ import {
 import { isSameDay, toISODate } from '../data/dateUtils';
 import { QuickAddDefaults } from '../data/TaskContext';
 import { groupTasks, viewKey } from '../data/viewOptions';
+import { useCollapsedSections } from '../data/uiPrefs';
 import { Task } from '../data/types';
 import { TaskListFilter } from '../navigation/types';
 import { PANE_MAX_WIDTH, useSidebar } from '../navigation/SidebarContext';
@@ -66,8 +67,7 @@ export default function TaskListScreen({ mode, tabNavigation, filter }: Props) {
   const [query, setQuery] = useState('');
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [completedCollapsed, setCompletedCollapsed] = useState(false);
-  const [collapsedGroups, setCollapsedGroups] = useState<string[]>([]);
+  const sections = useCollapsedSections(key);
   const [optionsOpen, setOptionsOpen] = useState(false);
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const [moveOpen, setMoveOpen] = useState(false);
@@ -258,7 +258,7 @@ export default function TaskListScreen({ mode, tabNavigation, filter }: Props) {
         {active.length > 0 &&
           (grouped ? (
             groups.map((group) => {
-              const collapsed = collapsedGroups.includes(group.key);
+              const collapsed = sections.isGroupCollapsed(group.key);
               return (
                 <View key={group.key} style={styles.group}>
                   <View style={{ marginHorizontal: 6 }}>
@@ -267,11 +267,7 @@ export default function TaskListScreen({ mode, tabNavigation, filter }: Props) {
                       count={group.tasks.length}
                       color={group.color}
                       collapsed={collapsed}
-                      onToggle={() =>
-                        setCollapsedGroups((prev) =>
-                          prev.includes(group.key) ? prev.filter((k) => k !== group.key) : [...prev, group.key]
-                        )
-                      }
+                      onToggle={() => sections.toggleGroup(group.key)}
                     />
                   </View>
                   {!collapsed && renderTaskCard(group.tasks, groupHide(group.key))}
@@ -287,11 +283,11 @@ export default function TaskListScreen({ mode, tabNavigation, filter }: Props) {
             <View style={{ marginHorizontal: 6 }}>
               <SectionHeader
                 label={`Completed · ${completed.length}`}
-                collapsed={completedCollapsed}
-                onToggle={() => setCompletedCollapsed((v) => !v)}
+                collapsed={sections.completedCollapsed}
+                onToggle={sections.toggleCompleted}
               />
             </View>
-            {!completedCollapsed && (
+            {!sections.completedCollapsed && (
               <Card style={{ marginHorizontal: 12 }}>
                 {completed.map((task, i) => (
                   <View key={task.id}>
@@ -336,7 +332,7 @@ export default function TaskListScreen({ mode, tabNavigation, filter }: Props) {
         value={options}
         onChange={(next) => {
           setViewOptions(key, next);
-          setCollapsedGroups([]);
+          sections.expandAllGroups();
         }}
       />
 
