@@ -27,30 +27,49 @@ export interface SyncStatus {
  * Tracks record ids changed locally since the last successful push, so push()
  * sends only what's dirty and merge() knows which incoming rows to defer to
  * a not-yet-pushed local edit.
+ *
+ * Each id carries a sequence number, bumped on every mark(). That's what lets
+ * pushDirty() tell an id apart from a *new* edit to the same id made while the
+ * push was in flight: clearing only succeeds if the sequence a caller captured
+ * before the request still matches. Without it, marking an id already in the
+ * set is a no-op, so an edit made mid-push gets clobbered by clear() right
+ * after — the row reads as clean when a newer local edit is still unsent.
  */
 export class Outbox {
-  private ids = new Set<string>();
+  private seqs = new Map<string, number>();
+  private counter = 0;
 
   mark(ids: string[]): void {
-    for (const id of ids) this.ids.add(id);
+    for (const id of ids) this.seqs.set(id, ++this.counter);
   }
 
   has(id: string): boolean {
-    return this.ids.has(id);
+    return this.seqs.has(id);
   }
 
   get size(): number {
-    return this.ids.size;
+    return this.seqs.size;
   }
 
-  /** Removes ids that were included in a push that succeeded. */
-  clear(ids: string[]): void {
-    for (const id of ids) this.ids.delete(id);
+  /** The sequence number an id was last marked with, or undefined if it isn't dirty. */
+  seqOf(id: string): number | undefined {
+    return this.seqs.get(id);
+  }
+
+  /**
+   * Removes each id, but only if it hasn't been re-marked since `sent` was
+   * captured — an id whose sequence has moved on was edited again during the
+   * request that's clearing it, and must stay dirty for the next cycle.
+   */
+  clear(sent: Map<string, number>): void {
+    for (const [id, seq] of sent) {
+      if (this.seqs.get(id) === seq) this.seqs.delete(id);
+    }
   }
 
   /** A point-in-time copy, safe to hand to a reducer action. */
   snapshot(): Set<string> {
-    return new Set(this.ids);
+    return new Set(this.seqs.keys());
   }
 }
 
@@ -68,13 +87,18 @@ export async function pushDirty(api: Api, outbox: Outbox, state: Collections): P
   const folders = state.folders.filter((f) => outbox.has(f.id));
   const viewPrefs = state.viewPrefs.filter((v) => outbox.has(v.id));
 
-  const result = await api.push({ tasks, lists, folders, viewPrefs });
-  outbox.clear([
+  // Captured before the request goes out, so an edit that lands *during* the
+  // await bumps its id's sequence and clear() below leaves it dirty.
+  const sentIds = [
     ...tasks.map((t) => t.id),
     ...lists.map((l) => l.id),
     ...folders.map((f) => f.id),
     ...viewPrefs.map((v) => v.id),
-  ]);
+  ];
+  const sent = new Map(sentIds.map((id) => [id, outbox.seqOf(id)!]));
+
+  const result = await api.push({ tasks, lists, folders, viewPrefs });
+  outbox.clear(sent);
   return result;
 }
 
