@@ -60,10 +60,10 @@ export default function CalendarScreen() {
     savePlanPrefs(next);
   };
 
-  // A phone-width window can't fit the extra view modes, so narrow always renders
-  // as if 'day' were selected without touching the persisted preference — it's
-  // still there, unchanged, for whenever the window is wide again.
-  const effectiveMode: Mode = wide ? mode : 'day';
+  // A phone-width window can't fit the week columns, so narrow offers Daily and
+  // 3-day only: a persisted 'week' falls back to Daily without touching the
+  // preference, which comes back whenever the window is wide again.
+  const effectiveMode: Mode = wide ? mode : mode === 'week' ? 'day' : mode;
 
   const [rangeStart, setRangeStart] = useState(() => (mode === 'multi' ? today : startOfWeek(today)));
 
@@ -128,9 +128,28 @@ export default function CalendarScreen() {
   const selectedDateLabel = `${monthShort(selectedDate)} ${selectedDate.getDate()}`;
 
   // Rendered below the month grid in both modes: a filter belongs with the days it
-  // filters, not crowded in among the range controls.
+  // filters, not crowded in among the range controls. On narrow, the Daily/3-day
+  // selector lives on the same line, left-aligned, opposite the filter.
   const completedToggle = (
     <View style={styles.filterRow}>
+      {!wide && (
+        <>
+          <View style={styles.modeToggle}>
+            {(['day', 'multi'] as const).map((m) => (
+              <Pressable
+                key={m}
+                onPress={() => switchMode(m)}
+                style={[styles.modeBtn, effectiveMode === m && { backgroundColor: accent }]}
+              >
+                <Text style={[styles.modeText, effectiveMode === m && { color: '#fff' }]}>
+                  {m === 'day' ? 'Daily' : `${MULTI_DAY_COUNT} days`}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+          <View style={styles.filterSpacer} />
+        </>
+      )}
       <Pressable
         style={[
           styles.todayBtn,
@@ -325,8 +344,14 @@ const styles = StyleSheet.create({
   filterRow: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
+    alignItems: 'center',
     paddingHorizontal: 12,
     paddingTop: 8,
+  },
+  // Pushes the Completed filter to the far end when the mode selector sits at
+  // the left on narrow screens.
+  filterSpacer: {
+    flex: 1,
   },
   modeToggle: {
     flexDirection: 'row',
