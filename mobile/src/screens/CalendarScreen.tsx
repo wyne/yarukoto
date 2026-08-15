@@ -4,41 +4,66 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../theme/colors';
 import { fonts } from '../theme/typography';
 import { useAccent } from '../theme/ThemeContext';
-import { PANE_MAX_WIDTH, useSidebar } from '../navigation/SidebarContext';
+import { useSidebar } from '../navigation/SidebarContext';
 import { useDetail } from '../navigation/DetailContext';
 import { useTasks } from '../data/TaskContext';
+import { PlanMode, loadPlanPrefs, savePlanPrefs } from '../data/storage';
 import { tasksByDate } from '../data/selectors';
-import { addDays, addMonths, monthShort, toISODate, weekdayShort } from '../data/dateUtils';
+import { addDays, addMonths, addWeeks, monthShort, startOfWeek, toISODate } from '../data/dateUtils';
 import { Task } from '../data/types';
 import AgendaDayGroup from './calendar/AgendaDayGroup';
 import MonthGrid from './calendar/MonthGrid';
+import SchedulePane from './calendar/SchedulePane';
+import WeekGrid from './calendar/WeekGrid';
 import QuickAddBar from '../components/QuickAddBar';
 import AddTaskFab from '../components/AddTaskFab';
 import { WEB_ENTRY } from '../data/platform';
-import { IconChevronLeft, IconChevronRight, IconMenu } from '../icons/Icons';
+import { IconMenu } from '../icons/Icons';
 
 const AGENDA_WINDOW_DAYS = 45;
+const MULTI_DAY_COUNT = 3;
 
+type Mode = PlanMode;
+
+/**
+ * Wide: a scoped task list beside a calendar, drag a task onto a day to schedule
+ * it, with day/multi-day/week views. Narrow: the calendar and daily agenda only —
+ * there's no room for the schedule pane or the extra view modes.
+ */
 export default function CalendarScreen() {
   const accent = useAccent();
   const insets = useSafeAreaInsets();
   const { wide, openDrawer } = useSidebar();
   const { openTask } = useDetail();
-  const { state, addTaskFromQuickAdd } = useTasks();
+  const { state, updateTask, addTaskFromQuickAdd } = useTasks();
   const today = new Date();
 
   const [monthAnchor, setMonthAnchor] = useState(new Date(today.getFullYear(), today.getMonth(), 1));
   const [selectedDate, setSelectedDate] = useState(today);
-  // Shared between the web bar and the native composer, so a task created
-  // either way is scoped to the day you've actually got selected.
-  const selectedDateLabel = `${weekdayShort(selectedDate)}, ${monthShort(selectedDate)} ${selectedDate.getDate()}`;
 
-  const byDate = useMemo(() => tasksByDate(state.tasks), [state.tasks]);
-
-  const goToday = () => {
-    setMonthAnchor(new Date(today.getFullYear(), today.getMonth(), 1));
-    setSelectedDate(today);
+  // Layout and the completed filter are how this screen is set up, not where you
+  // are in it — so they're restored, while the date always opens on today.
+  const [prefs, setPrefs] = useState(loadPlanPrefs);
+  const { mode, showCompleted } = prefs;
+  const updatePrefs = (patch: Partial<typeof prefs>) => {
+    const next = { ...prefs, ...patch };
+    setPrefs(next);
+    savePlanPrefs(next);
   };
+
+  // A phone-width window can't fit the extra view modes, so narrow always renders
+  // as if 'day' were selected without touching the persisted preference — it's
+  // still there, unchanged, for whenever the window is wide again.
+  const effectiveMode: Mode = wide ? mode : 'day';
+
+  const [rangeStart, setRangeStart] = useState(() => (mode === 'multi' ? today : startOfWeek(today)));
+
+  // Completed tasks are hidden by default but stay reachable: on a calendar it's
+  // useful to see what a day actually held, not just what's left of it.
+  const byDate = useMemo(
+    () => tasksByDate(state.tasks, showCompleted),
+    [state.tasks, showCompleted]
+  );
 
   const agendaDays = useMemo(() => {
     const out: { date: Date; tasks: Task[] }[] = [];
@@ -50,96 +75,229 @@ export default function CalendarScreen() {
     return out;
   }, [selectedDate, byDate]);
 
-  return (
-    <View style={[styles.screen, { paddingTop: insets.top + 6 }]}>
-      <View style={[styles.header, wide && styles.paneWide]}>
-        {!wide && (
-          <Pressable onPress={openDrawer} hitSlop={8}>
-            <IconMenu />
-          </Pressable>
-        )}
-        <Pressable onPress={() => setMonthAnchor((m) => addMonths(m, -1))} hitSlop={8}>
-          <IconChevronLeft />
-        </Pressable>
-        <Text style={styles.title}>
-          {monthAnchor.toLocaleDateString('en-US', { month: 'long' })}{' '}
-          <Text style={styles.titleYear}>{monthAnchor.getFullYear()}</Text>
-        </Text>
-        <Pressable onPress={() => setMonthAnchor((m) => addMonths(m, 1))} hitSlop={8}>
-          <IconChevronRight />
-        </Pressable>
-        <Pressable style={[styles.todayBtn, { borderColor: colors.border }]} onPress={goToday}>
-          <Text style={[styles.todayBtnText, { color: accent }]}>Today</Text>
-        </Pressable>
-      </View>
+  // Scheduling only sets the date — an existing time of day is left alone, and the
+  // day you're looking at stays put rather than following the drop.
+  const scheduleTask = (taskId: string, iso: string) => {
+    updateTask(taskId, { dueDate: iso });
+  };
 
-      <View style={[styles.gridCardWrap, wide && styles.paneWide]}>
-        <MonthGrid
-          monthAnchor={monthAnchor}
-          selectedDate={selectedDate}
-          today={today}
-          byDate={byDate}
-          onSelectDate={setSelectedDate}
-          onChangeMonth={setMonthAnchor}
-        />
-      </View>
+  // Switching views re-anchors the day range to the date you were looking at, so
+  // week and multi-day open around the same place instead of jumping to today.
+  const switchMode = (next: Mode) => {
+    if (next === mode) return;
+    if (next === 'week') setRangeStart(startOfWeek(selectedDate));
+    else if (next === 'multi') setRangeStart(selectedDate);
+    updatePrefs({ mode: next });
+  };
 
-      {WEB_ENTRY && (
-        <View style={[styles.quickAdd, wide && styles.paneWide]}>
-          <QuickAddBar
-            onSubmit={(text) => addTaskFromQuickAdd(text, { dueDate: toISODate(selectedDate) })}
-            contextLabel={selectedDateLabel}
-          />
-        </View>
-      )}
+  // The arrows and title track whichever range is on screen. Paging the range also
+  // moves the month grid, so the band stays visible when a step crosses months.
+  const step = (n: number) => {
+    if (effectiveMode === 'day') {
+      setMonthAnchor((m) => addMonths(m, n));
+      return;
+    }
+    const next = effectiveMode === 'week' ? addWeeks(rangeStart, n) : addDays(rangeStart, n * MULTI_DAY_COUNT);
+    setRangeStart(next);
+    setMonthAnchor(new Date(next.getFullYear(), next.getMonth(), 1));
+  };
 
-      <ScrollView
-        contentContainerStyle={[styles.agenda, !WEB_ENTRY && styles.agendaFab, wide && styles.paneWide]}
+  // In the day-column views the month grid is a navigator: picking a day jumps the
+  // range to cover it rather than only moving the selection.
+  const pickDate = (date: Date) => {
+    setSelectedDate(date);
+    if (effectiveMode === 'week') setRangeStart(startOfWeek(date));
+    else if (effectiveMode === 'multi') setRangeStart(date);
+  };
+
+  const goToday = () => {
+    setMonthAnchor(new Date(today.getFullYear(), today.getMonth(), 1));
+    setRangeStart(mode === 'multi' ? today : startOfWeek(today));
+    setSelectedDate(today);
+  };
+
+  const selectedDateLabel = `${monthShort(selectedDate)} ${selectedDate.getDate()}`;
+
+  // Rendered below the month grid in both modes: a filter belongs with the days it
+  // filters, not crowded in among the range controls.
+  const completedToggle = (
+    <View style={styles.filterRow}>
+      <Pressable
+        style={[
+          styles.todayBtn,
+          { borderColor: showCompleted ? accent : colors.border },
+          showCompleted && { backgroundColor: colors.accentTintBg },
+        ]}
+        onPress={() => updatePrefs({ showCompleted: !showCompleted })}
       >
-        {agendaDays.length === 0 && (
-          <Text style={styles.empty}>Nothing scheduled in the next {AGENDA_WINDOW_DAYS} days.</Text>
-        )}
-        {agendaDays.map(({ date, tasks }) => (
-          <AgendaDayGroup
-            key={toISODate(date)}
-            date={date}
-            tasks={tasks}
-            now={today}
-            onOpenTask={openTask}
-          />
-        ))}
-      </ScrollView>
+        <Text style={[styles.todayBtnText, { color: showCompleted ? accent : colors.textTertiary }]}>
+          Completed
+        </Text>
+      </Pressable>
+    </View>
+  );
 
-      {!WEB_ENTRY && (
-        <AddTaskFab defaults={{ dueDate: toISODate(selectedDate) }} contextLabel={selectedDateLabel} />
-      )}
+  const rangeEnd = addDays(rangeStart, effectiveMode === 'multi' ? MULTI_DAY_COUNT - 1 : 6);
+  const rangeLabel =
+    effectiveMode !== 'day'
+      ? `${monthShort(rangeStart)} ${rangeStart.getDate()} – ${
+          rangeStart.getMonth() === rangeEnd.getMonth() ? '' : `${monthShort(rangeEnd)} `
+        }${rangeEnd.getDate()}`
+      : `${monthAnchor.toLocaleDateString('en-US', { month: 'long' })} ${monthAnchor.getFullYear()}`;
+
+  return (
+    <View style={[styles.row, { paddingTop: insets.top + 6 }]}>
+      {wide && <SchedulePane />}
+
+      <View style={styles.calendarCol}>
+        <View style={styles.header}>
+          {!wide && (
+            <Pressable onPress={openDrawer} hitSlop={8}>
+              <IconMenu />
+            </Pressable>
+          )}
+          <View style={styles.titleGroup}>
+            <Pressable onPress={goToday} style={styles.titleBtn}>
+              <Text style={styles.title}>{rangeLabel}</Text>
+            </Pressable>
+          </View>
+          <Pressable style={styles.navArrowBtn} onPress={() => step(-1)}>
+            <Text style={styles.navArrow}>‹</Text>
+          </Pressable>
+          <Pressable style={styles.navArrowBtn} onPress={() => step(1)}>
+            <Text style={styles.navArrow}>›</Text>
+          </Pressable>
+          {wide && (
+            <View style={styles.modeToggle}>
+              {(['day', 'multi', 'week'] as const).map((m) => (
+                <Pressable
+                  key={m}
+                  onPress={() => switchMode(m)}
+                  style={[styles.modeBtn, mode === m && { backgroundColor: accent }]}
+                >
+                  <Text style={[styles.modeText, mode === m && { color: '#fff' }]}>
+                    {m === 'day' ? 'Daily' : m === 'week' ? 'Week' : `${MULTI_DAY_COUNT} days`}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          )}
+        </View>
+
+        {effectiveMode !== 'day' ? (
+          <>
+            <View style={styles.gridWrap}>
+              <MonthGrid
+                monthAnchor={monthAnchor}
+                selectedDate={selectedDate}
+                today={today}
+                byDate={byDate}
+                onSelectDate={pickDate}
+                onChangeMonth={setMonthAnchor}
+                onDropTask={scheduleTask}
+                rangeStart={rangeStart}
+                rangeEnd={rangeEnd}
+              />
+            </View>
+            {completedToggle}
+            <WeekGrid
+              startDate={rangeStart}
+              dayCount={effectiveMode === 'multi' ? MULTI_DAY_COUNT : 7}
+              selectedDate={selectedDate}
+              today={today}
+              byDate={byDate}
+              onSelectDate={pickDate}
+              onDropTask={scheduleTask}
+              onOpenTask={openTask}
+            />
+          </>
+        ) : (
+          <>
+            <View style={styles.gridWrap}>
+              <MonthGrid
+                monthAnchor={monthAnchor}
+                selectedDate={selectedDate}
+                today={today}
+                byDate={byDate}
+                onSelectDate={setSelectedDate}
+                onChangeMonth={setMonthAnchor}
+                onDropTask={scheduleTask}
+              />
+            </View>
+            {completedToggle}
+
+            {!wide && WEB_ENTRY && (
+              <View style={styles.quickAdd}>
+                <QuickAddBar
+                  onSubmit={(text) => addTaskFromQuickAdd(text, { dueDate: toISODate(selectedDate) })}
+                  contextLabel={selectedDateLabel}
+                />
+              </View>
+            )}
+
+            <ScrollView
+              contentContainerStyle={[styles.agenda, !wide && !WEB_ENTRY && styles.agendaFab]}
+            >
+              {agendaDays.length === 0 && <Text style={styles.empty}>Nothing scheduled from here on.</Text>}
+              {agendaDays.map(({ date, tasks }) => (
+                <AgendaDayGroup
+                  key={toISODate(date)}
+                  date={date}
+                  tasks={tasks}
+                  now={today}
+                  onOpenTask={openTask}
+                  onDropTask={scheduleTask}
+                />
+              ))}
+            </ScrollView>
+          </>
+        )}
+
+        {!wide && !WEB_ENTRY && (
+          <AddTaskFab defaults={{ dueDate: toISODate(selectedDate) }} contextLabel={selectedDateLabel} />
+        )}
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.screenBg },
-  paneWide: { width: '100%', maxWidth: PANE_MAX_WIDTH },
-  quickAdd: { paddingTop: 12 },
+  row: { flex: 1, flexDirection: 'row', backgroundColor: colors.screenBg },
+  calendarCol: { flex: 1, minWidth: 0 },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 8,
     paddingHorizontal: 16,
     paddingBottom: 10,
   },
-  title: {
+  titleGroup: {
     flex: 1,
-    fontFamily: fonts.sansBold,
-    fontSize: 22,
-    color: colors.textPrimary,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
-  titleYear: {
+  titleBtn: {
+    minHeight: 36,
+    justifyContent: 'center',
+  },
+  navArrowBtn: {
+    minWidth: 36,
+    minHeight: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  navArrow: {
     fontFamily: fonts.sansRegular,
+    fontSize: 28,
     color: colors.textTertiary,
   },
+  title: {
+    flexShrink: 1,
+    fontFamily: fonts.sansBold,
+    fontSize: 20,
+    color: colors.textPrimary,
+  },
   todayBtn: {
-    marginLeft: 8,
     borderWidth: 1,
     borderRadius: 6,
     paddingHorizontal: 8,
@@ -150,24 +308,37 @@ const styles = StyleSheet.create({
     fontFamily: fonts.monoRegular,
     fontSize: 12,
   },
-  gridCardWrap: {
+  gridWrap: { paddingHorizontal: 12 },
+  filterRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
     paddingHorizontal: 12,
+    paddingTop: 8,
   },
-  cell: {
-    width: `${100 / 7}%`,
-    alignItems: 'center',
-    paddingVertical: 2,
+  modeToggle: {
+    flexDirection: 'row',
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 6,
+    overflow: 'hidden',
   },
+  modeBtn: {
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+  },
+  modeText: {
+    fontFamily: fonts.monoRegular,
+    fontSize: 11,
+    color: colors.textSecondary,
+  },
+  quickAdd: { paddingHorizontal: 12, paddingTop: 4 },
   agenda: {
     paddingHorizontal: 12,
     paddingTop: 12,
     paddingBottom: 24,
     gap: 8,
   },
-  /** Clears the floating button so it never covers the last agenda row. */
-  agendaFab: {
-    paddingBottom: 96,
-  },
+  agendaFab: { paddingBottom: 96 },
   empty: {
     textAlign: 'center',
     marginTop: 24,
