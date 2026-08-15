@@ -14,7 +14,8 @@ interface Props {
   onApply: (dueDate: string | undefined, dueTime: string | undefined) => void;
 }
 
-const DATE_OPTIONS: { label: string; get: (now: Date) => string | undefined }[] = [
+/** Shared with the composer's date popover so there's one set of presets. */
+export const DATE_OPTIONS: { label: string; get: (now: Date) => string | undefined }[] = [
   { label: 'Today', get: (now) => toISODate(now) },
   { label: 'Tomorrow', get: (now) => toISODate(addDays(now, 1)) },
   { label: 'This weekend', get: (now) => toISODate(addDays(now, (6 - now.getDay() + 7) % 7 || 6)) },

@@ -15,6 +15,7 @@ import {
 } from '../data/selectors';
 import { isSameDay, toISODate } from '../data/dateUtils';
 import { QuickAddDefaults } from '../data/TaskContext';
+import { WEB_ENTRY } from '../data/platform';
 import { groupTasks, viewKey } from '../data/viewOptions';
 import { useCollapsedSections } from '../data/uiPrefs';
 import { Task } from '../data/types';
@@ -28,6 +29,7 @@ import DragList from '../components/DragList';
 import SectionHeader from '../components/SectionHeader';
 import QuickAddBar from '../components/QuickAddBar';
 import BulkActionBar from '../components/BulkActionBar';
+import AddTaskFab from '../components/AddTaskFab';
 import ViewOptionsSheet from '../components/ViewOptionsSheet';
 import DueDatePickerSheet from '../components/pickers/DueDatePickerSheet';
 import ListPickerSheet from '../components/pickers/ListPickerSheet';
@@ -242,17 +244,24 @@ export default function TaskListScreen({ mode, tabNavigation, filter }: Props) {
         </View>
       )}
 
-      <ScrollView
-        contentContainerStyle={[styles.scrollContent, wide && styles.paneWide]}
-        keyboardShouldPersistTaps="handled"
-      >
-        {!selectionMode && (
+      {/* Outside the ScrollView so it stays put instead of scrolling away. */}
+      {WEB_ENTRY && !selectionMode && (
+        <View style={[styles.quickAddBand, wide && styles.paneWide]}>
           <QuickAddBar
             onSubmit={(text) => addTaskFromQuickAdd(text, quickAddDefaults)}
             contextLabel={quickAddLabel}
           />
-        )}
+        </View>
+      )}
 
+      <ScrollView
+        contentContainerStyle={[
+          styles.scrollContent,
+          !WEB_ENTRY && styles.scrollContentFab,
+          wide && styles.paneWide,
+        ]}
+        keyboardShouldPersistTaps="handled"
+      >
         {active.length === 0 && <Text style={styles.empty}>{query ? 'No matches.' : 'Nothing here. Nice work.'}</Text>}
 
         {active.length > 0 &&
@@ -313,6 +322,10 @@ export default function TaskListScreen({ mode, tabNavigation, filter }: Props) {
           </>
         )}
       </ScrollView>
+
+      {!WEB_ENTRY && (
+        <AddTaskFab defaults={quickAddDefaults} contextLabel={quickAddLabel} hidden={selectionMode} />
+      )}
 
       {selectionMode && (
         <BulkActionBar
@@ -428,6 +441,13 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingBottom: 24,
     gap: 12,
+  },
+  /** Clears the floating button so it never covers the last row. */
+  scrollContentFab: {
+    paddingBottom: 96,
+  },
+  quickAddBand: {
+    paddingBottom: 2,
   },
   group: {
     gap: 2,

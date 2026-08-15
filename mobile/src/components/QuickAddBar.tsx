@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { colors } from '../theme/colors';
 import { fonts } from '../theme/typography';
@@ -7,17 +7,9 @@ import { useTasks } from '../data/TaskContext';
 import { IconPlus } from '../icons/Icons';
 import { parseQuickAdd } from '../data/quickAdd';
 import { formatDueShort } from '../data/dateUtils';
-import { activeFolders, activeLists } from '../data/selectors';
+import { applySuggestion, useQuickAddSuggestions } from '../data/quickAddSuggestions';
 
 const HINT = 'Add a task… try "pay rent fri 6pm #home !high ~admin"';
-
-const PRIORITIES = ['high', 'medium', 'low', 'none'];
-
-interface Suggestion {
-  value: string;
-  label: string;
-  hint?: string;
-}
 
 interface Props {
   onSubmit: (text: string) => void;
@@ -40,52 +32,12 @@ export default function QuickAddBar({ onSubmit, contextLabel }: Props) {
     setText('');
   };
 
-  const tags = useMemo(
-    () => Array.from(new Set(state.tasks.flatMap((t) => t.tags))).sort((a, b) => a.localeCompare(b)),
-    [state.tasks]
-  );
-  const folderName = useMemo(
-    () => new Map(activeFolders(state.folders).map((f) => [f.id, f.name])),
-    [state.folders]
-  );
-  const listSuggestions = useMemo(
-    () =>
-      activeLists(state.lists).map((l) => ({
-        label: l.name,
-        hint: folderName.get(l.folderId),
-      })),
-    [state.lists, folderName]
-  );
+  // Shared with the composer sheet's autocomplete, so the two surfaces can't
+  // drift into disagreeing about what a trailing `~`/`#`/`!` token offers.
+  const suggestions = useQuickAddSuggestions(text, state);
 
-  const trailing = text.match(/(^|\s)([~#!])(\S*)$/);
-  const suggestions = useMemo<Suggestion[]>(() => {
-    if (!trailing) return [];
-    const prefix = trailing[2];
-    const q = trailing[3].toLowerCase();
-    if (prefix === '~') {
-      return listSuggestions
-        .filter((s) => s.label.toLowerCase().includes(q) || (s.hint ?? '').toLowerCase().includes(q))
-        .slice(0, 6)
-        .map((s) => ({ value: `~${s.label}`, label: s.label, hint: s.hint }));
-    }
-    if (prefix === '#') {
-      return tags
-        .filter((t) => t.toLowerCase().includes(q))
-        .slice(0, 6)
-        .map((t) => ({ value: `#${t}`, label: t, hint: 'tag' }));
-    }
-    return PRIORITIES.filter((p) => p.toLowerCase().includes(q)).map((p) => ({
-      value: `!${p}`,
-      label: p,
-      hint: p === 'none' ? 'clear' : 'priority',
-    }));
-  }, [trailing, listSuggestions, tags]);
-
-  const applySuggestion = (value: string) => {
-    const m = text.match(/(^|\s)([~#!])(\S*)$/);
-    if (!m) return;
-    const start = text.lastIndexOf(m[1]) + m[1].length;
-    setText(text.slice(0, start) + value + ' ');
+  const chooseSuggestion = (value: string) => {
+    setText(applySuggestion(text, value));
     setSelectedIndex(-1);
     inputRef.current?.focus();
   };
@@ -108,7 +60,7 @@ export default function QuickAddBar({ onSubmit, contextLabel }: Props) {
 
   const handleSubmit = () => {
     if (selectedIndex >= 0 && suggestions[selectedIndex]) {
-      applySuggestion(suggestions[selectedIndex].value);
+      chooseSuggestion(suggestions[selectedIndex].value);
       return;
     }
     submit();
@@ -147,7 +99,7 @@ export default function QuickAddBar({ onSubmit, contextLabel }: Props) {
             <Pressable
               key={s.value}
               style={[styles.suggestionRow, i === selectedIndex && styles.suggestionRowSelected]}
-              onPress={() => applySuggestion(s.value)}
+              onPress={() => chooseSuggestion(s.value)}
             >
               <Text style={styles.suggestionValue}>{s.value}</Text>
               {!!s.hint && <Text style={styles.suggestionHint}>{s.hint}</Text>}

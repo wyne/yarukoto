@@ -13,6 +13,8 @@ import { Task } from '../data/types';
 import AgendaDayGroup from './calendar/AgendaDayGroup';
 import MonthGrid from './calendar/MonthGrid';
 import QuickAddBar from '../components/QuickAddBar';
+import AddTaskFab from '../components/AddTaskFab';
+import { WEB_ENTRY } from '../data/platform';
 import { IconChevronLeft, IconChevronRight, IconMenu } from '../icons/Icons';
 
 const AGENDA_WINDOW_DAYS = 45;
@@ -27,6 +29,9 @@ export default function CalendarScreen() {
 
   const [monthAnchor, setMonthAnchor] = useState(new Date(today.getFullYear(), today.getMonth(), 1));
   const [selectedDate, setSelectedDate] = useState(today);
+  // Shared between the web bar and the native composer, so a task created
+  // either way is scoped to the day you've actually got selected.
+  const selectedDateLabel = `${weekdayShort(selectedDate)}, ${monthShort(selectedDate)} ${selectedDate.getDate()}`;
 
   const byDate = useMemo(() => tasksByDate(state.tasks), [state.tasks]);
 
@@ -79,14 +84,18 @@ export default function CalendarScreen() {
         />
       </View>
 
-      <View style={[styles.quickAdd, wide && styles.paneWide]}>
-        <QuickAddBar
-          onSubmit={(text) => addTaskFromQuickAdd(text, { dueDate: toISODate(selectedDate) })}
-          contextLabel={`${weekdayShort(selectedDate)}, ${monthShort(selectedDate)} ${selectedDate.getDate()}`}
-        />
-      </View>
+      {WEB_ENTRY && (
+        <View style={[styles.quickAdd, wide && styles.paneWide]}>
+          <QuickAddBar
+            onSubmit={(text) => addTaskFromQuickAdd(text, { dueDate: toISODate(selectedDate) })}
+            contextLabel={selectedDateLabel}
+          />
+        </View>
+      )}
 
-      <ScrollView contentContainerStyle={[styles.agenda, wide && styles.paneWide]}>
+      <ScrollView
+        contentContainerStyle={[styles.agenda, !WEB_ENTRY && styles.agendaFab, wide && styles.paneWide]}
+      >
         {agendaDays.length === 0 && (
           <Text style={styles.empty}>Nothing scheduled in the next {AGENDA_WINDOW_DAYS} days.</Text>
         )}
@@ -100,6 +109,10 @@ export default function CalendarScreen() {
           />
         ))}
       </ScrollView>
+
+      {!WEB_ENTRY && (
+        <AddTaskFab defaults={{ dueDate: toISODate(selectedDate) }} contextLabel={selectedDateLabel} />
+      )}
     </View>
   );
 }
@@ -150,6 +163,10 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     paddingBottom: 24,
     gap: 8,
+  },
+  /** Clears the floating button so it never covers the last agenda row. */
+  agendaFab: {
+    paddingBottom: 96,
   },
   empty: {
     textAlign: 'center',
