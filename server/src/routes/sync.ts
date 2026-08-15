@@ -29,8 +29,8 @@ export function registerSyncRoutes(app: FastifyInstance, db: Database.Database):
     if (since) {
       const cutoff = new Date(Date.now() - env.trashRetentionDays * 24 * 60 * 60 * 1000).toISOString();
       if (since < cutoff) {
-        reply.code(409).send({ error: 'since_too_old', message: 'Client must re-hydrate fully.' });
-        return;
+        // `return reply.send(...)` — see the note in index.ts next to compress.
+        return reply.code(409).send({ error: 'since_too_old', message: 'Client must re-hydrate fully.' });
       }
     }
 
@@ -53,7 +53,8 @@ export function registerSyncRoutes(app: FastifyInstance, db: Database.Database):
       db.prepare('SELECT * FROM view_prefs WHERE server_updated_at > ? ORDER BY server_updated_at').all(cursor) as ViewPrefRow[]
     ).map(viewPrefFromRow);
 
-    reply.send({ now, tasks, lists, folders, viewPrefs });
+    // `return reply.send(...)` — see the note in index.ts next to compress.
+    return reply.send({ now, tasks, lists, folders, viewPrefs });
   });
 
   app.post<{ Body: SyncPushBody }>('/api/v1/sync', async (request, reply) => {
@@ -81,7 +82,8 @@ export function registerSyncRoutes(app: FastifyInstance, db: Database.Database):
     });
     run();
 
-    reply.send({
+    // `return reply.send(...)` — see the note in index.ts next to compress.
+    return reply.send({
       now: new Date().toISOString(),
       tasks: acceptedTasks,
       lists: acceptedLists,

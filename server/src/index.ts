@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import Fastify from 'fastify';
+import fastifyCompress from '@fastify/compress';
 import fastifyCors from '@fastify/cors';
 import fastifyStatic from '@fastify/static';
 import { env } from './env';
@@ -21,6 +22,19 @@ async function main() {
   // the way of browser clients — including the Expo web dev server, which runs
   // on a different origin than the server itself.
   await app.register(fastifyCors, { origin: true });
+
+  // Every launch is a full hydrate by design (see storage.ts), and task JSON —
+  // every task, tags and subtasks embedded as strings — gzips roughly 8-10x.
+  // Compressing the API responses is the single highest-value byte reduction
+  // available for a client on a phone; the static web build benefits too.
+  //
+  // Gotcha this surfaced: an `async` route handler that calls `reply.send(x)`
+  // without returning it — valid, ordinary Fastify style without compression —
+  // races the gzip stream against the handler's own promise resolution here,
+  // and ships a broken, empty body with `content-length: 0`. Every async
+  // handler in routes/ now does `return reply.send(...)` instead. Plain
+  // (non-async) handlers, like the notFoundHandler below, aren't affected.
+  await app.register(fastifyCompress, { global: true });
 
   registerHealthRoute(app);
 

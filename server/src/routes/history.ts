@@ -7,7 +7,8 @@ export function registerHistoryRoutes(app: FastifyInstance, db: Database.Databas
       .prepare('SELECT snapshot, op, recorded_at FROM task_revisions WHERE task_id = ? ORDER BY id DESC')
       .all(request.params.id) as { snapshot: string; op: string; recorded_at: string }[];
 
-    reply.send({
+    // `return reply.send(...)` — see the note in index.ts next to compress.
+    return reply.send({
       revisions: rows.map((r) => ({ task: JSON.parse(r.snapshot), op: r.op, recordedAt: r.recorded_at })),
     });
   });
