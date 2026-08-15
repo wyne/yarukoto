@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc -p tsconfig.json",
-    "start": "node dist/server/src/index.js"
+    "start": "node dist/server/src/index.js",
+    "test": "rm -f data/test.db* && YARUKOTO_TOKEN=test-token DATABASE_PATH=data/test.db node --import tsx --test src/**/__tests__/*.test.ts"
   },
   "dependencies": {
     "@fastify/compress": "^8.3.1",
