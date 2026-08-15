@@ -40,11 +40,10 @@ const TITLES = { all: 'All', inbox: 'Inbox', today: 'Today' } as const;
 
 interface Props {
   mode: 'all' | 'inbox' | 'today';
-  tabNavigation: any;
   filter?: TaskListFilter;
 }
 
-export default function TaskListScreen({ mode, tabNavigation, filter }: Props) {
+export default function TaskListScreen({ mode, filter }: Props) {
   const accent = useAccent();
   const insets = useSafeAreaInsets();
   const { wide, openDrawer } = useSidebar();
@@ -216,15 +215,10 @@ export default function TaskListScreen({ mode, tabNavigation, filter }: Props) {
               }}
             />
           ) : (
-            <Pressable
-              style={styles.titleRow}
-              disabled={!filter}
-              onPress={() => tabNavigation.navigate('InboxTab')}
-            >
+            <View style={styles.titleRow}>
               <Text style={styles.title}>{filter ? filter.label : TITLES[mode]}</Text>
               <Text style={styles.count}>{active.length}</Text>
-              {filter && <Text style={[styles.clearFilter, { color: accent }]}>Clear</Text>}
-            </Pressable>
+            </View>
           )}
           <Pressable
             onPress={() => {
@@ -409,11 +403,6 @@ const styles = StyleSheet.create({
     fontFamily: fonts.monoRegular,
     fontSize: 13,
     color: colors.textTertiary,
-  },
-  clearFilter: {
-    fontFamily: fonts.sansMedium,
-    fontSize: 12,
-    marginLeft: 'auto',
   },
   searchInput: {
     flex: 1,
