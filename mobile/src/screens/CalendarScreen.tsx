@@ -156,15 +156,16 @@ export default function CalendarScreen() {
               <IconMenu />
             </Pressable>
           )}
-          <Text style={styles.title}>{rangeLabel}</Text>
-          <Pressable onPress={() => step(-1)} hitSlop={8}>
+          <View style={styles.titleGroup}>
+            <Pressable onPress={goToday} style={styles.titleBtn}>
+              <Text style={styles.title}>{rangeLabel}</Text>
+            </Pressable>
+          </View>
+          <Pressable style={styles.navArrowBtn} onPress={() => step(-1)}>
             <Text style={styles.navArrow}>‹</Text>
           </Pressable>
-          <Pressable onPress={() => step(1)} hitSlop={8}>
+          <Pressable style={styles.navArrowBtn} onPress={() => step(1)}>
             <Text style={styles.navArrow}>›</Text>
-          </Pressable>
-          <Pressable style={[styles.todayBtn, { borderColor: colors.border }]} onPress={goToday}>
-            <Text style={[styles.todayBtnText, { color: accent }]}>Today</Text>
           </Pressable>
           {wide && (
             <View style={styles.modeToggle}>
@@ -270,13 +271,28 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 10,
   },
+  titleGroup: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  titleBtn: {
+    minHeight: 36,
+    justifyContent: 'center',
+  },
+  navArrowBtn: {
+    minWidth: 36,
+    minHeight: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   navArrow: {
     fontFamily: fonts.sansRegular,
-    fontSize: 20,
+    fontSize: 28,
     color: colors.textTertiary,
   },
   title: {
-    flex: 1,
+    flexShrink: 1,
     fontFamily: fonts.sansBold,
     fontSize: 20,
     color: colors.textPrimary,
