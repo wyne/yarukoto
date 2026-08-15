@@ -105,5 +105,28 @@
     </noscript>
     <!-- The root element for your Expo app. -->
     <div id="root"></div>
+
+    <!--
+      The service worker (sw.js) is what makes the installed Home Screen app
+      show its own shell instead of a blank page when there's no network — the
+      offline task cache in mobile/src/data/cache.ts only has something to load
+      into once this has already served index.html and the JS bundle.
+
+      The registration URL is relative, same reasoning as the icon hrefs above:
+      this resolves it against sw.js in whatever directory the page itself was
+      served from, root or /<repo>/, and the service worker's default scope —
+      the directory of its own script URL, not of the page that registered it —
+      ends up covering the whole app either way.
+    -->
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('sw.js').catch(() => {
+            // Registration can fail (private browsing, an unsupported host) —
+            // the app still works online without it, so this is silent.
+          });
+        });
+      }
+    </script>
   </body>
 </html>
