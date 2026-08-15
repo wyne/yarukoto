@@ -5,9 +5,9 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
+import { BottomSheetTextInput } from '@gorhom/bottom-sheet';
 import { colors, priorityColor } from '../theme/colors';
 import { fonts } from '../theme/typography';
 import { useAccent } from '../theme/ThemeContext';
@@ -52,7 +52,9 @@ interface Props {
 export default function TaskComposerSheet({ visible, onClose, defaults, contextLabel }: Props) {
   const accent = useAccent();
   const { state, addTaskFromQuickAdd } = useTasks();
-  const inputRef = useRef<TextInput>(null);
+  // BottomSheetTextInput rather than RN's: it registers the field with the sheet,
+  // which is how keyboardBehavior knows an input is focused and sizes around it.
+  const inputRef = useRef<React.ComponentRef<typeof BottomSheetTextInput>>(null);
 
   const [text, setText] = useState('');
   const [dueDate, setDueDate] = useState<string | undefined>(undefined);
@@ -62,18 +64,27 @@ export default function TaskComposerSheet({ visible, onClose, defaults, contextL
   const [listId, setListId] = useState<string | null>(null);
   const [menu, setMenu] = useState<Menu | null>(null);
 
-  // Reseed on every open: the view's scope may have changed since last time, and
-  // a half-typed task from a previous open shouldn't reappear.
+  // Read through a ref so the reseed below can use the current scope without
+  // taking `defaults` as a dependency: the screens build it inline, so it is a
+  // fresh object on every render.
+  const defaultsRef = useRef(defaults);
+  defaultsRef.current = defaults;
+
+  // Reseed once per open: the view's scope may have changed since last time, and
+  // a half-typed task from a previous open shouldn't reappear. Keyed on `visible`
+  // alone — keyed on `defaults` too, any parent re-render while the sheet is up
+  // (a sync tick is enough) would clear the draft mid-sentence.
   useEffect(() => {
     if (!visible) return;
+    const d = defaultsRef.current;
     setText('');
-    setDueDate(defaults?.dueDate);
-    setDueTime(defaults?.dueTime);
-    setPriority(defaults?.priority ?? 'none');
-    setTags(defaults?.tags ?? []);
-    setListId(defaults?.listId ?? null);
+    setDueDate(d?.dueDate);
+    setDueTime(d?.dueTime);
+    setPriority(d?.priority ?? 'none');
+    setTags(d?.tags ?? []);
+    setListId(d?.listId ?? null);
     setMenu(null);
-  }, [visible, defaults]);
+  }, [visible]);
 
   const close = () => {
     // Let the keyboard retreat with the sheet, or the sheet would stop short
@@ -154,7 +165,7 @@ export default function TaskComposerSheet({ visible, onClose, defaults, contextL
       // than open-then-keyboard.
       onShow={() => inputRef.current?.focus()}
     >
-      <TextInput
+      <BottomSheetTextInput
         ref={inputRef}
         value={text}
         onChangeText={setText}
