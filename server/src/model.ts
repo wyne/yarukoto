@@ -42,6 +42,7 @@ export interface ViewPrefRow {
   sort_by: string;
   updated_at: string;
   deleted_at: string | null;
+  server_updated_at: string;
 }
 
 export function taskFromRow(row: TaskRow): Task {

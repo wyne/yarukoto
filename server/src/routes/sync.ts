@@ -50,7 +50,7 @@ export function registerSyncRoutes(app: FastifyInstance, db: Database.Database):
       db.prepare('SELECT * FROM folders WHERE server_updated_at > ? ORDER BY server_updated_at').all(cursor) as FolderRow[]
     ).map(folderFromRow);
     const viewPrefs = (
-      db.prepare('SELECT * FROM view_prefs WHERE updated_at > ? ORDER BY updated_at').all(cursor) as ViewPrefRow[]
+      db.prepare('SELECT * FROM view_prefs WHERE server_updated_at > ? ORDER BY server_updated_at').all(cursor) as ViewPrefRow[]
     ).map(viewPrefFromRow);
 
     reply.send({ now, tasks, lists, folders, viewPrefs });
@@ -114,10 +114,12 @@ function upsertViewPref(db: Database.Database, pref: ViewPref): ViewPref {
     return viewPrefFromRow(db.prepare('SELECT * FROM view_prefs WHERE id = ?').get(pref.id) as ViewPrefRow);
   }
   db.prepare(
-    `INSERT INTO view_prefs (id, group_by, sort_by, updated_at, deleted_at) VALUES (@id, @groupBy, @sortBy, @updatedAt, @deletedAt)
+    `INSERT INTO view_prefs (id, group_by, sort_by, updated_at, deleted_at, server_updated_at)
+     VALUES (@id, @groupBy, @sortBy, @updatedAt, @deletedAt, @serverUpdatedAt)
      ON CONFLICT(id) DO UPDATE SET group_by = excluded.group_by, sort_by = excluded.sort_by,
-       updated_at = excluded.updated_at, deleted_at = excluded.deleted_at`
-  ).run({ ...pref, deletedAt: pref.deletedAt ?? null });
+       updated_at = excluded.updated_at, deleted_at = excluded.deleted_at,
+       server_updated_at = excluded.server_updated_at`
+  ).run({ ...pref, deletedAt: pref.deletedAt ?? null, serverUpdatedAt: new Date().toISOString() });
   // Read back so an unrecognised grouping or sort is normalised the same way a
   // pull would normalise it, rather than the pusher keeping a value nothing else sees.
   return viewPrefFromRow(db.prepare('SELECT * FROM view_prefs WHERE id = ?').get(pref.id) as ViewPrefRow);
