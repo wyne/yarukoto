@@ -1,5 +1,5 @@
 import React from 'react';
-import { GestureResponderHandlers, Pressable, StyleSheet, Text, View } from 'react-native';
+import { GestureResponderEvent, GestureResponderHandlers, Pressable, StyleSheet, Text, View } from 'react-native';
 import { colors } from '../theme/colors';
 import { fonts } from '../theme/typography';
 import { useAccent } from '../theme/ThemeContext';
@@ -35,8 +35,10 @@ interface Props {
   leading?: React.ReactNode;
   /** Drop the due label when the surrounding view already states the date. */
   hideDue?: boolean;
+  /** Shaded while it is the task being dragged, marking it as the drag source. */
+  dragSource?: boolean;
   onPress: () => void;
-  onLongPress?: () => void;
+  onLongPress?: (e: GestureResponderEvent) => void;
   onToggleComplete: () => void;
   onLater: () => void;
   onDone: () => void;
@@ -55,6 +57,7 @@ export default function TaskRow({
   showHandle,
   leading,
   hideDue,
+  dragSource,
   onPress,
   onLongPress,
   onToggleComplete,
@@ -80,7 +83,12 @@ export default function TaskRow({
       onPress={onPress}
       onLongPress={onLongPress}
       delayLongPress={350}
-      style={[styles.row, selected && { backgroundColor: colors.selectedRowBg }, task.completed && styles.rowCompleted]}
+      style={[
+        styles.row,
+        selected && { backgroundColor: colors.selectedRowBg },
+        dragSource && { backgroundColor: colors.accentTintBg },
+        task.completed && styles.rowCompleted,
+      ]}
     >
       {selectionMode ? (
         <Pressable onPress={onPress} hitSlop={10}>

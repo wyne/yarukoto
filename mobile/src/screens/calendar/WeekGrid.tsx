@@ -8,6 +8,8 @@ import { Task } from '../../data/types';
 import { dayTargetId } from '../../drag/hitTest';
 import { useDropTarget } from '../../drag/useDropTarget';
 import { useDraggable } from '../../drag/useDraggable';
+import { useDrag } from '../../drag/DragContext';
+import { useDragSource } from '../../drag/dragSource';
 
 interface Props {
   startDate: Date;
@@ -71,6 +73,8 @@ function DayColumn({ date, today, selectedDate, tasks, onSelectDate, onDropTask,
   const iso = toISODate(date);
   const isToday = isSameDay(date, today);
   const isSelected = isSameDay(date, selectedDate) && !isToday;
+  // A task being dragged between columns must not scroll the column it left.
+  const { payload } = useDrag();
 
   const { ref, onLayout, isOver } = useDropTarget(dayTargetId(iso, 'cols'), (payload) => onDropTask(payload.taskId, iso));
 
@@ -96,7 +100,11 @@ function DayColumn({ date, today, selectedDate, tasks, onSelectDate, onDropTask,
         </View>
       </Pressable>
 
-      <ScrollView contentContainerStyle={styles.colBody} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.colBody}
+        showsVerticalScrollIndicator={false}
+        scrollEnabled={!payload}
+      >
         {tasks.map((task) => (
           <TaskChip key={task.id} task={task} onPress={() => onOpenTask(task.id)} />
         ))}
@@ -107,11 +115,21 @@ function DayColumn({ date, today, selectedDate, tasks, onSelectDate, onDropTask,
 
 /** Draggable so a task can be moved between days without leaving the week. */
 function TaskChip({ task, onPress }: { task: Task; onPress: () => void }) {
-  const handlers = useDraggable({ taskId: task.id, title: task.title });
+  const accent = useAccent();
+  const { onLongPress, ...handlers } = useDraggable({ taskId: task.id, title: task.title });
+  const isSource = useDragSource(task.id);
 
   return (
     <View style={styles.chipWrap} {...handlers}>
-      <Pressable style={[styles.chip, task.completed && styles.chipCompleted]} onPress={onPress}>
+      <Pressable
+        style={[
+          styles.chip,
+          task.completed && styles.chipCompleted,
+          isSource && { backgroundColor: colors.accentTintBg, borderColor: accent },
+        ]}
+        onPress={onPress}
+        onLongPress={onLongPress}
+      >
         <View style={[styles.chipDot, { backgroundColor: priorityColor(task.priority) }]} />
         <View style={styles.chipText}>
           <Text style={[styles.chipTitle, task.completed && styles.chipDone]} numberOfLines={2}>

@@ -9,7 +9,7 @@ import Card from '../../components/Card';
 import Divider from '../../components/Divider';
 import AgendaRow from './AgendaRow';
 import { dayTargetId } from '../../drag/hitTest';
-import { useDropTarget } from '../../drag/useDropTarget';
+import { Measurable, useDropTarget } from '../../drag/useDropTarget';
 
 interface Props {
   date: Date;
@@ -18,6 +18,12 @@ interface Props {
   onOpenTask: (taskId: string) => void;
   /** Plan only. Makes the whole group a drop target and its rows draggable. */
   onDropTask?: (taskId: string, iso: string) => void;
+  /**
+   * Only the part of the group inside this frame accepts drops. The agenda
+   * scrolls under the month grid, so without a clip scrolled-off groups would
+   * keep intercepting drops meant for the calendar above.
+   */
+  clipTo?: React.RefObject<Measurable | null> | null;
 }
 
 /**
@@ -25,7 +31,7 @@ interface Props {
  * task can be moved onto a day by aiming at the list it belongs in rather than
  * having to hit a 30px cell in the month grid above.
  */
-export default function AgendaDayGroup({ date, tasks, now, onOpenTask, onDropTask }: Props) {
+export default function AgendaDayGroup({ date, tasks, now, onOpenTask, onDropTask, clipTo }: Props) {
   const accent = useAccent();
   const iso = toISODate(date);
   const droppable = !!onDropTask;
@@ -33,7 +39,8 @@ export default function AgendaDayGroup({ date, tasks, now, onOpenTask, onDropTas
   const { ref, onLayout, isOver } = useDropTarget(
     dayTargetId(iso, 'agenda'),
     (payload) => onDropTask?.(payload.taskId, iso),
-    droppable
+    droppable,
+    clipTo
   );
 
   return (
