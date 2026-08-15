@@ -5,7 +5,7 @@ import { useTasks } from '../data/TaskContext';
 import { getListById } from '../data/selectors';
 import TaskListScreen from './TaskListScreen';
 
-export default function InboxScreen({ navigation, route }: BottomTabScreenProps<MainTabParamList, 'InboxTab'>) {
+export default function InboxScreen({ route }: BottomTabScreenProps<MainTabParamList, 'InboxTab'>) {
   const { state } = useTasks();
   const { listId, tag } = route.params ?? {};
 
@@ -22,5 +22,5 @@ export default function InboxScreen({ navigation, route }: BottomTabScreenProps<
     return undefined;
   }, [listId, tag, state.lists]);
 
-  return <TaskListScreen mode="inbox" tabNavigation={navigation} filter={filter} />;
+  return <TaskListScreen mode="inbox" filter={filter} />;
 }
