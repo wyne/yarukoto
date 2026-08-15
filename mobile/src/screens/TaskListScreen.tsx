@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../theme/colors';
 import { fonts } from '../theme/typography';
@@ -15,6 +15,7 @@ import {
 } from '../data/selectors';
 import { isSameDay, toISODate } from '../data/dateUtils';
 import { QuickAddDefaults } from '../data/TaskContext';
+import { WEB_ENTRY } from '../data/platform';
 import { groupTasks, viewKey } from '../data/viewOptions';
 import { useCollapsedSections } from '../data/uiPrefs';
 import { Task } from '../data/types';
@@ -36,13 +37,6 @@ import TagPickerSheet from '../components/pickers/TagPickerSheet';
 import { IconMenu, IconSearch, IconSelectMode, IconViewOptions } from '../icons/Icons';
 
 const TITLES = { all: 'All', inbox: 'Inbox', today: 'Today' } as const;
-
-/**
- * Web types into a pinned field; native taps a floating button that opens the
- * composer. Split by platform rather than width — the difference that matters is
- * having a keyboard already in front of you, not how many pixels are.
- */
-const WEB_ENTRY = Platform.OS === 'web';
 
 interface Props {
   mode: 'all' | 'inbox' | 'today';
