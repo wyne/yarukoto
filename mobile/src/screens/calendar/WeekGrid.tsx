@@ -9,6 +9,7 @@ import { dayTargetId } from '../../drag/hitTest';
 import { useDropTarget } from '../../drag/useDropTarget';
 import { useDraggable } from '../../drag/useDraggable';
 import { useDrag } from '../../drag/DragContext';
+import { useDragSource } from '../../drag/dragSource';
 
 interface Props {
   startDate: Date;
@@ -114,12 +115,18 @@ function DayColumn({ date, today, selectedDate, tasks, onSelectDate, onDropTask,
 
 /** Draggable so a task can be moved between days without leaving the week. */
 function TaskChip({ task, onPress }: { task: Task; onPress: () => void }) {
+  const accent = useAccent();
   const { onLongPress, ...handlers } = useDraggable({ taskId: task.id, title: task.title });
+  const isSource = useDragSource(task.id);
 
   return (
     <View style={styles.chipWrap} {...handlers}>
       <Pressable
-        style={[styles.chip, task.completed && styles.chipCompleted]}
+        style={[
+          styles.chip,
+          task.completed && styles.chipCompleted,
+          isSource && { backgroundColor: colors.accentTintBg, borderColor: accent },
+        ]}
         onPress={onPress}
         onLongPress={onLongPress}
       >

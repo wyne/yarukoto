@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { GestureResponderEvent, GestureResponderHandlers, PanResponder } from 'react-native';
 import { DragPayload, useDrag } from './DragContext';
+import { Point } from './hitTest';
 import { lockDragGestures, unlockDragGestures } from './webDragLock';
 
 /**
@@ -42,6 +43,12 @@ export function useDraggable(payload: DragPayload): DraggableBindings {
   const payloadRef = useRef(payload);
   payloadRef.current = payload;
   const armedRef = useRef(false);
+  // The ghost is anchored where the long press fired; grant/move deltas are then
+  // applied on top. Without this the pill snaps to wherever the finger has slid
+  // between the long press and the responder grant — a jump that varies with every
+  // drag and makes the tooltip sit inconsistently relative to the thumb.
+  const anchorRef = useRef<Point>({ x: 0, y: 0 });
+  const grantRef = useRef<Point>({ x: 0, y: 0 });
 
   // Unmounting mid-hold skips the release handlers, and a lock left on would leave
   // the whole page unscrollable.
@@ -51,7 +58,8 @@ export function useDraggable(payload: DragPayload): DraggableBindings {
     (e: GestureResponderEvent) => {
       armedRef.current = true;
       lockDragGestures();
-      begin(payloadRef.current, { x: e.nativeEvent.pageX, y: e.nativeEvent.pageY });
+      anchorRef.current = { x: e.nativeEvent.pageX, y: e.nativeEvent.pageY };
+      begin(payloadRef.current, anchorRef.current);
     },
     [begin]
   );
@@ -80,8 +88,17 @@ export function useDraggable(payload: DragPayload): DraggableBindings {
         // Claims only once a long press has armed the row — scrolling is untouched
         // until then.
         onMoveShouldSetPanResponderCapture: () => armedRef.current,
-        onPanResponderGrant: (_e, g) => begin(payloadRef.current, { x: g.moveX, y: g.moveY }),
-        onPanResponderMove: (_e, g) => move({ x: g.moveX, y: g.moveY }),
+        // Records the finger's position when the responder takes over, so move()
+        // can turn subsequent positions into deltas from it — the ghost follows
+        // the finger's motion, not its absolute spot.
+        onPanResponderGrant: (_e, g) => {
+          grantRef.current = { x: g.moveX, y: g.moveY };
+        },
+        onPanResponderMove: (_e, g) =>
+          move({
+            x: anchorRef.current.x + (g.moveX - grantRef.current.x),
+            y: anchorRef.current.y + (g.moveY - grantRef.current.y),
+          }),
         // A real mouse selects text as it sweeps across the row, and react-native-web
         // terminates the responder on selectionchange (also scroll / contextmenu)
         // unless termination is refused. Without this the ghost dies mid-drag.

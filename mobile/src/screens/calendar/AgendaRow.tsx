@@ -8,6 +8,7 @@ import { formatTime24to12 } from '../../data/dateUtils';
 import { Task } from '../../data/types';
 import TaskRow from '../../components/TaskRow';
 import { useDraggable } from '../../drag/useDraggable';
+import { useDragSource } from '../../drag/dragSource';
 
 interface Props {
   task: Task;
@@ -27,6 +28,7 @@ interface Props {
 export default function AgendaRow({ task, now, onPress, draggable }: Props) {
   const { state, toggleComplete, snoozeTask } = useTasks();
   const { onLongPress, ...handlers } = useDraggable({ taskId: task.id, title: task.title });
+  const isSource = useDragSource(task.id);
 
   const row = (
     <TaskRow
@@ -35,6 +37,7 @@ export default function AgendaRow({ task, now, onPress, draggable }: Props) {
       now={now}
       hideDue
       showHandle={draggable}
+      dragSource={isSource}
       leading={
         <Text style={styles.time}>{task.dueTime ? formatTime24to12(task.dueTime) : 'All day'}</Text>
       }

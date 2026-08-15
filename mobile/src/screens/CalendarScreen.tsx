@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../theme/colors';
@@ -20,6 +20,7 @@ import AddTaskFab from '../components/AddTaskFab';
 import { WEB_ENTRY } from '../data/platform';
 import { IconMenu } from '../icons/Icons';
 import { useDrag } from '../drag/DragContext';
+import { Measurable } from '../drag/useDropTarget';
 
 const AGENDA_WINDOW_DAYS = 45;
 const MULTI_DAY_COUNT = 3;
@@ -44,6 +45,10 @@ export default function CalendarScreen() {
 
   const [monthAnchor, setMonthAnchor] = useState(new Date(today.getFullYear(), today.getMonth(), 1));
   const [selectedDate, setSelectedDate] = useState(today);
+
+  // The agenda clips its drop targets to this frame (see AgendaDayGroup clipTo):
+  // scrolled-off days must never keep swallowing drops meant for the calendar.
+  const agendaRef = useRef<ScrollView | null>(null);
 
   // Layout and the completed filter are how this screen is set up, not where you
   // are in it — so they're restored, while the date always opens on today.
@@ -240,6 +245,8 @@ export default function CalendarScreen() {
             )}
 
             <ScrollView
+              ref={agendaRef}
+              style={styles.agendaFrame}
               contentContainerStyle={[styles.agenda, !wide && !WEB_ENTRY && styles.agendaFab]}
               scrollEnabled={!payload}
             >
@@ -252,6 +259,7 @@ export default function CalendarScreen() {
                   now={today}
                   onOpenTask={openTask}
                   onDropTask={scheduleTask}
+                  clipTo={agendaRef as unknown as React.RefObject<Measurable | null>}
                 />
               ))}
             </ScrollView>
@@ -337,6 +345,10 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   quickAdd: { paddingHorizontal: 12, paddingTop: 4 },
+  // ScrollView must not paint its scrolled-off content out past its frame — a
+  // day group peeking above the viewport is exactly the "under the calendar"
+  // artefact the clip is there to prevent.
+  agendaFrame: { overflow: 'hidden' },
   agenda: {
     paddingHorizontal: 12,
     paddingTop: 12,

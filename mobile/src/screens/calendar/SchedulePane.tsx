@@ -21,6 +21,7 @@ import Divider from '../../components/Divider';
 import BottomSheet from '../../components/BottomSheet';
 import { useDraggable } from '../../drag/useDraggable';
 import { useDrag } from '../../drag/DragContext';
+import { useDragSource } from '../../drag/dragSource';
 import { IconChevronDown } from '../../icons/Icons';
 
 export type Scope =
@@ -188,6 +189,7 @@ function DraggableTask({
 }) {
   const { toggleComplete, snoozeTask } = useTasks();
   const { onLongPress, ...handlers } = useDraggable({ taskId: task.id, title: task.title });
+  const isSource = useDragSource(task.id);
 
   return (
     <View style={styles.draggable} {...handlers}>
@@ -196,6 +198,7 @@ function DraggableTask({
         list={listName}
         now={now}
         showContext
+        dragSource={isSource}
         hideListId={hideListId}
         hideTag={hideTag}
         onPress={onPress}

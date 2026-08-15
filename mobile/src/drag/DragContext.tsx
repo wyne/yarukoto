@@ -1,6 +1,7 @@
 import React, { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react';
 import { Animated } from 'react-native';
 import { Point, Rect, resolveDropTarget } from './hitTest';
+import { hapticPickup, hapticTargetChange } from './haptics';
 
 export interface DragPayload {
   taskId: string;
@@ -68,6 +69,10 @@ export function DragProvider({ children }: { children: React.ReactNode }) {
 
   const begin = useCallback(
     (next: DragPayload, point: Point) => {
+      // begin() runs twice per gesture — once when the long press arms the row,
+      // once when the pan responder takes over — so only the first counts as the
+      // pickup (and gets the haptic).
+      const fresh = !payloadRef.current;
       // Rects go stale when panes scroll or the window resizes; refresh on every drag.
       targets.forEach((entry) => entry.measure());
       payloadRef.current = next;
@@ -75,6 +80,7 @@ export function DragProvider({ children }: { children: React.ReactNode }) {
       pointer.setValue({ x: point.x, y: point.y });
       setPayload(next);
       setOverId(null);
+      if (fresh) hapticPickup();
     },
     [pointer, targets]
   );
@@ -86,6 +92,9 @@ export function DragProvider({ children }: { children: React.ReactNode }) {
       const list = [...targets.entries()].map(([id, entry]) => ({ id, rect: entry.rect }));
       const next = resolveDropTarget(list, point);
       if (next !== overRef.current) {
+        // A tick on the way *onto* a target, not off it — entering is the moment
+        // the finger has committed to somewhere new.
+        if (next) hapticTargetChange();
         overRef.current = next;
         setOverId(next);
       }
