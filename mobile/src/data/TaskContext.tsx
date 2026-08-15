@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef, useState } from 'react';
-import { AppState } from 'react-native';
+import { AppState, Platform } from 'react-native';
 import { setAudioModeAsync, useAudioPlayer } from 'expo-audio';
 import { buildSampleData } from './sampleData';
 import { FolderDef, ListDef, Priority, Task, ViewPref } from './types';
@@ -669,17 +669,25 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     let running = false;
     let timer: ReturnType<typeof setTimeout>;
 
+    // Consecutive failed cycles, reset to 0 on any cycle that completes without
+    // throwing. A foregrounded phone out of coverage would otherwise retry every
+    // ACTIVE_SYNC_MS forever, waking the radio each time for nothing.
+    let failures = 0;
+
     /**
      * Polling every few seconds forever is wasted work when nobody is looking —
      * and on a phone it's wasted battery. Backgrounded clients fall back to a
      * slow tick, *unless* there are unsent edits: those shouldn't wait a minute
      * to reach the server just because the user switched away right after making
-     * them.
+     * them. A run of failures backs off the same way, up to the same slow tick —
+     * foregrounding or a network-restored event below still cycle immediately,
+     * so the backoff only governs the unattended retry.
      */
     const nextDelay = (): number => {
       const foreground = AppState.currentState === 'active';
-      if (foreground || outboxRef.current.size > 0) return ACTIVE_SYNC_MS;
-      return IDLE_SYNC_MS;
+      const base = foreground || outboxRef.current.size > 0 ? ACTIVE_SYNC_MS : IDLE_SYNC_MS;
+      if (failures === 0) return base;
+      return Math.min(base * 2 ** failures, IDLE_SYNC_MS);
     };
 
     const cycle = async () => {
@@ -713,6 +721,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
           viewPrefs: pulled.batch.viewPrefs,
         });
 
+        failures = 0;
         // Anything marked dirty *during* the request is still queued, so this is
         // only fully "synced" if the outbox came out empty.
         const pending = outboxRef.current.size;
@@ -722,13 +731,16 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
           lastSyncedAt: new Date().toISOString(),
         });
       } catch (err) {
-        // Local edits stay queued either way; the next tick retries. A rejected
-        // token is called out separately because, unlike being offline, waiting
-        // will never fix it.
-        const unauthorized = err instanceof ApiError && err.status === 401;
+        failures++;
+        // Local edits stay queued either way; the next tick retries. 'unauthorized'
+        // and 'rejected' are called out separately from 'offline' because, unlike
+        // never getting a response, waiting alone will never fix either of them.
+        const status = err instanceof ApiError ? err.status : 0;
+        const nextState =
+          status === 401 ? 'unauthorized' : status >= 400 && status < 500 ? 'rejected' : 'offline';
         setSyncStatus((s) => ({
           ...s,
-          state: unauthorized ? 'unauthorized' : 'offline',
+          state: nextState,
           pending: outboxRef.current.size,
         }));
       }
@@ -744,11 +756,28 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       cycle();
     });
 
+    // AppState has no native notion of "the network came back" — on web,
+    // `window.online` does. There's no equivalent unattended signal on native
+    // yet (that's @react-native-community/netinfo, a native module the app
+    // hasn't taken on — see ROADMAP.md); backoff plus the foreground-triggered
+    // cycle above cover it there.
+    let removeOnline: (() => void) | undefined;
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      const onOnline = () => {
+        if (cancelled) return;
+        clearTimeout(timer);
+        cycle();
+      };
+      window.addEventListener('online', onOnline);
+      removeOnline = () => window.removeEventListener('online', onOnline);
+    }
+
     cycle();
     return () => {
       cancelled = true;
       clearTimeout(timer);
       subscription.remove();
+      removeOnline?.();
     };
   }, [state.mode, state.serverUrl, state.token]);
 

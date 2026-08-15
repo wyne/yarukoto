@@ -13,7 +13,13 @@ export type SyncState =
   /** The last cycle couldn't reach the server. Edits stay queued. */
   | 'offline'
   /** The server rejected the token — this one won't fix itself. */
-  | 'unauthorized';
+  | 'unauthorized'
+  /**
+   * The server rejected a push outright (a 4xx other than 401) — a request
+   * malformed in a way retrying unchanged will never fix. Distinct from
+   * 'offline', which is a request that never got a response at all.
+   */
+  | 'rejected';
 
 export interface SyncStatus {
   state: SyncState;
@@ -80,26 +86,55 @@ interface Collections {
   viewPrefs: ViewPref[];
 }
 
-/** Sends every dirty record. Returns the server's (possibly corrected) versions. */
+/**
+ * Records per push request. Fastify's default bodyLimit is 1MiB; a long
+ * offline session (bulk edits, or a reorder that dirties a whole visible
+ * slice) could otherwise exceed it, and the 413 that comes back reads as
+ * plain 'offline' to a caller sending the same oversized body forever.
+ */
+const PUSH_CHUNK_SIZE = 200;
+
+type Kind = 'task' | 'list' | 'folder' | 'viewPref';
+
+/** Sends every dirty record, chunked, clearing each chunk as it lands. Returns the server's (possibly corrected) versions. */
 export async function pushDirty(api: Api, outbox: Outbox, state: Collections): Promise<SyncBatch> {
-  const tasks = state.tasks.filter((t) => outbox.has(t.id));
-  const lists = state.lists.filter((l) => outbox.has(l.id));
-  const folders = state.folders.filter((f) => outbox.has(f.id));
-  const viewPrefs = state.viewPrefs.filter((v) => outbox.has(v.id));
+  const tasksById = new Map(state.tasks.filter((t) => outbox.has(t.id)).map((t) => [t.id, t] as const));
+  const listsById = new Map(state.lists.filter((l) => outbox.has(l.id)).map((l) => [l.id, l] as const));
+  const foldersById = new Map(state.folders.filter((f) => outbox.has(f.id)).map((f) => [f.id, f] as const));
+  const viewPrefsById = new Map(state.viewPrefs.filter((v) => outbox.has(v.id)).map((v) => [v.id, v] as const));
 
-  // Captured before the request goes out, so an edit that lands *during* the
-  // await bumps its id's sequence and clear() below leaves it dirty.
-  const sentIds = [
-    ...tasks.map((t) => t.id),
-    ...lists.map((l) => l.id),
-    ...folders.map((f) => f.id),
-    ...viewPrefs.map((v) => v.id),
+  const items: { kind: Kind; id: string }[] = [
+    ...[...tasksById.keys()].map((id) => ({ kind: 'task' as const, id })),
+    ...[...listsById.keys()].map((id) => ({ kind: 'list' as const, id })),
+    ...[...foldersById.keys()].map((id) => ({ kind: 'folder' as const, id })),
+    ...[...viewPrefsById.keys()].map((id) => ({ kind: 'viewPref' as const, id })),
   ];
-  const sent = new Map(sentIds.map((id) => [id, outbox.seqOf(id)!]));
 
-  const result = await api.push({ tasks, lists, folders, viewPrefs });
-  outbox.clear(sent);
-  return result;
+  const merged: SyncBatch = { now: new Date().toISOString(), tasks: [], lists: [], folders: [], viewPrefs: [] };
+
+  for (let i = 0; i < items.length; i += PUSH_CHUNK_SIZE) {
+    const chunk = items.slice(i, i + PUSH_CHUNK_SIZE);
+
+    // Captured before the request goes out, so an edit that lands *during*
+    // the await bumps its id's sequence and clear() below leaves it dirty.
+    const sent = new Map(chunk.map(({ id }) => [id, outbox.seqOf(id)!]));
+
+    const result = await api.push({
+      tasks: chunk.filter((c) => c.kind === 'task').map((c) => tasksById.get(c.id)!),
+      lists: chunk.filter((c) => c.kind === 'list').map((c) => listsById.get(c.id)!),
+      folders: chunk.filter((c) => c.kind === 'folder').map((c) => foldersById.get(c.id)!),
+      viewPrefs: chunk.filter((c) => c.kind === 'viewPref').map((c) => viewPrefsById.get(c.id)!),
+    });
+    outbox.clear(sent);
+
+    merged.now = result.now;
+    merged.tasks.push(...result.tasks);
+    merged.lists.push(...result.lists);
+    merged.folders.push(...result.folders);
+    merged.viewPrefs.push(...result.viewPrefs);
+  }
+
+  return merged;
 }
 
 export interface PullResult {

@@ -48,6 +48,13 @@ function describe(mode: AppMode, status: SyncStatus, serverUrl: string, now: Dat
       };
     case 'unauthorized':
       return { color: colors.priorityHigh, label: 'Token rejected' };
+    case 'rejected':
+      // Distinct from offline: the server answered and said no, so retrying
+      // the same request unchanged will not fix it either.
+      return {
+        color: colors.priorityHigh,
+        label: status.pending > 0 ? `Rejected · ${status.pending} pending` : 'Sync rejected',
+      };
     case 'synced':
     default:
       return { color: colors.success, label: host || 'Connected' };
