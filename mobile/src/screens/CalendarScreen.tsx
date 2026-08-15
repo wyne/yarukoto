@@ -19,6 +19,7 @@ import QuickAddBar from '../components/QuickAddBar';
 import AddTaskFab from '../components/AddTaskFab';
 import { WEB_ENTRY } from '../data/platform';
 import { IconMenu } from '../icons/Icons';
+import { useDrag } from '../drag/DragContext';
 
 const AGENDA_WINDOW_DAYS = 45;
 const MULTI_DAY_COUNT = 3;
@@ -36,6 +37,9 @@ export default function CalendarScreen() {
   const { wide, openDrawer } = useSidebar();
   const { openTask } = useDetail();
   const { state, updateTask, addTaskFromQuickAdd } = useTasks();
+  // While a drag is in flight, the agenda must not scroll under the finger — the
+  // whole point is carrying the task up out of the list onto the calendar.
+  const { payload } = useDrag();
   const today = new Date();
 
   const [monthAnchor, setMonthAnchor] = useState(new Date(today.getFullYear(), today.getMonth(), 1));
@@ -237,6 +241,7 @@ export default function CalendarScreen() {
 
             <ScrollView
               contentContainerStyle={[styles.agenda, !wide && !WEB_ENTRY && styles.agendaFab]}
+              scrollEnabled={!payload}
             >
               {agendaDays.length === 0 && <Text style={styles.empty}>Nothing scheduled from here on.</Text>}
               {agendaDays.map(({ date, tasks }) => (

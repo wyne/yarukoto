@@ -20,6 +20,7 @@ import Card from '../../components/Card';
 import Divider from '../../components/Divider';
 import BottomSheet from '../../components/BottomSheet';
 import { useDraggable } from '../../drag/useDraggable';
+import { useDrag } from '../../drag/DragContext';
 import { IconChevronDown } from '../../icons/Icons';
 
 export type Scope =
@@ -46,6 +47,9 @@ export default function SchedulePane() {
   const accent = useAccent();
   const { state } = useTasks();
   const { openTask } = useDetail();
+  // A drag is heading for the calendar, not the list — lock the list's scroll so
+  // the finger can carry the ghost out without the ScrollView stealing the pan.
+  const { payload } = useDrag();
   const now = new Date();
 
   const [scope, setScope] = useState<Scope>(UNSCHEDULED);
@@ -74,7 +78,11 @@ export default function SchedulePane() {
         <IconChevronDown />
       </Pressable>
 
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        showsVerticalScrollIndicator={false}
+        scrollEnabled={!payload}
+      >
         {tasks.length === 0 ? (
           <Text style={styles.empty}>Nothing here.</Text>
         ) : (
