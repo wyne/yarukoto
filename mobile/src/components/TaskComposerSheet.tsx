@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Keyboard,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -31,6 +30,16 @@ const PRIORITY_MENU: { key: Priority; label: string }[] = [
 /** Which helper menu is open. Only ever one. */
 type Menu = 'date' | 'priority' | 'tags' | 'list';
 
+/**
+ * One height for every helper menu, ~5 rows plus the panel's own padding.
+ *
+ * The menus differ a lot in length — 4 priorities, 5 dates, and however many tags
+ * and lists exist — and the sheet is sized to its content, so a panel that hugged
+ * each one resized the sheet every time you switched tools. Sized to the longest
+ * of the fixed menus so those never scroll, and the open-ended ones scroll within.
+ */
+const MENU_PANEL_HEIGHT = 222;
+
 interface Props {
   visible: boolean;
   onClose: () => void;
@@ -48,6 +57,10 @@ interface Props {
  * grows to fit them. They are deliberately inline rather than the app's
  * existing picker sheets, which each open their own RN Modal; nesting those
  * inside this one is fragile.
+ *
+ * The field holds focus for the whole session, menus included, so the keyboard
+ * never animates once the sheet is up. Combined with the panel's fixed height,
+ * the only movement while composing is the sheet growing by that one amount.
  */
 export default function TaskComposerSheet({ visible, onClose, defaults, contextLabel }: Props) {
   const accent = useAccent();
@@ -86,10 +99,10 @@ export default function TaskComposerSheet({ visible, onClose, defaults, contextL
     setMenu(null);
   }, [visible]);
 
+  // The keyboard is dismissed by NativeSheet as the close animation starts, so
+  // the two travel together. Dismissing it here as well would drop the keyboard
+  // first and jog the sheet downwards before it began closing.
   const close = () => {
-    // Let the keyboard retreat with the sheet, or the sheet would stop short
-    // behind it on the way out.
-    Keyboard.dismiss();
     onClose();
   };
 
@@ -139,12 +152,29 @@ export default function TaskComposerSheet({ visible, onClose, defaults, contextL
     setTags((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]));
   };
 
+  /**
+   * The field keeps focus the whole time a menu is open, so the keyboard never
+   * moves and the sheet only grows by the panel's fixed height.
+   *
+   * The focus call is a guard rather than a repair: nothing here blurs the field
+   * (the menu list sets keyboardShouldPersistTaps), but if anything ever did, the
+   * keyboard dropping would resize the sheet — which is the jarring part.
+   */
+  const closeMenu = () => {
+    setMenu(null);
+    inputRef.current?.focus();
+  };
+
   const helper = (key: Menu, Icon: React.ComponentType<{ size?: number; color?: string }>, active: boolean) => (
     <Pressable
       key={key}
       onPress={() => {
-        Keyboard.dismiss();
-        setMenu((m) => (m === key ? null : key));
+        if (menu === key) {
+          closeMenu();
+          return;
+        }
+        setMenu(key);
+        inputRef.current?.focus();
       }}
       hitSlop={6}
       style={[styles.helper, menu === key && styles.helperOpen]}
@@ -233,15 +263,23 @@ export default function TaskComposerSheet({ visible, onClose, defaults, contextL
       </View>
 
       {menu && (
+        // Fixed height, and every menu scrolls inside it. The menus have very
+        // different row counts, and the sheet is sized to its content — so a panel
+        // that hugged each one resized the whole sheet on every switch.
         <View style={styles.menuPanel}>
-          {menu === 'priority' &&
+          <ScrollView
+            contentContainerStyle={styles.menuScrollContent}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            {menu === 'priority' &&
               PRIORITY_MENU.map((p) => (
                 <Pressable
                   key={p.key}
                   style={styles.menuRow}
                   onPress={() => {
                     setPriority(p.key);
-                    setMenu(null);
+                    closeMenu();
                   }}
                 >
                   <IconFlag size={18} color={priorityColor(p.key)} filled={p.key !== 'none'} />
@@ -259,7 +297,7 @@ export default function TaskComposerSheet({ visible, onClose, defaults, contextL
                     const next = opt.get(new Date());
                     setDueDate(next);
                     if (!next) setDueTime(undefined);
-                    setMenu(null);
+                    closeMenu();
                   }}
                 >
                   <IconCalendarBox size={18} color={colors.textTertiary} />
@@ -270,8 +308,9 @@ export default function TaskComposerSheet({ visible, onClose, defaults, contextL
                 </Pressable>
               ))}
 
+            {/* Tags stay open on tap — picking several at once is the normal case. */}
             {menu === 'tags' && (
-              <ScrollView style={styles.menuScroll} keyboardShouldPersistTaps="handled">
+              <>
                 {knownTags.length === 0 && <Text style={styles.menuEmpty}>No tags yet — type #name instead.</Text>}
                 {knownTags.map((tag) => (
                   <Pressable key={tag} style={styles.menuRow} onPress={() => toggleTag(tag)}>
@@ -280,16 +319,16 @@ export default function TaskComposerSheet({ visible, onClose, defaults, contextL
                     {effective.tags.includes(tag) && <IconCheckBig size={14} color={accent} strokeWidth={2.4} />}
                   </Pressable>
                 ))}
-              </ScrollView>
+              </>
             )}
 
             {menu === 'list' && (
-              <ScrollView style={styles.menuScroll} keyboardShouldPersistTaps="handled">
+              <>
                 <Pressable
                   style={styles.menuRow}
                   onPress={() => {
                     setListId(null);
-                    setMenu(null);
+                    closeMenu();
                   }}
                 >
                   <Text style={styles.menuLabel}>Inbox</Text>
@@ -304,7 +343,7 @@ export default function TaskComposerSheet({ visible, onClose, defaults, contextL
                         style={styles.menuRow}
                         onPress={() => {
                           setListId(list.id);
-                          setMenu(null);
+                          closeMenu();
                         }}
                       >
                         <View style={[styles.listDot, { backgroundColor: list.color }]} />
@@ -314,9 +353,10 @@ export default function TaskComposerSheet({ visible, onClose, defaults, contextL
                     ))}
                   </View>
                 ))}
-              </ScrollView>
+              </>
             )}
-          </View>
+          </ScrollView>
+        </View>
       )}
     </NativeSheet>
   );
@@ -394,18 +434,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  /** The helper menus render in-flow so the sheet can grow to fit them. */
+  /**
+   * The helper menus render in-flow so the sheet can grow to fit them, at one
+   * fixed height for all four — see MENU_PANEL_HEIGHT.
+   */
   menuPanel: {
     marginTop: 8,
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: 12,
     backgroundColor: colors.surface,
-    paddingVertical: 6,
     overflow: 'hidden',
+    height: MENU_PANEL_HEIGHT,
   },
-  menuScroll: {
-    maxHeight: 260,
+  menuScrollContent: {
+    paddingVertical: 6,
   },
   menuRow: {
     flexDirection: 'row',

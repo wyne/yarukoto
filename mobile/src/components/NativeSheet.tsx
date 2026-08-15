@@ -75,10 +75,22 @@ export default function NativeSheet({ visible, onClose, title, keyboard, grabber
     []
   );
 
-  const handleChange = useCallback((index: number) => {
-    if (index >= 0 && !shownRef.current) {
+  /**
+   * Driven from onAnimate rather than onChange, because onAnimate fires as the
+   * animation starts where onChange only fires once it lands.
+   *
+   * Focusing at the start lets the keyboard begin rising while the sheet is still
+   * travelling, so the two arrive together instead of sheet-then-keyboard. The
+   * same applies leaving: starting the keyboard down as the sheet begins to close,
+   * rather than waiting for onDismiss, keeps them in step on the way out too.
+   */
+  const handleAnimate = useCallback((_fromIndex: number, toIndex: number) => {
+    if (toIndex >= 0 && !shownRef.current) {
       shownRef.current = true;
       onShowRef.current?.();
+    }
+    if (toIndex === -1) {
+      Keyboard.dismiss();
     }
   }, []);
 
@@ -92,12 +104,17 @@ export default function NativeSheet({ visible, onClose, title, keyboard, grabber
       // detent and lets the keyboard cover it, while interactive subtracts the
       // keyboard height from that detent so the sheet rides above it.
       keyboardBehavior={keyboard ? 'interactive' : undefined}
+      // Interactive parks the sheet in a temporary raised position while the
+      // keyboard is up; without restore it stays there once the keyboard goes,
+      // stranding it mid-screen over a gap if the field is ever blurred without
+      // the sheet closing — swiping the keyboard down, say.
+      keyboardBlurBehavior={keyboard ? 'restore' : undefined}
       backdropComponent={renderBackdrop}
       handleComponent={grabber ? BottomSheetHandle : null}
       handleIndicatorStyle={styles.indicator}
       style={styles.sheet}
       backgroundStyle={styles.background}
-      onChange={handleChange}
+      onAnimate={handleAnimate}
       onDismiss={() => {
         // Already closed itself, so there is nothing left for the effect to
         // dismiss — clearing this keeps it from re-entering DISMISSING.
@@ -109,8 +126,8 @@ export default function NativeSheet({ visible, onClose, title, keyboard, grabber
         Must be BottomSheetView, not a plain View: with enableDynamicSizing and no
         snapPoints, its onLayout is the only thing that reports the content height.
         Without it the sheet resolves to no detents at all, so present() has nowhere
-        to snap — it stays invisible and never reaches an index, which also means
-        onChange never fires and onShow never focuses the input.
+        to snap — it stays invisible and never animates to an index, which also means
+        onAnimate never fires and onShow never focuses the input.
       */}
       <BottomSheetView
         style={[styles.content, { paddingTop: title ? 0 : 16, paddingBottom: Math.max(16, insets.bottom) }]}
