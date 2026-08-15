@@ -1,25 +1,27 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 /**
- * Persistence for the server connection: which mode the app is in, the server
- * URL and access token, and the sync cursor.
+ * Persistence for the server connection (mode, server URL, access token) and
+ * the offline cache (see cache.ts): the last-known tasks/lists/folders/
+ * viewPrefs, the cursor they're consistent with, and the outbox.
  *
  * AsyncStorage is async on every platform (on web it's localStorage underneath),
  * but the callers here are reducer initialisers and render paths that can't await.
- * So the whole keyspace — four small strings — is read once into memory by
- * `initStorage()` at startup, and every read after that is synchronous against
- * that cache. Writes update the cache immediately and persist in the background.
+ * So the whole keyspace is read once into memory by `initStorage()` at startup,
+ * and every read after that is synchronous against that cache. Writes update
+ * the cache immediately and persist in the background.
  *
  * The alternative, making every caller async, would mean a loading state
- * threaded through `initState()` and the provider for the sake of a few hundred
- * bytes read once per launch.
+ * threaded through `initState()` and the provider for the sake of a value
+ * that's read once per launch.
  */
 
 const URL_KEY = 'yarukoto.serverUrl';
 const MODE_KEY = 'yarukoto.mode';
 const TOKEN_KEY = 'yarukoto.token';
+const CACHE_KEY = 'yarukoto.cache';
 
-const ALL_KEYS = [URL_KEY, MODE_KEY, TOKEN_KEY];
+const ALL_KEYS = [URL_KEY, MODE_KEY, TOKEN_KEY, CACHE_KEY];
 
 let cache: Record<string, string | null> = {};
 let primed = false;
@@ -104,13 +106,23 @@ export function clearToken(): void {
 }
 
 /**
- * The sync cursor is deliberately *not* persisted. Task data isn't cached
- * locally, so state starts empty on every launch — and a saved cursor would then
- * make the first pull incremental, asking only for rows changed since last time
- * and silently returning nothing. Every existing task would stay invisible until
- * something happened to touch it server-side.
- *
- * Keeping the cursor in memory means each launch does one full hydrate, which is
- * cheap for a personal task list and correct by construction. Persisting it only
- * becomes worthwhile alongside a local cache of the tasks themselves.
+ * The offline cache, as a single opaque blob — see cache.ts for what it holds
+ * and why cursor and data are never split apart. This used to be a documented
+ * non-goal: persisting the cursor without caching the data it came with made
+ * a restart's first pull *incremental*, asking only for what changed since
+ * that cursor and silently returning nothing, so every existing task stayed
+ * invisible until something touched it server-side again. That's exactly the
+ * shape cache.ts's validation exists to make impossible — restoring one
+ * without the other simply isn't a code path that exists anymore.
  */
+export function loadCache(): string | null {
+  return read(CACHE_KEY);
+}
+
+export function saveCache(json: string): void {
+  write(CACHE_KEY, json);
+}
+
+export function clearCache(): void {
+  remove(CACHE_KEY);
+}

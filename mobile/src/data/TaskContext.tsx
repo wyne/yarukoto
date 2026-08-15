@@ -10,15 +10,19 @@ import { ViewOptions, viewOptionsFor } from './viewOptions';
 import { LIST_COLORS } from '../theme/colors';
 import {
   AppMode,
+  clearCache,
   clearServerUrl,
   clearToken,
+  loadCache,
   loadMode,
   loadServerUrl,
   loadToken,
+  saveCache,
   saveMode,
   saveServerUrl,
   saveToken,
 } from './storage';
+import { CacheSnapshot, deserialize, fitsCache, serialize } from './cache';
 import { ApiError, createApi } from './api';
 import { Outbox, SyncStatus, mergeBatch, mergeFullHydrate, pullSince, pushDirty } from './sync';
 import { activeLists } from './selectors';
@@ -299,18 +303,28 @@ function reducer(state: State, action: Action): State {
   };
 }
 
-function initState(): State {
+/**
+ * `cached` is looked up once, before this runs — see the lazy-ref guard at
+ * the top of TaskProvider, which needs the same snapshot for cursorRef and
+ * outboxRef and can't call a hook from inside this function to get it.
+ */
+function initState(cached: CacheSnapshot | null): State {
   const mode = loadMode();
   // Sample data is rebuilt rather than restored, so its dates stay relative to
-  // today. Server data is empty until the first sync populates it.
-  const seeded = mode === 'sample' ? buildSampleData(new Date()) : { tasks: [], lists: [], folders: [] };
+  // today. Server data comes from a valid cache if there is one, and is empty
+  // otherwise — populated by the first sync either way.
+  const seeded =
+    mode === 'sample'
+      ? buildSampleData(new Date())
+      : cached
+        ? { tasks: cached.tasks, lists: cached.lists, folders: cached.folders }
+        : { tasks: [], lists: [], folders: [] };
   return {
     ...seeded,
     mode,
     serverUrl: mode === 'server' ? loadServerUrl() : '',
     token: mode === 'server' ? loadToken() : '',
-    // Like tasks, saved view options arrive with the first sync.
-    viewPrefs: [],
+    viewPrefs: mode === 'server' && cached ? cached.viewPrefs : [],
   };
 }
 
@@ -342,6 +356,9 @@ export const ACTIVE_SYNC_MS = 5000;
  * so this delay is never what you wait through when you pick a device up.
  */
 export const IDLE_SYNC_MS = 60000;
+
+/** Debounce on writing the offline cache, so a burst of edits coalesces into one write. */
+export const CACHE_WRITE_DEBOUNCE_MS = 1000;
 
 interface TaskContextValue {
   state: State;
@@ -382,8 +399,32 @@ interface TaskContextValue {
 
 const TaskContext = createContext<TaskContextValue | null>(null);
 
+/** Sentinel distinguishing "not looked up yet" from an actual null cache result. */
+const CACHE_UNSET = Symbol('cache-unset');
+
+function createInitialOutbox(cached: CacheSnapshot | null): Outbox {
+  const outbox = new Outbox();
+  if (cached) outbox.mark(cached.outbox);
+  return outbox;
+}
+
 export function TaskProvider({ children }: { children: React.ReactNode }) {
-  const [state, dispatch] = useReducer(reducer, undefined, initState);
+  // Looked up once, before anything else needs it: initState (via useReducer's
+  // lazy init below), outboxRef and cursorRef all restore from the same
+  // snapshot, and none of them can call a hook to fetch it once other hooks
+  // are already running. The sentinel + ref (rather than evaluating
+  // deserialize() directly as useRef's argument) keeps the parse off every
+  // render — only the very first would use the value, but the expression
+  // itself would still run every time.
+  const cachedSnapshotRef = useRef<CacheSnapshot | null | typeof CACHE_UNSET>(CACHE_UNSET);
+  if (cachedSnapshotRef.current === CACHE_UNSET) {
+    const mode = loadMode();
+    const serverUrl = mode === 'server' ? loadServerUrl() : '';
+    cachedSnapshotRef.current = serverUrl ? deserialize(loadCache(), serverUrl) : null;
+  }
+  const cachedSnapshot = cachedSnapshotRef.current;
+
+  const [state, dispatch] = useReducer(reducer, cachedSnapshot, initState);
   const ding = useAudioPlayer(require('../../assets/sounds/ding.wav'));
 
   // A completion ding should sound even with the phone in silent mode.
@@ -393,7 +434,9 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
 
   // Ids changed locally since the last successful push. A ref, not state: it's
   // mutated on every edit, and none of that should trigger a re-render.
-  const outboxRef = useRef(new Outbox());
+  // Restored from the cache so an edit still queued when the process died
+  // isn't lost — see cache.ts.
+  const outboxRef = useRef(createInitialOutbox(cachedSnapshot));
 
   // The sync loop below runs on its own timer, outside React's render cycle, so
   // it reads state through a ref to always see the latest values.
@@ -402,9 +445,9 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     stateRef.current = state;
   }, [state]);
 
-  // Session-scoped, deliberately not persisted — see the note in storage.ts.
-  // Undefined means the next pull is a full hydrate.
-  const cursorRef = useRef<string | undefined>(undefined);
+  // Restored from the cache when there is one; undefined otherwise means the
+  // next pull is a full hydrate, same as every launch before caching existed.
+  const cursorRef = useRef<string | undefined>(cachedSnapshot?.cursor);
 
   const [syncStatus, setSyncStatus] = useState<SyncStatus>({ state: 'syncing', pending: 0 });
 
@@ -628,6 +671,12 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     // here, before anything is persisted or the UI leaves FirstRun.
     const batch = await api.pull(undefined);
 
+    // Whatever was cached belongs to a previous connection — a different
+    // server, or a previous session with this one now superseded by this
+    // fresh hydrate. Nothing here would have been loaded by the read path
+    // anyway (its serverUrl wouldn't match), but there's no reason to leave
+    // a stale multi-MB blob sitting in storage for an abandoned server.
+    clearCache();
     saveServerUrl(url);
     saveToken(token);
     saveMode('server');
@@ -646,6 +695,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
   const useSampleData = useCallback(() => {
     clearServerUrl();
     clearToken();
+    clearCache();
     cursorRef.current = undefined;
     saveMode('sample');
     dispatch({ type: 'USE_SAMPLE_DATA', data: buildSampleData(new Date()) });
@@ -653,6 +703,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
   const disconnect = useCallback(() => {
     clearServerUrl();
     clearToken();
+    clearCache();
     cursorRef.current = undefined;
     saveMode('none');
     dispatch({ type: 'DISCONNECT' });
@@ -780,6 +831,39 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       removeOnline?.();
     };
   }, [state.mode, state.serverUrl, state.token]);
+
+  // Writes the offline cache, debounced so a burst of edits (typing, a drag
+  // reorder) coalesces into one write instead of one per keystroke. cursorRef
+  // is read fresh inside the timeout rather than captured as a dependency —
+  // it's a ref, so changing it alone wouldn't re-run this effect, but every
+  // sync cycle that changes it also dispatches MERGE/HYDRATE beforehand
+  // (TaskContext's own cycle(), above), which changes `state` and re-runs
+  // this effect anyway, by which point cursorRef.current already reflects it.
+  useEffect(() => {
+    if (state.mode !== 'server') return;
+    const timer = setTimeout(() => {
+      const cursor = cursorRef.current;
+      // Nothing synced yet this session — writing now would cache an empty
+      // snapshot under a real serverUrl, which a later read would accept as
+      // valid and show as "no tasks" instead of falling through to a hydrate.
+      if (cursor === undefined) return;
+      const snapshot: CacheSnapshot = {
+        version: 1,
+        serverUrl: state.serverUrl,
+        cursor,
+        tasks: state.tasks,
+        lists: state.lists,
+        folders: state.folders,
+        viewPrefs: state.viewPrefs,
+        outbox: Array.from(outboxRef.current.snapshot()),
+      };
+      const json = serialize(snapshot);
+      if (fitsCache(json)) saveCache(json);
+      // Oversized: skip the write and keep running uncached rather than
+      // throwing, the same posture initStorage() takes for blocked storage.
+    }, CACHE_WRITE_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [state]);
 
   const value = useMemo<TaskContextValue>(
     () => ({
