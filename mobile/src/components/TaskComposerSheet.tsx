@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Keyboard,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -9,8 +8,6 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import SlideUpModal from './SlideUpModal';
 import { colors, priorityColor } from '../theme/colors';
 import { fonts } from '../theme/typography';
 import { useAccent } from '../theme/ThemeContext';
@@ -21,6 +18,7 @@ import { formatDueShort } from '../data/dateUtils';
 import { activeFolders, getListById, listsInFolder } from '../data/selectors';
 import { applySuggestion, useQuickAddSuggestions } from '../data/quickAddSuggestions';
 import { DATE_OPTIONS } from './pickers/DueDatePickerSheet';
+import NativeSheet from './NativeSheet';
 import { IconCalendarBox, IconCheckBig, IconFlag, IconFolder, IconPlus, IconTag } from '../icons/Icons';
 
 const PRIORITY_MENU: { key: Priority; label: string }[] = [
@@ -30,7 +28,7 @@ const PRIORITY_MENU: { key: Priority; label: string }[] = [
   { key: 'none', label: 'No Priority' },
 ];
 
-/** Which helper popover is open. Only ever one. */
+/** Which helper menu is open. Only ever one. */
 type Menu = 'date' | 'priority' | 'tags' | 'list';
 
 interface Props {
@@ -43,16 +41,16 @@ interface Props {
 
 /**
  * The task composer: a title field with helper buttons that each open a small
- * popover, in the shape of TickTick's.
+ * menu, in the shape of TickTick's.
  *
- * The popovers are rendered inline rather than as the app's existing picker
- * sheets, which each open their own RN Modal — nesting those inside this one is
- * fragile, and a compact menu above the toolbar is what the design calls for
- * anyway.
+ * The menus are rendered in-flow — the gorhom sheet clips to its rounded
+ * corners, so an overlay above the toolbar would be cut off — and the sheet
+ * grows to fit them. They are deliberately inline rather than the app's
+ * existing picker sheets, which each open their own RN Modal; nesting those
+ * inside this one is fragile.
  */
 export default function TaskComposerSheet({ visible, onClose, defaults, contextLabel }: Props) {
   const accent = useAccent();
-  const insets = useSafeAreaInsets();
   const { state, addTaskFromQuickAdd } = useTasks();
   const inputRef = useRef<TextInput>(null);
 
@@ -63,7 +61,6 @@ export default function TaskComposerSheet({ visible, onClose, defaults, contextL
   const [tags, setTags] = useState<string[]>([]);
   const [listId, setListId] = useState<string | null>(null);
   const [menu, setMenu] = useState<Menu | null>(null);
-  const [keyboard, setKeyboard] = useState(0);
 
   // Reseed on every open: the view's scope may have changed since last time, and
   // a half-typed task from a previous open shouldn't reappear.
@@ -78,29 +75,12 @@ export default function TaskComposerSheet({ visible, onClose, defaults, contextL
     setMenu(null);
   }, [visible, defaults]);
 
-  // `SlideUpModal` never unmounts its children once opened once, so `autoFocus`
-  // — which only fires on a TextInput's initial mount — only ever gets one
-  // chance, and it fires while the sheet is still animating in off-screen.
-  // Focusing explicitly once the slide-up finishes is what actually raises the
-  // keyboard on every open, not just the first.
-  useEffect(() => {
-    if (!visible) return;
-    const t = setTimeout(() => inputRef.current?.focus(), 300);
-    return () => clearTimeout(t);
-  }, [visible]);
-
-  // The sheet is bottom-anchored, so it has to ride the keyboard itself —
-  // KeyboardAvoidingView is unreliable inside a Modal.
-  useEffect(() => {
-    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
-    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
-    const show = Keyboard.addListener(showEvent, (e) => setKeyboard(e.endCoordinates.height));
-    const hide = Keyboard.addListener(hideEvent, () => setKeyboard(0));
-    return () => {
-      show.remove();
-      hide.remove();
-    };
-  }, []);
+  const close = () => {
+    // Let the keyboard retreat with the sheet, or the sheet would stop short
+    // behind it on the way out.
+    Keyboard.dismiss();
+    onClose();
+  };
 
   const suggestions = useQuickAddSuggestions(text, state);
   const parsed = text.trim() ? parseQuickAdd(text) : null;
@@ -136,7 +116,7 @@ export default function TaskComposerSheet({ visible, onClose, defaults, contextL
       dueTime,
       priority,
     });
-    onClose();
+    close();
   };
 
   const chooseSuggestion = (value: string) => {
@@ -164,10 +144,15 @@ export default function TaskComposerSheet({ visible, onClose, defaults, contextL
   );
 
   return (
-    <SlideUpModal
+    <NativeSheet
       visible={visible}
-      onClose={onClose}
-      sheetStyle={[styles.sheet, { bottom: keyboard, paddingBottom: keyboard > 0 ? 12 : Math.max(16, insets.bottom) }]}
+      onClose={close}
+      keyboard
+      grabber={false}
+      // Focus when the sheet has been presented, so the keyboard starts rising
+      // the moment the sheet begins to slide — one connected motion rather
+      // than open-then-keyboard.
+      onShow={() => inputRef.current?.focus()}
     >
       <TextInput
         ref={inputRef}
@@ -236,18 +221,9 @@ export default function TaskComposerSheet({ visible, onClose, defaults, contextL
         </Pressable>
       </View>
 
-      {/*
-       * Rendered last so it paints over the input above it — React Native
-       * stacks later siblings on top by default, and an earlier attempt at this
-       * had the placeholder text bleeding through the popover despite correct
-       * `position: absolute` placement, because it was declared first in JSX.
-       */}
       {menu && (
-        <>
-          {/* Tapping anywhere else in the sheet dismisses the popover, not the sheet. */}
-          <Pressable style={styles.menuScrim} onPress={() => setMenu(null)} />
-          <View style={styles.menu}>
-            {menu === 'priority' &&
+        <View style={styles.menuPanel}>
+          {menu === 'priority' &&
               PRIORITY_MENU.map((p) => (
                 <Pressable
                   key={p.key}
@@ -330,20 +306,12 @@ export default function TaskComposerSheet({ visible, onClose, defaults, contextL
               </ScrollView>
             )}
           </View>
-        </>
       )}
-    </SlideUpModal>
+    </NativeSheet>
   );
 }
 
 const styles = StyleSheet.create({
-  sheet: {
-    backgroundColor: colors.surface,
-    borderTopLeftRadius: 18,
-    borderTopRightRadius: 18,
-    paddingHorizontal: 16,
-    paddingTop: 16,
-  },
   input: {
     fontFamily: fonts.sansRegular,
     fontSize: 16,
@@ -415,35 +383,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  /** Catches taps meant to dismiss the popover before they reach the sheet. */
-  menuScrim: {
-    position: 'absolute',
-    top: -600,
-    left: -16,
-    right: -16,
-    bottom: 0,
-    zIndex: 10,
-  },
-  menu: {
-    position: 'absolute',
-    left: 12,
-    bottom: '100%',
-    marginBottom: 8,
-    minWidth: 210,
-    maxWidth: 300,
-    backgroundColor: colors.surface,
+  /** The helper menus render in-flow so the sheet can grow to fit them. */
+  menuPanel: {
+    marginTop: 8,
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: 12,
+    backgroundColor: colors.surface,
     paddingVertical: 6,
-    shadowColor: '#000',
-    shadowOpacity: 0.18,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 8,
-    // Belt-and-braces alongside rendering last in JSX: on iOS, sibling paint
-    // order alone was not enough to reliably beat the TextInput's placeholder.
-    zIndex: 20,
+    overflow: 'hidden',
   },
   menuScroll: {
     maxHeight: 260,
