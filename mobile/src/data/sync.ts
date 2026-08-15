@@ -102,14 +102,27 @@ export async function pushDirty(api: Api, outbox: Outbox, state: Collections): P
   return result;
 }
 
-export async function pullSince(api: Api, since: string | undefined): Promise<SyncBatch> {
+export interface PullResult {
+  batch: SyncBatch;
+  /**
+   * True when `batch` is the complete server truth rather than a delta —
+   * either this was the very first pull (no cursor yet) or a 409 forced a
+   * re-hydrate. Callers must *replace* state with a full batch, not merge it:
+   * a row absent from a full batch may have been hard-deleted server-side
+   * with no tombstone left to carry that news, and merging would leave it
+   * behind forever.
+   */
+  full: boolean;
+}
+
+export async function pullSince(api: Api, since: string | undefined): Promise<PullResult> {
   try {
-    return await api.pull(since);
+    return { batch: await api.pull(since), full: since === undefined };
   } catch (err) {
     if (err instanceof ApiError && err.status === 409) {
       // Client was offline longer than the retention window — a hard delete could
       // have happened without a tombstone ever reaching it. Re-hydrate fully.
-      return api.pull(undefined);
+      return { batch: await api.pull(undefined), full: true };
     }
     throw err;
   }
@@ -126,6 +139,22 @@ export function mergeBatch<T extends { id: string }>(local: T[], incoming: T[], 
   for (const row of incoming) {
     if (dirtyIds.has(row.id)) continue;
     byId.set(row.id, row);
+  }
+  return Array.from(byId.values());
+}
+
+/**
+ * Applies a *full* server batch (see PullResult.full) onto local collections.
+ * Unlike mergeBatch, `incoming` is the complete truth, not a delta: a
+ * non-dirty local record absent from it (hard-deleted past retention, no
+ * tombstone left) is dropped rather than kept. A still-dirty local record
+ * survives by overriding into the result — whether or not the server even
+ * knows about it yet, which covers a queued create the server has never seen.
+ */
+export function mergeFullHydrate<T extends { id: string }>(incoming: T[], local: T[], dirtyIds: Set<string>): T[] {
+  const byId = new Map(incoming.map((r) => [r.id, r]));
+  for (const row of local) {
+    if (dirtyIds.has(row.id)) byId.set(row.id, row);
   }
   return Array.from(byId.values());
 }

@@ -20,7 +20,7 @@ import {
   saveToken,
 } from './storage';
 import { ApiError, createApi } from './api';
-import { Outbox, SyncStatus, mergeBatch, pullSince, pushDirty } from './sync';
+import { Outbox, SyncStatus, mergeBatch, mergeFullHydrate, pullSince, pushDirty } from './sync';
 import { activeLists } from './selectors';
 export { ApiError } from './api';
 export type { SyncState, SyncStatus } from './sync';
@@ -231,12 +231,17 @@ function applyAction(state: State, action: Action): State {
     case 'DISCONNECT':
       return { ...state, mode: 'none', serverUrl: '', token: '', tasks: [], lists: [], folders: [], viewPrefs: [] };
     case 'HYDRATE':
+      // action.* is the complete server truth (see PullResult.full in sync.ts),
+      // so it replaces local state rather than merging onto it — but a still-
+      // dirty local row (unpushed, possibly unknown to the server) survives by
+      // overriding into the result. On a fresh connect state.* is already [],
+      // so this is a plain replace exactly as before.
       return {
         ...state,
-        tasks: action.tasks,
-        lists: action.lists,
-        folders: action.folders,
-        viewPrefs: action.viewPrefs,
+        tasks: mergeFullHydrate(action.tasks, state.tasks, mergeDirtyIds),
+        lists: mergeFullHydrate(action.lists, state.lists, mergeDirtyIds),
+        folders: mergeFullHydrate(action.folders, state.folders, mergeDirtyIds),
+        viewPrefs: mergeFullHydrate(action.viewPrefs, state.viewPrefs, mergeDirtyIds),
       };
     case 'MERGE':
       return {
@@ -696,14 +701,16 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
           });
         }
         const pulled = await pullSince(api, cursorRef.current);
-        cursorRef.current = pulled.now;
+        cursorRef.current = pulled.batch.now;
         setMergeDirtyIds(outboxRef.current.snapshot());
         dispatch({
-          type: 'MERGE',
-          tasks: pulled.tasks,
-          lists: pulled.lists,
-          folders: pulled.folders,
-          viewPrefs: pulled.viewPrefs,
+          // A full batch (first pull, or a 409 recovery) must replace state —
+          // a hard-deleted row has no tombstone left for a MERGE to act on.
+          type: pulled.full ? 'HYDRATE' : 'MERGE',
+          tasks: pulled.batch.tasks,
+          lists: pulled.batch.lists,
+          folders: pulled.batch.folders,
+          viewPrefs: pulled.batch.viewPrefs,
         });
 
         // Anything marked dirty *during* the request is still queued, so this is
