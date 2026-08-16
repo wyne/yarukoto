@@ -23,7 +23,7 @@ export const DATE_OPTIONS: { label: string; get: (now: Date) => string | undefin
   { label: 'No date', get: () => undefined },
 ];
 
-const TIME_OPTIONS: { label: string; value: string | undefined }[] = [
+export const TIME_OPTIONS: { label: string; value: string | undefined }[] = [
   { label: '9:00 AM', value: '09:00' },
   { label: '2:00 PM', value: '14:00' },
   { label: '6:00 PM', value: '18:00' },
