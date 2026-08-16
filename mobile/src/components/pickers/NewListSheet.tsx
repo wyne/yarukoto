@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import BottomSheet from '../BottomSheet';
+import NativeSheet from '../NativeSheet';
 import { colors } from '../../theme/colors';
 import { fonts } from '../../theme/typography';
 import { useTasks } from '../../data/TaskContext';
@@ -15,6 +15,7 @@ interface Props {
 export default function NewListSheet({ folder, onClose }: Props) {
   const { addList } = useTasks();
   const [name, setName] = useState('');
+  const inputRef = useRef<TextInput>(null);
 
   useEffect(() => {
     if (folder) setName('');
@@ -28,20 +29,28 @@ export default function NewListSheet({ folder, onClose }: Props) {
   };
 
   return (
-    <BottomSheet visible={!!folder} onClose={onClose} title={folder ? `New list in ${folder.name}` : 'New list'}>
+    <NativeSheet
+      visible={!!folder}
+      onClose={onClose}
+      title={folder ? `New list in ${folder.name}` : 'New list'}
+      keyboard
+      // Focus when the sheet presents, not on mount (the sheet can stay mounted
+      // hidden), so the keyboard rises with the sheet.
+      onShow={() => inputRef.current?.focus()}
+    >
       <TextInput
+        ref={inputRef}
         value={name}
         onChangeText={setName}
         placeholder="List name"
         placeholderTextColor={colors.textFaint}
         style={styles.input}
-        autoFocus
         onSubmitEditing={create}
       />
       <Pressable style={[styles.createBtn, !name.trim() && styles.createBtnDisabled]} onPress={create} disabled={!name.trim()}>
         <Text style={styles.createText}>Create</Text>
       </Pressable>
-    </BottomSheet>
+    </NativeSheet>
   );
 }
 

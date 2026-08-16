@@ -347,6 +347,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 12,
     paddingTop: 8,
+    paddingBottom: 8,
   },
   // Pushes the Completed filter to the far end when the mode selector sits at
   // the left on narrow screens.
