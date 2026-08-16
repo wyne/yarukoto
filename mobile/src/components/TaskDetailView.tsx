@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { Pressable, ScrollView, ScrollViewProps, StyleSheet, Text, TextInput, View } from 'react-native';
 import { BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -53,6 +53,8 @@ export default function TaskDetailView({ taskId, onClose, variant }: Props) {
   const [addingSubtask, setAddingSubtask] = useState(false);
   const [newSubtask, setNewSubtask] = useState('');
 
+  const notesRef = useRef<TextInput>(null);
+
   if (!task) {
     return (
       <View style={[styles.screen, { paddingTop: topPad + 6 }]}>
@@ -69,6 +71,22 @@ export default function TaskDetailView({ taskId, onClose, variant }: Props) {
     confirmDestructive('Delete task?', task.title, () => {
       deleteTasks([task.id]);
       onClose();
+    });
+  };
+
+  /**
+   * Return in the title (sheet only): no newline — a title is one line — the
+   * caret jumps to the end of the notes instead. The keyboard never drops, so
+   * the field switch reads as one continuous motion.
+   */
+  const jumpToNotes = () => {
+    const notes = notesRef.current;
+    if (!notes) return;
+    notes.focus();
+    // The caret lands where the field last left it; push it past any existing
+    // notes once focus has actually landed.
+    requestAnimationFrame(() => {
+      notes.setNativeProps({ selection: { start: task.notes.length, end: task.notes.length } });
     });
   };
 
@@ -91,6 +109,9 @@ export default function TaskDetailView({ taskId, onClose, variant }: Props) {
               onChangeText={(v) => updateTask(task.id, { title: v })}
               style={[styles.titleInput, task.completed && styles.titleCompleted]}
               multiline
+              {...(variant === 'sheet'
+                ? ({ submitBehavior: 'submit', returnKeyType: 'next', onSubmitEditing: jumpToNotes } as const)
+                : {})}
             />
           </View>
           <View style={styles.priorityRow}>
@@ -154,6 +175,7 @@ export default function TaskDetailView({ taskId, onClose, variant }: Props) {
         <Card style={[styles.pad14, { marginTop: 12 }]}>
           <Text style={styles.sectionLabel}>Notes</Text>
           <TextInput
+            ref={notesRef}
             value={task.notes}
             onChangeText={(v) => updateTask(task.id, { notes: v })}
             placeholder="Add notes…"
