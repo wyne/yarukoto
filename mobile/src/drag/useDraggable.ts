@@ -26,12 +26,10 @@ export interface DraggableBindings extends GestureResponderHandlers {
  * touch-end handlers, and the browser's scroll/text-selection gestures are locked
  * out for the duration of the drag (web only).
  *
- * Claims on the **capture** phase, which is the opposite of what DragList's handle
- * needs (see PR #6) and for the opposite reason. Responder negotiation runs
+ * Claims on the **capture** phase (see PR #6). Responder negotiation runs
  * root-down in capture and deepest-first in bubble, so the phase to use is decided
  * by who you have to beat:
  *
- *   DragList handle  beats an *ancestor* Pressable        -> bubble
  *   this wrapper     beats a *descendant* SwipeableRow    -> capture
  *
  * Dragging a task to the calendar is mostly sideways, which is exactly the gesture

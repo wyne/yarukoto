@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import Animated, { useAnimatedRef } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../theme/colors';
 import { fonts } from '../theme/typography';
@@ -60,6 +61,9 @@ export default function TaskListScreen({ mode, filter }: Props) {
     setViewOptions,
   } = useTasks();
   const now = new Date();
+
+  // Hosts every group's DragList; passed down so dragging auto-scrolls the page.
+  const scrollRef = useAnimatedRef<Animated.ScrollView>();
 
   const key = viewKey(mode, filter);
   const options = getViewOptions(key);
@@ -156,8 +160,9 @@ export default function TaskListScreen({ mode, filter }: Props) {
         items={tasks}
         keyExtractor={(task) => task.id}
         enabled={canReorder}
+        scrollableRef={scrollRef}
         onReorder={reorderTasks}
-        renderItem={(task, i, dragProps) => (
+        renderItem={(task, i) => (
           <>
             <TaskRow
               task={task}
@@ -167,11 +172,8 @@ export default function TaskListScreen({ mode, filter }: Props) {
               showContext={wide}
               hideListId={hide?.hideListId ?? filterHideListId}
               hideTag={hide?.hideTag ?? filterHideTag}
-              dragHandleProps={dragProps.handleProps}
               selected={selectedIds.includes(task.id)}
               onPress={() => (selectionMode ? toggleSelected(task.id) : openTask(task.id))}
-              // Holding a row picks it up to reorder; selection mode is the header button.
-              onLongPress={dragProps.onLongPress}
               onToggleComplete={() => toggleComplete(task.id)}
               onLater={() => snoozeTask(task.id)}
               onDone={() => toggleComplete(task.id)}
@@ -248,7 +250,8 @@ export default function TaskListScreen({ mode, filter }: Props) {
         </View>
       )}
 
-      <ScrollView
+      <Animated.ScrollView
+        ref={scrollRef}
         contentContainerStyle={[
           styles.scrollContent,
           !WEB_ENTRY && styles.scrollContentFab,
@@ -315,7 +318,7 @@ export default function TaskListScreen({ mode, filter }: Props) {
             )}
           </>
         )}
-      </ScrollView>
+      </Animated.ScrollView>
 
       {!WEB_ENTRY && (
         <AddTaskFab defaults={quickAddDefaults} contextLabel={quickAddLabel} hidden={selectionMode} />

@@ -12,6 +12,7 @@
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": true,
           "NSAllowsLocalNetworking": true
         },
         "NSLocalNetworkUsageDescription": "Yarukoto connects to the Yarukoto server you run on your own network."
