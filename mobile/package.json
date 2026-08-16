@@ -35,8 +35,10 @@
   },
   "scripts": {
     "start": "expo start",
+    "start:dev": "APP_VARIANT=development expo start --dev-client",
     "android": "expo run:android",
     "ios": "expo run:ios",
+    "ios:dev": "APP_VARIANT=development npx expo prebuild --clean && APP_VARIANT=development expo run:ios",
     "web": "expo start --web"
   },
   "private": true
