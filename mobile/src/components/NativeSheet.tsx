@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef } from 'react';
-import { Keyboard, StyleSheet, Text } from 'react-native';
+import { Keyboard, StyleProp, StyleSheet, Text, ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   BottomSheetBackdrop,
@@ -21,6 +21,15 @@ interface Props {
   grabber?: boolean;
   /** Called once the sheet has been presented — the moment to focus an input. */
   onShow?: () => void;
+  /**
+   * Fixed detents instead of content-sized sizing. Sheets that fill most of the
+   * screen (the task detail, say) hand their height here.
+   */
+  snapPoints?: (string | number)[];
+  /** Extra styles for the sheet body — lets a sheet drop the default padding when its content draws its own. */
+  contentStyle?: StyleProp<ViewStyle>;
+  /** Sheet chrome colour; the default is the app surface, not the screen behind. */
+  background?: string;
   children: React.ReactNode;
 }
 
@@ -32,7 +41,18 @@ interface Props {
  * behind the keyboard — content is pushed up, the rounded corners stay visible
  * above the keyboard, and the sheet rides the keyboard as one motion.
  */
-export default function NativeSheet({ visible, onClose, title, keyboard, grabber = true, onShow, children }: Props) {
+export default function NativeSheet({
+  visible,
+  onClose,
+  title,
+  keyboard,
+  grabber = true,
+  onShow,
+  snapPoints,
+  contentStyle,
+  background,
+  children,
+}: Props) {
   const insets = useSafeAreaInsets();
   const ref = useRef<React.ElementRef<typeof BottomSheetModal>>(null);
   const onCloseRef = useRef(onClose);
@@ -97,7 +117,8 @@ export default function NativeSheet({ visible, onClose, title, keyboard, grabber
   return (
     <BottomSheetModal
       ref={ref}
-      enableDynamicSizing
+      snapPoints={snapPoints}
+      enableDynamicSizing={!snapPoints}
       enablePanDownToClose
       enableOverDrag={false}
       // 'interactive', not 'extend': extend keeps the sheet at its content-height
@@ -113,7 +134,7 @@ export default function NativeSheet({ visible, onClose, title, keyboard, grabber
       handleComponent={grabber ? BottomSheetHandle : null}
       handleIndicatorStyle={styles.indicator}
       style={styles.sheet}
-      backgroundStyle={styles.background}
+      backgroundStyle={[styles.background, background ? { backgroundColor: background } : null]}
       onAnimate={handleAnimate}
       onDismiss={() => {
         // Already closed itself, so there is nothing left for the effect to
@@ -132,6 +153,7 @@ export default function NativeSheet({ visible, onClose, title, keyboard, grabber
       <BottomSheetView
         style={[
           styles.content,
+          contentStyle,
           {
             paddingTop: title ? 0 : 16,
             // A keyboard sheet rides above the keyboard, which is itself covering

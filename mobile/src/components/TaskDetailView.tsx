@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, ScrollViewProps, StyleSheet, Text, TextInput, View } from 'react-native';
+import { BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, priorityColor } from '../theme/colors';
 import { fonts } from '../theme/typography';
@@ -39,6 +40,13 @@ export default function TaskDetailView({ taskId, onClose, variant }: Props) {
   // The sheet supplies its own top chrome and safe-area padding.
   const topPad = variant === 'pane' ? insets.top + 6 : 6;
 
+  // In the sheet, the scrollable must be the library's so the sheet's pan gesture
+  // coordinates with it: drag down at the top closes the sheet, otherwise the
+  // content scrolls. Outside a sheet (the wide-layout pane) it throws, so the
+  // plain ScrollView stays for that variant.
+  const Scroll: React.ComponentType<ScrollViewProps> =
+    variant === 'sheet' ? (BottomSheetScrollView as React.ComponentType<ScrollViewProps>) : ScrollView;
+
   const [dueOpen, setDueOpen] = useState(false);
   const [listOpen, setListOpen] = useState(false);
   const [tagOpen, setTagOpen] = useState(false);
@@ -74,7 +82,7 @@ export default function TaskDetailView({ taskId, onClose, variant }: Props) {
         <IconDotsHorizontal />
       </View>
 
-      <ScrollView contentContainerStyle={styles.scroll}>
+      <Scroll contentContainerStyle={styles.scroll}>
         <Card style={styles.pad14}>
           <View style={styles.titleRow}>
             <TaskCheckbox completed={task.completed} priority={task.priority} onPress={() => toggleComplete(task.id)} size={22} />
@@ -208,7 +216,7 @@ export default function TaskDetailView({ taskId, onClose, variant }: Props) {
         <Pressable onPress={confirmDelete}>
           <Text style={styles.delete}>Delete task</Text>
         </Pressable>
-      </ScrollView>
+      </Scroll>
 
       <DueDatePickerSheet
         visible={dueOpen}
