@@ -205,7 +205,8 @@ The same `mobile/` project that produces the web bundle builds the iOS app — t
 React Native either way, so there is no separate codebase to keep in step.
 
 Native folders are not committed (`mobile/.gitignore` ignores `/ios` and `/android`); they are
-generated from `app.json` on each build. Edit the config, not the generated project.
+generated from `app.json` + `app.config.js` on each build. Edit the config, not the generated
+project.
 
 ### One-time setup
 
@@ -220,35 +221,42 @@ eas init          # links the project and writes extra.eas.projectId into app.js
 `eas init` is the only step that writes back to the repo. Everything else it needs —
 `ios.bundleIdentifier`, the build profiles — is already committed.
 
-> **The bundle identifier is `com.wyne.yarukoto`.** Change it in `mobile/app.json` before the
-> first build if you want your own; changing it later means a new app record in App Store Connect.
+> **The app builds under two identities so both can live on the same device.** `production` is
+> `com.wyne.yarukoto` and `development` is `com.wyne.yarukoto.dev`; each also gets its own icon
+> (the dev one is desaturated) and display name, switched by the `APP_VARIANT` env var in
+> `mobile/app.config.js`. Changing the production identifier later means a new app record in App
+> Store Connect.
 
 ### Build profiles
 
-`mobile/eas.json` defines four:
+`mobile/eas.json` defines two, each baking in its `APP_VARIANT`:
 
 | Profile | What it produces | Needs an Apple account? |
 |---|---|---|
-| `simulator` | A `.app` for the iOS Simulator. No code signing. | No |
 | `development` | A dev-client build for a real device, loads JS from Metro. | Yes |
-| `preview` | A signed build for internal distribution. | Yes |
 | `production` | A store build, with `autoIncrement` for the build number. | Yes |
 
 `cli.appVersionSource` is `remote`, so EAS keeps the build number on its side and bumps it per
-production build. `version` in `app.json` seeds it on the first build and is otherwise ignored —
-that is deliberate, it keeps build-number churn out of git.
+production build. `version` in `app.config.js` seeds it on the first build and is otherwise
+ignored — that is deliberate, it keeps build-number churn out of git.
 
-The fastest way to see the app on a Mac without any Apple account:
+To build the dev client locally and run it against Metro:
 
 ```bash
-eas build --platform ios --profile simulator
+npm run ios:dev   # APP_VARIANT=development prebuild + expo run:ios
 ```
 
-then press `Y` when it offers to install it on a running simulator. For a device:
+or have EAS build it (the only option when you don't have a working Xcode locally):
 
 ```bash
 eas build --platform ios --profile development
 npx expo start --dev-client
+```
+
+For a production build:
+
+```bash
+eas build --platform ios --profile production
 ```
 
 Building locally instead of on EAS works too, but needs Xcode and a Mac:
@@ -263,8 +271,8 @@ against Expo Go with no native build at all, `npx expo start --go` still works.
 ### Getting it onto TestFlight
 
 Needs a paid Apple Developer Program membership and an app record in App Store Connect whose
-bundle ID matches `mobile/app.json`. Create the record first — `eas submit` can do it for you on
-the first run, but only if the identifier is free.
+bundle ID matches `mobile/app.config.js`. Create the record first — `eas submit` can do it for you
+on the first run, but only if the identifier is free.
 
 ```bash
 eas build --platform ios --profile production
@@ -278,14 +286,14 @@ Processing on Apple's side takes a few minutes, after which the build appears un
 Internal testers (up to 100, on your team) get it immediately. External testers need Apple's
 review of the *build*, which is lighter than App Store review but not instant.
 
-> `ITSAppUsesNonExemptEncryption` is set to `false` in `mobile/app.json`. The app only uses
+> `ITSAppUsesNonExemptEncryption` is set to `false` in `mobile/app.config.js`. The app only uses
 > encryption for HTTPS, which is exempt, and declaring that up front is what stops every single
 > build from landing in TestFlight as "Missing Compliance" waiting on a manual answer.
 
 ### Why the app can talk to an HTTP server
 
 iOS App Transport Security blocks plain HTTP, and the common Yarukoto setup is exactly that — a
-server on your LAN at `http://192.168.x.x:8080`. `mobile/app.json` sets two Info.plist keys to
+server on your LAN at `http://192.168.x.x:8080`. `mobile/app.config.js` sets two Info.plist keys to
 allow it:
 
 - `NSAllowsLocalNetworking` permits HTTP to private-range and `.local` addresses. It is the

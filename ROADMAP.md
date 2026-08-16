@@ -32,7 +32,7 @@ a task created on the phone appears in the web client and vice versa, and force-
 reopening keeps you signed in.
 
 **Watch for:** the phone can't reach `localhost` — use the host's LAN IP, and note the server
-listens on `0.0.0.0` already. HTTP to a LAN IP needs an ATS exception, which `mobile/app.json`
+listens on `0.0.0.0` already. HTTP to a LAN IP needs an ATS exception, which `mobile/app.config.js`
 now carries as `NSAllowsLocalNetworking` plus `NSLocalNetworkUsageDescription` — if the very
 first connection attempt fails silently, that permission prompt is the thing to check.
 
