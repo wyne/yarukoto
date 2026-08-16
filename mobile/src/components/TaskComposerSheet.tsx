@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -83,12 +83,9 @@ export default function TaskComposerSheet({ visible, onClose, defaults, contextL
   const defaultsRef = useRef(defaults);
   defaultsRef.current = defaults;
 
-  // Reseed once per open: the view's scope may have changed since last time, and
-  // a half-typed task from a previous open shouldn't reappear. Keyed on `visible`
-  // alone — keyed on `defaults` too, any parent re-render while the sheet is up
-  // (a sync tick is enough) would clear the draft mid-sentence.
-  useEffect(() => {
-    if (!visible) return;
+  // A blank draft carrying only what the view scopes to. Shared by opening the
+  // sheet and by adding a task without closing it — both want the same start.
+  const resetDraft = useCallback(() => {
     const d = defaultsRef.current;
     setText('');
     setDueDate(d?.dueDate);
@@ -97,7 +94,16 @@ export default function TaskComposerSheet({ visible, onClose, defaults, contextL
     setTags(d?.tags ?? []);
     setListId(d?.listId ?? null);
     setMenu(null);
-  }, [visible]);
+  }, []);
+
+  // Reseed once per open: the view's scope may have changed since last time, and
+  // a half-typed task from a previous open shouldn't reappear. Keyed on `visible`
+  // alone — keyed on `defaults` too, any parent re-render while the sheet is up
+  // (a sync tick is enough) would clear the draft mid-sentence.
+  useEffect(() => {
+    if (!visible) return;
+    resetDraft();
+  }, [visible, resetDraft]);
 
   // The keyboard is dismissed by NativeSheet as the close animation starts, so
   // the two travel together. Dismissing it here as well would drop the keyboard
@@ -131,8 +137,8 @@ export default function TaskComposerSheet({ visible, onClose, defaults, contextL
 
   const canSubmit = !!(parsed?.title.trim());
 
-  const submit = () => {
-    if (!canSubmit) return;
+  const commit = () => {
+    if (!canSubmit) return false;
     addTaskFromQuickAdd(text, {
       listId,
       tags,
@@ -140,7 +146,24 @@ export default function TaskComposerSheet({ visible, onClose, defaults, contextL
       dueTime,
       priority,
     });
-    close();
+    return true;
+  };
+
+  /** The + button: add this one and be done. */
+  const submitAndClose = () => {
+    if (commit()) close();
+  };
+
+  /**
+   * The keyboard's return key: add this one and stay open for the next, the way
+   * TickTick's composer does. The sheet and keyboard don't move — the draft just
+   * empties back to the view's scope, so a run of tasks is one continuous typing
+   * session rather than reopening the sheet each time.
+   */
+  const submitAndContinue = () => {
+    if (!commit()) return;
+    resetDraft();
+    inputRef.current?.focus();
   };
 
   const chooseSuggestion = (value: string) => {
@@ -202,10 +225,15 @@ export default function TaskComposerSheet({ visible, onClose, defaults, contextL
         placeholder={contextLabel ? `Add to ${contextLabel}…` : 'What would you like to do?'}
         placeholderTextColor={colors.textFaint}
         style={styles.input}
+        // Multiline so a long title wraps, but return submits rather than
+        // inserting a newline — a task title is one line of text. 'newline' is
+        // the default for multiline inputs, which is what made return type into
+        // the title. 'submit' also leaves focus alone, which is what lets the
+        // sheet stay open for the next task.
         multiline
-        blurOnSubmit={false}
-        onSubmitEditing={submit}
-        returnKeyType="done"
+        submitBehavior="submit"
+        onSubmitEditing={submitAndContinue}
+        returnKeyType="next"
       />
 
       {suggestions.length > 0 && (
@@ -253,10 +281,10 @@ export default function TaskComposerSheet({ visible, onClose, defaults, contextL
         {helper('list', IconFolder, effective.listId !== null)}
         <View style={{ flex: 1 }} />
         <Pressable
-          onPress={submit}
+          onPress={submitAndClose}
           disabled={!canSubmit}
           style={[styles.submit, { backgroundColor: canSubmit ? accent : colors.chipBg }]}
-          accessibilityLabel="Add task"
+          accessibilityLabel="Add task and close"
         >
           <IconPlus size={18} color={canSubmit ? '#fff' : colors.textFaint} strokeWidth={2.2} />
         </Pressable>
@@ -415,7 +443,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    marginTop: 14,
+    // The buttons carry 10 of their own padding around a 20 icon, so this reads
+    // as more space than the number suggests.
+    marginTop: 8,
   },
   helper: {
     width: 40,

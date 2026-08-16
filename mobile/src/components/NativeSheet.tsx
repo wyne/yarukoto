@@ -130,7 +130,16 @@ export default function NativeSheet({ visible, onClose, title, keyboard, grabber
         onAnimate never fires and onShow never focuses the input.
       */}
       <BottomSheetView
-        style={[styles.content, { paddingTop: title ? 0 : 16, paddingBottom: Math.max(16, insets.bottom) }]}
+        style={[
+          styles.content,
+          {
+            paddingTop: title ? 0 : 16,
+            // A keyboard sheet rides above the keyboard, which is itself covering
+            // the home indicator — so the bottom inset buys nothing there and just
+            // leaves a gap under the content.
+            paddingBottom: keyboard ? 12 : Math.max(16, insets.bottom),
+          },
+        ]}
       >
         {!!title && <Text style={styles.title}>{title}</Text>}
         {children}
