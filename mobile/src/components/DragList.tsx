@@ -1,209 +1,107 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, GestureResponderHandlers, PanResponder, StyleSheet, View } from 'react-native';
-import { useAccent } from '../theme/ThemeContext';
-import { colors } from '../theme/colors';
-import { lockDragGestures, unlockDragGestures } from '../drag/webDragLock';
-
-/** Bindings a row must wire up to become draggable. */
-export interface RowDragProps {
-  /** Spread onto the grab handle; starts a drag as soon as the handle is touched. */
-  handleProps?: GestureResponderHandlers;
-  /** Wire to the row's long press; holding anywhere on the row arms a drag. */
-  onLongPress?: () => void;
-}
+import React, { useState } from 'react';
+import { StyleSheet, View } from 'react-native';
+import Animated, { useAnimatedStyle } from 'react-native-reanimated';
+import type { AnimatedRef } from 'react-native-reanimated';
+import Sortable, { useItemContext } from 'react-native-sortables';
 
 interface Props<T> {
   items: T[];
   keyExtractor: (item: T) => string;
-  /** Nothing starts a drag unless the row wires up one of the given bindings. */
-  renderItem: (item: T, index: number, drag: RowDragProps) => React.ReactNode;
-  /** Receives every key in its new order. */
+  /**
+   * Renders one row. No drag bindings needed: the Sortable.Flex below owns the
+   * long-press-to-drag gesture and slides the other rows out of the way, leaving
+   * an empty slot where the row will land — no line indicator.
+   */
+  renderItem: (item: T, index: number) => React.ReactNode;
+  /** Receives every key in its new order, only when the order actually changed. */
   onReorder: (keys: string[]) => void;
+  /** When false the list is not draggable and behaves like a plain column. */
   enabled: boolean;
+  /** Animated.ScrollView hosting this list; enables auto-scroll while dragging. */
+  scrollableRef?: AnimatedRef<Animated.ScrollView>;
 }
 
 /**
- * Reorderable column. A drag starts either from the row's grab handle or from a
- * long press anywhere on the row; taps, row swipes and list scrolling are left
- * alone until one of those happens.
+ * Reorderable column. Holding a row (~200ms) lifts it and starts the drag; the
+ * other rows part to show the empty slot where it will land, the lifted row is
+ * dressed in the glass pane look, and the list auto-scrolls near its edges.
  *
- * The dragged row floats under the pointer and an accent line marks where it will
- * land, rather than animating every other row out of the way — far less state to
- * keep in sync, and the drop target stays unambiguous.
+ * Haptics and auto-scroll come from the library (expo-haptics is already a
+ * dependency). The row's own Pressable still wins taps, because the drag only
+ * activates on a hold that doesn't move past `dragActivationFailOffset`.
  */
-export default function DragList<T>({ items, keyExtractor, renderItem, onReorder, enabled }: Props<T>) {
-  const accent = useAccent();
-  const dragY = useRef(new Animated.Value(0)).current;
-  const heights = useRef<number[]>([]);
-  const dragRef = useRef<{ from: number; to: number } | null>(null);
-  const [drag, setDrag] = useState<{ from: number; to: number } | null>(null);
-  // A long press only *arms* the row: the drag itself begins on the next move, so
-  // a hold that goes nowhere costs nothing but the lifted look.
-  const armedRef = useRef<number | null>(null);
-
-  const itemsRef = useRef(items);
-  itemsRef.current = items;
-
-  // Unmounting mid-drag (navigating away, the list re-filtering) skips endDrag, and
-  // a lock left on would leave the whole page unscrollable.
-  useEffect(() => unlockDragGestures, []);
-
-  const targetFor = (from: number, dy: number): number => {
-    const h = heights.current;
-    let top = 0;
-    for (let i = 0; i < from; i++) top += h[i] ?? 0;
-    const center = top + (h[from] ?? 0) / 2 + dy;
-
-    let acc = 0;
-    for (let i = 0; i < items.length; i++) {
-      const rowH = h[i] ?? 0;
-      if (center < acc + rowH) return i;
-      acc += rowH;
-    }
-    return items.length - 1;
-  };
-
-  const beginDrag = (index: number) => {
-    lockDragGestures();
-    dragY.setValue(0);
-    dragRef.current = { from: index, to: index };
-    setDrag(dragRef.current);
-  };
-
-  const moveDrag = (index: number, dy: number) => {
-    dragY.setValue(dy);
-    const to = targetFor(index, dy);
-    if (dragRef.current && dragRef.current.to !== to) {
-      dragRef.current = { from: index, to };
-      setDrag(dragRef.current);
-    }
-  };
-
-  const endDrag = (commit: boolean) => {
-    unlockDragGestures();
-    const d = dragRef.current;
-    if (commit && d && d.to !== d.from) {
-      const keys = itemsRef.current.map(keyExtractor);
-      const [moved] = keys.splice(d.from, 1);
-      keys.splice(d.to, 0, moved);
-      onReorder(keys);
-    }
-    armedRef.current = null;
-    dragRef.current = null;
-    setDrag(null);
-    dragY.setValue(0);
-  };
-
-  const handleResponders = useMemo(
-    () =>
-      items.map((_, index) =>
-        PanResponder.create({
-          // Bubble phase, not capture: negotiation runs deepest-node-first, so the
-          // handle beats the row Pressable it sits inside. Capture runs root-down,
-          // which let the Pressable claim the gesture and swallowed every drag.
-          onStartShouldSetPanResponder: () => enabled,
-          onMoveShouldSetPanResponder: () => enabled,
-          onPanResponderGrant: () => beginDrag(index),
-          onPanResponderMove: (_e, g) => moveDrag(index, g.dy),
-          // react-native-web asks the responder to give up the gesture on
-          // selectionchange, scroll and contextmenu — all three of which a held
-          // finger on mobile web triggers, which killed the drag mid-flight.
-          onPanResponderTerminationRequest: () => false,
-          onPanResponderRelease: () => endDrag(true),
-          onPanResponderTerminate: () => endDrag(false),
-        })
-      ),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [items, enabled]
-  );
-
-  const rowResponders = useMemo(
-    () =>
-      items.map((_, index) =>
-        PanResponder.create({
-          // Capture phase this time: once the hold has armed the row, the drag has to
-          // outrank the swipe handler nested inside it, which capture (root-down) does.
-          onMoveShouldSetPanResponderCapture: () => enabled && armedRef.current === index,
-          onPanResponderGrant: () => beginDrag(index),
-          onPanResponderMove: (_e, g) => moveDrag(index, g.dy),
-          onPanResponderTerminationRequest: () => false,
-          onPanResponderRelease: () => endDrag(true),
-          onPanResponderTerminate: () => endDrag(false),
-        })
-      ),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [items, enabled]
-  );
-
-  // A hold that never turns into a move ends here: the touch handlers fire whether or
-  // not the pan responder ever took over, so the row can't stay stuck in its lifted state.
-  const releaseRow = (index: number) => {
-    if (armedRef.current === index || dragRef.current?.from === index) endDrag(false);
-  };
+export default function DragList<T>({ items, keyExtractor, renderItem, onReorder, enabled, scrollableRef }: Props<T>) {
+  // The library sizes rows from their own content once it switches the column to
+  // absolute layout (see applyControlledContainerDimensions in MeasurementsProvider),
+  // so rows must carry an explicit width. Measure the column and pass it down.
+  const [containerWidth, setContainerWidth] = useState<number | null>(null);
 
   return (
-    <View>
-      {items.map((item, i) => {
-        const dragging = drag?.from === i;
-        const isTarget = !!drag && drag.to === i && drag.from !== i;
-        return (
-          <Animated.View
-            key={keyExtractor(item)}
-            onLayout={(e) => {
-              heights.current[i] = e.nativeEvent.layout.height;
-            }}
-            style={dragging ? [styles.dragging, { transform: [{ translateY: dragY }] }] : undefined}
-            onTouchEnd={() => releaseRow(i)}
-            onTouchCancel={() => releaseRow(i)}
-            {...(enabled ? rowResponders[i].panHandlers : {})}
-          >
-            {renderItem(item, i, {
-              handleProps: enabled ? handleResponders[i].panHandlers : undefined,
-              onLongPress: enabled
-                ? () => {
-                    armedRef.current = i;
-                    beginDrag(i);
-                  }
-                : undefined,
-            })}
-            {isTarget && (
-              <View
-                style={[
-                  styles.indicator,
-                  { backgroundColor: accent },
-                  drag!.to < drag!.from ? styles.indicatorTop : styles.indicatorBottom,
-                ]}
-              />
-            )}
-          </Animated.View>
-        );
-      })}
+    <View onLayout={(e) => setContainerWidth(e.nativeEvent.layout.width)}>
+      <Sortable.Flex
+        flexDirection="column"
+        flexWrap="nowrap"
+        // The library defaults to `flex-start` (so dragged items keep their
+        // measured size) and even excludes `stretch` from its type, but it does
+        // pass the value through — stretch every row to the full card width.
+        alignItems={'stretch' as never}
+        sortEnabled={enabled}
+        scrollableRef={scrollableRef}
+        activeItemScale={1.03}
+        activeItemOpacity={0.95}
+        // The lifted row's shadow comes from the glass veil below (boxShadow works
+        // on iOS, Android and web), so the library's iOS-only shadow stays off.
+        activeItemShadowOpacity={0}
+        inactiveItemOpacity={0.45}
+        hapticsEnabled
+        onDragEnd={(params) => {
+          const next = params.indexToKey;
+          const prev = items.map(keyExtractor);
+          if (next.join('\u0000') !== prev.join('\u0000')) onReorder(next);
+        }}
+      >
+        {items.map((item, index) => (
+          <GlassRow key={keyExtractor(item)} width={containerWidth}>
+            {renderItem(item, index)}
+          </GlassRow>
+        ))}
+      </Sortable.Flex>
+    </View>
+  );
+}
+
+/**
+ * The glass pane: while its item is being dragged a hairline edge and a soft
+ * shadow fade in over the row. The veil is an absolute-fill overlay so it never
+ * shifts the layout, and `pointerEvents="none"` keeps taps and swipes intact.
+ */
+function GlassRow({ children, width }: { children: React.ReactNode; width: number | null }) {
+  const { activationAnimationProgress } = useItemContext();
+
+  const veil = useAnimatedStyle(() => ({
+    opacity: activationAnimationProgress.value,
+  }));
+
+  return (
+    <View style={[styles.glass, width !== null && { width }]}>
+      {children}
+      <Animated.View pointerEvents="none" style={[styles.veil, veil]} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  dragging: {
-    zIndex: 20,
-    elevation: 8,
-    backgroundColor: colors.surface,
-    shadowColor: '#000',
-    shadowOpacity: 0.18,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-    opacity: 0.97,
+  glass: {
+    position: 'relative',
   },
-  indicator: {
+  veil: {
     position: 'absolute',
-    left: 12,
-    right: 12,
-    height: 2,
-    borderRadius: 1,
-  },
-  indicatorTop: {
     top: 0,
-  },
-  indicatorBottom: {
+    left: 0,
+    right: 0,
     bottom: 0,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.07)',
+    boxShadow: '0 4px 18px rgba(0, 0, 0, 0.14)',
   },
 });

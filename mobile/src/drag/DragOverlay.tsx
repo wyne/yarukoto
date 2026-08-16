@@ -55,10 +55,14 @@ const styles = StyleSheet.create({
     maxWidth: 240,
     paddingHorizontal: 12,
     paddingVertical: 8,
-    borderRadius: 8,
-    backgroundColor: colors.textPrimary,
+    borderRadius: 10,
+    // Liquid glass: a translucent pane with a hairline edge and a soft shadow,
+    // so the calendar keeps showing through behind the finger.
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.6)',
     shadowColor: '#000',
-    shadowOpacity: 0.25,
+    shadowOpacity: 0.18,
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 4 },
     zIndex: 1000,
@@ -66,10 +70,10 @@ const styles = StyleSheet.create({
   text: {
     fontFamily: fonts.sansMedium,
     fontSize: 13,
-    color: '#fff',
+    color: colors.textPrimary,
   },
   date: {
     // The destination, dimmer than the title so the task itself stays the focus.
-    color: 'rgba(255, 255, 255, 0.72)',
+    color: colors.textSecondary,
   },
 });
