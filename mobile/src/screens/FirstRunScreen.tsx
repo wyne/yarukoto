@@ -5,6 +5,7 @@ import { colors } from '../theme/colors';
 import { fonts } from '../theme/typography';
 import { useAccent } from '../theme/ThemeContext';
 import { ApiError, useTasks } from '../data/TaskContext';
+import { SavedServer, loadSavedServers } from '../data/storage';
 import { IconCheckBig, IconLock, IconServer, IconShield } from '../icons/Icons';
 import BottomSheet from '../components/BottomSheet';
 
@@ -36,28 +37,34 @@ function useSameOriginServer(): string | null | undefined {
 export default function FirstRunScreen() {
   const accent = useAccent();
   const insets = useSafeAreaInsets();
-  const { connect, useSampleData } = useTasks();
+  const { connect, useSampleData, removeSavedServer } = useTasks();
   const sameOriginServer = useSameOriginServer();
   const [serverUrl, setServerUrl] = useState('https://todo.selfhost.dev');
   const [token, setToken] = useState('');
   const [connecting, setConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [helpOpen, setHelpOpen] = useState(false);
+  const [savedServers, setSavedServers] = useState<SavedServer[]>([]);
+
+  useEffect(() => {
+    setSavedServers(loadSavedServers());
+  }, []);
 
   // Still resolving whether this page is itself the server — hold off rendering
   // either form so it doesn't flash from simple to full a moment later.
   if (sameOriginServer === undefined) return null;
 
-  const handleConnect = async () => {
-    const url = (sameOriginServer ?? serverUrl).trim();
-    if (!sameOriginServer && !/^https?:\/\/.+/i.test(url)) {
+  const handleConnect = async (urlOverride?: string, tokenOverride?: string) => {
+    const url = urlOverride ?? (sameOriginServer ?? serverUrl).trim();
+    const tok = tokenOverride ?? token;
+    if (!sameOriginServer && !urlOverride && !/^https?:\/\/.+/i.test(url)) {
       setError('Enter a full server URL, starting with http:// or https://');
       return;
     }
     setError(null);
     setConnecting(true);
     try {
-      await connect(url, token);
+      await connect(url, tok);
     } catch (err) {
       setError(
         err instanceof ApiError
@@ -69,6 +76,11 @@ export default function FirstRunScreen() {
     } finally {
       setConnecting(false);
     }
+  };
+
+  const handleForgetServer = (url: string) => {
+    removeSavedServer(url);
+    setSavedServers(loadSavedServers());
   };
 
   return (
@@ -117,7 +129,7 @@ export default function FirstRunScreen() {
             />
           </View>
           {error && <Text style={styles.error}>{error}</Text>}
-          <Pressable style={styles.connectBtn} onPress={handleConnect} disabled={connecting}>
+          <Pressable style={styles.connectBtn} onPress={() => handleConnect()} disabled={connecting}>
             {connecting ? <ActivityIndicator color="#fff" /> : <Text style={styles.connectText}>Connect</Text>}
           </Pressable>
         </View>
@@ -126,6 +138,28 @@ export default function FirstRunScreen() {
           <IconShield />
           <Text style={styles.trustText}>Your data never leaves your server.</Text>
         </View>
+
+        {savedServers.length > 0 && (
+          <>
+            <View style={styles.orRow}>
+              <View style={styles.orLine} />
+              <Text style={styles.orText}>or</Text>
+              <View style={styles.orLine} />
+            </View>
+            <Text style={styles.savedLabel}>Saved servers</Text>
+            {savedServers.map((s) => (
+              <View key={s.url} style={styles.savedRow}>
+                <Pressable style={styles.savedRowBtn} onPress={() => handleConnect(s.url, s.token)}>
+                  <IconServer />
+                  <Text style={styles.savedUrl} numberOfLines={1}>{s.url}</Text>
+                </Pressable>
+                <Pressable onPress={() => handleForgetServer(s.url)} hitSlop={8} style={styles.forgetBtn}>
+                  <Text style={styles.forgetText}>×</Text>
+                </Pressable>
+              </View>
+            ))}
+          </>
+        )}
 
         <View style={styles.orRow}>
           <View style={styles.orLine} />
@@ -276,6 +310,46 @@ const styles = StyleSheet.create({
     fontFamily: fonts.monoRegular,
     fontSize: 12,
     color: colors.textSecondary,
+  },
+  savedLabel: {
+    fontFamily: fonts.monoRegular,
+    fontSize: 11,
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+    color: colors.textFaint,
+    marginTop: 14,
+    marginBottom: 8,
+  },
+  savedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 10,
+    backgroundColor: colors.surface,
+  },
+  savedRowBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  savedUrl: {
+    flex: 1,
+    fontFamily: fonts.monoRegular,
+    fontSize: 13,
+    color: colors.textPrimary,
+  },
+  forgetBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  forgetText: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 18,
+    color: colors.textFaint,
   },
   footer: {
     textAlign: 'center',

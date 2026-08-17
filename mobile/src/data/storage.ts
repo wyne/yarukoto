@@ -28,8 +28,9 @@ const TOKEN_KEY = 'yarukoto.token';
 const ACCENT_KEY = 'yarukoto.accent';
 const PLAN_KEY = 'yarukoto.planPrefs';
 const COLLAPSED_KEY = 'yarukoto.collapsedSections';
+const SAVED_SERVERS_KEY = 'yarukoto.savedServers';
 
-const ALL_KEYS = [URL_KEY, MODE_KEY, TOKEN_KEY, ACCENT_KEY, PLAN_KEY, COLLAPSED_KEY];
+const ALL_KEYS = [URL_KEY, MODE_KEY, TOKEN_KEY, ACCENT_KEY, PLAN_KEY, COLLAPSED_KEY, SAVED_SERVERS_KEY];
 
 let cache: Record<string, string | null> = {};
 let primed = false;
@@ -211,6 +212,29 @@ export function saveCollapsedSections(viewKey: string, value: CollapsedSections)
     map[viewKey] = value;
   }
   writeJson(COLLAPSED_KEY, map);
+}
+
+export interface SavedServer {
+  url: string;
+  token: string;
+}
+
+export function loadSavedServers(): SavedServer[] {
+  return readJson<SavedServer[]>(SAVED_SERVERS_KEY) ?? [];
+}
+
+function saveSavedServers(servers: SavedServer[]): void {
+  writeJson(SAVED_SERVERS_KEY, servers);
+}
+
+export function addSavedServer(url: string, token: string): void {
+  const servers = loadSavedServers().filter((s) => s.url !== url);
+  servers.unshift({ url, token });
+  saveSavedServers(servers);
+}
+
+export function removeSavedServer(url: string): void {
+  saveSavedServers(loadSavedServers().filter((s) => s.url !== url));
 }
 
 /**
