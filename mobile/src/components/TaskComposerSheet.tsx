@@ -396,7 +396,8 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: colors.textPrimary,
     minHeight: 44,
-    padding: 0,
+    padding: 5,
+    paddingVertical: 15,
     textAlignVertical: 'top',
   },
   suggestions: {
@@ -445,7 +446,8 @@ const styles = StyleSheet.create({
     gap: 6,
     // The buttons carry 10 of their own padding around a 20 icon, so this reads
     // as more space than the number suggests.
-    marginTop: 8,
+    marginTop: 2,
+    marginBottom: 8,
   },
   helper: {
     width: 40,
@@ -469,7 +471,7 @@ const styles = StyleSheet.create({
    * fixed height for all four — see MENU_PANEL_HEIGHT.
    */
   menuPanel: {
-    marginTop: 8,
+    marginVertical: 8,
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: 12,

@@ -155,7 +155,7 @@ export default function NativeSheet({
           styles.content,
           contentStyle,
           {
-            paddingTop: title ? 0 : 16,
+            paddingTop: title ? 0 : 24,
             // A keyboard sheet rides above the keyboard, which is itself covering
             // the home indicator — so the bottom inset buys nothing there and just
             // leaves a gap under the content.
