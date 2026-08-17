@@ -21,7 +21,6 @@ import { useSidebar } from '../navigation/SidebarContext';
 import { FolderDef, ListDef } from '../data/types';
 import ListOptionsSheet from './pickers/ListOptionsSheet';
 import FolderOptionsSheet from './pickers/FolderOptionsSheet';
-import ServerSheet from './pickers/ServerSheet';
 import NewListSheet from './pickers/NewListSheet';
 import NewFolderSheet from './pickers/NewFolderSheet';
 import SyncIndicator from './SyncIndicator';
@@ -64,10 +63,9 @@ export default function Sidebar({ state, navigation, onNavigate }: Props) {
   const [folderTarget, setFolderTarget] = useState<FolderDef | null>(null);
   const [newListFolder, setNewListFolder] = useState<FolderDef | null>(null);
   const [newFolderOpen, setNewFolderOpen] = useState(false);
-  const { wide, collapsed: collapsedPref, toggleCollapsed } = useSidebar();
+  const { wide, collapsed: collapsedPref, toggleCollapsed, openServer } = useSidebar();
   // The drawer is a transient overlay, so it always shows the full sidebar.
   const collapsed = wide && collapsedPref;
-  const [serverOpen, setServerOpen] = useState(false);
   const insets = useSafeAreaInsets();
   const { state: data, syncStatus } = useTasks();
   const now = new Date();
@@ -241,7 +239,7 @@ export default function Sidebar({ state, navigation, onNavigate }: Props) {
 
       <Pressable
         style={[styles.footer, collapsed && styles.footerCollapsed, { paddingBottom: Math.max(12, insets.bottom) }]}
-        onPress={() => setServerOpen(true)}
+        onPress={openServer}
         accessibilityLabel="Server connection"
       >
         <SyncIndicator
@@ -256,7 +254,6 @@ export default function Sidebar({ state, navigation, onNavigate }: Props) {
       <FolderOptionsSheet folder={folderTarget} onClose={() => setFolderTarget(null)} />
       <NewListSheet folder={newListFolder} onClose={() => setNewListFolder(null)} />
       <NewFolderSheet visible={newFolderOpen} onClose={() => setNewFolderOpen(false)} />
-      <ServerSheet visible={serverOpen} onClose={() => setServerOpen(false)} />
     </View>
   );
 }

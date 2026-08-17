@@ -15,6 +15,10 @@ interface SidebarValue {
   /** Wide layouts only: the pinned sidebar shrinks to an icon rail. */
   collapsed: boolean;
   toggleCollapsed: () => void;
+  /** Server sheet lives at the Layout level so it survives the drawer closing. */
+  serverOpen: boolean;
+  openServer: () => void;
+  closeServer: () => void;
 }
 
 const SidebarContext = createContext<SidebarValue | null>(null);
@@ -24,6 +28,7 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
   const wide = width >= WIDE_BREAKPOINT;
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
+  const [serverOpen, setServerOpen] = useState(false);
 
   // The drawer is a narrow-layout affordance; going wide pins the sidebar instead.
   useEffect(() => {
@@ -38,8 +43,11 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
       closeDrawer: () => setDrawerOpen(false),
       collapsed,
       toggleCollapsed: () => setCollapsed((v) => !v),
+      serverOpen,
+      openServer: () => { setDrawerOpen(false); setServerOpen(true); },
+      closeServer: () => setServerOpen(false),
     }),
-    [wide, drawerOpen, collapsed]
+    [wide, drawerOpen, collapsed, serverOpen]
   );
 
   return <SidebarContext.Provider value={value}>{children}</SidebarContext.Provider>;
