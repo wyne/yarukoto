@@ -83,7 +83,7 @@ export default function ServerSheet({ visible, onClose }: Props) {
         ))}
       </View>
 
-      <Text style={styles.sectionLabel}>Server</Text>
+      {state.mode === 'server' && <Text style={styles.sectionLabel}>Server</Text>}
 
       {state.mode === 'server' && (
         <>

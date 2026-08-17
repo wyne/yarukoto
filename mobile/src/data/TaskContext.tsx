@@ -10,11 +10,13 @@ import { ViewOptions, viewOptionsFor } from './viewOptions';
 import { LIST_COLORS } from '../theme/colors';
 import {
   AppMode,
+  addSavedServer,
   clearServerUrl,
   clearToken,
   loadMode,
   loadServerUrl,
   loadToken,
+  removeSavedServer as removeSavedServerStorage,
   saveMode,
   saveServerUrl,
   saveToken,
@@ -377,6 +379,7 @@ interface TaskContextValue {
   /** Load the sample dataset and work entirely offline. */
   useSampleData: () => void;
   disconnect: () => void;
+  removeSavedServer: (url: string) => void;
   /** Live sync state, for the indicator in the sidebar. Only meaningful in server mode. */
   syncStatus: SyncStatus;
 }
@@ -634,6 +637,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     saveServerUrl(url);
     saveToken(token);
     saveMode('server');
+    addSavedServer(url, token);
     cursorRef.current = batch.now;
     outboxRef.current = new Outbox();
 
@@ -659,6 +663,9 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     cursorRef.current = undefined;
     saveMode('none');
     dispatch({ type: 'DISCONNECT' });
+  }, []);
+  const removeSavedServer = useCallback((url: string) => {
+    removeSavedServerStorage(url);
   }, []);
 
   // Push dirty records, then pull. Runs once on connect, again whenever the app
@@ -782,6 +789,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       connect,
       useSampleData,
       disconnect,
+      removeSavedServer,
       syncStatus,
     }),
     [
@@ -812,6 +820,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       connect,
       useSampleData,
       disconnect,
+      removeSavedServer,
       syncStatus,
     ]
   );

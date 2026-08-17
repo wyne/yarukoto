@@ -12,6 +12,7 @@ import TaskDetailSheet from '../components/TaskDetailSheet';
 import UndoToast from '../components/UndoToast';
 import { DragProvider } from '../drag/DragContext';
 import DragOverlay from '../drag/DragOverlay';
+import ServerSheet from '../components/pickers/ServerSheet';
 import AllScreen from '../screens/AllScreen';
 import InboxScreen from '../screens/InboxScreen';
 import TodayScreen from '../screens/TodayScreen';
@@ -49,7 +50,7 @@ export default function MainTabs() {
  * than covering it. Narrow: the same detail rendered as a pull-up sheet.
  */
 function Layout() {
-  const { wide } = useSidebar();
+  const { wide, serverOpen, closeServer } = useSidebar();
   const { openTaskId, closeTask } = useDetail();
   const showPane = wide && !!openTaskId;
 
@@ -65,6 +66,7 @@ function Layout() {
         </View>
       )}
       {!wide && <TaskDetailSheet />}
+      <ServerSheet visible={serverOpen} onClose={closeServer} />
       <DragOverlay />
     </View>
   );
