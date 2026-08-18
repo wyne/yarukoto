@@ -464,8 +464,8 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       dispatch({ type: 'TOGGLE_COMPLETE', id });
       markDirty([id]);
       if (task && !task.completed) {
-        ding.stop();
-        ding.play();
+        ding.pause();
+        ding.seekTo(0).then(() => ding.play());
       }
       setPendingUndo(task && !task.completed ? { taskId: id, title: task.title, token: Date.now() } : null);
     },

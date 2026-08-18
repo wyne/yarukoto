@@ -143,33 +143,6 @@ export default function TaskDetailView({ taskId, onClose, variant }: Props) {
                 : {})}
             />
           </View>
-          <View style={styles.priorityRow}>
-            {PRIORITIES.map((p) => {
-              const active = task.priority === p.key;
-              const pColor = p.key === 'none' ? colors.textTertiary : priorityColor(p.key);
-              return (
-                <Pressable
-                  key={p.key}
-                  style={[
-                    styles.priorityPill,
-                    active && p.key === 'high' && { backgroundColor: colors.priorityHighBg, borderColor: colors.priorityHigh },
-                    active && p.key !== 'high' && { borderColor: pColor },
-                  ]}
-                  onPress={() => updateTask(task.id, { priority: p.key })}
-                >
-                  <Text
-                    style={[
-                      styles.priorityText,
-                      { color: pColor },
-                      active && { fontFamily: fonts.sansSemiBold },
-                    ]}
-                  >
-                    {p.label}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
         </Card>
 
         <Card style={{ marginTop: 12 }}>
@@ -199,6 +172,37 @@ export default function TaskDetailView({ taskId, onClose, variant }: Props) {
               ))}
             </View>
           </Pressable>
+          <Divider indent={44} />
+          <View style={styles.metaRow}>
+            <Text style={styles.metaLabelFixed}>Priority</Text>
+            <View style={styles.priorityRow}>
+              {PRIORITIES.map((p) => {
+                const active = task.priority === p.key;
+                const pColor = p.key === 'none' ? colors.textTertiary : priorityColor(p.key);
+                return (
+                  <Pressable
+                    key={p.key}
+                    style={[
+                      styles.priorityPill,
+                      active && p.key === 'high' && { backgroundColor: colors.priorityHighBg, borderColor: colors.priorityHigh },
+                      active && p.key !== 'high' && { borderColor: pColor },
+                    ]}
+                    onPress={() => updateTask(task.id, { priority: p.key })}
+                  >
+                    <Text
+                      style={[
+                        styles.priorityText,
+                        { color: pColor },
+                        active && { fontFamily: fonts.sansSemiBold },
+                      ]}
+                    >
+                      {p.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
         </Card>
 
         {menu && (
@@ -456,14 +460,14 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   priorityRow: {
+    flex: 1,
     flexDirection: 'row',
     gap: 6,
-    marginTop: 14,
   },
   priorityPill: {
     flex: 1,
     alignItems: 'center',
-    paddingVertical: 7,
+    paddingVertical: 5,
     borderRadius: 7,
     borderWidth: 1,
     borderColor: colors.border,
