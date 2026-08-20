@@ -38,6 +38,7 @@ module.exports = ({ config }) => {
     },
     android: {
       ...config.android,
+      package: development ? 'com.wyne.yarukoto.dev' : config.android?.package,
       icon: development ? './assets/icon-dev.png' : config.android?.icon,
       adaptiveIcon: {
         ...config.android?.adaptiveIcon,

@@ -240,33 +240,51 @@ eas init          # links the project and writes extra.eas.projectId into app.js
 production build. `version` in `app.config.js` seeds it on the first build and is otherwise
 ignored — that is deliberate, it keeps build-number churn out of git.
 
-To build the dev client locally and run it against Metro:
+For local native builds, keep `APP_VARIANT` on both commands. `prebuild --clean` regenerates the
+native project with the selected bundle/application id, and `expo run:*` compiles that same variant.
+
+To build the local iOS dev client and run it against Metro:
 
 ```bash
-npm run ios:dev   # APP_VARIANT=development prebuild + expo run:ios
+npm run ios:dev
+npm run start:dev
 ```
 
-or have EAS build it (the only option when you don't have a working Xcode locally):
+The equivalent Android dev client commands are:
+
+```bash
+APP_VARIANT=development npx expo prebuild --clean
+APP_VARIANT=development npx expo run:android
+npm run start:dev
+```
+
+For local production builds:
+
+```bash
+# iOS
+APP_VARIANT=production npx expo prebuild --clean
+APP_VARIANT=production npx expo run:ios --configuration Release
+
+# Android
+APP_VARIANT=production npx expo prebuild --clean
+APP_VARIANT=production npx expo run:android --variant release
+```
+
+Or have EAS build the variants:
 
 ```bash
 eas build --platform ios --profile development
+eas build --platform android --profile development
 npx expo start --dev-client
-```
 
-For a production build:
-
-```bash
 eas build --platform ios --profile production
+eas build --platform android --profile production
 ```
 
-Building locally instead of on EAS works too, but needs Xcode and a Mac:
-
-```bash
-npm run ios     # expo run:ios — prebuilds, compiles, and launches
-```
-
-`npm run ios` is a full native build now that the project has a dev client. For a quick check
-against Expo Go with no native build at all, `npx expo start --go` still works.
+`npm run ios` is still available for a quick full native debug build, but when switching between
+dev and production variants, prefer the explicit commands above so the regenerated native project
+matches the app id you intend to build. For a quick check against Expo Go with no native build at
+all, `npx expo start --go` still works.
 
 ### Getting it onto TestFlight
 
