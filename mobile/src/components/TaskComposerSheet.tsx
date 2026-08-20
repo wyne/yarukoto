@@ -225,6 +225,11 @@ export default function TaskComposerSheet({ visible, onClose, defaults, contextL
         placeholder={contextLabel ? `Add to ${contextLabel}…` : 'What would you like to do?'}
         placeholderTextColor={colors.textFaint}
         style={styles.input}
+        autoCapitalize="sentences"
+        autoCorrect
+        autoComplete="off"
+        spellCheck
+        importantForAutofill="no"
         // Multiline so a long title wraps, but return submits rather than
         // inserting a newline — a task title is one line of text. 'newline' is
         // the default for multiline inputs, which is what made return type into
