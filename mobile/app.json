@@ -13,6 +13,10 @@
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true,
+      "icon": {
+        "light": "./assets/icon.png",
+        "dark": "./assets/icon-dark.png"
+      },
       "bundleIdentifier": "com.wyne.yarukoto",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
