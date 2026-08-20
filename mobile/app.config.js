@@ -34,6 +34,7 @@ module.exports = ({ config }) => {
     ],
     ios: {
       ...config.ios,
+      icon: development ? './assets/icon-dev.png' : config.ios?.icon,
       bundleIdentifier: development ? 'com.wyne.yarukoto.dev' : config.ios?.bundleIdentifier,
     },
     android: {
