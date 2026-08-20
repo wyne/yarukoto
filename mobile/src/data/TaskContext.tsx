@@ -6,7 +6,7 @@ import { FolderDef, ListDef, Priority, Task, ViewPref } from './types';
 import { addDays, toISODate } from './dateUtils';
 import { parseQuickAdd } from './quickAdd';
 import { newFolderId, newListId, newSubtaskId, newTaskId } from './ids';
-import { ViewOptions, viewOptionsFor } from './viewOptions';
+import { DEFAULT_VIEW_OPTIONS, ViewOptions, viewOptionsFor } from './viewOptions';
 import { LIST_COLORS } from '../theme/colors';
 import {
   AppMode,
@@ -53,6 +53,7 @@ type Action =
   | { type: 'TOGGLE_SUBTASK'; taskId: string; subtaskId: string }
   | { type: 'SNOOZE_TASK'; id: string }
   | { type: 'REORDER_TASKS'; ids: string[] }
+  | { type: 'OVERRIDE_SORT_ORDER'; key: string; ids: string[] }
   | { type: 'ADD_LIST'; list: ListDef }
   | { type: 'ADD_FOLDER'; folder: FolderDef }
   | { type: 'UPDATE_LIST'; id: string; patch: Partial<ListDef> }
@@ -83,6 +84,56 @@ function tombstoneListPrefs(prefs: ViewPref[], listIds: string[], now: string): 
   const doomed = new Set(viewPrefIdsForLists(prefs, listIds));
   if (doomed.size === 0) return prefs;
   return prefs.map((p) => (doomed.has(p.id) ? { ...p, deletedAt: now } : p));
+}
+
+/**
+ * Rewrites `order` so `ids` end up in the given sequence.
+ *
+ * `order` is global, but a reorder only ever happens inside one visible slice.
+ * Redistributing the order values that slice already holds rearranges those tasks
+ * relative to each other while leaving every other task's position alone — and it
+ * works whether the slice was on screen in `order` sequence or in a sort's.
+ * Duplicate ids are ignored: grouping by tag deliberately shows one task under
+ * several tags, but a task can only hold one order value.
+ */
+function resequence(tasks: Task[], ids: string[]): Task[] {
+  const unique = [...new Set(ids)];
+  const moving = new Set(unique);
+  const slots = tasks
+    .filter((t) => moving.has(t.id))
+    .map((t) => t.order)
+    .sort((a, b) => a - b);
+  const nextOrder = new Map(unique.map((id, i) => [id, slots[i]]));
+  return tasks.map((t) => {
+    const order = nextOrder.get(t.id);
+    return order === undefined || order === t.order ? t : { ...t, order };
+  });
+}
+
+/**
+ * Creates or patches one view's saved options. `patch` receives the existing
+ * record so a caller can change one field without restating the rest.
+ */
+function upsertViewPref(
+  prefs: ViewPref[],
+  key: string,
+  patch: (existing: ViewPref) => Partial<ViewPref>
+): ViewPref[] {
+  const existing = prefs.find((p) => p.id === key);
+  const base: ViewPref = existing ?? {
+    id: key,
+    ...DEFAULT_VIEW_OPTIONS,
+    updatedAt: new Date().toISOString(),
+  };
+  const pref: ViewPref = {
+    ...base,
+    ...patch(base),
+    id: key,
+    // A view configured again after its list was deleted and restored should
+    // come back to life rather than stay tombstoned.
+    deletedAt: undefined,
+  };
+  return existing ? prefs.map((p) => (p.id === key ? pref : p)) : [...prefs, pref];
 }
 
 function applyAction(state: State, action: Action): State {
@@ -149,19 +200,16 @@ function applyAction(state: State, action: Action): State {
           t.id === action.id ? { ...t, dueDate: toISODate(addDays(new Date(), 1)) } : t
         ),
       };
-    case 'REORDER_TASKS': {
-      // `order` is global, but a reorder only ever happens inside one visible slice.
-      // Redistributing the order values that slice already holds rearranges those
-      // tasks relative to each other while leaving every other task's position alone.
-      const moving = new Set(action.ids);
-      const slots = state.tasks
-        .filter((t) => moving.has(t.id))
-        .map((t) => t.order)
-        .sort((a, b) => a - b);
-      const nextOrder = new Map(action.ids.map((id, i) => [id, slots[i]]));
+    case 'REORDER_TASKS':
+      return { ...state, tasks: resequence(state.tasks, action.ids) };
+    case 'OVERRIDE_SORT_ORDER': {
+      // A drag under an active sort. Writing the on-screen sequence into `order`
+      // *before* the flag flips is what stops the list jumping the moment the
+      // comparator stops running — the two halves have to land together.
       return {
         ...state,
-        tasks: state.tasks.map((t) => (nextOrder.has(t.id) ? { ...t, order: nextOrder.get(t.id)! } : t)),
+        tasks: resequence(state.tasks, action.ids),
+        viewPrefs: upsertViewPref(state.viewPrefs, action.key, (p) => ({ ...p, sortOverridden: true })),
       };
     }
     case 'ADD_LIST':
@@ -198,24 +246,20 @@ function applyAction(state: State, action: Action): State {
         viewPrefs: tombstoneListPrefs(state.viewPrefs, [...doomed], now),
       };
     }
-    case 'SET_VIEW_OPTIONS': {
-      const existing = state.viewPrefs.find((p) => p.id === action.key);
-      const pref: ViewPref = {
-        id: action.key,
-        groupBy: action.options.groupBy,
-        sortBy: action.options.sortBy,
-        // A view configured again after its list was deleted and restored should
-        // come back to life rather than stay tombstoned.
-        deletedAt: undefined,
-        updatedAt: existing?.updatedAt ?? new Date().toISOString(),
-      };
+    case 'SET_VIEW_OPTIONS':
       return {
         ...state,
-        viewPrefs: existing
-          ? state.viewPrefs.map((p) => (p.id === action.key ? pref : p))
-          : [...state.viewPrefs, pref],
+        viewPrefs: upsertViewPref(state.viewPrefs, action.key, (existing) => ({
+          groupBy: action.options.groupBy,
+          sortBy: action.options.sortBy,
+          // Picking a different sort is a fresh start: whatever arrangement
+          // overrode the *previous* sort has nothing to say about this one.
+          // Regrouping leaves the override alone, since `order` is global and
+          // the new groups re-form from it correctly.
+          sortOverridden:
+            action.options.sortBy !== existing.sortBy ? false : action.options.sortOverridden,
+        })),
       };
-    }
     case 'CONNECT':
       // Server data arrives via sync; nothing is seeded locally.
       return {
@@ -363,6 +407,7 @@ interface TaskContextValue {
   snoozeTask: (id: string) => void;
   /** `ids` is the visible slice in its new order. */
   reorderTasks: (ids: string[]) => void;
+  overrideSortOrder: (key: string, ids: string[]) => void;
   addList: (name: string, folderId: string) => void;
   addFolder: (name: string) => void;
   setListColor: (listId: string, color: string) => void;
@@ -548,6 +593,15 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     (ids: string[]) => {
       dispatch({ type: 'REORDER_TASKS', ids });
       markDirty(ids);
+    },
+    [markDirty]
+  );
+  // The view pref is an edit in its own right, so it syncs alongside the tasks
+  // whose order it just made authoritative.
+  const overrideSortOrder = useCallback(
+    (key: string, ids: string[]) => {
+      dispatch({ type: 'OVERRIDE_SORT_ORDER', key, ids });
+      markDirty([key, ...ids]);
     },
     [markDirty]
   );
@@ -777,6 +831,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       toggleSubtask,
       snoozeTask,
       reorderTasks,
+      overrideSortOrder,
       addList,
       addFolder,
       setListColor,
@@ -808,6 +863,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       toggleSubtask,
       snoozeTask,
       reorderTasks,
+      overrideSortOrder,
       addList,
       addFolder,
       setListColor,

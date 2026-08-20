@@ -6,10 +6,16 @@ export type { GroupBy, SortBy };
 export interface ViewOptions {
   groupBy: GroupBy;
   sortBy: SortBy;
+  /**
+   * The user dragged a row while `sortBy` was active, so their arrangement wins
+   * and the view renders by `order` alone until they restore the sort. Never set
+   * alongside `sortBy: 'manual'`, which is already ordered by hand.
+   */
+  sortOverridden: boolean;
 }
 
 /** 'manual' keeps the existing drag order, so a view looks unchanged until the user picks something. */
-export const DEFAULT_VIEW_OPTIONS: ViewOptions = { groupBy: 'none', sortBy: 'manual' };
+export const DEFAULT_VIEW_OPTIONS: ViewOptions = { groupBy: 'none', sortBy: 'manual', sortOverridden: false };
 
 export const GROUP_BY_OPTIONS: { value: GroupBy; label: string }[] = [
   { value: 'none', label: 'None' },
@@ -39,7 +45,19 @@ export function viewKey(mode: string, filter?: { type: string; value: string }):
 /** The saved options for a view, or the defaults when it has never been configured. */
 export function viewOptionsFor(prefs: ViewPref[], key: string): ViewOptions {
   const pref = prefs.find((p) => p.id === key && !p.deletedAt);
-  return pref ? { groupBy: pref.groupBy, sortBy: pref.sortBy } : DEFAULT_VIEW_OPTIONS;
+  if (!pref) return DEFAULT_VIEW_OPTIONS;
+  return {
+    groupBy: pref.groupBy,
+    sortBy: pref.sortBy,
+    // A server predating the column omits the field entirely, and the flag is
+    // meaningless without a sort to override.
+    sortOverridden: pref.sortBy !== 'manual' && !!pref.sortOverridden,
+  };
+}
+
+/** Human-readable name of the sort a view is overriding, for the restore prompt. */
+export function sortLabel(sortBy: SortBy): string {
+  return SORT_BY_OPTIONS.find((o) => o.value === sortBy)?.label ?? sortBy;
 }
 
 const PRIORITY_RANK: Record<Priority, number> = { high: 0, medium: 1, low: 2, none: 3 };
@@ -71,8 +89,13 @@ function comparator(sortBy: SortBy): ((a: Task, b: Task) => number) | null {
   }
 }
 
-export function sortTasks(tasks: Task[], sortBy: SortBy): Task[] {
-  const cmp = comparator(sortBy);
+/**
+ * Orders tasks for display. An overridden view ignores its sort entirely — the
+ * user dragged rows into an arrangement the comparator would undo, so `order`
+ * is the only thing that can reproduce what they built.
+ */
+export function sortTasks(tasks: Task[], options: ViewOptions): Task[] {
+  const cmp = options.sortOverridden ? null : comparator(options.sortBy);
   const byOrder = (a: Task, b: Task) => a.order - b.order;
   return [...tasks].sort(cmp ? (a, b) => cmp(a, b) || byOrder(a, b) : byOrder);
 }
@@ -111,10 +134,10 @@ const DATE_BUCKET_ORDER = ['overdue', 'today', 'tomorrow', 'week', 'later', 'nod
  * Empty groups are dropped. `sortBy` orders tasks within each group.
  */
 export function groupTasks(tasks: Task[], options: ViewOptions, ctx: GroupContext): TaskGroup[] {
-  const { groupBy, sortBy } = options;
+  const { groupBy } = options;
 
   if (groupBy === 'none') {
-    return [{ key: 'all', label: '', tasks: sortTasks(tasks, sortBy) }];
+    return [{ key: 'all', label: '', tasks: sortTasks(tasks, options) }];
   }
 
   const buckets = new Map<string, TaskGroup>();
@@ -151,7 +174,7 @@ export function groupTasks(tasks: Task[], options: ViewOptions, ctx: GroupContex
 
   const groups = [...buckets.values()];
   groups.forEach((g) => {
-    g.tasks = sortTasks(g.tasks, sortBy);
+    g.tasks = sortTasks(g.tasks, options);
   });
 
   switch (groupBy) {

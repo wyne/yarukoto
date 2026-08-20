@@ -10,6 +10,7 @@ import {
   SORT_BY_OPTIONS,
   SortBy,
   ViewOptions,
+  sortLabel,
 } from '../data/viewOptions';
 
 interface Props {
@@ -55,6 +56,15 @@ export default function ViewOptionsSheet({ visible, onClose, value, onChange }: 
       {renderRow<SortBy>('Sort by', SORT_BY_OPTIONS, value.sortBy, (sortBy) =>
         onChange({ ...value, sortBy })
       )}
+      {/* Picking a *different* sort clears the override on its own; this is the way
+          back for someone who wants the sort they already have. */}
+      {value.sortOverridden && (
+        <Pressable style={styles.restore} onPress={() => onChange({ ...value, sortOverridden: false })}>
+          <Text style={styles.restoreText}>
+            Order customised — restore {sortLabel(value.sortBy)} sort
+          </Text>
+        </Pressable>
+      )}
       <Pressable style={styles.doneBtn} onPress={onClose}>
         <Text style={styles.doneBtnText}>Done</Text>
       </Pressable>
@@ -95,6 +105,15 @@ const styles = StyleSheet.create({
   },
   chipTextActive: {
     color: '#fff',
+  },
+  restore: {
+    marginTop: -8,
+    marginBottom: 18,
+  },
+  restoreText: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 13,
+    color: colors.textTertiary,
   },
   doneBtn: {
     marginTop: 2,

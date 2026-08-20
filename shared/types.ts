@@ -60,4 +60,12 @@ export interface ViewPref extends Synced {
   id: string;
   groupBy: GroupBy;
   sortBy: SortBy;
+  /**
+   * Set once the user drags a row while `sortBy` is something other than 'manual'.
+   * The drag wins: the view falls back to the manual `order` and offers to restore
+   * the sort, rather than the drop rewriting the task's fields to match where it
+   * landed. Optional so a client talking to a server that predates the column
+   * degrades to "not overridden" instead of breaking.
+   */
+  sortOverridden?: boolean;
 }

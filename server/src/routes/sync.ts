@@ -113,11 +113,15 @@ function upsertViewPref(db: Database.Database, pref: ViewPref): ViewPref {
   if (existing && existing.updated_at >= pref.updatedAt) {
     return viewPrefFromRow(db.prepare('SELECT * FROM view_prefs WHERE id = ?').get(pref.id) as ViewPrefRow);
   }
+  // SQLite has no boolean type and better-sqlite3 refuses to bind one, so the
+  // override flag crosses as 0/1 the same way `completed` does on tasks.
   db.prepare(
-    `INSERT INTO view_prefs (id, group_by, sort_by, updated_at, deleted_at) VALUES (@id, @groupBy, @sortBy, @updatedAt, @deletedAt)
+    `INSERT INTO view_prefs (id, group_by, sort_by, sort_overridden, updated_at, deleted_at)
+     VALUES (@id, @groupBy, @sortBy, @sortOverridden, @updatedAt, @deletedAt)
      ON CONFLICT(id) DO UPDATE SET group_by = excluded.group_by, sort_by = excluded.sort_by,
+       sort_overridden = excluded.sort_overridden,
        updated_at = excluded.updated_at, deleted_at = excluded.deleted_at`
-  ).run({ ...pref, deletedAt: pref.deletedAt ?? null });
+  ).run({ ...pref, deletedAt: pref.deletedAt ?? null, sortOverridden: pref.sortOverridden ? 1 : 0 });
   // Read back so an unrecognised grouping or sort is normalised the same way a
   // pull would normalise it, rather than the pusher keeping a value nothing else sees.
   return viewPrefFromRow(db.prepare('SELECT * FROM view_prefs WHERE id = ?').get(pref.id) as ViewPrefRow);

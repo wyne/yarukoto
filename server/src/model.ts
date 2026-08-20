@@ -40,6 +40,7 @@ export interface ViewPrefRow {
   id: string;
   group_by: string;
   sort_by: string;
+  sort_overridden: number;
   updated_at: string;
   deleted_at: string | null;
 }
@@ -102,6 +103,9 @@ export function viewPrefFromRow(row: ViewPrefRow): ViewPref {
     id: row.id,
     groupBy: asGroupBy(row.group_by),
     sortBy: asSortBy(row.sort_by),
+    // Only meaningful against a live sort — a 'manual' view is already ordered by
+    // hand, so an override flag on one would be a state the client can't render.
+    sortOverridden: asSortBy(row.sort_by) !== 'manual' && !!row.sort_overridden,
     updatedAt: row.updated_at,
     deletedAt: row.deleted_at ?? undefined,
   };
