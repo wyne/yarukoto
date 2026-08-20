@@ -28,6 +28,10 @@ module.exports = ({ config }) => {
     },
     name: development ? 'Yarukoto (dev)' : config.name,
     icon: development ? './assets/icon-dev.png' : config.icon,
+    plugins: [
+      ...(config.plugins ?? []),
+      './plugins/native-glass-keyboard-dismiss',
+    ],
     ios: {
       ...config.ios,
       bundleIdentifier: development ? 'com.wyne.yarukoto.dev' : config.ios?.bundleIdentifier,
