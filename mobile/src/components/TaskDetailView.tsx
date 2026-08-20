@@ -1,6 +1,6 @@
-import React, { useRef, useState } from 'react';
-import { Keyboard, Pressable, ScrollView, ScrollViewProps, StyleSheet, Text, TextInput, View } from 'react-native';
-import { BottomSheetScrollView } from '@gorhom/bottom-sheet';
+import React, { useEffect, useRef, useState } from 'react';
+import { InputAccessoryView, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, ScrollViewProps, StyleSheet, Text, TextInput, View } from 'react-native';
+import { BottomSheetScrollView, BottomSheetTextInput } from '@gorhom/bottom-sheet';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, priorityColor } from '../theme/colors';
 import { fonts } from '../theme/typography';
@@ -13,7 +13,7 @@ import { Priority } from '../data/types';
 import Card from './Card';
 import Divider from './Divider';
 import TaskCheckbox from './TaskCheckbox';
-import { IconCalendarBox, IconCheckBig, IconDotsHorizontal, IconFolder, IconPlus, IconTag } from '../icons/Icons';
+import { IconCalendarBox, IconCheckBig, IconChevronDown, IconDotsHorizontal, IconFolder, IconPlus, IconTag } from '../icons/Icons';
 import { DATE_OPTIONS, TIME_OPTIONS } from './pickers/DueDatePickerSheet';
 
 interface Props {
@@ -36,6 +36,7 @@ const PRIORITIES: { key: Priority; label: string }[] = [
  * height keeps the panel stable when switching between them.
  */
 const MENU_PANEL_HEIGHT = 222;
+const KEYBOARD_ACCESSORY_ID = 'task-detail-keyboard-accessory';
 
 export default function TaskDetailView({ taskId, onClose, variant }: Props) {
   const accent = useAccent();
@@ -69,6 +70,19 @@ export default function TaskDetailView({ taskId, onClose, variant }: Props) {
   };
 
   const notesRef = useRef<TextInput>(null);
+  const [keyboardUp, setKeyboardUp] = useState(false);
+  const [keyboardInputFocused, setKeyboardInputFocused] = useState(false);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const show = Keyboard.addListener(showEvent, () => setKeyboardUp(true));
+    const hide = Keyboard.addListener(hideEvent, () => {
+      setKeyboardUp(false);
+      setKeyboardInputFocused(false);
+    });
+    return () => { show.remove(); hide.remove(); };
+  }, []);
 
   if (!task) {
     return (
@@ -119,7 +133,24 @@ export default function TaskDetailView({ taskId, onClose, variant }: Props) {
     });
   };
 
-  return (
+  const DetailTextInput = variant === 'sheet' ? BottomSheetTextInput : TextInput;
+  /**
+   * Pane only, and deliberately just one field's worth.
+   *
+   * RCTInputAccessoryComponentView binds to a single input: on didMoveToWindow it
+   * takes the *first* view in the window whose inputAccessoryViewID matches, keeps
+   * one weak ref to it, and never re-binds. Tagging every input with the same id
+   * therefore wires the accessory to whichever mounts first and leaves the rest
+   * bare — so the sheet uses a bottom-sheet footer instead.
+   */
+  const accessoryProps = Platform.OS === 'ios' && variant === 'pane' ? { inputAccessoryViewID: KEYBOARD_ACCESSORY_ID } : {};
+  const keyboardTargetProps = {
+    onFocus: () => setKeyboardInputFocused(true),
+    onBlur: () => setKeyboardInputFocused(false),
+  };
+  const showFloatingKeyboardDismiss = variant === 'sheet' && Platform.OS !== 'ios' && (keyboardUp || keyboardInputFocused);
+
+  const content = (
     <View style={[styles.screen, { paddingTop: topPad }]}>
       <View style={styles.header}>
         <Pressable onPress={onClose} hitSlop={8}>
@@ -129,15 +160,20 @@ export default function TaskDetailView({ taskId, onClose, variant }: Props) {
         <IconDotsHorizontal />
       </View>
 
-      <Scroll contentContainerStyle={styles.scroll}>
+      <Scroll
+        contentContainerStyle={[styles.scroll, keyboardUp && styles.scrollKeyboard]}
+        keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'none'}
+      >
         <Card style={styles.pad14}>
           <View style={styles.titleRow}>
             <TaskCheckbox completed={task.completed} priority={task.priority} onPress={() => toggleComplete(task.id)} size={22} />
-            <TextInput
+            <DetailTextInput
               value={task.title}
               onChangeText={(v) => updateTask(task.id, { title: v })}
               style={[styles.titleInput, task.completed && styles.titleCompleted]}
               multiline
+              {...keyboardTargetProps}
+              {...accessoryProps}
               {...(variant === 'sheet'
                 ? ({ submitBehavior: 'submit', returnKeyType: 'next', onSubmitEditing: jumpToNotes } as const)
                 : {})}
@@ -315,7 +351,7 @@ export default function TaskDetailView({ taskId, onClose, variant }: Props) {
                     })}
                   </View>
                   <View style={styles.addRow}>
-                    <TextInput
+                    <DetailTextInput
                       value={newTag}
                       onChangeText={setNewTag}
                       placeholder="New tag"
@@ -323,6 +359,8 @@ export default function TaskDetailView({ taskId, onClose, variant }: Props) {
                       style={styles.input}
                       onSubmitEditing={addNewTag}
                       returnKeyType="done"
+                      {...keyboardTargetProps}
+                      {...accessoryProps}
                     />
                     <Pressable style={[styles.addBtn, { borderColor: accent }]} onPress={addNewTag}>
                       <Text style={[styles.addBtnText, { color: accent }]}>Add</Text>
@@ -339,14 +377,17 @@ export default function TaskDetailView({ taskId, onClose, variant }: Props) {
 
         <Card style={[styles.pad14, { marginTop: 12 }]}>
           <Text style={styles.sectionLabel}>Notes</Text>
-          <TextInput
-            ref={notesRef}
+          <DetailTextInput
+            ref={notesRef as never}
             value={task.notes}
             onChangeText={(v) => updateTask(task.id, { notes: v })}
             placeholder="Add notes…"
             placeholderTextColor={colors.textFaint}
-            style={styles.notesInput}
+            style={[styles.notesInput, keyboardUp && styles.notesInputKeyboard]}
             multiline
+            scrollEnabled
+            {...keyboardTargetProps}
+            {...accessoryProps}
           />
         </Card>
 
@@ -377,13 +418,15 @@ export default function TaskDetailView({ taskId, onClose, variant }: Props) {
           ))}
           {addingSubtask ? (
             <View style={styles.subtaskRow}>
-              <TextInput
+              <DetailTextInput
                 autoFocus
                 value={newSubtask}
                 onChangeText={setNewSubtask}
                 placeholder="Subtask title"
                 placeholderTextColor={colors.textFaint}
                 style={styles.subtaskInput}
+                {...keyboardTargetProps}
+                {...accessoryProps}
                 onSubmitEditing={() => {
                   if (newSubtask.trim()) addSubtask(task.id, newSubtask.trim());
                   setNewSubtask('');
@@ -404,8 +447,50 @@ export default function TaskDetailView({ taskId, onClose, variant }: Props) {
           <Text style={styles.delete}>Delete task</Text>
         </Pressable>
       </Scroll>
+      {Platform.OS === 'ios' && variant === 'pane' && (
+        <InputAccessoryView nativeID={KEYBOARD_ACCESSORY_ID} backgroundColor="transparent">
+          <View pointerEvents="box-none" style={styles.keyboardAccessory}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Dismiss keyboard"
+              style={styles.keyboardDismissButton}
+              onPress={() => Keyboard.dismiss()}
+              hitSlop={8}
+            >
+              <IconChevronDown size={20} color={colors.textPrimary} strokeWidth={2.2} />
+            </Pressable>
+          </View>
+        </InputAccessoryView>
+      )}
+      {showFloatingKeyboardDismiss && (
+        <View pointerEvents="box-none" style={styles.sheetKeyboardDismissLayer}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Dismiss keyboard"
+            style={styles.keyboardDismissButton}
+            onPress={() => Keyboard.dismiss()}
+            hitSlop={8}
+          >
+            <IconChevronDown size={20} color={colors.textPrimary} strokeWidth={2.2} />
+          </Pressable>
+        </View>
+      )}
+      {variant === 'pane' && Platform.OS !== 'ios' && keyboardUp && (
+        <Pressable style={styles.dismissBar} onPress={() => Keyboard.dismiss()}>
+          <Text style={styles.dismissText}>Done</Text>
+        </Pressable>
+      )}
     </View>
   );
+
+  if (variant === 'pane') {
+    return (
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        {content}
+      </KeyboardAvoidingView>
+    );
+  }
+  return content;
 }
 
 const styles = StyleSheet.create({
@@ -438,6 +523,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingBottom: 32,
     gap: 0,
+  },
+  scrollKeyboard: {
+    paddingBottom: 92,
   },
   pad14: {
     padding: 14,
@@ -533,6 +621,10 @@ const styles = StyleSheet.create({
     marginTop: 6,
     padding: 0,
     minHeight: 40,
+    maxHeight: 148,
+  },
+  notesInputKeyboard: {
+    maxHeight: 104,
   },
   subtasksHeader: {
     flexDirection: 'row',
@@ -592,6 +684,53 @@ const styles = StyleSheet.create({
     fontFamily: fonts.sansMedium,
     fontSize: 14,
     color: colors.priorityHigh,
+  },
+  dismissBar: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: colors.surface,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  dismissText: {
+    fontFamily: fonts.sansSemiBold,
+    fontSize: 15,
+    color: colors.textPrimary,
+  },
+  sheetKeyboardDismissLayer: {
+    position: 'absolute',
+    right: 12,
+    bottom: 10,
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+    zIndex: 20,
+    elevation: 20,
+  },
+  keyboardAccessory: {
+    minHeight: 62,
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+    paddingRight: 12,
+    paddingBottom: 10,
+  },
+  keyboardDismissButton: {
+    width: 46,
+    height: 38,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 19,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255, 255, 255, 0.72)',
+    backgroundColor: 'rgba(255, 255, 255, 0.68)',
+    shadowColor: '#000',
+    shadowOpacity: 0.18,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 20,
   },
   menuPanel: {
     marginTop: 8,

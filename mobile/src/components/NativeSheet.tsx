@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   BottomSheetBackdrop,
   BottomSheetBackdropProps,
+  BottomSheetFooterProps,
   BottomSheetHandle,
   BottomSheetModal,
   BottomSheetView,
@@ -30,6 +31,8 @@ interface Props {
   contentStyle?: StyleProp<ViewStyle>;
   /** Sheet chrome colour; the default is the app surface, not the screen behind. */
   background?: string;
+  /** Optional bottom-sheet footer, useful for keyboard-adjacent floating controls. */
+  footerComponent?: React.FC<BottomSheetFooterProps>;
   children: React.ReactNode;
 }
 
@@ -51,6 +54,7 @@ export default function NativeSheet({
   snapPoints,
   contentStyle,
   background,
+  footerComponent,
   children,
 }: Props) {
   const insets = useSafeAreaInsets();
@@ -131,6 +135,7 @@ export default function NativeSheet({
       // the sheet closing — swiping the keyboard down, say.
       keyboardBlurBehavior={keyboard ? 'restore' : undefined}
       backdropComponent={renderBackdrop}
+      footerComponent={footerComponent}
       handleComponent={grabber ? BottomSheetHandle : null}
       handleIndicatorStyle={styles.indicator}
       style={styles.sheet}
