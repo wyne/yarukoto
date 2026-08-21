@@ -10,6 +10,8 @@ import {
   SORT_BY_OPTIONS,
   SortBy,
   ViewOptions,
+  hasArrangement,
+  sortLabel,
 } from '../data/viewOptions';
 
 interface Props {
@@ -17,9 +19,11 @@ interface Props {
   onClose: () => void;
   value: ViewOptions;
   onChange: (next: ViewOptions) => void;
+  /** Drops the current sort's hand-made arrangement, keeping the sort itself. */
+  onRestore: () => void;
 }
 
-export default function ViewOptionsSheet({ visible, onClose, value, onChange }: Props) {
+export default function ViewOptionsSheet({ visible, onClose, value, onChange, onRestore }: Props) {
   const accent = useAccent();
 
   const renderRow = <T extends string>(
@@ -54,6 +58,16 @@ export default function ViewOptionsSheet({ visible, onClose, value, onChange }: 
       )}
       {renderRow<SortBy>('Sort by', SORT_BY_OPTIONS, value.sortBy, (sortBy) =>
         onChange({ ...value, sortBy })
+      )}
+      {/* Switching sorts just stops matching this sort's arrangement, leaving it
+          intact for later. This is the way back for someone who wants to drop the
+          arrangement and keep the sort they already have. */}
+      {hasArrangement(value.arrangements, value.sortBy) && (
+        <Pressable style={styles.restore} onPress={onRestore}>
+          <Text style={styles.restoreText}>
+            Order customised — restore {sortLabel(value.sortBy)} sort
+          </Text>
+        </Pressable>
       )}
       <Pressable style={styles.doneBtn} onPress={onClose}>
         <Text style={styles.doneBtnText}>Done</Text>
@@ -95,6 +109,15 @@ const styles = StyleSheet.create({
   },
   chipTextActive: {
     color: '#fff',
+  },
+  restore: {
+    marginTop: -8,
+    marginBottom: 18,
+  },
+  restoreText: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 13,
+    color: colors.textTertiary,
   },
   doneBtn: {
     marginTop: 2,

@@ -17,7 +17,7 @@ import {
 import { isSameDay, toISODate } from '../data/dateUtils';
 import { QuickAddDefaults } from '../data/TaskContext';
 import { WEB_ENTRY } from '../data/platform';
-import { groupTasks, viewKey } from '../data/viewOptions';
+import { TaskGroup, groupTasks, hasArrangement, viewKey } from '../data/viewOptions';
 import { useCollapsedSections } from '../data/uiPrefs';
 import { Task } from '../data/types';
 import { TaskListFilter } from '../navigation/types';
@@ -32,6 +32,7 @@ import QuickAddBar from '../components/QuickAddBar';
 import BulkActionBar from '../components/BulkActionBar';
 import AddTaskFab from '../components/AddTaskFab';
 import ViewOptionsSheet from '../components/ViewOptionsSheet';
+import SortOverrideBanner from '../components/SortOverrideBanner';
 import DueDatePickerSheet from '../components/pickers/DueDatePickerSheet';
 import ListPickerSheet from '../components/pickers/ListPickerSheet';
 import TagPickerSheet from '../components/pickers/TagPickerSheet';
@@ -54,6 +55,8 @@ export default function TaskListScreen({ mode, filter }: Props) {
     toggleComplete,
     snoozeTask,
     reorderTasks,
+    setArrangement,
+    clearArrangement,
     deleteTasks,
     bulkUpdate,
     addTaskFromQuickAdd,
@@ -150,18 +153,39 @@ export default function TaskListScreen({ mode, filter }: Props) {
       options.groupBy === 'tag' && groupKey.startsWith('tag:') ? groupKey.slice(4) : filterHideTag,
   });
 
-  // Dragging only means anything under the manual order — any other sort would
-  // immediately override whatever the drag produced.
-  const canReorder = options.sortBy === 'manual' && !selectionMode && !query.trim();
+  // Every view is draggable. Under a sort the drag wins rather than being undone
+  // by the comparator: the view remembers that its order was customised and offers
+  // to restore the sort, instead of the drop rewriting the task to match where it
+  // landed. Search is the one exception — its results are a transient slice, so an
+  // arrangement made inside them wouldn't mean anything once the query clears.
+  const canReorder = !selectionMode && !query.trim();
 
-  const renderTaskCard = (tasks: typeof active, hide?: { hideListId?: string; hideTag?: string }) => (
+  const handleReorder = (
+    groupKey: string,
+    nextIds: string[],
+    moved: { id: string; prevId: string | null; nextId: string | null }
+  ) => {
+    // Custom order is a property of the tasks themselves, so it moves the one row.
+    // Every other sort records the arrangement against this view and group instead,
+    // leaving the tasks — and so every other view — untouched.
+    if (options.sortBy === 'manual') reorderTasks(moved.id, moved.prevId, moved.nextId);
+    else setArrangement(key, options.sortBy, groupKey, nextIds);
+  };
+
+  const arranged = hasArrangement(options.arrangements, options.sortBy);
+  const restoreSort = () => clearArrangement(key, options.sortBy);
+
+  const renderTaskCard = (group: TaskGroup) => {
+    const tasks = group.tasks;
+    const hide = groupHide(group.key);
+    return (
     <Card style={{ marginHorizontal: 12 }}>
       <DragList
         items={tasks}
         keyExtractor={(task) => task.id}
         enabled={canReorder}
         scrollableRef={scrollRef}
-        onReorder={reorderTasks}
+        onReorder={(ids, moved) => handleReorder(group.key, ids, moved)}
         renderItem={(task, i) => (
           <>
             <TaskRow
@@ -170,8 +194,8 @@ export default function TaskListScreen({ mode, filter }: Props) {
               now={now}
               selectionMode={selectionMode}
               showContext={wide}
-              hideListId={hide?.hideListId ?? filterHideListId}
-              hideTag={hide?.hideTag ?? filterHideTag}
+              hideListId={hide.hideListId}
+              hideTag={hide.hideTag}
               selected={selectedIds.includes(task.id)}
               onPress={() => (selectionMode ? toggleSelected(task.id) : openTask(task.id))}
               onToggleComplete={() => toggleComplete(task.id)}
@@ -183,7 +207,8 @@ export default function TaskListScreen({ mode, filter }: Props) {
         )}
       />
     </Card>
-  );
+    );
+  };
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top + 6 }]}>
@@ -240,6 +265,12 @@ export default function TaskListScreen({ mode, filter }: Props) {
         </View>
       )}
 
+      {arranged && !selectionMode && (
+        <View style={wide && styles.paneWide}>
+          <SortOverrideBanner sortBy={options.sortBy} onRestore={restoreSort} />
+        </View>
+      )}
+
       {/* Outside the ScrollView so it stays put instead of scrolling away. */}
       {WEB_ENTRY && !selectionMode && (
         <View style={[styles.quickAddBand, wide && styles.paneWide]}>
@@ -276,12 +307,12 @@ export default function TaskListScreen({ mode, filter }: Props) {
                       onToggle={() => sections.toggleGroup(group.key)}
                     />
                   </View>
-                  {!collapsed && renderTaskCard(group.tasks, groupHide(group.key))}
+                  {!collapsed && renderTaskCard(group)}
                 </View>
               );
             })
           ) : (
-            renderTaskCard(groups[0].tasks)
+            renderTaskCard(groups[0])
           ))}
 
         {completed.length > 0 && (
@@ -344,6 +375,7 @@ export default function TaskListScreen({ mode, filter }: Props) {
           setViewOptions(key, next);
           sections.expandAllGroups();
         }}
+        onRestore={restoreSort}
       />
 
       <DueDatePickerSheet

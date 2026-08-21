@@ -6,10 +6,15 @@ export type { GroupBy, SortBy };
 export interface ViewOptions {
   groupBy: GroupBy;
   sortBy: SortBy;
+  /** See `ViewPref.arrangements`. */
+  arrangements: Arrangements;
 }
 
+/** `sortBy → group key → task id → position within that group.` */
+export type Arrangements = Record<string, Record<string, Record<string, number>>>;
+
 /** 'manual' keeps the existing drag order, so a view looks unchanged until the user picks something. */
-export const DEFAULT_VIEW_OPTIONS: ViewOptions = { groupBy: 'none', sortBy: 'manual' };
+export const DEFAULT_VIEW_OPTIONS: ViewOptions = { groupBy: 'none', sortBy: 'manual', arrangements: {} };
 
 export const GROUP_BY_OPTIONS: { value: GroupBy; label: string }[] = [
   { value: 'none', label: 'None' },
@@ -39,7 +44,42 @@ export function viewKey(mode: string, filter?: { type: string; value: string }):
 /** The saved options for a view, or the defaults when it has never been configured. */
 export function viewOptionsFor(prefs: ViewPref[], key: string): ViewOptions {
   const pref = prefs.find((p) => p.id === key && !p.deletedAt);
-  return pref ? { groupBy: pref.groupBy, sortBy: pref.sortBy } : DEFAULT_VIEW_OPTIONS;
+  if (!pref) return DEFAULT_VIEW_OPTIONS;
+  // A server predating the column omits the field entirely.
+  return { groupBy: pref.groupBy, sortBy: pref.sortBy, arrangements: pref.arrangements ?? {} };
+}
+
+/** Human-readable name of the sort a view is arranged against, for the restore prompt. */
+export function sortLabel(sortBy: SortBy): string {
+  return SORT_BY_OPTIONS.find((o) => o.value === sortBy)?.label ?? sortBy;
+}
+
+/** The single group every ungrouped view uses, so it can be arranged like any other. */
+export const UNGROUPED_KEY = 'all';
+
+/** Positions the user dragged out for one group under one sort, if any. */
+export function arrangementFor(
+  arrangements: Arrangements,
+  sortBy: SortBy,
+  groupKey: string
+): Record<string, number> | undefined {
+  const group = arrangements[sortBy]?.[groupKey];
+  return group && Object.keys(group).length > 0 ? group : undefined;
+}
+
+/** Whether this sort has any hand-made arrangement left in this view. */
+export function hasArrangement(arrangements: Arrangements, sortBy: SortBy): boolean {
+  const bySort = arrangements[sortBy];
+  return !!bySort && Object.values(bySort).some((g) => Object.keys(g).length > 0);
+}
+
+/**
+ * A dropped sequence as stored positions. The gap is arbitrary — since an
+ * arrangement covers one group of one sort of one view, the whole sequence is
+ * rewritten on every drag and never has to be subdivided.
+ */
+export function arrangementFrom(ids: string[]): Record<string, number> {
+  return Object.fromEntries(ids.map((id, i) => [id, i * 1024]));
 }
 
 const PRIORITY_RANK: Record<Priority, number> = { high: 0, medium: 1, low: 2, none: 3 };
@@ -71,10 +111,30 @@ function comparator(sortBy: SortBy): ((a: Task, b: Task) => number) | null {
   }
 }
 
-export function sortTasks(tasks: Task[], sortBy: SortBy): Task[] {
-  const cmp = comparator(sortBy);
+/**
+ * Orders one group for display.
+ *
+ * A group the user has arranged by hand ignores the comparator, which would only
+ * undo what they built. Tasks with no position yet — created since, or newly
+ * matching the view — lead the group, matching where a new task already appears
+ * under the Custom order.
+ */
+export function sortTasks(tasks: Task[], options: ViewOptions, groupKey = UNGROUPED_KEY): Task[] {
   const byOrder = (a: Task, b: Task) => a.order - b.order;
-  return [...tasks].sort(cmp ? (a, b) => cmp(a, b) || byOrder(a, b) : byOrder);
+  const cmp = comparator(options.sortBy);
+  const natural = cmp ? (a: Task, b: Task) => cmp(a, b) || byOrder(a, b) : byOrder;
+
+  const arrangement = arrangementFor(options.arrangements, options.sortBy, groupKey);
+  if (!arrangement) return [...tasks].sort(natural);
+
+  return [...tasks].sort((a, b) => {
+    const pa = arrangement[a.id];
+    const pb = arrangement[b.id];
+    if (pa === undefined && pb === undefined) return natural(a, b);
+    if (pa === undefined) return -1;
+    if (pb === undefined) return 1;
+    return pa - pb;
+  });
 }
 
 export interface TaskGroup {
@@ -111,10 +171,10 @@ const DATE_BUCKET_ORDER = ['overdue', 'today', 'tomorrow', 'week', 'later', 'nod
  * Empty groups are dropped. `sortBy` orders tasks within each group.
  */
 export function groupTasks(tasks: Task[], options: ViewOptions, ctx: GroupContext): TaskGroup[] {
-  const { groupBy, sortBy } = options;
+  const { groupBy } = options;
 
   if (groupBy === 'none') {
-    return [{ key: 'all', label: '', tasks: sortTasks(tasks, sortBy) }];
+    return [{ key: UNGROUPED_KEY, label: '', tasks: sortTasks(tasks, options, UNGROUPED_KEY) }];
   }
 
   const buckets = new Map<string, TaskGroup>();
@@ -151,7 +211,7 @@ export function groupTasks(tasks: Task[], options: ViewOptions, ctx: GroupContex
 
   const groups = [...buckets.values()];
   groups.forEach((g) => {
-    g.tasks = sortTasks(g.tasks, sortBy);
+    g.tasks = sortTasks(g.tasks, options, g.key);
   });
 
   switch (groupBy) {

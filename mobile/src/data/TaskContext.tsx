@@ -6,7 +6,14 @@ import { FolderDef, ListDef, Priority, Task, ViewPref } from './types';
 import { addDays, toISODate } from './dateUtils';
 import { parseQuickAdd } from './quickAdd';
 import { newFolderId, newListId, newSubtaskId, newTaskId } from './ids';
-import { ViewOptions, viewOptionsFor } from './viewOptions';
+import {
+  Arrangements,
+  DEFAULT_VIEW_OPTIONS,
+  SortBy,
+  ViewOptions,
+  arrangementFrom,
+  viewOptionsFor,
+} from './viewOptions';
 import { LIST_COLORS } from '../theme/colors';
 import {
   AppMode,
@@ -52,7 +59,9 @@ type Action =
   | { type: 'ADD_SUBTASK'; taskId: string; title: string }
   | { type: 'TOGGLE_SUBTASK'; taskId: string; subtaskId: string }
   | { type: 'SNOOZE_TASK'; id: string }
-  | { type: 'REORDER_TASKS'; ids: string[] }
+  | { type: 'REORDER_TASKS'; id: string; prevId: string | null; nextId: string | null }
+  | { type: 'SET_ARRANGEMENT'; key: string; sortBy: SortBy; groupKey: string; ids: string[] }
+  | { type: 'CLEAR_ARRANGEMENT'; key: string; sortBy: SortBy }
   | { type: 'ADD_LIST'; list: ListDef }
   | { type: 'ADD_FOLDER'; folder: FolderDef }
   | { type: 'UPDATE_LIST'; id: string; patch: Partial<ListDef> }
@@ -83,6 +92,93 @@ function tombstoneListPrefs(prefs: ViewPref[], listIds: string[], now: string): 
   const doomed = new Set(viewPrefIdsForLists(prefs, listIds));
   if (doomed.size === 0) return prefs;
   return prefs.map((p) => (doomed.has(p.id) ? { ...p, deletedAt: now } : p));
+}
+
+/**
+ * Moves one task between two neighbours under the Custom order.
+ *
+ * Taking the midpoint of the neighbours it landed between touches exactly one
+ * record, so a drag no longer renumbers everything around it. `order` is a float
+ * and gaps start far apart, but halving the same gap repeatedly does eventually
+ * exhaust the precision — `ORDER_EPSILON` is where that stops being safe.
+ */
+const ORDER_EPSILON = 1e-6;
+
+function reorderTask(
+  tasks: Task[],
+  id: string,
+  prevId: string | null,
+  nextId: string | null
+): Task[] {
+  const moved = tasks.find((t) => t.id === id);
+  if (!moved) return tasks;
+  const prev = prevId ? tasks.find((t) => t.id === prevId) : undefined;
+  const next = nextId ? tasks.find((t) => t.id === nextId) : undefined;
+
+  let order: number;
+  if (prev && next) {
+    if (next.order - prev.order < ORDER_EPSILON) return renumber(tasks, id, prevId);
+    order = (prev.order + next.order) / 2;
+  } else if (prev) order = prev.order + 1;
+  else if (next) order = next.order - 1;
+  else return tasks;
+
+  return tasks.map((t) => (t.id === id ? { ...t, order } : t));
+}
+
+/**
+ * The precision escape hatch. Respaces every task by whole numbers in their
+ * current order, dropping the moved one in directly after its new predecessor,
+ * which reopens room to subdivide. Rewrites everything, so it only runs when the
+ * midpoint above genuinely has nowhere left to go.
+ */
+function renumber(tasks: Task[], id: string, prevId: string | null): Task[] {
+  const rest = [...tasks].sort((a, b) => a.order - b.order).filter((t) => t.id !== id);
+  const moved = tasks.find((t) => t.id === id)!;
+  const at = prevId ? rest.findIndex((t) => t.id === prevId) + 1 : 0;
+  const sequence = [...rest.slice(0, at), moved, ...rest.slice(at)];
+  const next = new Map(sequence.map((t, i) => [t.id, i]));
+  return tasks.map((t) => {
+    const order = next.get(t.id);
+    return order === undefined || order === t.order ? t : { ...t, order };
+  });
+}
+
+/** Applies a change to one view's arrangements, dropping keys that empty out. */
+function withArrangements(
+  prefs: ViewPref[],
+  key: string,
+  change: (current: Arrangements) => Arrangements
+): ViewPref[] {
+  return upsertViewPref(prefs, key, (existing) => ({
+    arrangements: change(existing.arrangements ?? {}),
+  }));
+}
+
+/**
+ * Creates or patches one view's saved options. `patch` receives the existing
+ * record so a caller can change one field without restating the rest.
+ */
+function upsertViewPref(
+  prefs: ViewPref[],
+  key: string,
+  patch: (existing: ViewPref) => Partial<ViewPref>
+): ViewPref[] {
+  const existing = prefs.find((p) => p.id === key);
+  const base: ViewPref = existing ?? {
+    id: key,
+    ...DEFAULT_VIEW_OPTIONS,
+    updatedAt: new Date().toISOString(),
+  };
+  const pref: ViewPref = {
+    ...base,
+    ...patch(base),
+    id: key,
+    // A view configured again after its list was deleted and restored should
+    // come back to life rather than stay tombstoned.
+    deletedAt: undefined,
+  };
+  return existing ? prefs.map((p) => (p.id === key ? pref : p)) : [...prefs, pref];
 }
 
 function applyAction(state: State, action: Action): State {
@@ -149,19 +245,26 @@ function applyAction(state: State, action: Action): State {
           t.id === action.id ? { ...t, dueDate: toISODate(addDays(new Date(), 1)) } : t
         ),
       };
-    case 'REORDER_TASKS': {
-      // `order` is global, but a reorder only ever happens inside one visible slice.
-      // Redistributing the order values that slice already holds rearranges those
-      // tasks relative to each other while leaving every other task's position alone.
-      const moving = new Set(action.ids);
-      const slots = state.tasks
-        .filter((t) => moving.has(t.id))
-        .map((t) => t.order)
-        .sort((a, b) => a - b);
-      const nextOrder = new Map(action.ids.map((id, i) => [id, slots[i]]));
+    case 'REORDER_TASKS':
+      return { ...state, tasks: reorderTask(state.tasks, action.id, action.prevId, action.nextId) };
+    case 'SET_ARRANGEMENT':
+      // A drag under an active sort. The whole group's sequence is recorded on the
+      // view; no task is touched, so the Custom order and every other view are left
+      // exactly as they were.
       return {
         ...state,
-        tasks: state.tasks.map((t) => (nextOrder.has(t.id) ? { ...t, order: nextOrder.get(t.id)! } : t)),
+        viewPrefs: withArrangements(state.viewPrefs, action.key, (current) => ({
+          ...current,
+          [action.sortBy]: {
+            ...current[action.sortBy],
+            [action.groupKey]: arrangementFrom(action.ids),
+          },
+        })),
+      };
+    case 'CLEAR_ARRANGEMENT': {
+      return {
+        ...state,
+        viewPrefs: withArrangements(state.viewPrefs, action.key, ({ [action.sortBy]: _drop, ...rest }) => rest),
       };
     }
     case 'ADD_LIST':
@@ -198,24 +301,18 @@ function applyAction(state: State, action: Action): State {
         viewPrefs: tombstoneListPrefs(state.viewPrefs, [...doomed], now),
       };
     }
-    case 'SET_VIEW_OPTIONS': {
-      const existing = state.viewPrefs.find((p) => p.id === action.key);
-      const pref: ViewPref = {
-        id: action.key,
-        groupBy: action.options.groupBy,
-        sortBy: action.options.sortBy,
-        // A view configured again after its list was deleted and restored should
-        // come back to life rather than stay tombstoned.
-        deletedAt: undefined,
-        updatedAt: existing?.updatedAt ?? new Date().toISOString(),
-      };
+    case 'SET_VIEW_OPTIONS':
       return {
         ...state,
-        viewPrefs: existing
-          ? state.viewPrefs.map((p) => (p.id === action.key ? pref : p))
-          : [...state.viewPrefs, pref],
+        // Arrangements are keyed by sort and by group, so switching either one
+        // simply stops matching — the ones that still apply keep applying, and
+        // switching back finds the old arrangement intact.
+        viewPrefs: upsertViewPref(state.viewPrefs, action.key, () => ({
+          groupBy: action.options.groupBy,
+          sortBy: action.options.sortBy,
+          arrangements: action.options.arrangements,
+        })),
       };
-    }
     case 'CONNECT':
       // Server data arrives via sync; nothing is seeded locally.
       return {
@@ -362,7 +459,9 @@ interface TaskContextValue {
   toggleSubtask: (taskId: string, subtaskId: string) => void;
   snoozeTask: (id: string) => void;
   /** `ids` is the visible slice in its new order. */
-  reorderTasks: (ids: string[]) => void;
+  reorderTasks: (id: string, prevId: string | null, nextId: string | null) => void;
+  setArrangement: (key: string, sortBy: SortBy, groupKey: string, ids: string[]) => void;
+  clearArrangement: (key: string, sortBy: SortBy) => void;
   addList: (name: string, folderId: string) => void;
   addFolder: (name: string) => void;
   setListColor: (listId: string, color: string) => void;
@@ -544,10 +643,29 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     },
     [markDirty]
   );
+  // Only the moved task changes, except in the rare renumbering case — so mark the
+  // group dirty rather than guessing, and let the reducer's identity check decide
+  // which rows actually carry a new `updatedAt`.
   const reorderTasks = useCallback(
-    (ids: string[]) => {
-      dispatch({ type: 'REORDER_TASKS', ids });
-      markDirty(ids);
+    (id: string, prevId: string | null, nextId: string | null) => {
+      dispatch({ type: 'REORDER_TASKS', id, prevId, nextId });
+      markDirty([id, prevId, nextId].filter((x): x is string => !!x));
+    },
+    [markDirty]
+  );
+  // An arrangement lives entirely on the view, so no task is dirtied here. That is
+  // the whole point: reordering under a sort must not disturb the Custom order.
+  const setArrangement = useCallback(
+    (key: string, sortBy: SortBy, groupKey: string, ids: string[]) => {
+      dispatch({ type: 'SET_ARRANGEMENT', key, sortBy, groupKey, ids });
+      markDirty([key]);
+    },
+    [markDirty]
+  );
+  const clearArrangement = useCallback(
+    (key: string, sortBy: SortBy) => {
+      dispatch({ type: 'CLEAR_ARRANGEMENT', key, sortBy });
+      markDirty([key]);
     },
     [markDirty]
   );
@@ -777,6 +895,8 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       toggleSubtask,
       snoozeTask,
       reorderTasks,
+      setArrangement,
+      clearArrangement,
       addList,
       addFolder,
       setListColor,
@@ -808,6 +928,8 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       toggleSubtask,
       snoozeTask,
       reorderTasks,
+      setArrangement,
+      clearArrangement,
       addList,
       addFolder,
       setListColor,
