@@ -3,6 +3,7 @@ import { InputAccessoryView, Keyboard, KeyboardAvoidingView, Platform, Pressable
 import { BottomSheetScrollView, BottomSheetTextInput } from '@gorhom/bottom-sheet';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, priorityColor } from '../theme/colors';
+import { hoverBg } from '../theme/hover';
 import { fonts } from '../theme/typography';
 import { useAccent } from '../theme/ThemeContext';
 import { useTasks } from '../data/TaskContext';
@@ -182,7 +183,7 @@ export default function TaskDetailView({ taskId, onClose, variant }: Props) {
         </Card>
 
         <Card style={{ marginTop: 12 }}>
-          <Pressable style={styles.metaRow} onPress={() => toggleMenu('due')}>
+          <Pressable style={hoverBg(styles.metaRow)} onPress={() => toggleMenu('due')}>
             <IconCalendarBox size={18} color={colors.textSecondary} />
             <Text style={styles.metaLabel}>Due</Text>
             <Text style={[styles.metaValue, task.dueDate && { color: accent }]}>
@@ -190,13 +191,13 @@ export default function TaskDetailView({ taskId, onClose, variant }: Props) {
             </Text>
           </Pressable>
           <Divider indent={44} />
-          <Pressable style={styles.metaRow} onPress={() => toggleMenu('list')}>
+          <Pressable style={hoverBg(styles.metaRow)} onPress={() => toggleMenu('list')}>
             <IconFolder size={18} color={colors.textSecondary} />
             <Text style={styles.metaLabel}>List</Text>
             <Text style={styles.metaValue}>{list ? `${folder?.name} / ${list.name}` : 'Inbox'}</Text>
           </Pressable>
           <Divider indent={44} />
-          <Pressable style={styles.metaRow} onPress={() => toggleMenu('tags')}>
+          <Pressable style={hoverBg(styles.metaRow)} onPress={() => toggleMenu('tags')}>
             <IconTag size={18} color={colors.textSecondary} />
             <Text style={styles.metaLabelFixed}>Tags</Text>
             <View style={styles.tagsWrap}>
@@ -218,11 +219,14 @@ export default function TaskDetailView({ taskId, onClose, variant }: Props) {
                 return (
                   <Pressable
                     key={p.key}
-                    style={[
-                      styles.priorityPill,
-                      active && p.key === 'high' && { backgroundColor: colors.priorityHighBg, borderColor: colors.priorityHigh },
-                      active && p.key !== 'high' && { borderColor: pColor },
-                    ]}
+                    style={hoverBg(
+                      [
+                        styles.priorityPill,
+                        active && p.key === 'high' && { backgroundColor: colors.priorityHighBg, borderColor: colors.priorityHigh },
+                        active && p.key !== 'high' && { borderColor: pColor },
+                      ],
+                      active
+                    )}
                     onPress={() => updateTask(task.id, { priority: p.key })}
                   >
                     <Text
@@ -260,7 +264,7 @@ export default function TaskDetailView({ taskId, onClose, variant }: Props) {
                       return (
                         <Pressable
                           key={opt.label}
-                          style={[styles.chip, active && { backgroundColor: accent, borderColor: accent }]}
+                          style={hoverBg([styles.chip, active && { backgroundColor: accent, borderColor: accent }], active)}
                           onPress={() => {
                             updateTask(task.id, { dueDate: val, dueTime: val ? task.dueTime : undefined });
                             closeMenu();
@@ -280,11 +284,14 @@ export default function TaskDetailView({ taskId, onClose, variant }: Props) {
                         <Pressable
                           key={opt.label}
                           disabled={disabled}
-                          style={[
-                            styles.chip,
-                            active && { backgroundColor: accent, borderColor: accent },
-                            disabled && styles.chipDisabled,
-                          ]}
+                          style={hoverBg(
+                            [
+                              styles.chip,
+                              active && { backgroundColor: accent, borderColor: accent },
+                              disabled && styles.chipDisabled,
+                            ],
+                            active || disabled
+                          )}
                           onPress={() => {
                             updateTask(task.id, { dueTime: opt.value });
                             closeMenu();
@@ -301,7 +308,7 @@ export default function TaskDetailView({ taskId, onClose, variant }: Props) {
               {menu === 'list' && (
                 <>
                   <Pressable
-                    style={styles.menuRow}
+                    style={hoverBg(styles.menuRow)}
                     onPress={() => {
                       updateTask(task.id, { listId: null });
                       closeMenu();
@@ -316,7 +323,7 @@ export default function TaskDetailView({ taskId, onClose, variant }: Props) {
                       {listsInFolder(state.lists, folder.id).map((list) => (
                         <Pressable
                           key={list.id}
-                          style={styles.menuRow}
+                          style={hoverBg(styles.menuRow)}
                           onPress={() => {
                             updateTask(task.id, { listId: list.id });
                             closeMenu();
@@ -342,7 +349,7 @@ export default function TaskDetailView({ taskId, onClose, variant }: Props) {
                       return (
                         <Pressable
                           key={tag}
-                          style={[styles.chip, active && { backgroundColor: accent, borderColor: accent }]}
+                          style={hoverBg([styles.chip, active && { backgroundColor: accent, borderColor: accent }], active)}
                           onPress={() => toggleTag(tag)}
                         >
                           <Text style={[styles.chipText, active && { color: '#fff' }]}>#{tag}</Text>
@@ -411,7 +418,7 @@ export default function TaskDetailView({ taskId, onClose, variant }: Props) {
             )}
           </View>
           {task.subtasks.map((st) => (
-            <Pressable key={st.id} style={styles.subtaskRow} onPress={() => toggleSubtask(task.id, st.id)}>
+            <Pressable key={st.id} style={hoverBg(styles.subtaskRow)} onPress={() => toggleSubtask(task.id, st.id)}>
               <TaskCheckbox completed={st.done} priority="none" onPress={() => toggleSubtask(task.id, st.id)} size={17} />
               <Text style={[styles.subtaskText, st.done && styles.subtaskDone]}>{st.title}</Text>
             </Pressable>
@@ -436,7 +443,7 @@ export default function TaskDetailView({ taskId, onClose, variant }: Props) {
               />
             </View>
           ) : (
-            <Pressable style={styles.subtaskRow} onPress={() => setAddingSubtask(true)}>
+            <Pressable style={hoverBg(styles.subtaskRow)} onPress={() => setAddingSubtask(true)}>
               <IconPlus size={15} color={colors.textTertiary} />
               <Text style={styles.addSubtaskText}>Add subtask</Text>
             </Pressable>
