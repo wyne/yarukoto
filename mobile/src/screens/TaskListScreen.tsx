@@ -32,6 +32,8 @@ import QuickAddBar from '../components/QuickAddBar';
 import BulkActionBar from '../components/BulkActionBar';
 import AddTaskFab from '../components/AddTaskFab';
 import ViewOptionsSheet from '../components/ViewOptionsSheet';
+import ContextMenuTarget from '../components/ContextMenuTarget';
+import TaskContextMenu from '../components/TaskContextMenu';
 import type { PopoverAnchor } from '../components/Popover';
 import SortOverrideBanner from '../components/SortOverrideBanner';
 import DueDatePickerSheet from '../components/pickers/DueDatePickerSheet';
@@ -53,6 +55,7 @@ export default function TaskListScreen({ mode, filter }: Props) {
   const { openTask } = useDetail();
   const {
     state,
+    updateTask,
     toggleComplete,
     snoozeTask,
     reorderTasks,
@@ -92,6 +95,40 @@ export default function TaskListScreen({ mode, filter }: Props) {
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const [moveOpen, setMoveOpen] = useState(false);
   const [tagOpen, setTagOpen] = useState(false);
+  // The task the right-click menu is open on. A context menu never implies a
+  // selection, so this is deliberately separate from `selectedIds`.
+  const [menuTask, setMenuTask] = useState<string | null>(null);
+  const [menuAt, setMenuAt] = useState<PopoverAnchor | null>(null);
+  const contextTask = state.tasks.find((t) => t.id === menuTask) ?? null;
+  const closeMenu = () => {
+    setMenuAt(null);
+    setMenuTask(null);
+  };
+
+  /**
+   * The task a picker was opened for, captured when the menu handed off.
+   *
+   * The pickers are shared with bulk select, so they need to know which of the
+   * two opened them. Reading `menuTask` directly would not do: it is cleared as
+   * the menu closes, and leaving it set instead would quietly aim the next bulk
+   * action at whatever was last right-clicked.
+   */
+  const [pickerTask, setPickerTask] = useState<string | null>(null);
+  const targetIds = pickerTask ? [pickerTask] : selectedIds;
+  const pickerFor = state.tasks.find((t) => t.id === pickerTask) ?? null;
+  const openPicker = (open: (v: boolean) => void) => {
+    setPickerTask(menuTask);
+    open(true);
+  };
+  const closePicker = (open: (v: boolean) => void) => () => {
+    open(false);
+    setPickerTask(null);
+  };
+  // Only a bulk edit has a selection to leave behind.
+  const finishPickers = () => {
+    if (!pickerTask) exitSelection();
+    setPickerTask(null);
+  };
 
   // The Inbox tab doubles as the host for list/tag filtered views, so the untriaged
   // restriction only applies when it's showing the actual Inbox.
@@ -199,7 +236,12 @@ export default function TaskListScreen({ mode, filter }: Props) {
         scrollableRef={scrollRef}
         onReorder={(ids, moved) => handleReorder(group.key, ids, moved)}
         renderItem={(task, i) => (
-          <>
+          <ContextMenuTarget
+            onOpen={(pos) => {
+              setMenuTask(task.id);
+              setMenuAt({ x: pos.x, y: pos.y, width: 0, height: 0 });
+            }}
+          >
             <TaskRow
               task={task}
               list={getListById(state.lists, task.listId)}
@@ -215,7 +257,7 @@ export default function TaskListScreen({ mode, filter }: Props) {
               onDone={() => toggleComplete(task.id)}
             />
             {i < tasks.length - 1 && <Divider />}
-          </>
+          </ContextMenuTarget>
         )}
       />
     </Card>
@@ -391,33 +433,45 @@ export default function TaskListScreen({ mode, filter }: Props) {
         anchor={optionsAnchor}
       />
 
+      <TaskContextMenu
+        task={contextTask}
+        at={menuAt}
+        onClose={closeMenu}
+        onPatch={(patch) => contextTask && updateTask(contextTask.id, patch)}
+        onPickDate={() => openPicker(setScheduleOpen)}
+        onMove={() => openPicker(setMoveOpen)}
+        onTags={() => openPicker(setTagOpen)}
+        onToggleComplete={() => contextTask && toggleComplete(contextTask.id)}
+        onDelete={() => contextTask && deleteTasks([contextTask.id])}
+      />
+
       <DueDatePickerSheet
         visible={scheduleOpen}
-        onClose={() => setScheduleOpen(false)}
+        onClose={closePicker(setScheduleOpen)}
         onApply={(dueDate, dueTime) => {
-          bulkUpdate(selectedIds, { dueDate, dueTime });
-          exitSelection();
+          bulkUpdate(targetIds, { dueDate, dueTime });
+          finishPickers();
         }}
       />
       <ListPickerSheet
         visible={moveOpen}
-        onClose={() => setMoveOpen(false)}
-        value={null}
+        onClose={closePicker(setMoveOpen)}
+        value={pickerFor?.listId ?? null}
         onApply={(listId) => {
-          bulkUpdate(selectedIds, { listId });
-          exitSelection();
+          bulkUpdate(targetIds, { listId });
+          finishPickers();
         }}
       />
       <TagPickerSheet
         visible={tagOpen}
-        onClose={() => setTagOpen(false)}
-        initialTags={[]}
+        onClose={closePicker(setTagOpen)}
+        initialTags={pickerFor?.tags ?? []}
         onApply={(tags) => {
-          selectedIds.forEach((id) => {
+          targetIds.forEach((id) => {
             const t = state.tasks.find((x) => x.id === id);
             if (t) bulkUpdate([id], { tags: Array.from(new Set([...t.tags, ...tags])) });
           });
-          exitSelection();
+          finishPickers();
         }}
       />
     </View>
