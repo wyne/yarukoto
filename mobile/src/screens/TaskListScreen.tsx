@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import Animated, { useAnimatedRef } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -32,6 +32,7 @@ import QuickAddBar from '../components/QuickAddBar';
 import BulkActionBar from '../components/BulkActionBar';
 import AddTaskFab from '../components/AddTaskFab';
 import ViewOptionsSheet from '../components/ViewOptionsSheet';
+import type { PopoverAnchor } from '../components/Popover';
 import SortOverrideBanner from '../components/SortOverrideBanner';
 import DueDatePickerSheet from '../components/pickers/DueDatePickerSheet';
 import ListPickerSheet from '../components/pickers/ListPickerSheet';
@@ -77,6 +78,17 @@ export default function TaskListScreen({ mode, filter }: Props) {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const sections = useCollapsedSections(key);
   const [optionsOpen, setOptionsOpen] = useState(false);
+  // Measured on press rather than on layout: the header shifts as search opens
+  // and the title's count changes width, so a stale rect would tether the popover
+  // to where the button used to be.
+  const optionsBtn = useRef<View>(null);
+  const [optionsAnchor, setOptionsAnchor] = useState<PopoverAnchor | null>(null);
+  const openOptions = () => {
+    optionsBtn.current?.measureInWindow((x, y, width, height) => {
+      setOptionsAnchor({ x, y, width, height });
+      setOptionsOpen(true);
+    });
+  };
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const [moveOpen, setMoveOpen] = useState(false);
   const [tagOpen, setTagOpen] = useState(false);
@@ -256,7 +268,7 @@ export default function TaskListScreen({ mode, filter }: Props) {
           >
             <IconSearch />
           </Pressable>
-          <Pressable onPress={() => setOptionsOpen(true)} hitSlop={8}>
+          <Pressable ref={optionsBtn} onPress={openOptions} hitSlop={8}>
             <IconViewOptions color={grouped || options.sortBy !== 'manual' ? accent : undefined} />
           </Pressable>
           <Pressable onPress={() => setSelectionMode(true)} hitSlop={8}>
@@ -376,6 +388,7 @@ export default function TaskListScreen({ mode, filter }: Props) {
           sections.expandAllGroups();
         }}
         onRestore={restoreSort}
+        anchor={optionsAnchor}
       />
 
       <DueDatePickerSheet
