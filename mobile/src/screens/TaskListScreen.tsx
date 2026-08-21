@@ -17,7 +17,7 @@ import {
 import { isSameDay, toISODate } from '../data/dateUtils';
 import { QuickAddDefaults } from '../data/TaskContext';
 import { WEB_ENTRY } from '../data/platform';
-import { TaskGroup, groupTasks, viewKey } from '../data/viewOptions';
+import { TaskGroup, groupTasks, hasArrangement, viewKey } from '../data/viewOptions';
 import { useCollapsedSections } from '../data/uiPrefs';
 import { Task } from '../data/types';
 import { TaskListFilter } from '../navigation/types';
@@ -55,7 +55,8 @@ export default function TaskListScreen({ mode, filter }: Props) {
     toggleComplete,
     snoozeTask,
     reorderTasks,
-    overrideSortOrder,
+    setArrangement,
+    clearArrangement,
     deleteTasks,
     bulkUpdate,
     addTaskFromQuickAdd,
@@ -159,19 +160,20 @@ export default function TaskListScreen({ mode, filter }: Props) {
   // arrangement made inside them wouldn't mean anything once the query clears.
   const canReorder = !selectionMode && !query.trim();
 
-  const handleReorder = (groupKey: string, nextIds: string[]) => {
-    if (options.sortBy === 'manual') {
-      reorderTasks(nextIds);
-      return;
-    }
-    // The override applies to the whole view, but a DragList only reports its own
-    // group. Every group's on-screen sequence has to be written into `order` or the
-    // untouched ones would jump the moment the comparator stops running.
-    const sequence = groups.flatMap((g) => (g.key === groupKey ? nextIds : g.tasks.map((t) => t.id)));
-    overrideSortOrder(key, sequence);
+  const handleReorder = (
+    groupKey: string,
+    nextIds: string[],
+    moved: { id: string; prevId: string | null; nextId: string | null }
+  ) => {
+    // Custom order is a property of the tasks themselves, so it moves the one row.
+    // Every other sort records the arrangement against this view and group instead,
+    // leaving the tasks — and so every other view — untouched.
+    if (options.sortBy === 'manual') reorderTasks(moved.id, moved.prevId, moved.nextId);
+    else setArrangement(key, options.sortBy, groupKey, nextIds);
   };
 
-  const restoreSort = () => setViewOptions(key, { ...options, sortOverridden: false });
+  const arranged = hasArrangement(options.arrangements, options.sortBy);
+  const restoreSort = () => clearArrangement(key, options.sortBy);
 
   const renderTaskCard = (group: TaskGroup) => {
     const tasks = group.tasks;
@@ -183,7 +185,7 @@ export default function TaskListScreen({ mode, filter }: Props) {
         keyExtractor={(task) => task.id}
         enabled={canReorder}
         scrollableRef={scrollRef}
-        onReorder={(ids) => handleReorder(group.key, ids)}
+        onReorder={(ids, moved) => handleReorder(group.key, ids, moved)}
         renderItem={(task, i) => (
           <>
             <TaskRow
@@ -263,7 +265,7 @@ export default function TaskListScreen({ mode, filter }: Props) {
         </View>
       )}
 
-      {options.sortOverridden && !selectionMode && (
+      {arranged && !selectionMode && (
         <View style={wide && styles.paneWide}>
           <SortOverrideBanner sortBy={options.sortBy} onRestore={restoreSort} />
         </View>
@@ -373,6 +375,7 @@ export default function TaskListScreen({ mode, filter }: Props) {
           setViewOptions(key, next);
           sections.expandAllGroups();
         }}
+        onRestore={restoreSort}
       />
 
       <DueDatePickerSheet

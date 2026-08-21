@@ -10,6 +10,7 @@ import {
   SORT_BY_OPTIONS,
   SortBy,
   ViewOptions,
+  hasArrangement,
   sortLabel,
 } from '../data/viewOptions';
 
@@ -18,9 +19,11 @@ interface Props {
   onClose: () => void;
   value: ViewOptions;
   onChange: (next: ViewOptions) => void;
+  /** Drops the current sort's hand-made arrangement, keeping the sort itself. */
+  onRestore: () => void;
 }
 
-export default function ViewOptionsSheet({ visible, onClose, value, onChange }: Props) {
+export default function ViewOptionsSheet({ visible, onClose, value, onChange, onRestore }: Props) {
   const accent = useAccent();
 
   const renderRow = <T extends string>(
@@ -56,10 +59,11 @@ export default function ViewOptionsSheet({ visible, onClose, value, onChange }: 
       {renderRow<SortBy>('Sort by', SORT_BY_OPTIONS, value.sortBy, (sortBy) =>
         onChange({ ...value, sortBy })
       )}
-      {/* Picking a *different* sort clears the override on its own; this is the way
-          back for someone who wants the sort they already have. */}
-      {value.sortOverridden && (
-        <Pressable style={styles.restore} onPress={() => onChange({ ...value, sortOverridden: false })}>
+      {/* Switching sorts just stops matching this sort's arrangement, leaving it
+          intact for later. This is the way back for someone who wants to drop the
+          arrangement and keep the sort they already have. */}
+      {hasArrangement(value.arrangements, value.sortBy) && (
+        <Pressable style={styles.restore} onPress={onRestore}>
           <Text style={styles.restoreText}>
             Order customised — restore {sortLabel(value.sortBy)} sort
           </Text>

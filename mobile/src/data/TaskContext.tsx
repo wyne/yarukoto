@@ -6,7 +6,14 @@ import { FolderDef, ListDef, Priority, Task, ViewPref } from './types';
 import { addDays, toISODate } from './dateUtils';
 import { parseQuickAdd } from './quickAdd';
 import { newFolderId, newListId, newSubtaskId, newTaskId } from './ids';
-import { DEFAULT_VIEW_OPTIONS, ViewOptions, viewOptionsFor } from './viewOptions';
+import {
+  Arrangements,
+  DEFAULT_VIEW_OPTIONS,
+  SortBy,
+  ViewOptions,
+  arrangementFrom,
+  viewOptionsFor,
+} from './viewOptions';
 import { LIST_COLORS } from '../theme/colors';
 import {
   AppMode,
@@ -52,8 +59,9 @@ type Action =
   | { type: 'ADD_SUBTASK'; taskId: string; title: string }
   | { type: 'TOGGLE_SUBTASK'; taskId: string; subtaskId: string }
   | { type: 'SNOOZE_TASK'; id: string }
-  | { type: 'REORDER_TASKS'; ids: string[] }
-  | { type: 'OVERRIDE_SORT_ORDER'; key: string; ids: string[] }
+  | { type: 'REORDER_TASKS'; id: string; prevId: string | null; nextId: string | null }
+  | { type: 'SET_ARRANGEMENT'; key: string; sortBy: SortBy; groupKey: string; ids: string[] }
+  | { type: 'CLEAR_ARRANGEMENT'; key: string; sortBy: SortBy }
   | { type: 'ADD_LIST'; list: ListDef }
   | { type: 'ADD_FOLDER'; folder: FolderDef }
   | { type: 'UPDATE_LIST'; id: string; patch: Partial<ListDef> }
@@ -87,27 +95,64 @@ function tombstoneListPrefs(prefs: ViewPref[], listIds: string[], now: string): 
 }
 
 /**
- * Rewrites `order` so `ids` end up in the given sequence.
+ * Moves one task between two neighbours under the Custom order.
  *
- * `order` is global, but a reorder only ever happens inside one visible slice.
- * Redistributing the order values that slice already holds rearranges those tasks
- * relative to each other while leaving every other task's position alone — and it
- * works whether the slice was on screen in `order` sequence or in a sort's.
- * Duplicate ids are ignored: grouping by tag deliberately shows one task under
- * several tags, but a task can only hold one order value.
+ * Taking the midpoint of the neighbours it landed between touches exactly one
+ * record, so a drag no longer renumbers everything around it. `order` is a float
+ * and gaps start far apart, but halving the same gap repeatedly does eventually
+ * exhaust the precision — `ORDER_EPSILON` is where that stops being safe.
  */
-function resequence(tasks: Task[], ids: string[]): Task[] {
-  const unique = [...new Set(ids)];
-  const moving = new Set(unique);
-  const slots = tasks
-    .filter((t) => moving.has(t.id))
-    .map((t) => t.order)
-    .sort((a, b) => a - b);
-  const nextOrder = new Map(unique.map((id, i) => [id, slots[i]]));
+const ORDER_EPSILON = 1e-6;
+
+function reorderTask(
+  tasks: Task[],
+  id: string,
+  prevId: string | null,
+  nextId: string | null
+): Task[] {
+  const moved = tasks.find((t) => t.id === id);
+  if (!moved) return tasks;
+  const prev = prevId ? tasks.find((t) => t.id === prevId) : undefined;
+  const next = nextId ? tasks.find((t) => t.id === nextId) : undefined;
+
+  let order: number;
+  if (prev && next) {
+    if (next.order - prev.order < ORDER_EPSILON) return renumber(tasks, id, prevId);
+    order = (prev.order + next.order) / 2;
+  } else if (prev) order = prev.order + 1;
+  else if (next) order = next.order - 1;
+  else return tasks;
+
+  return tasks.map((t) => (t.id === id ? { ...t, order } : t));
+}
+
+/**
+ * The precision escape hatch. Respaces every task by whole numbers in their
+ * current order, dropping the moved one in directly after its new predecessor,
+ * which reopens room to subdivide. Rewrites everything, so it only runs when the
+ * midpoint above genuinely has nowhere left to go.
+ */
+function renumber(tasks: Task[], id: string, prevId: string | null): Task[] {
+  const rest = [...tasks].sort((a, b) => a.order - b.order).filter((t) => t.id !== id);
+  const moved = tasks.find((t) => t.id === id)!;
+  const at = prevId ? rest.findIndex((t) => t.id === prevId) + 1 : 0;
+  const sequence = [...rest.slice(0, at), moved, ...rest.slice(at)];
+  const next = new Map(sequence.map((t, i) => [t.id, i]));
   return tasks.map((t) => {
-    const order = nextOrder.get(t.id);
+    const order = next.get(t.id);
     return order === undefined || order === t.order ? t : { ...t, order };
   });
+}
+
+/** Applies a change to one view's arrangements, dropping keys that empty out. */
+function withArrangements(
+  prefs: ViewPref[],
+  key: string,
+  change: (current: Arrangements) => Arrangements
+): ViewPref[] {
+  return upsertViewPref(prefs, key, (existing) => ({
+    arrangements: change(existing.arrangements ?? {}),
+  }));
 }
 
 /**
@@ -201,15 +246,25 @@ function applyAction(state: State, action: Action): State {
         ),
       };
     case 'REORDER_TASKS':
-      return { ...state, tasks: resequence(state.tasks, action.ids) };
-    case 'OVERRIDE_SORT_ORDER': {
-      // A drag under an active sort. Writing the on-screen sequence into `order`
-      // *before* the flag flips is what stops the list jumping the moment the
-      // comparator stops running — the two halves have to land together.
+      return { ...state, tasks: reorderTask(state.tasks, action.id, action.prevId, action.nextId) };
+    case 'SET_ARRANGEMENT':
+      // A drag under an active sort. The whole group's sequence is recorded on the
+      // view; no task is touched, so the Custom order and every other view are left
+      // exactly as they were.
       return {
         ...state,
-        tasks: resequence(state.tasks, action.ids),
-        viewPrefs: upsertViewPref(state.viewPrefs, action.key, (p) => ({ ...p, sortOverridden: true })),
+        viewPrefs: withArrangements(state.viewPrefs, action.key, (current) => ({
+          ...current,
+          [action.sortBy]: {
+            ...current[action.sortBy],
+            [action.groupKey]: arrangementFrom(action.ids),
+          },
+        })),
+      };
+    case 'CLEAR_ARRANGEMENT': {
+      return {
+        ...state,
+        viewPrefs: withArrangements(state.viewPrefs, action.key, ({ [action.sortBy]: _drop, ...rest }) => rest),
       };
     }
     case 'ADD_LIST':
@@ -249,15 +304,13 @@ function applyAction(state: State, action: Action): State {
     case 'SET_VIEW_OPTIONS':
       return {
         ...state,
-        viewPrefs: upsertViewPref(state.viewPrefs, action.key, (existing) => ({
+        // Arrangements are keyed by sort and by group, so switching either one
+        // simply stops matching — the ones that still apply keep applying, and
+        // switching back finds the old arrangement intact.
+        viewPrefs: upsertViewPref(state.viewPrefs, action.key, () => ({
           groupBy: action.options.groupBy,
           sortBy: action.options.sortBy,
-          // Picking a different sort is a fresh start: whatever arrangement
-          // overrode the *previous* sort has nothing to say about this one.
-          // Regrouping leaves the override alone, since `order` is global and
-          // the new groups re-form from it correctly.
-          sortOverridden:
-            action.options.sortBy !== existing.sortBy ? false : action.options.sortOverridden,
+          arrangements: action.options.arrangements,
         })),
       };
     case 'CONNECT':
@@ -406,8 +459,9 @@ interface TaskContextValue {
   toggleSubtask: (taskId: string, subtaskId: string) => void;
   snoozeTask: (id: string) => void;
   /** `ids` is the visible slice in its new order. */
-  reorderTasks: (ids: string[]) => void;
-  overrideSortOrder: (key: string, ids: string[]) => void;
+  reorderTasks: (id: string, prevId: string | null, nextId: string | null) => void;
+  setArrangement: (key: string, sortBy: SortBy, groupKey: string, ids: string[]) => void;
+  clearArrangement: (key: string, sortBy: SortBy) => void;
   addList: (name: string, folderId: string) => void;
   addFolder: (name: string) => void;
   setListColor: (listId: string, color: string) => void;
@@ -589,19 +643,29 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     },
     [markDirty]
   );
+  // Only the moved task changes, except in the rare renumbering case — so mark the
+  // group dirty rather than guessing, and let the reducer's identity check decide
+  // which rows actually carry a new `updatedAt`.
   const reorderTasks = useCallback(
-    (ids: string[]) => {
-      dispatch({ type: 'REORDER_TASKS', ids });
-      markDirty(ids);
+    (id: string, prevId: string | null, nextId: string | null) => {
+      dispatch({ type: 'REORDER_TASKS', id, prevId, nextId });
+      markDirty([id, prevId, nextId].filter((x): x is string => !!x));
     },
     [markDirty]
   );
-  // The view pref is an edit in its own right, so it syncs alongside the tasks
-  // whose order it just made authoritative.
-  const overrideSortOrder = useCallback(
-    (key: string, ids: string[]) => {
-      dispatch({ type: 'OVERRIDE_SORT_ORDER', key, ids });
-      markDirty([key, ...ids]);
+  // An arrangement lives entirely on the view, so no task is dirtied here. That is
+  // the whole point: reordering under a sort must not disturb the Custom order.
+  const setArrangement = useCallback(
+    (key: string, sortBy: SortBy, groupKey: string, ids: string[]) => {
+      dispatch({ type: 'SET_ARRANGEMENT', key, sortBy, groupKey, ids });
+      markDirty([key]);
+    },
+    [markDirty]
+  );
+  const clearArrangement = useCallback(
+    (key: string, sortBy: SortBy) => {
+      dispatch({ type: 'CLEAR_ARRANGEMENT', key, sortBy });
+      markDirty([key]);
     },
     [markDirty]
   );
@@ -831,7 +895,8 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       toggleSubtask,
       snoozeTask,
       reorderTasks,
-      overrideSortOrder,
+      setArrangement,
+      clearArrangement,
       addList,
       addFolder,
       setListColor,
@@ -863,7 +928,8 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       toggleSubtask,
       snoozeTask,
       reorderTasks,
-      overrideSortOrder,
+      setArrangement,
+      clearArrangement,
       addList,
       addFolder,
       setListColor,

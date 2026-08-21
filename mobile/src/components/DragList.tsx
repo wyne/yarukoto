@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import type { AnimatedRef } from 'react-native-reanimated';
@@ -13,8 +13,12 @@ interface Props<T> {
    * an empty slot where the row will land — no line indicator.
    */
   renderItem: (item: T, index: number) => React.ReactNode;
-  /** Receives every key in its new order, only when the order actually changed. */
-  onReorder: (keys: string[]) => void;
+  /**
+   * Fires only when the order actually changed. `keys` is the whole new sequence;
+   * `moved` names the dragged item and the two it came to rest between, which is
+   * all a single-item reorder needs to write.
+   */
+  onReorder: (keys: string[], moved: { id: string; prevId: string | null; nextId: string | null }) => void;
   /** When false the list is not draggable and behaves like a plain column. */
   enabled: boolean;
   /** Animated.ScrollView hosting this list; enables auto-scroll while dragging. */
@@ -36,6 +40,17 @@ export default function DragList<T>({ items, keyExtractor, renderItem, onReorder
   // so rows must carry an explicit width. Measure the column and pass it down.
   const [containerWidth, setContainerWidth] = useState<number | null>(null);
 
+  // Both spellings, so this keeps working if the library ever reports raw keys.
+  const keyMap = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const item of items) {
+      const key = keyExtractor(item);
+      m.set(key, key);
+      m.set(`.$${key}`, key);
+    }
+    return m;
+  }, [items, keyExtractor]);
+
   return (
     <View onLayout={(e) => setContainerWidth(e.nativeEvent.layout.width)}>
       <Sortable.Flex
@@ -55,9 +70,18 @@ export default function DragList<T>({ items, keyExtractor, renderItem, onReorder
         inactiveItemOpacity={0.45}
         hapticsEnabled
         onDragEnd={(params) => {
-          const next = params.indexToKey;
+          // The library reports React's child keys, which React mangles to '.$<key>'
+          // for keyed array children. Map them back before anything downstream tries
+          // to match them against task ids.
+          const unwrap = (k: string) => keyMap.get(k) ?? k;
+          const next = params.indexToKey.map(unwrap);
           const prev = items.map(keyExtractor);
-          if (next.join('\u0000') !== prev.join('\u0000')) onReorder(next);
+          if (next.join('\u0000') === prev.join('\u0000')) return;
+          onReorder(next, {
+            id: unwrap(params.key),
+            prevId: next[params.toIndex - 1] ?? null,
+            nextId: next[params.toIndex + 1] ?? null,
+          });
         }}
       >
         {items.map((item, index) => (

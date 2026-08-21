@@ -40,7 +40,7 @@ export interface ViewPrefRow {
   id: string;
   group_by: string;
   sort_by: string;
-  sort_overridden: number;
+  arrangements: string;
   updated_at: string;
   deleted_at: string | null;
 }
@@ -98,14 +98,26 @@ function asSortBy(value: string): SortBy {
   return SORT_BY_VALUES.includes(value as SortBy) ? (value as SortBy) : 'manual';
 }
 
+/**
+ * Arrangements are opaque to the server — it stores and returns them without
+ * interpreting the keys. Unparseable JSON degrades to "nothing arranged" rather
+ * than failing the pull, the same spirit as `asGroupBy` above.
+ */
+function asArrangements(value: string): ViewPref['arrangements'] {
+  try {
+    const parsed = JSON.parse(value || '{}');
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
 export function viewPrefFromRow(row: ViewPrefRow): ViewPref {
   return {
     id: row.id,
     groupBy: asGroupBy(row.group_by),
     sortBy: asSortBy(row.sort_by),
-    // Only meaningful against a live sort — a 'manual' view is already ordered by
-    // hand, so an override flag on one would be a state the client can't render.
-    sortOverridden: asSortBy(row.sort_by) !== 'manual' && !!row.sort_overridden,
+    arrangements: asArrangements(row.arrangements),
     updatedAt: row.updated_at,
     deletedAt: row.deleted_at ?? undefined,
   };

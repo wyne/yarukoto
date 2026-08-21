@@ -61,11 +61,14 @@ export interface ViewPref extends Synced {
   groupBy: GroupBy;
   sortBy: SortBy;
   /**
-   * Set once the user drags a row while `sortBy` is something other than 'manual'.
-   * The drag wins: the view falls back to the manual `order` and offers to restore
-   * the sort, rather than the drop rewriting the task's fields to match where it
-   * landed. Optional so a client talking to a server that predates the column
-   * degrades to "not overridden" instead of breaking.
+   * Arrangements the user has dragged out by hand, keyed `sortBy → group → task id`
+   * and holding each task's position within that group.
+   *
+   * Scoping them this narrowly is what keeps a drag under a sort from disturbing
+   * anything else: the task's own `order` — which *is* the Custom arrangement — is
+   * never touched, and a drop never rewrites the field being sorted on, so a
+   * reorder can't quietly change a priority or a due date. A group with no entry
+   * here is sorted by the comparator, exactly as before.
    */
-  sortOverridden?: boolean;
+  arrangements?: Record<string, Record<string, Record<string, number>>>;
 }
