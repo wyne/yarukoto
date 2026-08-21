@@ -1,5 +1,5 @@
 import React from 'react';
-import { Keyboard, Platform, Pressable, StyleProp, StyleSheet, ViewStyle, requireNativeComponent } from 'react-native';
+import { Keyboard, Platform, Pressable, StyleProp, StyleSheet, View, ViewStyle, requireNativeComponent } from 'react-native';
 import { colors } from '../theme/colors';
 import { IconChevronDown } from '../icons/Icons';
 
@@ -14,23 +14,50 @@ const IOSNativeGlassKeyboardDismissButton =
 
 export default function NativeGlassKeyboardDismissButton({ style }: Props) {
   if (Platform.OS === 'ios' && IOSNativeGlassKeyboardDismissButton) {
-    return <IOSNativeGlassKeyboardDismissButton style={[styles.nativeButton, style]} />;
+    return (
+      <View
+        accessible
+        accessibilityRole="button"
+        accessibilityLabel="Dismiss keyboard"
+        style={[styles.hitShield, style]}
+        onStartShouldSetResponder={() => true}
+        onMoveShouldSetResponder={() => true}
+        onResponderTerminationRequest={() => false}
+        onResponderRelease={() => Keyboard.dismiss()}
+      >
+        <IOSNativeGlassKeyboardDismissButton style={styles.nativeButton} />
+      </View>
+    );
   }
 
   return (
-    <Pressable
+    <View
+      accessible
       accessibilityRole="button"
       accessibilityLabel="Dismiss keyboard"
-      style={[styles.fallbackButton, style]}
-      onPress={() => Keyboard.dismiss()}
-      hitSlop={8}
+      style={[styles.hitShield, style]}
+      onStartShouldSetResponder={() => true}
+      onMoveShouldSetResponder={() => true}
+      onResponderTerminationRequest={() => false}
+      onResponderRelease={() => Keyboard.dismiss()}
     >
-      <IconChevronDown size={20} color={colors.textPrimary} strokeWidth={2.2} />
-    </Pressable>
+      <Pressable
+        style={styles.fallbackButton}
+        onPress={() => Keyboard.dismiss()}
+      >
+        <IconChevronDown size={20} color={colors.textPrimary} strokeWidth={2.2} />
+      </Pressable>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  hitShield: {
+    width: 64,
+    height: 56,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   nativeButton: {
     width: 56,
     height: 48,

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import BottomSheet from '../BottomSheet';
+import type { PopoverAnchor } from '../Popover';
 import { colors } from '../../theme/colors';
 import { fonts } from '../../theme/typography';
 import { useAccent } from '../../theme/ThemeContext';
@@ -10,11 +11,13 @@ import { tagCounts } from '../../data/selectors';
 interface Props {
   visible: boolean;
   onClose: () => void;
+  /** Forwarded to BottomSheet: a point makes this a popover on wide web. */
+  anchor?: PopoverAnchor | null;
   initialTags: string[];
   onApply: (tags: string[]) => void;
 }
 
-export default function TagPickerSheet({ visible, onClose, initialTags, onApply }: Props) {
+export default function TagPickerSheet({ visible, onClose, initialTags, onApply, anchor }: Props) {
   const accent = useAccent();
   const { state } = useTasks();
   const [selected, setSelected] = useState<string[]>(initialTags);
@@ -38,7 +41,13 @@ export default function TagPickerSheet({ visible, onClose, initialTags, onApply 
   };
 
   return (
-    <BottomSheet visible={visible} onClose={onClose} title="Tags">
+    <BottomSheet
+      visible={visible}
+      onClose={onClose}
+      title="Tags"
+      anchor={anchor}
+      popoverWidth={300}
+    >
       <View style={styles.chipsRow}>
         {allTags.map((tag) => {
           const active = selected.includes(tag);

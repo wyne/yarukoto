@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import BottomSheet from '../BottomSheet';
+import type { PopoverAnchor } from '../Popover';
 import { colors } from '../../theme/colors';
 import { fonts } from '../../theme/typography';
 import { useAccent } from '../../theme/ThemeContext';
@@ -9,6 +10,8 @@ import { addDays, toISODate } from '../../data/dateUtils';
 interface Props {
   visible: boolean;
   onClose: () => void;
+  /** Forwarded to BottomSheet: a point makes this a popover on wide web. */
+  anchor?: PopoverAnchor | null;
   initialDate?: string;
   initialTime?: string;
   onApply: (dueDate: string | undefined, dueTime: string | undefined) => void;
@@ -30,7 +33,7 @@ export const TIME_OPTIONS: { label: string; value: string | undefined }[] = [
   { label: 'No time', value: undefined },
 ];
 
-export default function DueDatePickerSheet({ visible, onClose, initialDate, initialTime, onApply }: Props) {
+export default function DueDatePickerSheet({ visible, onClose, initialDate, initialTime, onApply, anchor }: Props) {
   const accent = useAccent();
   const [date, setDate] = useState(initialDate);
   const [time, setTime] = useState(initialTime);
@@ -43,7 +46,13 @@ export default function DueDatePickerSheet({ visible, onClose, initialDate, init
   }, [visible, initialDate, initialTime]);
 
   return (
-    <BottomSheet visible={visible} onClose={onClose} title="Due date">
+    <BottomSheet
+      visible={visible}
+      onClose={onClose}
+      title="Due date"
+      anchor={anchor}
+      popoverWidth={330}
+    >
       <Text style={styles.label}>Date</Text>
       <View style={styles.chipsRow}>
         {DATE_OPTIONS.map((opt) => {

@@ -1,6 +1,7 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import BottomSheet from '../BottomSheet';
+import type { PopoverAnchor } from '../Popover';
 import { colors } from '../../theme/colors';
 import { fonts } from '../../theme/typography';
 import { useAccent } from '../../theme/ThemeContext';
@@ -13,11 +14,13 @@ import {
 interface Props {
   visible: boolean;
   onClose: () => void;
+  /** Forwarded to BottomSheet: a point makes this a popover on wide web. */
+  anchor?: PopoverAnchor | null;
   value: string | null;
   onApply: (listId: string | null) => void;
 }
 
-export default function ListPickerSheet({ visible, onClose, value, onApply }: Props) {
+export default function ListPickerSheet({ visible, onClose, value, onApply, anchor }: Props) {
   const accent = useAccent();
   const { state } = useTasks();
 
@@ -27,7 +30,13 @@ export default function ListPickerSheet({ visible, onClose, value, onApply }: Pr
   };
 
   return (
-    <BottomSheet visible={visible} onClose={onClose} title="Move to list">
+    <BottomSheet
+      visible={visible}
+      onClose={onClose}
+      title="Move to list"
+      anchor={anchor}
+      popoverWidth={280}
+    >
       <Pressable style={styles.row} onPress={() => choose(null)}>
         <Text style={[styles.rowText, value === null && { color: accent, fontFamily: fonts.sansSemiBold }]}>Inbox</Text>
       </Pressable>
