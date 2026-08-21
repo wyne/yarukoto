@@ -14,6 +14,7 @@ class NativeGlassKeyboardDismissButtonManager: RCTViewManager {
 
 final class NativeGlassKeyboardDismissButton: UIView {
   private let button = UIButton(type: .system)
+  private lazy var touchShield = UIPanGestureRecognizer(target: self, action: #selector(absorbPanGesture))
 
   override init(frame: CGRect) {
     super.init(frame: frame)
@@ -41,6 +42,11 @@ final class NativeGlassKeyboardDismissButton: UIView {
     button.accessibilityTraits = [.button]
     button.addTarget(self, action: #selector(dismissKeyboard), for: .touchUpInside)
     configureButton()
+
+    touchShield.cancelsTouchesInView = true
+    touchShield.delaysTouchesBegan = false
+    touchShield.delaysTouchesEnded = false
+    addGestureRecognizer(touchShield)
 
     addSubview(button)
     NSLayoutConstraint.activate([
@@ -85,6 +91,12 @@ final class NativeGlassKeyboardDismissButton: UIView {
   @objc private func dismissKeyboard() {
     window?.endEditing(true)
     UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+  }
+
+  @objc private func absorbPanGesture(_ gesture: UIPanGestureRecognizer) {
+    // Intentionally empty. The recognizer exists so swipes that begin on the
+    // floating glass control are owned by the control instead of the scroll view
+    // or sheet underneath it.
   }
 
 }

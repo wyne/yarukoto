@@ -40,7 +40,7 @@ function KeyboardDismissFooter({ animatedFooterPosition }: BottomSheetFooterProp
   return (
     <BottomSheetFooter animatedFooterPosition={animatedFooterPosition} bottomInset={0} style={styles.keyboardFooter}>
       {keyboardVisible ? (
-        <View pointerEvents="box-none" style={styles.keyboardFooterInner}>
+        <View style={styles.keyboardFooterInner}>
           <NativeGlassKeyboardDismissButton />
         </View>
       ) : null}
