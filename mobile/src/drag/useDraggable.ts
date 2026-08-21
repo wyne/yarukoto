@@ -3,6 +3,14 @@ import { GestureResponderEvent, GestureResponderHandlers, PanResponder } from 'r
 import { DragPayload, useDrag } from './DragContext';
 import { Point } from './hitTest';
 import { lockDragGestures, unlockDragGestures } from './webDragLock';
+import { FINE_POINTER } from '../data/platform';
+
+/**
+ * How far a mouse must travel before it counts as dragging rather than clicking.
+ * Small enough to feel immediate, wide enough that the shake in an ordinary
+ * click never picks a row up.
+ */
+const MOUSE_DRAG_THRESHOLD = 5;
 
 /**
  * Bindings for a draggable row: spread the responder + touch handlers onto a
@@ -19,12 +27,17 @@ export interface DraggableBindings extends GestureResponderHandlers {
 /**
  * Spread the returned handlers onto a wrapper around a row to make it draggable.
  *
- * A drag is *armed* by the row's long press, never by touch down or small
- * movements, so the list keeps scrolling normally until a row is deliberately
- * picked up. Once armed, the next movement claims the pan responder and the ghost
- * follows the finger; a hold that goes nowhere is cleared by the wrapper's
- * touch-end handlers, and the browser's scroll/text-selection gestures are locked
- * out for the duration of the drag (web only).
+ * On a touchscreen a drag is *armed* by the row's long press, never by touch down
+ * or small movements, so the list keeps scrolling normally until a row is
+ * deliberately picked up. Once armed, the next movement claims the pan responder
+ * and the ghost follows the finger; a hold that goes nowhere is cleared by the
+ * wrapper's touch-end handlers, and the browser's scroll/text-selection gestures
+ * are locked out for the duration of the drag (web only).
+ *
+ * With a mouse the movement itself arms it, past a few pixels, which is how drag
+ * works everywhere else on a desktop. Holding still does nothing no matter how
+ * long — a click is a click — and scrolling is unaffected either way, being a
+ * wheel gesture there.
  *
  * Claims on the **capture** phase (see PR #6). Responder negotiation runs
  * root-down in capture and deepest-first in bubble, so the phase to use is decided
@@ -83,9 +96,15 @@ export function useDraggable(payload: DragPayload): DraggableBindings {
       ...PanResponder.create({
         // Never claims on touch down, so the row's own Pressable still receives taps.
         onStartShouldSetPanResponderCapture: () => false,
-        // Claims only once a long press has armed the row — scrolling is untouched
-        // until then.
-        onMoveShouldSetPanResponderCapture: () => armedRef.current,
+        // Claims once the row is armed: by a long press on touch, or by the
+        // movement itself with a mouse. Scrolling is untouched until then.
+        onMoveShouldSetPanResponderCapture: (e, g) => {
+          if (armedRef.current) return true;
+          if (!FINE_POINTER) return false;
+          if (Math.hypot(g.dx, g.dy) < MOUSE_DRAG_THRESHOLD) return false;
+          arm(e);
+          return true;
+        },
         // Records the finger's position when the responder takes over, so move()
         // can turn subsequent positions into deltas from it — the ghost follows
         // the finger's motion, not its absolute spot.
