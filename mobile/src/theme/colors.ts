@@ -45,6 +45,8 @@ export const colors = {
 
   accentTintBg: '#E4EAFE',
   selectedRowBg: '#E9EEFD',
+  /** Pointer resting on a row or menu item. Below selection, above the surface. */
+  hoverBg: '#F2F2EE',
 
   swipeLater: '#55554F',
   swipeDone: '#1E7A3C',

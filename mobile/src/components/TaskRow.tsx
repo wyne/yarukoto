@@ -3,6 +3,7 @@ import { GestureResponderEvent, GestureResponderHandlers, Pressable, StyleSheet,
 import { colors } from '../theme/colors';
 import { fonts } from '../theme/typography';
 import { useAccent } from '../theme/ThemeContext';
+import { hoverable } from '../theme/hover';
 import { Task, ListDef } from '../data/types';
 import { formatDueShort, isOverdue } from '../data/dateUtils';
 import TaskCheckbox from './TaskCheckbox';
@@ -37,6 +38,12 @@ interface Props {
   hideDue?: boolean;
   /** Shaded while it is the task being dragged, marking it as the drag source. */
   dragSource?: boolean;
+  /**
+   * Held in the hover state while a context menu is open on this row, so moving
+   * the pointer off it and into the menu doesn't lose track of what the menu is
+   * acting on.
+   */
+  menuOpen?: boolean;
   onPress: () => void;
   onLongPress?: (e: GestureResponderEvent) => void;
   onToggleComplete: () => void;
@@ -58,6 +65,7 @@ export default function TaskRow({
   leading,
   hideDue,
   dragSource,
+  menuOpen,
   onPress,
   onLongPress,
   onToggleComplete,
@@ -83,12 +91,18 @@ export default function TaskRow({
       onPress={onPress}
       onLongPress={onLongPress}
       delayLongPress={350}
-      style={[
-        styles.row,
-        selected && { backgroundColor: colors.selectedRowBg },
-        dragSource && { backgroundColor: colors.accentTintBg },
-        task.completed && styles.rowCompleted,
-      ]}
+      // Hover last so it can't paint over selection or the drag source tint,
+      // which say more about the row than the pointer's position does.
+      style={hoverable(
+        [
+          styles.row,
+          selected && { backgroundColor: colors.selectedRowBg },
+          dragSource && { backgroundColor: colors.accentTintBg },
+          task.completed && styles.rowCompleted,
+          menuOpen && !selected && !dragSource && styles.rowHovered,
+        ],
+        !selected && !dragSource ? styles.rowHovered : null
+      )}
     >
       {selectionMode ? (
         <Pressable onPress={onPress} hitSlop={10}>
@@ -170,6 +184,9 @@ const styles = StyleSheet.create({
     minHeight: 44,
     backgroundColor: colors.surface,
     ...(noTextSelect as object),
+  },
+  rowHovered: {
+    backgroundColor: colors.hoverBg,
   },
   rowCompleted: {
     opacity: 0.55,

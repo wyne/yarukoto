@@ -114,20 +114,26 @@ export default function TaskListScreen({ mode, filter }: Props) {
    * action at whatever was last right-clicked.
    */
   const [pickerTask, setPickerTask] = useState<string | null>(null);
+  // Kept alongside it so the picker can open as a popover at the same point the
+  // menu did, rather than sliding up from the bottom of the window.
+  const [pickerAt, setPickerAt] = useState<PopoverAnchor | null>(null);
   const targetIds = pickerTask ? [pickerTask] : selectedIds;
   const pickerFor = state.tasks.find((t) => t.id === pickerTask) ?? null;
   const openPicker = (open: (v: boolean) => void) => {
     setPickerTask(menuTask);
+    setPickerAt(menuAt);
     open(true);
   };
   const closePicker = (open: (v: boolean) => void) => () => {
     open(false);
     setPickerTask(null);
+    setPickerAt(null);
   };
   // Only a bulk edit has a selection to leave behind.
   const finishPickers = () => {
     if (!pickerTask) exitSelection();
     setPickerTask(null);
+    setPickerAt(null);
   };
 
   // The Inbox tab doubles as the host for list/tag filtered views, so the untriaged
@@ -247,6 +253,7 @@ export default function TaskListScreen({ mode, filter }: Props) {
               list={getListById(state.lists, task.listId)}
               now={now}
               selectionMode={selectionMode}
+              menuOpen={menuTask === task.id}
               showContext={wide}
               hideListId={hide.hideListId}
               hideTag={hide.hideTag}
@@ -448,6 +455,7 @@ export default function TaskListScreen({ mode, filter }: Props) {
       <DueDatePickerSheet
         visible={scheduleOpen}
         onClose={closePicker(setScheduleOpen)}
+        anchor={pickerAt}
         onApply={(dueDate, dueTime) => {
           bulkUpdate(targetIds, { dueDate, dueTime });
           finishPickers();
@@ -456,6 +464,7 @@ export default function TaskListScreen({ mode, filter }: Props) {
       <ListPickerSheet
         visible={moveOpen}
         onClose={closePicker(setMoveOpen)}
+        anchor={pickerAt}
         value={pickerFor?.listId ?? null}
         onApply={(listId) => {
           bulkUpdate(targetIds, { listId });
@@ -465,6 +474,7 @@ export default function TaskListScreen({ mode, filter }: Props) {
       <TagPickerSheet
         visible={tagOpen}
         onClose={closePicker(setTagOpen)}
+        anchor={pickerAt}
         initialTags={pickerFor?.tags ?? []}
         onApply={(tags) => {
           targetIds.forEach((id) => {

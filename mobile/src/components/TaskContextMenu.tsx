@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { colors, priorityColor } from '../theme/colors';
 import { fonts } from '../theme/typography';
 import { useAccent } from '../theme/ThemeContext';
+import { hoverable } from '../theme/hover';
 import { Priority, Task } from '../data/types';
 import { addDays, toISODate } from '../data/dateUtils';
 import Popover, { PopoverAnchor } from './Popover';
@@ -77,13 +78,16 @@ export default function TaskContextMenu({
             <Pressable
               key={d.label}
               onPress={run(() => onPatch({ dueDate: value }))}
-              style={[styles.chip, active && { backgroundColor: accent, borderColor: accent }]}
+              style={hoverable(
+                [styles.chip, active && { backgroundColor: accent, borderColor: accent }],
+                active ? null : styles.chipHovered
+              )}
             >
               <Text style={[styles.chipText, active && styles.chipTextActive]}>{d.label}</Text>
             </Pressable>
           );
         })}
-        <Pressable onPress={run(onPickDate)} style={styles.chip}>
+        <Pressable onPress={run(onPickDate)} style={hoverable(styles.chip, styles.chipHovered)}>
           <Text style={styles.chipText}>Pick…</Text>
         </Pressable>
       </View>
@@ -97,7 +101,10 @@ export default function TaskContextMenu({
             <Pressable
               key={p.value}
               onPress={run(() => onPatch({ priority: p.value }))}
-              style={[styles.chip, active && { backgroundColor: tint, borderColor: tint }]}
+              style={hoverable(
+                [styles.chip, active && { backgroundColor: tint, borderColor: tint }],
+                active ? null : styles.chipHovered
+              )}
             >
               <View style={[styles.dot, { borderColor: active ? '#fff' : tint }]} />
               <Text style={[styles.chipText, active && styles.chipTextActive]}>{p.label}</Text>
@@ -135,7 +142,7 @@ function Row({
   destructive?: boolean;
 }) {
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}>
+    <Pressable onPress={onPress} style={hoverable(styles.row, styles.rowHovered)}>
       <View style={styles.rowIcon}>{icon}</View>
       <Text style={[styles.rowText, destructive && { color: colors.priorityHigh }]}>{label}</Text>
     </Pressable>
@@ -167,6 +174,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 9,
     paddingVertical: 5,
   },
+  chipHovered: {
+    backgroundColor: colors.hoverBg,
+  },
   chipText: {
     fontFamily: fonts.sansMedium,
     fontSize: 12,
@@ -194,8 +204,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     paddingVertical: 8,
   },
-  rowPressed: {
-    backgroundColor: colors.chipBg,
+  rowHovered: {
+    backgroundColor: colors.hoverBg,
   },
   rowIcon: {
     width: 18,
