@@ -117,6 +117,14 @@ export default function TaskListScreen({ mode, filter }: Props) {
   // Kept alongside it so the picker can open as a popover at the same point the
   // menu did, rather than sliding up from the bottom of the window.
   const [pickerAt, setPickerAt] = useState<PopoverAnchor | null>(null);
+
+  /**
+   * The row the context-menu flow is currently acting on, whether that is the
+   * menu itself or a picker it handed off to. Holding the highlight across both
+   * lets the pointer travel row → menu → picker without losing sight of what is
+   * being edited; the menu is already closed by the time a picker is up.
+   */
+  const contextTaskId = menuTask ?? pickerTask;
   const targetIds = pickerTask ? [pickerTask] : selectedIds;
   const pickerFor = state.tasks.find((t) => t.id === pickerTask) ?? null;
   const openPicker = (open: (v: boolean) => void) => {
@@ -253,7 +261,7 @@ export default function TaskListScreen({ mode, filter }: Props) {
               list={getListById(state.lists, task.listId)}
               now={now}
               selectionMode={selectionMode}
-              menuOpen={menuTask === task.id}
+              contextActive={contextTaskId === task.id}
               showContext={wide}
               hideListId={hide.hideListId}
               hideTag={hide.hideTag}
