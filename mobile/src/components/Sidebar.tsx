@@ -3,6 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../theme/colors';
+import { hoverBg } from '../theme/hover';
 import { fonts } from '../theme/typography';
 import { useAccent } from '../theme/ThemeContext';
 import { useTasks } from '../data/TaskContext';
@@ -127,7 +128,7 @@ export default function Sidebar({ state, navigation, onNavigate }: Props) {
           return (
             <Pressable
               key={route}
-              style={[styles.row, collapsed && styles.rowCollapsed, active && { backgroundColor: colors.selectedRowBg }]}
+              style={hoverBg([styles.row, collapsed && styles.rowCollapsed, active && { backgroundColor: colors.selectedRowBg }], active)}
               onPress={() => go(route)}
               accessibilityLabel={label}
             >
@@ -174,7 +175,7 @@ export default function Sidebar({ state, navigation, onNavigate }: Props) {
                 return (
                   <Pressable
                     key={list.id}
-                    style={[styles.row, collapsed && styles.rowCollapsed, active && { backgroundColor: colors.selectedRowBg }]}
+                    style={hoverBg([styles.row, collapsed && styles.rowCollapsed, active && { backgroundColor: colors.selectedRowBg }], active)}
                     onPress={() => openFilter({ listId: list.id })}
                     accessibilityLabel={list.name}
                     onLongPress={() => setListTarget(list)}
@@ -205,7 +206,7 @@ export default function Sidebar({ state, navigation, onNavigate }: Props) {
         })}
 
         {!collapsed && (
-          <Pressable style={styles.newFolderRow} onPress={() => setNewFolderOpen(true)} accessibilityLabel="New folder">
+          <Pressable style={hoverBg(styles.newFolderRow)} onPress={() => setNewFolderOpen(true)} accessibilityLabel="New folder">
             <IconPlus size={15} color={colors.textTertiary} />
             <Text style={styles.newFolderLabel}>New folder</Text>
           </Pressable>
@@ -219,7 +220,7 @@ export default function Sidebar({ state, navigation, onNavigate }: Props) {
               return (
                 <Pressable
                   key={tag}
-                  style={[styles.row, active && { backgroundColor: colors.selectedRowBg }]}
+                  style={hoverBg([styles.row, active && { backgroundColor: colors.selectedRowBg }], active)}
                   onPress={() => openFilter({ tag })}
                 >
                   <IconTag size={16} color={active ? accent : colors.textTertiary} />
@@ -238,7 +239,7 @@ export default function Sidebar({ state, navigation, onNavigate }: Props) {
       </ScrollView>
 
       <Pressable
-        style={[styles.footer, collapsed && styles.footerCollapsed, { paddingBottom: Math.max(12, insets.bottom) }]}
+        style={hoverBg([styles.footer, collapsed && styles.footerCollapsed, { paddingBottom: Math.max(12, insets.bottom) }])}
         onPress={openServer}
         accessibilityLabel="Server connection"
       >

@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import BottomSheet from '../BottomSheet';
 import type { PopoverAnchor } from '../Popover';
 import { colors } from '../../theme/colors';
+import { hoverBg } from '../../theme/hover';
 import { fonts } from '../../theme/typography';
 import { useAccent } from '../../theme/ThemeContext';
 import { useTasks } from '../../data/TaskContext';
@@ -57,7 +58,7 @@ export default function TagPickerSheet({ visible, onClose, initialTags, onApply,
           return (
             <Pressable
               key={tag}
-              style={[styles.chip, active && { backgroundColor: accent, borderColor: accent }]}
+              style={hoverBg([styles.chip, active && { backgroundColor: accent, borderColor: accent }], active)}
               onPress={() => toggle(tag)}
             >
               <Text style={[styles.chipText, active && { color: '#fff' }]}>#{tag}</Text>
