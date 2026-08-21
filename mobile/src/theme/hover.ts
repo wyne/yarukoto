@@ -1,4 +1,5 @@
 import type { PressableStateCallbackType, StyleProp, ViewStyle } from 'react-native';
+import { colors } from './colors';
 
 /**
  * react-native-web reports hover in the Pressable state callback; React Native's
@@ -18,4 +19,14 @@ export function hoverable(base: StyleProp<ViewStyle>, hover: StyleProp<ViewStyle
     base,
     (state as PressState).hovered ? hover : null,
   ];
+}
+
+/**
+ * The common case: tint a row, menu item or chip while the pointer rests on it.
+ *
+ * `suppressed` is for surfaces that already carry a stronger state — a selected
+ * row, an active chip — where a hover tint would only muddy what it is saying.
+ */
+export function hoverBg(base: StyleProp<ViewStyle>, suppressed = false) {
+  return hoverable(base, suppressed ? null : { backgroundColor: colors.hoverBg });
 }

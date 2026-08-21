@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import BottomSheet from '../BottomSheet';
 import type { PopoverAnchor } from '../Popover';
 import { colors } from '../../theme/colors';
+import { hoverBg } from '../../theme/hover';
 import { fonts } from '../../theme/typography';
 import { useAccent } from '../../theme/ThemeContext';
 import { useTasks } from '../../data/TaskContext';
@@ -16,11 +17,13 @@ interface Props {
   onClose: () => void;
   /** Forwarded to BottomSheet: a point makes this a popover on wide web. */
   anchor?: PopoverAnchor | null;
+  /** Forwarded to BottomSheet: returns to the menu that opened this. */
+  onBack?: () => void;
   value: string | null;
   onApply: (listId: string | null) => void;
 }
 
-export default function ListPickerSheet({ visible, onClose, value, onApply, anchor }: Props) {
+export default function ListPickerSheet({ visible, onClose, value, onApply, anchor, onBack }: Props) {
   const accent = useAccent();
   const { state } = useTasks();
 
@@ -36,15 +39,16 @@ export default function ListPickerSheet({ visible, onClose, value, onApply, anch
       title="Move to list"
       anchor={anchor}
       popoverWidth={280}
+      onBack={onBack}
     >
-      <Pressable style={styles.row} onPress={() => choose(null)}>
+      <Pressable style={hoverBg(styles.row)} onPress={() => choose(null)}>
         <Text style={[styles.rowText, value === null && { color: accent, fontFamily: fonts.sansSemiBold }]}>Inbox</Text>
       </Pressable>
       {activeFolders(state.folders).map((folder) => (
         <View key={folder.id}>
           <Text style={styles.folderLabel}>{folder.name}</Text>
           {listsInFolder(state.lists, folder.id).map((list) => (
-            <Pressable key={list.id} style={styles.row} onPress={() => choose(list.id)}>
+            <Pressable key={list.id} style={hoverBg(styles.row)} onPress={() => choose(list.id)}>
               <View style={[styles.dot, { backgroundColor: list.color }]} />
               <Text style={[styles.rowText, value === list.id && { color: accent, fontFamily: fonts.sansSemiBold }]}>
                 {list.name}

@@ -21,6 +21,7 @@ import { TaskGroup, groupTasks, hasArrangement, viewKey } from '../data/viewOpti
 import { useCollapsedSections } from '../data/uiPrefs';
 import { Task } from '../data/types';
 import { TaskListFilter } from '../navigation/types';
+import { hoverBg } from '../theme/hover';
 import { PANE_MAX_WIDTH, useSidebar } from '../navigation/SidebarContext';
 import { useDetail } from '../navigation/DetailContext';
 import TaskRow from '../components/TaskRow';
@@ -117,6 +118,14 @@ export default function TaskListScreen({ mode, filter }: Props) {
   // Kept alongside it so the picker can open as a popover at the same point the
   // menu did, rather than sliding up from the bottom of the window.
   const [pickerAt, setPickerAt] = useState<PopoverAnchor | null>(null);
+
+  /**
+   * The row the context-menu flow is currently acting on, whether that is the
+   * menu itself or a picker it handed off to. Holding the highlight across both
+   * lets the pointer travel row → menu → picker without losing sight of what is
+   * being edited; the menu is already closed by the time a picker is up.
+   */
+  const contextTaskId = menuTask ?? pickerTask;
   const targetIds = pickerTask ? [pickerTask] : selectedIds;
   const pickerFor = state.tasks.find((t) => t.id === pickerTask) ?? null;
   const openPicker = (open: (v: boolean) => void) => {
@@ -124,6 +133,21 @@ export default function TaskListScreen({ mode, filter }: Props) {
     setPickerAt(menuAt);
     open(true);
   };
+  /**
+   * A picker reached from the menu can step back to it, rather than leaving
+   * dismissal as the only way out of a choice you opened by mistake. Reopening
+   * at the same point puts the menu back exactly where it was.
+   */
+  const backToMenu = (open: (v: boolean) => void) =>
+    pickerTask
+      ? () => {
+          setMenuTask(pickerTask);
+          setMenuAt(pickerAt);
+          open(false);
+          setPickerTask(null);
+          setPickerAt(null);
+        }
+      : undefined;
   const closePicker = (open: (v: boolean) => void) => () => {
     open(false);
     setPickerTask(null);
@@ -253,7 +277,7 @@ export default function TaskListScreen({ mode, filter }: Props) {
               list={getListById(state.lists, task.listId)}
               now={now}
               selectionMode={selectionMode}
-              menuOpen={menuTask === task.id}
+              contextActive={contextTaskId === task.id}
               showContext={wide}
               hideListId={hide.hideListId}
               hideTag={hide.hideTag}
@@ -286,7 +310,7 @@ export default function TaskListScreen({ mode, filter }: Props) {
       ) : (
         <View style={[styles.header, wide && styles.paneWide]}>
           {!wide && (
-            <Pressable onPress={openDrawer} hitSlop={8}>
+            <Pressable onPress={openDrawer} hitSlop={8} style={hoverBg(styles.headerBtn)}>
               <IconMenu />
             </Pressable>
           )}
@@ -314,13 +338,14 @@ export default function TaskListScreen({ mode, filter }: Props) {
               setQuery('');
             }}
             hitSlop={8}
+            style={hoverBg(styles.headerBtn)}
           >
             <IconSearch />
           </Pressable>
-          <Pressable ref={optionsBtn} onPress={openOptions} hitSlop={8}>
+          <Pressable ref={optionsBtn} onPress={openOptions} hitSlop={8} style={hoverBg(styles.headerBtn)}>
             <IconViewOptions color={grouped || options.sortBy !== 'manual' ? accent : undefined} />
           </Pressable>
-          <Pressable onPress={() => setSelectionMode(true)} hitSlop={8}>
+          <Pressable onPress={() => setSelectionMode(true)} hitSlop={8} style={hoverBg(styles.headerBtn)}>
             <IconSelectMode />
           </Pressable>
         </View>
@@ -456,6 +481,7 @@ export default function TaskListScreen({ mode, filter }: Props) {
         visible={scheduleOpen}
         onClose={closePicker(setScheduleOpen)}
         anchor={pickerAt}
+        onBack={backToMenu(setScheduleOpen)}
         onApply={(dueDate, dueTime) => {
           bulkUpdate(targetIds, { dueDate, dueTime });
           finishPickers();
@@ -465,6 +491,7 @@ export default function TaskListScreen({ mode, filter }: Props) {
         visible={moveOpen}
         onClose={closePicker(setMoveOpen)}
         anchor={pickerAt}
+        onBack={backToMenu(setMoveOpen)}
         value={pickerFor?.listId ?? null}
         onApply={(listId) => {
           bulkUpdate(targetIds, { listId });
@@ -475,6 +502,7 @@ export default function TaskListScreen({ mode, filter }: Props) {
         visible={tagOpen}
         onClose={closePicker(setTagOpen)}
         anchor={pickerAt}
+        onBack={backToMenu(setTagOpen)}
         initialTags={pickerFor?.tags ?? []}
         onApply={(tags) => {
           targetIds.forEach((id) => {
@@ -499,6 +527,16 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingHorizontal: 16,
     paddingBottom: 10,
+  },
+  /**
+   * A bare icon has nothing to tint, so the button grows a padded, rounded area
+   * to hover against. The matching negative margin keeps that off the layout, so
+   * the header spaces itself exactly as it did before.
+   */
+  headerBtn: {
+    padding: 6,
+    margin: -6,
+    borderRadius: 8,
   },
   titleRow: {
     flex: 1,

@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import BottomSheet from '../BottomSheet';
 import type { PopoverAnchor } from '../Popover';
 import { colors } from '../../theme/colors';
+import { hoverBg } from '../../theme/hover';
 import { fonts } from '../../theme/typography';
 import { useAccent } from '../../theme/ThemeContext';
 import { useTasks } from '../../data/TaskContext';
@@ -13,11 +14,13 @@ interface Props {
   onClose: () => void;
   /** Forwarded to BottomSheet: a point makes this a popover on wide web. */
   anchor?: PopoverAnchor | null;
+  /** Forwarded to BottomSheet: returns to the menu that opened this. */
+  onBack?: () => void;
   initialTags: string[];
   onApply: (tags: string[]) => void;
 }
 
-export default function TagPickerSheet({ visible, onClose, initialTags, onApply, anchor }: Props) {
+export default function TagPickerSheet({ visible, onClose, initialTags, onApply, anchor, onBack }: Props) {
   const accent = useAccent();
   const { state } = useTasks();
   const [selected, setSelected] = useState<string[]>(initialTags);
@@ -47,6 +50,7 @@ export default function TagPickerSheet({ visible, onClose, initialTags, onApply,
       title="Tags"
       anchor={anchor}
       popoverWidth={300}
+      onBack={onBack}
     >
       <View style={styles.chipsRow}>
         {allTags.map((tag) => {
@@ -54,7 +58,7 @@ export default function TagPickerSheet({ visible, onClose, initialTags, onApply,
           return (
             <Pressable
               key={tag}
-              style={[styles.chip, active && { backgroundColor: accent, borderColor: accent }]}
+              style={hoverBg([styles.chip, active && { backgroundColor: accent, borderColor: accent }], active)}
               onPress={() => toggle(tag)}
             >
               <Text style={[styles.chipText, active && { color: '#fff' }]}>#{tag}</Text>

@@ -1,6 +1,7 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { colors } from '../theme/colors';
+import { hoverBg } from '../theme/hover';
 import { fonts } from '../theme/typography';
 import { useAccent } from '../theme/ThemeContext';
 import BottomSheet from './BottomSheet';
@@ -46,7 +47,7 @@ export default function ViewOptionsSheet({ visible, onClose, value, onChange, on
             <Pressable
               key={opt.value}
               onPress={() => onSelect(opt.value)}
-              style={[styles.chip, active && { backgroundColor: accent, borderColor: accent }]}
+              style={hoverBg([styles.chip, active && { backgroundColor: accent, borderColor: accent }], active)}
             >
               <Text style={[styles.chipText, active && styles.chipTextActive]}>{opt.label}</Text>
             </Pressable>
@@ -68,7 +69,7 @@ export default function ViewOptionsSheet({ visible, onClose, value, onChange, on
           intact for later. This is the way back for someone who wants to drop the
           arrangement and keep the sort they already have. */}
       {hasArrangement(value.arrangements, value.sortBy) && (
-        <Pressable style={styles.restore} onPress={onRestore}>
+        <Pressable style={hoverBg(styles.restore)} onPress={onRestore}>
           <Text style={styles.restoreText}>
             Order customised — restore {sortLabel(value.sortBy)} sort
           </Text>

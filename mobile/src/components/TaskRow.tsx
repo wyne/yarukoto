@@ -39,11 +39,11 @@ interface Props {
   /** Shaded while it is the task being dragged, marking it as the drag source. */
   dragSource?: boolean;
   /**
-   * Held in the hover state while a context menu is open on this row, so moving
-   * the pointer off it and into the menu doesn't lose track of what the menu is
-   * acting on.
+   * Held in the hover state while a context menu — or a picker it opened — is
+   * acting on this row, so moving the pointer away doesn't lose track of which
+   * task is being edited.
    */
-  menuOpen?: boolean;
+  contextActive?: boolean;
   onPress: () => void;
   onLongPress?: (e: GestureResponderEvent) => void;
   onToggleComplete: () => void;
@@ -65,7 +65,7 @@ export default function TaskRow({
   leading,
   hideDue,
   dragSource,
-  menuOpen,
+  contextActive,
   onPress,
   onLongPress,
   onToggleComplete,
@@ -99,7 +99,7 @@ export default function TaskRow({
           selected && { backgroundColor: colors.selectedRowBg },
           dragSource && { backgroundColor: colors.accentTintBg },
           task.completed && styles.rowCompleted,
-          menuOpen && !selected && !dragSource && styles.rowHovered,
+          contextActive && !selected && !dragSource && styles.rowHovered,
         ],
         !selected && !dragSource ? styles.rowHovered : null
       )}
