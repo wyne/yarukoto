@@ -156,7 +156,11 @@ export default function NativeSheet({
         onAnimate never fires and onShow never focuses the input.
       */}
       <BottomSheetView
-        style={[
+        // Flattened, not an array: the library spreads an array style straight
+        // into StyleSheet.compose, which takes exactly two arguments. Under
+        // react-native-web that throws and takes the whole sheet down — three
+        // entries is already one too many.
+        style={StyleSheet.flatten([
           styles.content,
           contentStyle,
           {
@@ -166,7 +170,7 @@ export default function NativeSheet({
             // leaves a gap under the content.
             paddingBottom: keyboard ? 12 : Math.max(16, insets.bottom),
           },
-        ]}
+        ])}
       >
         {!!title && <Text style={styles.title}>{title}</Text>}
         {children}

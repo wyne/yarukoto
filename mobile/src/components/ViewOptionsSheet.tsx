@@ -1,9 +1,11 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { colors } from '../theme/colors';
 import { fonts } from '../theme/typography';
 import { useAccent } from '../theme/ThemeContext';
 import BottomSheet from './BottomSheet';
+import Popover, { POPOVER_MIN_WIDTH, PopoverAnchor } from './Popover';
+import { WEB_ENTRY } from '../data/platform';
 import {
   GROUP_BY_OPTIONS,
   GroupBy,
@@ -21,10 +23,13 @@ interface Props {
   onChange: (next: ViewOptions) => void;
   /** Drops the current sort's hand-made arrangement, keeping the sort itself. */
   onRestore: () => void;
+  /** Where the header button sits, so the web popover can tether to it. */
+  anchor?: PopoverAnchor | null;
 }
 
-export default function ViewOptionsSheet({ visible, onClose, value, onChange, onRestore }: Props) {
+export default function ViewOptionsSheet({ visible, onClose, value, onChange, onRestore, anchor }: Props) {
   const accent = useAccent();
+  const { width } = useWindowDimensions();
 
   const renderRow = <T extends string>(
     label: string,
@@ -51,8 +56,8 @@ export default function ViewOptionsSheet({ visible, onClose, value, onChange, on
     </View>
   );
 
-  return (
-    <BottomSheet visible={visible} onClose={onClose} title="View options">
+  const body = (
+    <>
       {renderRow<GroupBy>('Group by', GROUP_BY_OPTIONS, value.groupBy, (groupBy) =>
         onChange({ ...value, groupBy })
       )}
@@ -69,6 +74,25 @@ export default function ViewOptionsSheet({ visible, onClose, value, onChange, on
           </Text>
         </Pressable>
       )}
+    </>
+  );
+
+  // A sheet travels the whole height of the window to answer a question asked in
+  // the top corner. With a pointer that reads as a detour, so a roomy web window
+  // gets a panel tethered to the button instead — and clicking away is the only
+  // exit it needs, which retires the Done button with it. A narrow browser keeps
+  // the sheet, which is the better shape on a phone.
+  if (WEB_ENTRY && width >= POPOVER_MIN_WIDTH) {
+    return (
+      <Popover visible={visible} onClose={onClose} anchor={anchor ?? null}>
+        {body}
+      </Popover>
+    );
+  }
+
+  return (
+    <BottomSheet visible={visible} onClose={onClose} title="View options">
+      {body}
       <Pressable style={styles.doneBtn} onPress={onClose}>
         <Text style={styles.doneBtnText}>Done</Text>
       </Pressable>
