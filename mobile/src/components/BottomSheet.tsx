@@ -1,10 +1,12 @@
 import React from 'react';
-import { StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import NativeSheet from './NativeSheet';
 import Popover, { POPOVER_MIN_WIDTH, PopoverAnchor } from './Popover';
 import { WEB_ENTRY } from '../data/platform';
 import { colors } from '../theme/colors';
 import { fonts } from '../theme/typography';
+import { hoverable } from '../theme/hover';
+import { IconChevronLeft } from '../icons/Icons';
 
 interface Props {
   visible: boolean;
@@ -17,6 +19,12 @@ interface Props {
    */
   anchor?: PopoverAnchor | null;
   popoverWidth?: number;
+  /**
+   * Returns to whatever opened this. Supplied when the picker was reached from
+   * a menu, so its title doubles as the way back rather than stranding the user
+   * with dismiss as the only exit.
+   */
+  onBack?: () => void;
   children: React.ReactNode;
 }
 
@@ -30,6 +38,7 @@ export default function BottomSheet({
   title,
   anchor,
   popoverWidth,
+  onBack,
   children,
 }: Props) {
   const { width } = useWindowDimensions();
@@ -37,7 +46,14 @@ export default function BottomSheet({
   if (anchor && WEB_ENTRY && width >= POPOVER_MIN_WIDTH) {
     return (
       <Popover visible={visible} onClose={onClose} anchor={anchor} align="start" width={popoverWidth}>
-        <Text style={styles.title}>{title}</Text>
+        {onBack ? (
+          <Pressable onPress={onBack} style={hoverable(styles.backRow, styles.backRowHovered)}>
+            <IconChevronLeft size={12} color={colors.textTertiary} />
+            <Text style={styles.title}>{title}</Text>
+          </Pressable>
+        ) : (
+          <Text style={[styles.title, styles.titleAlone]}>{title}</Text>
+        )}
         <View style={styles.body}>{children}</View>
       </Popover>
     );
@@ -57,7 +73,24 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
     textTransform: 'uppercase',
     color: colors.textTertiary,
+  },
+  titleAlone: {
     marginBottom: 10,
+  },
+  /** The whole header is the target, so the chevron isn't a 12px hit area. */
+  backRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    alignSelf: 'flex-start',
+    marginLeft: -5,
+    marginBottom: 8,
+    paddingHorizontal: 5,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  backRowHovered: {
+    backgroundColor: colors.hoverBg,
   },
   /** The sheet's own padding comes from NativeSheet; the popover card has its own. */
   body: {

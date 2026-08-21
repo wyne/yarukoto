@@ -13,11 +13,13 @@ interface Props {
   onClose: () => void;
   /** Forwarded to BottomSheet: a point makes this a popover on wide web. */
   anchor?: PopoverAnchor | null;
+  /** Forwarded to BottomSheet: returns to the menu that opened this. */
+  onBack?: () => void;
   initialTags: string[];
   onApply: (tags: string[]) => void;
 }
 
-export default function TagPickerSheet({ visible, onClose, initialTags, onApply, anchor }: Props) {
+export default function TagPickerSheet({ visible, onClose, initialTags, onApply, anchor, onBack }: Props) {
   const accent = useAccent();
   const { state } = useTasks();
   const [selected, setSelected] = useState<string[]>(initialTags);
@@ -47,6 +49,7 @@ export default function TagPickerSheet({ visible, onClose, initialTags, onApply,
       title="Tags"
       anchor={anchor}
       popoverWidth={300}
+      onBack={onBack}
     >
       <View style={styles.chipsRow}>
         {allTags.map((tag) => {

@@ -12,6 +12,8 @@ interface Props {
   onClose: () => void;
   /** Forwarded to BottomSheet: a point makes this a popover on wide web. */
   anchor?: PopoverAnchor | null;
+  /** Forwarded to BottomSheet: returns to the menu that opened this. */
+  onBack?: () => void;
   initialDate?: string;
   initialTime?: string;
   onApply: (dueDate: string | undefined, dueTime: string | undefined) => void;
@@ -33,7 +35,7 @@ export const TIME_OPTIONS: { label: string; value: string | undefined }[] = [
   { label: 'No time', value: undefined },
 ];
 
-export default function DueDatePickerSheet({ visible, onClose, initialDate, initialTime, onApply, anchor }: Props) {
+export default function DueDatePickerSheet({ visible, onClose, initialDate, initialTime, onApply, anchor, onBack }: Props) {
   const accent = useAccent();
   const [date, setDate] = useState(initialDate);
   const [time, setTime] = useState(initialTime);
@@ -52,6 +54,7 @@ export default function DueDatePickerSheet({ visible, onClose, initialDate, init
       title="Due date"
       anchor={anchor}
       popoverWidth={330}
+      onBack={onBack}
     >
       <Text style={styles.label}>Date</Text>
       <View style={styles.chipsRow}>

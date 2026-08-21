@@ -132,6 +132,21 @@ export default function TaskListScreen({ mode, filter }: Props) {
     setPickerAt(menuAt);
     open(true);
   };
+  /**
+   * A picker reached from the menu can step back to it, rather than leaving
+   * dismissal as the only way out of a choice you opened by mistake. Reopening
+   * at the same point puts the menu back exactly where it was.
+   */
+  const backToMenu = (open: (v: boolean) => void) =>
+    pickerTask
+      ? () => {
+          setMenuTask(pickerTask);
+          setMenuAt(pickerAt);
+          open(false);
+          setPickerTask(null);
+          setPickerAt(null);
+        }
+      : undefined;
   const closePicker = (open: (v: boolean) => void) => () => {
     open(false);
     setPickerTask(null);
@@ -464,6 +479,7 @@ export default function TaskListScreen({ mode, filter }: Props) {
         visible={scheduleOpen}
         onClose={closePicker(setScheduleOpen)}
         anchor={pickerAt}
+        onBack={backToMenu(setScheduleOpen)}
         onApply={(dueDate, dueTime) => {
           bulkUpdate(targetIds, { dueDate, dueTime });
           finishPickers();
@@ -473,6 +489,7 @@ export default function TaskListScreen({ mode, filter }: Props) {
         visible={moveOpen}
         onClose={closePicker(setMoveOpen)}
         anchor={pickerAt}
+        onBack={backToMenu(setMoveOpen)}
         value={pickerFor?.listId ?? null}
         onApply={(listId) => {
           bulkUpdate(targetIds, { listId });
@@ -483,6 +500,7 @@ export default function TaskListScreen({ mode, filter }: Props) {
         visible={tagOpen}
         onClose={closePicker(setTagOpen)}
         anchor={pickerAt}
+        onBack={backToMenu(setTagOpen)}
         initialTags={pickerFor?.tags ?? []}
         onApply={(tags) => {
           targetIds.forEach((id) => {

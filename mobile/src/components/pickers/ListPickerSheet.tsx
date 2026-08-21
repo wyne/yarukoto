@@ -16,11 +16,13 @@ interface Props {
   onClose: () => void;
   /** Forwarded to BottomSheet: a point makes this a popover on wide web. */
   anchor?: PopoverAnchor | null;
+  /** Forwarded to BottomSheet: returns to the menu that opened this. */
+  onBack?: () => void;
   value: string | null;
   onApply: (listId: string | null) => void;
 }
 
-export default function ListPickerSheet({ visible, onClose, value, onApply, anchor }: Props) {
+export default function ListPickerSheet({ visible, onClose, value, onApply, anchor, onBack }: Props) {
   const accent = useAccent();
   const { state } = useTasks();
 
@@ -36,6 +38,7 @@ export default function ListPickerSheet({ visible, onClose, value, onApply, anch
       title="Move to list"
       anchor={anchor}
       popoverWidth={280}
+      onBack={onBack}
     >
       <Pressable style={styles.row} onPress={() => choose(null)}>
         <Text style={[styles.rowText, value === null && { color: accent, fontFamily: fonts.sansSemiBold }]}>Inbox</Text>
