@@ -3,6 +3,7 @@ import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../theme/colors';
+import { hoverBg } from '../theme/hover';
 import { fonts } from '../theme/typography';
 import { useAccent } from '../theme/ThemeContext';
 import { InboxParams, MainTabParamList } from '../navigation/types';
@@ -70,25 +71,25 @@ export default function BrowseScreen({ navigation }: Props) {
 
       <ScrollView contentContainerStyle={[styles.scroll, wide && styles.paneWide]}>
         <Card>
-          <Pressable style={styles.smartRow} onPress={() => navigation.navigate('AllTab')}>
+          <Pressable style={hoverBg(styles.smartRow)} onPress={() => navigation.navigate('AllTab')}>
             <IconStack size={18} color={accent} />
             <Text style={styles.smartLabel}>All</Text>
             <Text style={styles.smartCount}>{activeTasks(state.tasks).length}</Text>
           </Pressable>
           <Divider indent={44} />
-          <Pressable style={styles.smartRow} onPress={() => navigation.navigate('TodayTab')}>
+          <Pressable style={hoverBg(styles.smartRow)} onPress={() => navigation.navigate('TodayTab')}>
             <IconClock size={18} color={accent} />
             <Text style={styles.smartLabel}>Today</Text>
             <Text style={styles.smartCount}>{tasksForToday(state.tasks, now).length}</Text>
           </Pressable>
           <Divider indent={44} />
-          <Pressable style={styles.smartRow} onPress={() => navigation.navigate('CalendarTab')}>
+          <Pressable style={hoverBg(styles.smartRow)} onPress={() => navigation.navigate('CalendarTab')}>
             <IconTrendUp size={18} color={accent} />
             <Text style={styles.smartLabel}>Upcoming</Text>
             <Text style={styles.smartCount}>{tasksUpcomingCount(state.tasks, now)}</Text>
           </Pressable>
           <Divider indent={44} />
-          <Pressable style={styles.smartRow} onPress={() => navigation.navigate('InboxTab')}>
+          <Pressable style={hoverBg(styles.smartRow)} onPress={() => navigation.navigate('InboxTab')}>
             <IconInboxTray size={18} color={accent} />
             <Text style={styles.smartLabel}>Inbox</Text>
             <Text style={styles.smartCount}>{inboxCount(state.tasks)}</Text>
@@ -109,7 +110,7 @@ export default function BrowseScreen({ navigation }: Props) {
                 {lists.map((list, i) => (
                   <View key={list.id}>
                     <Pressable
-                      style={styles.smartRow}
+                      style={hoverBg(styles.smartRow)}
                       onPress={() => openFilteredInbox({ listId: list.id })}
                       onLongPress={() => setListTarget(list)}
                       delayLongPress={350}
@@ -142,7 +143,7 @@ export default function BrowseScreen({ navigation }: Props) {
               {tags.map(({ tag, count }) => (
                 <Pressable
                   key={tag}
-                  style={styles.tagChip}
+                  style={hoverBg(styles.tagChip)}
                   onPress={() => openFilteredInbox({ tag })}
                 >
                   <Text style={styles.tagChipText}>
@@ -155,7 +156,7 @@ export default function BrowseScreen({ navigation }: Props) {
         )}
       </ScrollView>
 
-      <Pressable style={[styles.syncRow, wide && styles.paneWide]} onPress={confirmDisconnect}>
+      <Pressable style={hoverBg([styles.syncRow, wide && styles.paneWide])} onPress={confirmDisconnect}>
         <SyncIndicator mode={state.mode} status={syncStatus} serverUrl={state.serverUrl} />
       </Pressable>
 

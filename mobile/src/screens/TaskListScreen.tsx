@@ -21,6 +21,7 @@ import { TaskGroup, groupTasks, hasArrangement, viewKey } from '../data/viewOpti
 import { useCollapsedSections } from '../data/uiPrefs';
 import { Task } from '../data/types';
 import { TaskListFilter } from '../navigation/types';
+import { hoverBg } from '../theme/hover';
 import { PANE_MAX_WIDTH, useSidebar } from '../navigation/SidebarContext';
 import { useDetail } from '../navigation/DetailContext';
 import TaskRow from '../components/TaskRow';
@@ -309,7 +310,7 @@ export default function TaskListScreen({ mode, filter }: Props) {
       ) : (
         <View style={[styles.header, wide && styles.paneWide]}>
           {!wide && (
-            <Pressable onPress={openDrawer} hitSlop={8}>
+            <Pressable onPress={openDrawer} hitSlop={8} style={hoverBg(styles.headerBtn)}>
               <IconMenu />
             </Pressable>
           )}
@@ -337,13 +338,14 @@ export default function TaskListScreen({ mode, filter }: Props) {
               setQuery('');
             }}
             hitSlop={8}
+            style={hoverBg(styles.headerBtn)}
           >
             <IconSearch />
           </Pressable>
-          <Pressable ref={optionsBtn} onPress={openOptions} hitSlop={8}>
+          <Pressable ref={optionsBtn} onPress={openOptions} hitSlop={8} style={hoverBg(styles.headerBtn)}>
             <IconViewOptions color={grouped || options.sortBy !== 'manual' ? accent : undefined} />
           </Pressable>
-          <Pressable onPress={() => setSelectionMode(true)} hitSlop={8}>
+          <Pressable onPress={() => setSelectionMode(true)} hitSlop={8} style={hoverBg(styles.headerBtn)}>
             <IconSelectMode />
           </Pressable>
         </View>
@@ -525,6 +527,16 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingHorizontal: 16,
     paddingBottom: 10,
+  },
+  /**
+   * A bare icon has nothing to tint, so the button grows a padded, rounded area
+   * to hover against. The matching negative margin keeps that off the layout, so
+   * the header spaces itself exactly as it did before.
+   */
+  headerBtn: {
+    padding: 6,
+    margin: -6,
+    borderRadius: 8,
   },
   titleRow: {
     flex: 1,
