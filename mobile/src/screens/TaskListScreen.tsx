@@ -16,7 +16,7 @@ import {
 } from '../data/selectors';
 import { isSameDay, toISODate } from '../data/dateUtils';
 import { QuickAddDefaults } from '../data/TaskContext';
-import { WEB_ENTRY } from '../data/platform';
+import { FINE_POINTER, WEB_ENTRY } from '../data/platform';
 import { TaskGroup, groupTasks, hasArrangement, viewKey } from '../data/viewOptions';
 import { useCollapsedSections } from '../data/uiPrefs';
 import { Task } from '../data/types';
@@ -278,6 +278,7 @@ export default function TaskListScreen({ mode, filter }: Props) {
               now={now}
               selectionMode={selectionMode}
               contextActive={contextTaskId === task.id}
+              handleGutter={canReorder && FINE_POINTER}
               showContext={wide}
               hideListId={hide.hideListId}
               hideTag={hide.hideTag}

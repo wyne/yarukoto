@@ -39,6 +39,12 @@ interface Props {
   /** Shaded while it is the task being dragged, marking it as the drag source. */
   dragSource?: boolean;
   /**
+   * Reserves room at the trailing edge for the drag grip, which is drawn over
+   * the row from outside it. Held open whether or not the grip is showing, so
+   * the metadata doesn't shift sideways as the pointer arrives.
+   */
+  handleGutter?: boolean;
+  /**
    * Held in the hover state while a context menu — or a picker it opened — is
    * acting on this row, so moving the pointer away doesn't lose track of which
    * task is being edited.
@@ -65,6 +71,7 @@ export default function TaskRow({
   leading,
   hideDue,
   dragSource,
+  handleGutter,
   contextActive,
   onPress,
   onLongPress,
@@ -99,6 +106,7 @@ export default function TaskRow({
           selected && { backgroundColor: colors.selectedRowBg },
           dragSource && { backgroundColor: colors.accentTintBg },
           task.completed && styles.rowCompleted,
+          handleGutter && styles.rowHandleGutter,
           contextActive && !selected && !dragSource && styles.rowHovered,
         ],
         !selected && !dragSource ? styles.rowHovered : null
@@ -184,6 +192,10 @@ const styles = StyleSheet.create({
     minHeight: 44,
     backgroundColor: colors.surface,
     ...(noTextSelect as object),
+  },
+  /** Matches the grip's width plus its offset from the edge. */
+  rowHandleGutter: {
+    paddingRight: 28,
   },
   rowHovered: {
     backgroundColor: colors.hoverBg,
