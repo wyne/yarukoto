@@ -37,6 +37,7 @@ import ContextMenuTarget from '../components/ContextMenuTarget';
 import TaskContextMenu from '../components/TaskContextMenu';
 import type { PopoverAnchor } from '../components/Popover';
 import SortOverrideBanner from '../components/SortOverrideBanner';
+import Tooltip from '../components/Tooltip';
 import DueDatePickerSheet from '../components/pickers/DueDatePickerSheet';
 import ListPickerSheet from '../components/pickers/ListPickerSheet';
 import TagPickerSheet from '../components/pickers/TagPickerSheet';
@@ -333,19 +334,23 @@ export default function TaskListScreen({ mode, filter }: Props) {
               <Text style={styles.count}>{active.length}</Text>
             </View>
           )}
-          <Pressable
-            onPress={() => {
-              setSearchOpen((v) => !v);
-              setQuery('');
-            }}
-            hitSlop={8}
-            style={hoverBg(styles.headerBtn)}
-          >
-            <IconSearch />
-          </Pressable>
-          <Pressable ref={optionsBtn} onPress={openOptions} hitSlop={8} style={hoverBg(styles.headerBtn)}>
-            <IconViewOptions color={grouped || options.sortBy !== 'manual' ? accent : undefined} />
-          </Pressable>
+          <Tooltip label="Search">
+            <Pressable
+              onPress={() => {
+                setSearchOpen((v) => !v);
+                setQuery('');
+              }}
+              hitSlop={8}
+              style={hoverBg(styles.headerBtn)}
+            >
+              <IconSearch />
+            </Pressable>
+          </Tooltip>
+          <Tooltip label="Group & sort">
+            <Pressable ref={optionsBtn} onPress={openOptions} hitSlop={8} style={hoverBg(styles.headerBtn)}>
+              <IconViewOptions color={grouped || options.sortBy !== 'manual' ? accent : undefined} />
+            </Pressable>
+          </Tooltip>
           <Pressable onPress={() => setSelectionMode(true)} hitSlop={8} style={hoverBg(styles.headerBtn)}>
             <IconSelectMode />
           </Pressable>
@@ -528,6 +533,10 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingHorizontal: 16,
     paddingBottom: 10,
+    // Lifts the whole bar over the quick-add field below it. A tooltip hangs
+    // under its button and so leaves the header's bounds; without this the
+    // field, being a later sibling, paints straight over it.
+    zIndex: 1,
   },
   /**
    * A bare icon has nothing to tint, so the button grows a padded, rounded area
