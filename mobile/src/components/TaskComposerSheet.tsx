@@ -16,7 +16,7 @@ import { parseQuickAdd } from '../data/quickAdd';
 import { formatDueShort } from '../data/dateUtils';
 import { activeFolders, getListById, listsInFolder } from '../data/selectors';
 import { applySuggestion, useQuickAddSuggestions } from '../data/quickAddSuggestions';
-import { DATE_OPTIONS } from './pickers/DueDatePickerSheet';
+import DueDateTimeControls from './pickers/DueDateTimeControls';
 import NativeSheet from './NativeSheet';
 import { IconCalendarBox, IconCheckBig, IconFlag, IconFolder, IconPlus, IconTag } from '../icons/Icons';
 
@@ -321,25 +321,16 @@ export default function TaskComposerSheet({ visible, onClose, defaults, contextL
                 </Pressable>
               ))}
 
-            {menu === 'date' &&
-              DATE_OPTIONS.map((opt) => (
-                <Pressable
-                  key={opt.label}
-                  style={styles.menuRow}
-                  onPress={() => {
-                    const next = opt.get(new Date());
-                    setDueDate(next);
-                    if (!next) setDueTime(undefined);
-                    closeMenu();
-                  }}
-                >
-                  <IconCalendarBox size={18} color={colors.textTertiary} />
-                  <Text style={styles.menuLabel}>{opt.label}</Text>
-                  {effective.dueDate === opt.get(new Date()) && (
-                    <IconCheckBig size={14} color={accent} strokeWidth={2.4} />
-                  )}
-                </Pressable>
-              ))}
+            {menu === 'date' && (
+              <DueDateTimeControls
+                date={effective.dueDate}
+                time={effective.dueTime}
+                onChange={(nextDate, nextTime) => {
+                  setDueDate(nextDate);
+                  setDueTime(nextTime);
+                }}
+              />
+            )}
 
             {/* Tags stay open on tap — picking several at once is the normal case. */}
             {menu === 'tags' && (
