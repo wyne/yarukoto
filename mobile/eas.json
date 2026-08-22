@@ -8,6 +8,9 @@
       "developmentClient": true,
       "distribution": "internal",
       "autoIncrement": true,
+      "ios": {
+        "image": "latest"
+      },
       "env": {
         "APP_VARIANT": "development"
       }

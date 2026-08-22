@@ -1,10 +1,17 @@
 import React from 'react';
-import { GestureResponderEvent, GestureResponderHandlers, Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  GestureResponderEvent,
+  GestureResponderHandlers,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { colors } from '../theme/colors';
 import { fonts } from '../theme/typography';
 import { useAccent } from '../theme/ThemeContext';
 import { hoverable } from '../theme/hover';
-import { FINE_POINTER } from '../data/platform';
 import { Task, ListDef } from '../data/types';
 import { formatDueShort, isOverdue } from '../data/dateUtils';
 import TaskCheckbox from './TaskCheckbox';
@@ -177,12 +184,13 @@ export default function TaskRow({
     </Pressable>
   );
 
-  // Swiping a row aside is a touch affordance, and with a mouse it is the same
-  // sideways motion as dragging one — so the two fight over every gesture. A
-  // pointer reaches Later and Done through the context menu and the checkbox
-  // instead. Phone browsers keep the swipe: there is no mouse drag to conflict
-  // with, and no room for a grip either.
-  if (selectionMode || task.completed || FINE_POINTER) return row;
+  // Native only. With a mouse the swipe is the same sideways motion as dragging
+  // a row somewhere, so the two fight over every gesture, and a pointer reaches
+  // Later and Done through the context menu and the checkbox anyway. Phone
+  // browsers lose it too: the gesture rides on gesture-handler's native
+  // recognizers, and matching that feel against a browser's own scrolling is not
+  // worth what the context menu already covers.
+  if (selectionMode || task.completed || Platform.OS === 'web') return row;
 
   return (
     <SwipeableRow onLater={onLater} onDone={onDone}>

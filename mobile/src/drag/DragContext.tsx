@@ -126,6 +126,16 @@ export function DragProvider({ children }: { children: React.ReactNode }) {
   return <DragContext.Provider value={value}>{children}</DragContext.Provider>;
 }
 
+/**
+ * Whether a drag is in flight, for components that only need to stand aside
+ * while one is. Safe outside a DragProvider, unlike {@link useDrag}: a row can
+ * be rendered somewhere no drag layer exists, and "no provider" is the same
+ * answer as "not dragging" to a caller that only wants to know.
+ */
+export function useDragActive(): boolean {
+  return useContext(DragContext)?.payload != null;
+}
+
 export function useDrag(): DragValue {
   const ctx = useContext(DragContext);
   if (!ctx) throw new Error('useDrag must be used within a DragProvider');

@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
+import { GlassView } from 'expo-glass-effect';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAccent } from '../theme/ThemeContext';
 import { PANE_MAX_WIDTH } from '../navigation/SidebarContext';
+import { LIQUID_GLASS } from '../data/platform';
 import { QuickAddDefaults } from '../data/TaskContext';
 import TaskComposerSheet from './TaskComposerSheet';
 import { IconPlusBig } from '../icons/Icons';
@@ -37,12 +39,19 @@ export default function AddTaskFab({ defaults, contextLabel, hidden }: Props) {
           style={[styles.anchor, { bottom: insets.bottom + 20 }]}
           pointerEvents="box-none"
         >
-          <Pressable
-            onPress={() => setOpen(true)}
-            style={[styles.fab, { backgroundColor: accent }]}
-            accessibilityLabel="New task"
-          >
-            <IconPlusBig size={24} color="#fff" strokeWidth={2.2} />
+          <Pressable onPress={() => setOpen(true)} accessibilityLabel="New task">
+            {LIQUID_GLASS ? (
+              // Tinted rather than clear: the button is the one thing on the
+              // screen that has to stay findable while the list scrolls under it,
+              // and the accent is what makes it findable.
+              <GlassView style={styles.fab} tintColor={accent} isInteractive>
+                <IconPlusBig size={24} color="#fff" strokeWidth={2.2} />
+              </GlassView>
+            ) : (
+              <View style={[styles.fab, styles.fabFlat, { backgroundColor: accent }]}>
+                <IconPlusBig size={24} color="#fff" strokeWidth={2.2} />
+              </View>
+            )}
           </Pressable>
         </View>
       )}
@@ -72,6 +81,9 @@ const styles = StyleSheet.create({
     borderRadius: 28,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  /** Glass lifts itself off the background; a flat disc needs the shadow to. */
+  fabFlat: {
     shadowColor: '#000',
     shadowOpacity: 0.24,
     shadowRadius: 12,
