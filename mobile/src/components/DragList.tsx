@@ -3,13 +3,6 @@ import { StyleSheet, View } from 'react-native';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import type { AnimatedRef } from 'react-native-reanimated';
 import Sortable, { useItemContext } from 'react-native-sortables';
-import { FINE_POINTER } from '../data/platform';
-
-/**
- * How far a mouse must travel before a press counts as a drag rather than a
- * click. Wide enough that the shake in an ordinary click never lifts a row.
- */
-const MOUSE_DRAG_DISTANCE = 5;
 
 interface Props<T> {
   items: T[];
@@ -68,15 +61,6 @@ export default function DragList<T>({ items, keyExtractor, renderItem, onReorder
         // pass the value through — stretch every row to the full card width.
         alignItems={'stretch' as never}
         sortEnabled={enabled}
-        // With a mouse, moving lifts the row straight away; holding still lifts
-        // it after the usual delay. Either gesture works, which is what a
-        // desktop expects. Touch is left alone: there a press-and-move is a
-        // scroll, so only the hold may claim it.
-        //
-        // `dragActivationDistance` does not exist upstream — see the patch in
-        // patches/react-native-sortables+1.10.0.patch, which activates on travel
-        // as well as on the timer.
-        dragActivationDistance={FINE_POINTER ? MOUSE_DRAG_DISTANCE : undefined}
         scrollableRef={scrollableRef}
         activeItemScale={1.03}
         activeItemOpacity={0.95}

@@ -31,7 +31,6 @@
   },
   "devDependencies": {
     "@types/react": "~19.2.2",
-    "patch-package": "^8.0.1",
     "typescript": "~6.0.3"
   },
   "scripts": {
@@ -40,8 +39,7 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "ios:dev": "APP_VARIANT=development npx expo prebuild --clean && APP_VARIANT=development expo run:ios",
-    "web": "expo start --web",
-    "postinstall": "patch-package"
+    "web": "expo start --web"
   },
   "private": true
 }
