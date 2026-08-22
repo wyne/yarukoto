@@ -4,6 +4,7 @@ import { colors } from '../theme/colors';
 import { fonts } from '../theme/typography';
 import { useAccent } from '../theme/ThemeContext';
 import { hoverable } from '../theme/hover';
+import { FINE_POINTER } from '../data/platform';
 import { Task, ListDef } from '../data/types';
 import { formatDueShort, isOverdue } from '../data/dateUtils';
 import TaskCheckbox from './TaskCheckbox';
@@ -39,6 +40,12 @@ interface Props {
   /** Shaded while it is the task being dragged, marking it as the drag source. */
   dragSource?: boolean;
   /**
+   * Reserves room at the trailing edge for the drag grip, which is drawn over
+   * the row from outside it. Held open whether or not the grip is showing, so
+   * the metadata doesn't shift sideways as the pointer arrives.
+   */
+  handleGutter?: boolean;
+  /**
    * Held in the hover state while a context menu — or a picker it opened — is
    * acting on this row, so moving the pointer away doesn't lose track of which
    * task is being edited.
@@ -65,6 +72,7 @@ export default function TaskRow({
   leading,
   hideDue,
   dragSource,
+  handleGutter,
   contextActive,
   onPress,
   onLongPress,
@@ -99,6 +107,7 @@ export default function TaskRow({
           selected && { backgroundColor: colors.selectedRowBg },
           dragSource && { backgroundColor: colors.accentTintBg },
           task.completed && styles.rowCompleted,
+          handleGutter && styles.rowHandleGutter,
           contextActive && !selected && !dragSource && styles.rowHovered,
         ],
         !selected && !dragSource ? styles.rowHovered : null
@@ -156,7 +165,12 @@ export default function TaskRow({
     </Pressable>
   );
 
-  if (selectionMode || task.completed) return row;
+  // Swiping a row aside is a touch affordance, and with a mouse it is the same
+  // sideways motion as dragging one — so the two fight over every gesture. A
+  // pointer reaches Later and Done through the context menu and the checkbox
+  // instead. Phone browsers keep the swipe: there is no mouse drag to conflict
+  // with, and no room for a grip either.
+  if (selectionMode || task.completed || FINE_POINTER) return row;
 
   return (
     <SwipeableRow onLater={onLater} onDone={onDone}>
@@ -184,6 +198,14 @@ const styles = StyleSheet.create({
     minHeight: 44,
     backgroundColor: colors.surface,
     ...(noTextSelect as object),
+  },
+  /**
+   * The grip's width and its offset from the edge (28), plus the same 12 the row
+   * puts between everything else. Sized only to the grip, metadata ends exactly
+   * where the grip begins and the two read as touching.
+   */
+  rowHandleGutter: {
+    paddingRight: 40,
   },
   rowHovered: {
     backgroundColor: colors.hoverBg,
