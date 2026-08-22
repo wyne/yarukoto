@@ -4,6 +4,7 @@ import { colors } from '../theme/colors';
 import { fonts } from '../theme/typography';
 import { useAccent } from '../theme/ThemeContext';
 import { hoverable } from '../theme/hover';
+import { FINE_POINTER } from '../data/platform';
 import { Task, ListDef } from '../data/types';
 import { formatDueShort, isOverdue } from '../data/dateUtils';
 import TaskCheckbox from './TaskCheckbox';
@@ -164,7 +165,12 @@ export default function TaskRow({
     </Pressable>
   );
 
-  if (selectionMode || task.completed) return row;
+  // Swiping a row aside is a touch affordance, and with a mouse it is the same
+  // sideways motion as dragging one — so the two fight over every gesture. A
+  // pointer reaches Later and Done through the context menu and the checkbox
+  // instead. Phone browsers keep the swipe: there is no mouse drag to conflict
+  // with, and no room for a grip either.
+  if (selectionMode || task.completed || FINE_POINTER) return row;
 
   return (
     <SwipeableRow onLater={onLater} onDone={onDone}>
@@ -193,9 +199,13 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     ...(noTextSelect as object),
   },
-  /** Matches the grip's width plus its offset from the edge. */
+  /**
+   * The grip's width and its offset from the edge (28), plus the same 12 the row
+   * puts between everything else. Sized only to the grip, metadata ends exactly
+   * where the grip begins and the two read as touching.
+   */
   rowHandleGutter: {
-    paddingRight: 28,
+    paddingRight: 40,
   },
   rowHovered: {
     backgroundColor: colors.hoverBg,
