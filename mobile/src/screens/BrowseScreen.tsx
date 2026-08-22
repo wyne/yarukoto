@@ -21,6 +21,7 @@ import {
   tasksUpcomingCount,
 } from '../data/selectors';
 import Card from '../components/Card';
+import GlassIconButton from '../components/GlassIconButton';
 import SyncIndicator from '../components/SyncIndicator';
 import Divider from '../components/Divider';
 import BottomSheet from '../components/BottomSheet';
@@ -59,14 +60,14 @@ export default function BrowseScreen({ navigation }: Props) {
     <View style={[styles.screen, { paddingTop: insets.top + 6 }]}>
       <View style={[styles.header, wide && styles.paneWide]}>
         {!wide && (
-          <Pressable onPress={openDrawer} hitSlop={8} style={styles.menuBtn}>
+          <GlassIconButton onPress={openDrawer} label="Menu">
             <IconMenu />
-          </Pressable>
+          </GlassIconButton>
         )}
         <Text style={styles.title}>Browse</Text>
-        <Pressable onPress={() => setAddOpen(true)} hitSlop={8}>
+        <GlassIconButton onPress={() => setAddOpen(true)} label="New list">
           <IconPlusBig color={accent} />
-        </Pressable>
+        </GlassIconButton>
       </View>
 
       <ScrollView contentContainerStyle={[styles.scroll, wide && styles.paneWide]}>
@@ -210,9 +211,6 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingHorizontal: 16,
     paddingBottom: 10,
-  },
-  menuBtn: {
-    justifyContent: 'center',
   },
   title: {
     flex: 1,

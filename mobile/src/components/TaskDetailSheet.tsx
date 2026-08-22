@@ -3,7 +3,7 @@ import { Keyboard, Platform, StyleSheet, View } from 'react-native';
 import { BottomSheetFooter, BottomSheetFooterProps } from '@gorhom/bottom-sheet';
 import { useDetail } from '../navigation/DetailContext';
 import { colors } from '../theme/colors';
-import NativeGlassKeyboardDismissButton from './NativeGlassKeyboardDismissButton';
+import KeyboardDismissButton from './KeyboardDismissButton';
 import NativeSheet from './NativeSheet';
 import TaskDetailView from './TaskDetailView';
 
@@ -41,7 +41,7 @@ function KeyboardDismissFooter({ animatedFooterPosition }: BottomSheetFooterProp
     <BottomSheetFooter animatedFooterPosition={animatedFooterPosition} bottomInset={0} style={styles.keyboardFooter}>
       {keyboardVisible ? (
         <View style={styles.keyboardFooterInner}>
-          <NativeGlassKeyboardDismissButton />
+          <KeyboardDismissButton />
         </View>
       ) : null}
     </BottomSheetFooter>

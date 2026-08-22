@@ -15,6 +15,7 @@
     "expo-crypto": "~57.0.1",
     "expo-dev-client": "~57.0.11",
     "expo-font": "^57.0.1",
+    "expo-glass-effect": "~57.0.1",
     "expo-haptics": "~57.0.1",
     "expo-status-bar": "~57.0.1",
     "react": "19.2.3",
@@ -36,9 +37,11 @@
   "scripts": {
     "start": "expo start",
     "start:dev": "APP_VARIANT=development expo start --dev-client",
+    "start:tailscale": "scripts/start-tailscale.sh",
     "android": "expo run:android",
     "ios": "expo run:ios",
     "ios:dev": "APP_VARIANT=development npx expo prebuild --clean && APP_VARIANT=development expo run:ios",
+    "install:ipa": "scripts/install-ipa.sh",
     "web": "expo start --web"
   },
   "private": true

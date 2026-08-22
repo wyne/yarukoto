@@ -61,6 +61,10 @@ export default function Tooltip({ label, align = 'end', placement = 'below', chi
     };
   }, []);
 
+  // Nothing to anchor without a pointer to hover: touch builds skip the wrapper
+  // rather than nest the trigger a level deeper for a bubble that never shows.
+  if (!FINE_POINTER) return <>{children}</>;
+
   return (
     <View ref={ref} style={styles.wrap}>
       {children}

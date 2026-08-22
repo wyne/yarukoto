@@ -40,14 +40,16 @@ export interface DraggableBindings extends GestureResponderHandlers {
  * wheel gesture there.
  *
  * Claims on the **capture** phase (see PR #6). Responder negotiation runs
- * root-down in capture and deepest-first in bubble, so the phase to use is decided
- * by who you have to beat:
+ * root-down in capture and deepest-first in bubble, so claiming in capture beats
+ * any descendant that wants the same touch.
  *
- *   this wrapper     beats a *descendant* SwipeableRow    -> capture
- *
- * Dragging a task to the calendar is mostly sideways, which is exactly the gesture
- * SwipeableRow treats as swipe-to-Done. Capture settles it in the drag's favour;
- * swipe still works everywhere the pane isn't.
+ * That used to be what settled drag against SwipeableRow, whose swipe to Done is
+ * the same mostly-sideways motion. It no longer is: the swipe is a
+ * gesture-handler recognizer now, and a JS responder claim doesn't reach it. The
+ * two are separated at the source instead — SwipeableRow disables itself while a
+ * drag is in flight, which this hook announces by arming the drag on long press,
+ * before any movement. Capture still earns its keep against everything else in
+ * the responder system.
  */
 export function useDraggable(payload: DragPayload): DraggableBindings {
   const { begin, move, end, cancel } = useDrag();

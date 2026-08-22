@@ -17,6 +17,8 @@ import SchedulePane from './calendar/SchedulePane';
 import WeekGrid from './calendar/WeekGrid';
 import QuickAddBar from '../components/QuickAddBar';
 import AddTaskFab from '../components/AddTaskFab';
+import { closeOpenSwipeRow } from '../components/SwipeableRow';
+import GlassIconButton, { GlassIconButtonGroup } from '../components/GlassIconButton';
 import { WEB_ENTRY } from '../data/platform';
 import { IconMenu } from '../icons/Icons';
 import { useDrag } from '../drag/DragContext';
@@ -180,21 +182,23 @@ export default function CalendarScreen() {
       <View style={styles.calendarCol}>
         <View style={styles.header}>
           {!wide && (
-            <Pressable onPress={openDrawer} hitSlop={8}>
+            <GlassIconButton onPress={openDrawer} label="Menu">
               <IconMenu />
-            </Pressable>
+            </GlassIconButton>
           )}
           <View style={styles.titleGroup}>
             <Pressable onPress={goToday} style={styles.titleBtn}>
               <Text style={styles.title}>{rangeLabel}</Text>
             </Pressable>
           </View>
-          <Pressable style={styles.navArrowBtn} onPress={() => step(-1)}>
-            <Text style={styles.navArrow}>‹</Text>
-          </Pressable>
-          <Pressable style={styles.navArrowBtn} onPress={() => step(1)}>
-            <Text style={styles.navArrow}>›</Text>
-          </Pressable>
+          <GlassIconButtonGroup>
+            <GlassIconButton onPress={() => step(-1)} label="Previous">
+              <Text style={styles.navArrow}>‹</Text>
+            </GlassIconButton>
+            <GlassIconButton onPress={() => step(1)} label="Next">
+              <Text style={styles.navArrow}>›</Text>
+            </GlassIconButton>
+          </GlassIconButtonGroup>
           {wide && (
             <View style={styles.modeToggle}>
               {(['day', 'multi', 'week'] as const).map((m) => (
@@ -265,6 +269,7 @@ export default function CalendarScreen() {
 
             <ScrollView
               ref={agendaRef}
+              onScrollBeginDrag={closeOpenSwipeRow}
               style={styles.agendaFrame}
               contentContainerStyle={[styles.agenda, !wide && !WEB_ENTRY && styles.agendaFab]}
               scrollEnabled={!payload}
@@ -310,12 +315,6 @@ const styles = StyleSheet.create({
   },
   titleBtn: {
     minHeight: 36,
-    justifyContent: 'center',
-  },
-  navArrowBtn: {
-    minWidth: 36,
-    minHeight: 36,
-    alignItems: 'center',
     justifyContent: 'center',
   },
   navArrow: {

@@ -1,13 +1,43 @@
-import React, { useRef, useState } from 'react';
-import { Animated, PanResponder, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useCallback, useEffect, useRef } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import ReanimatedSwipeable, {
+  type SwipeableMethods,
+} from 'react-native-gesture-handler/ReanimatedSwipeable';
 import { colors } from '../theme/colors';
+import { useDragActive } from '../drag/DragContext';
 import { IconCalendarBox, IconCheckBig } from '../icons/Icons';
 
 const ACTION_WIDTH = 66;
-const OPEN_X = -ACTION_WIDTH * 2;
 
-function clamp(v: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, v));
+/**
+ * How far the row must be left when the finger lifts for it to stay open. Well
+ * under half the travel, because the library adds the fling: a throw that has
+ * only covered 40pt but is still moving fast lands open, and a slow drag past
+ * 40pt does too.
+ */
+const OPEN_THRESHOLD = 40;
+
+/**
+ * Sideways movement before the swipe takes the gesture from the scroll view.
+ * Low enough to feel like it starts under the finger, high enough that the
+ * diagonal drift at the start of a vertical flick never trips it.
+ */
+const EDGE_OFFSET = 15;
+
+/**
+ * The row currently showing its actions, app-wide.
+ *
+ * One row open at a time is the point: rows left open behind you are the state
+ * the old implementation used to get stuck in. Kept as a module-level ref rather
+ * than context because nothing renders off it — it is only ever read to close
+ * the previous row.
+ */
+let openRow: SwipeableMethods | null = null;
+
+/** Closes whichever row is open. For scroll, navigation and mode changes. */
+export function closeOpenSwipeRow() {
+  openRow?.close();
+  openRow = null;
 }
 
 interface Props {
@@ -17,75 +47,106 @@ interface Props {
   disabled?: boolean;
 }
 
+/**
+ * Swipe a row left to reveal Later and Done.
+ *
+ * Built on gesture-handler's swipeable rather than a PanResponder: the row also
+ * sits inside a scroll view and a reorderable list, and a JS-thread responder
+ * can't arbitrate with either of those — they are native recognizers, so the two
+ * systems race instead of negotiating. Here the pan is a gesture-handler
+ * recognizer like theirs, which is what makes `EDGE_OFFSET` an actual handoff
+ * rather than a guess, and what keeps a stolen gesture from stranding the row
+ * half-open.
+ *
+ * Touch-only, by the caller's gating: with a mouse this is the same sideways
+ * motion as dragging a row somewhere, and the context menu already offers both
+ * actions.
+ */
 export default function SwipeableRow({ children, onLater, onDone, disabled }: Props) {
-  const translateX = useRef(new Animated.Value(0)).current;
-  const currentX = useRef(0);
-  const [open, setOpen] = useState(false);
+  const rowRef = useRef<SwipeableMethods>(null);
+  // A cross-pane drag is armed by holding the row, and moving off with it is
+  // also sideways. The drag wins outright while it is in flight.
+  const dragging = useDragActive();
 
-  const animateTo = (toValue: number) => {
-    currentX.current = toValue;
-    setOpen(toValue !== 0);
-    Animated.spring(translateX, { toValue, useNativeDriver: true, bounciness: 0, speed: 20 }).start();
-  };
+  const forget = useCallback(() => {
+    if (openRow === rowRef.current) openRow = null;
+  }, []);
 
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponderCapture: () => open,
-      onMoveShouldSetPanResponder: (_, g) => !disabled && Math.abs(g.dx) > 8 && Math.abs(g.dx) > Math.abs(g.dy),
-      onPanResponderMove: (_, g) => {
-        const next = clamp(currentX.current + g.dx, OPEN_X, 0);
-        translateX.setValue(next);
-      },
-      onPanResponderRelease: (_, g) => {
-        if (open && Math.abs(g.dx) < 4) {
-          animateTo(0);
-          return;
-        }
-        const next = clamp(currentX.current + g.dx, OPEN_X, 0);
-        animateTo(next < OPEN_X / 2 ? OPEN_X : 0);
-      },
-    })
-  ).current;
+  // Unmounting while open — completing the task from its own action does exactly
+  // this — would otherwise leave the registry pointing at a dead row.
+  useEffect(() => forget, [forget]);
 
-  const runAction = (fn: () => void) => {
-    animateTo(0);
+  const claim = useCallback(() => {
+    if (openRow && openRow !== rowRef.current) openRow.close();
+    openRow = rowRef.current;
+  }, []);
+
+  // Action first, close second: the tap is a request to do the thing, and
+  // nothing about shutting the row should be able to get in the way of it.
+  const runAction = useCallback((fn: () => void) => {
     fn();
-  };
+    rowRef.current?.close();
+  }, []);
+
+  /*
+   * React Native's Pressable, not gesture-handler's.
+   *
+   * Gesture-handler's is built on `Gesture.Native()` wrapping a native button,
+   * and nested inside the swipeable's own pan detector that button never sees
+   * the tap: the actions draw, and pressing them does nothing. The
+   * responder-system Pressable has no such quarrel with an ancestor recognizer.
+   *
+   * (Gesture-handler deprecates its own TouchableOpacity in favour of its
+   * Pressable, which is what led here. A deprecation notice is not worth a dead
+   * button.)
+   */
+  const actions = useCallback(
+    () => (
+      <View style={styles.actionsRow}>
+        <Pressable
+          style={[styles.action, { backgroundColor: colors.swipeLater }]}
+          onPress={() => runAction(onLater)}
+        >
+          <IconCalendarBox size={18} color="#fff" strokeWidth={1.6} />
+          <Text style={styles.actionLabel}>Later</Text>
+        </Pressable>
+        <Pressable
+          style={[styles.action, { backgroundColor: colors.swipeDone }]}
+          onPress={() => runAction(onDone)}
+        >
+          <IconCheckBig size={18} color="#fff" strokeWidth={2} />
+          <Text style={styles.actionLabel}>Done</Text>
+        </Pressable>
+      </View>
+    ),
+    [onDone, onLater, runAction]
+  );
 
   return (
-    <View style={styles.container}>
-      <View style={StyleSheet.absoluteFill}>
-        <View style={styles.actionsRow}>
-          <TouchableOpacity style={[styles.action, { backgroundColor: colors.swipeLater }]} onPress={() => runAction(onLater)}>
-            <IconCalendarBox size={18} color="#fff" strokeWidth={1.6} />
-            <Text style={styles.actionLabel}>Later</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[styles.action, { backgroundColor: colors.swipeDone }]} onPress={() => runAction(onDone)}>
-            <IconCheckBig size={18} color="#fff" strokeWidth={2} />
-            <Text style={styles.actionLabel}>Done</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-      <Animated.View
-        style={[styles.foreground, { transform: [{ translateX }] }]}
-        {...(disabled ? {} : panResponder.panHandlers)}
-      >
-        {children}
-      </Animated.View>
-    </View>
+    <ReanimatedSwipeable
+      ref={rowRef}
+      enabled={!disabled && !dragging}
+      renderRightActions={actions}
+      rightThreshold={OPEN_THRESHOLD}
+      dragOffsetFromRightEdge={EDGE_OFFSET}
+      // Nothing lives past the two actions, so there is nothing to stretch into.
+      overshootRight={false}
+      onSwipeableWillOpen={claim}
+      onSwipeableWillClose={forget}
+      containerStyle={styles.container}
+      childrenContainerStyle={styles.foreground}
+    >
+      {children}
+    </ReanimatedSwipeable>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    position: 'relative',
-    overflow: 'hidden',
     backgroundColor: colors.chipBg,
   },
   actionsRow: {
-    flex: 1,
     flexDirection: 'row',
-    justifyContent: 'flex-end',
   },
   action: {
     width: ACTION_WIDTH,

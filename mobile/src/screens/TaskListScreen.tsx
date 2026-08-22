@@ -21,7 +21,6 @@ import { TaskGroup, groupTasks, hasArrangement, viewKey } from '../data/viewOpti
 import { useCollapsedSections } from '../data/uiPrefs';
 import { Task } from '../data/types';
 import { TaskListFilter } from '../navigation/types';
-import { hoverBg } from '../theme/hover';
 import { PANE_MAX_WIDTH, useSidebar } from '../navigation/SidebarContext';
 import { useDetail } from '../navigation/DetailContext';
 import { useSelection } from '../navigation/SelectionContext';
@@ -39,6 +38,8 @@ import TaskContextMenu from '../components/TaskContextMenu';
 import type { PopoverAnchor } from '../components/Popover';
 import SortOverrideBanner from '../components/SortOverrideBanner';
 import Tooltip from '../components/Tooltip';
+import { closeOpenSwipeRow } from '../components/SwipeableRow';
+import GlassIconButton, { GlassIconButtonGroup } from '../components/GlassIconButton';
 import DueDatePickerSheet from '../components/pickers/DueDatePickerSheet';
 import ListPickerSheet from '../components/pickers/ListPickerSheet';
 import TagPickerSheet from '../components/pickers/TagPickerSheet';
@@ -267,6 +268,7 @@ export default function TaskListScreen({ mode, filter }: Props) {
    * selecting never needs a mode to be entered first.
    */
   const pressRow = (id: string) => {
+    closeOpenSwipeRow();
     if (!WEB_ENTRY) {
       if (selectionMode) toggleSelected(id);
       else openTask(id);
@@ -441,9 +443,9 @@ export default function TaskListScreen({ mode, filter }: Props) {
       ) : (
         <View style={[styles.header, wide && styles.paneWide]}>
           {!wide && (
-            <Pressable onPress={openDrawer} hitSlop={8} style={hoverBg(styles.headerBtn)}>
+            <GlassIconButton onPress={openDrawer} label="Menu">
               <IconMenu />
-            </Pressable>
+            </GlassIconButton>
           )}
           {searchOpen ? (
             <TextInput
@@ -463,31 +465,38 @@ export default function TaskListScreen({ mode, filter }: Props) {
               <Text style={styles.count}>{active.length}</Text>
             </View>
           )}
-          <Tooltip label="Search">
-            <Pressable
-              onPress={() => {
-                setSearchOpen((v) => !v);
-                setQuery('');
-              }}
-              hitSlop={8}
-              style={hoverBg(styles.headerBtn)}
-            >
-              <IconSearch />
-            </Pressable>
-          </Tooltip>
-          <Tooltip label="Group & sort">
-            <Pressable ref={optionsBtn} onPress={openOptions} hitSlop={8} style={hoverBg(styles.headerBtn)}>
-              <IconViewOptions color={grouped || options.sortBy !== 'manual' ? accent : undefined} />
-            </Pressable>
-          </Tooltip>
-          {/* Selecting on the web is shift-click, which needs no mode to enter,
-              so the button that entered one has nothing left to do. Touch keeps
-              it: there is no shift key to hold there. */}
-          {!WEB_ENTRY && (
-            <Pressable onPress={() => setSelectionMode(true)} hitSlop={8} style={hoverBg(styles.headerBtn)}>
-              <IconSelectMode />
-            </Pressable>
-          )}
+          <GlassIconButtonGroup>
+            <Tooltip label="Search">
+              <GlassIconButton
+                onPress={() => {
+                  setSearchOpen((v) => !v);
+                  setQuery('');
+                }}
+                label="Search"
+              >
+                <IconSearch />
+              </GlassIconButton>
+            </Tooltip>
+            <Tooltip label="Group & sort">
+              <GlassIconButton ref={optionsBtn} onPress={openOptions} label="Group & sort">
+                <IconViewOptions color={grouped || options.sortBy !== 'manual' ? accent : undefined} />
+              </GlassIconButton>
+            </Tooltip>
+            {/* Selecting on the web is shift-click, which needs no mode to enter,
+                so the button that entered one has nothing left to do. Touch keeps
+                it: there is no shift key to hold there. */}
+            {!WEB_ENTRY && (
+              <GlassIconButton
+                onPress={() => {
+                  closeOpenSwipeRow();
+                  setSelectionMode(true);
+                }}
+                label="Select tasks"
+              >
+                <IconSelectMode />
+              </GlassIconButton>
+            )}
+          </GlassIconButtonGroup>
         </View>
       )}
 
@@ -509,6 +518,8 @@ export default function TaskListScreen({ mode, filter }: Props) {
 
       <Animated.ScrollView
         ref={scrollRef}
+        // Scrolling away from an open row is how you dismiss it everywhere else.
+        onScrollBeginDrag={closeOpenSwipeRow}
         contentContainerStyle={[
           styles.scrollContent,
           !WEB_ENTRY && styles.scrollContentFab,
@@ -671,16 +682,6 @@ const styles = StyleSheet.create({
     // under its button and so leaves the header's bounds; without this the
     // field, being a later sibling, paints straight over it.
     zIndex: 1,
-  },
-  /**
-   * A bare icon has nothing to tint, so the button grows a padded, rounded area
-   * to hover against. The matching negative margin keeps that off the layout, so
-   * the header spaces itself exactly as it did before.
-   */
-  headerBtn: {
-    padding: 6,
-    margin: -6,
-    borderRadius: 8,
   },
   titleRow: {
     flex: 1,

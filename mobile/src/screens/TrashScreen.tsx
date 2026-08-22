@@ -12,6 +12,7 @@ import { getListById, trashedTasks } from '../data/selectors';
 import { formatDueShort } from '../data/dateUtils';
 import { confirmDestructive } from '../data/confirm';
 import Card from '../components/Card';
+import GlassIconButton from '../components/GlassIconButton';
 import Divider from '../components/Divider';
 import { IconMenu } from '../icons/Icons';
 
@@ -39,9 +40,9 @@ export default function TrashScreen({}: Props) {
     <View style={[styles.screen, { paddingTop: insets.top + 6 }]}>
       <View style={[styles.header, wide && styles.paneWide]}>
         {!wide && (
-          <Pressable onPress={openDrawer} hitSlop={8}>
+          <GlassIconButton onPress={openDrawer} label="Menu">
             <IconMenu />
-          </Pressable>
+          </GlassIconButton>
         )}
         <Text style={styles.title}>Trash</Text>
         <Text style={styles.count}>{tasks.length}</Text>

@@ -17,6 +17,7 @@ import {
 import { Task } from '../../data/types';
 import TaskRow from '../../components/TaskRow';
 import Card from '../../components/Card';
+import { closeOpenSwipeRow } from '../../components/SwipeableRow';
 import Divider from '../../components/Divider';
 import BottomSheet from '../../components/BottomSheet';
 import { useDraggable } from '../../drag/useDraggable';
@@ -82,6 +83,7 @@ export default function SchedulePane() {
       <ScrollView
         contentContainerStyle={styles.scroll}
         showsVerticalScrollIndicator={false}
+        onScrollBeginDrag={closeOpenSwipeRow}
         scrollEnabled={!payload}
       >
         {tasks.length === 0 ? (
