@@ -497,6 +497,12 @@ interface TaskContextValue {
   removeSavedServer: (url: string) => void;
   /** Live sync state, for the indicator in the sidebar. Only meaningful in server mode. */
   syncStatus: SyncStatus;
+  /**
+   * Runs a sync cycle now and resolves when it settles, for pull-to-refresh.
+   * Joins the cycle already in flight rather than starting a second one, and
+   * resolves immediately outside server mode, where there is nothing to sync.
+   */
+  syncNow: () => Promise<void>;
 }
 
 const TaskContext = createContext<TaskContextValue | null>(null);
@@ -526,6 +532,11 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
   const cursorRef = useRef<string | undefined>(undefined);
 
   const [syncStatus, setSyncStatus] = useState<SyncStatus>({ state: 'syncing', pending: 0 });
+
+  // The sync loop is created and torn down by the effect below; this is how
+  // anything outside it asks for a cycle. Null whenever there is no loop —
+  // sample mode, or between teardown and setup.
+  const cycleRef = useRef<(() => Promise<void>) | null>(null);
 
   // Marking dirty updates the indicator immediately, so an edit reads as pending
   // the moment it's made rather than up to a cycle later.
@@ -810,7 +821,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     if (state.mode !== 'server') return;
     const api = createApi(state.serverUrl, state.token);
     let cancelled = false;
-    let running = false;
+    let inFlight: Promise<void> | null = null;
     let timer: ReturnType<typeof setTimeout>;
 
     /**
@@ -826,11 +837,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       return IDLE_SYNC_MS;
     };
 
-    const cycle = async () => {
-      // Foregrounding fires an immediate cycle; guard against overlapping one
-      // that's already in flight.
-      if (running || cancelled) return;
-      running = true;
+    const run = async () => {
       setSyncStatus((s) => ({ ...s, state: 'syncing' }));
       try {
         if (outboxRef.current.size > 0) {
@@ -874,25 +881,46 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
           pending: outboxRef.current.size,
         }));
       }
-      running = false;
       if (!cancelled) timer = setTimeout(cycle, nextDelay());
     };
+
+    /**
+     * Foregrounding and pull-to-refresh both fire a cycle whenever they like, so
+     * one already running is joined rather than doubled — a puller gets the
+     * spinner until the real work settles either way.
+     */
+    const cycle = (): Promise<void> => {
+      if (cancelled) return Promise.resolve();
+      if (!inFlight) {
+        // The run re-arms the timer when it settles, so a cycle asked for early
+        // replaces the pending tick instead of being chased by it.
+        clearTimeout(timer);
+        inFlight = run().finally(() => {
+          inFlight = null;
+        });
+      }
+      return inFlight;
+    };
+
+    cycleRef.current = cycle;
 
     // The moment you look at a device is exactly when staleness is visible, so
     // don't wait out the timer — sync straight away.
     const subscription = AppState.addEventListener('change', (next) => {
       if (next !== 'active' || cancelled) return;
-      clearTimeout(timer);
       cycle();
     });
 
     cycle();
     return () => {
       cancelled = true;
+      cycleRef.current = null;
       clearTimeout(timer);
       subscription.remove();
     };
   }, [state.mode, state.serverUrl, state.token]);
+
+  const syncNow = useCallback(() => cycleRef.current?.() ?? Promise.resolve(), []);
 
   const value = useMemo<TaskContextValue>(
     () => ({
@@ -927,6 +955,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       disconnect,
       removeSavedServer,
       syncStatus,
+      syncNow,
     }),
     [
       state,
@@ -960,6 +989,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       disconnect,
       removeSavedServer,
       syncStatus,
+      syncNow,
     ]
   );
 

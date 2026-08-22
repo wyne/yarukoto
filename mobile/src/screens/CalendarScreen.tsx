@@ -18,6 +18,7 @@ import WeekGrid from './calendar/WeekGrid';
 import QuickAddBar from '../components/QuickAddBar';
 import AddTaskFab from '../components/AddTaskFab';
 import { closeOpenSwipeRow } from '../components/SwipeableRow';
+import { useSyncRefresh } from '../data/useSyncRefresh';
 import GlassIconButton, { GlassIconButtonGroup } from '../components/GlassIconButton';
 import { WEB_ENTRY } from '../data/platform';
 import { IconMenu } from '../icons/Icons';
@@ -37,6 +38,7 @@ type Mode = PlanMode;
 export default function CalendarScreen() {
   const accent = useAccent();
   const insets = useSafeAreaInsets();
+  const refreshControl = useSyncRefresh();
   const { wide, openDrawer } = useSidebar();
   const { openTask } = useDetail();
   const { state, updateTask, addTaskFromQuickAdd } = useTasks();
@@ -269,6 +271,7 @@ export default function CalendarScreen() {
 
             <ScrollView
               ref={agendaRef}
+              refreshControl={refreshControl}
               onScrollBeginDrag={closeOpenSwipeRow}
               style={styles.agendaFrame}
               contentContainerStyle={[styles.agenda, !wide && !WEB_ENTRY && styles.agendaFab]}

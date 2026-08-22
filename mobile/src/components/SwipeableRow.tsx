@@ -5,6 +5,7 @@ import ReanimatedSwipeable, {
 } from 'react-native-gesture-handler/ReanimatedSwipeable';
 import { colors } from '../theme/colors';
 import { useDragActive } from '../drag/DragContext';
+import { hapticAction } from '../data/haptics';
 import { IconCalendarBox, IconCheckBig } from '../icons/Icons';
 
 const ACTION_WIDTH = 66;
@@ -84,6 +85,7 @@ export default function SwipeableRow({ children, onLater, onDone, disabled }: Pr
   // Action first, close second: the tap is a request to do the thing, and
   // nothing about shutting the row should be able to get in the way of it.
   const runAction = useCallback((fn: () => void) => {
+    hapticAction();
     fn();
     rowRef.current?.close();
   }, []);
