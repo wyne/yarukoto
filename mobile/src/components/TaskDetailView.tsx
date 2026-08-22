@@ -119,9 +119,8 @@ export default function TaskDetailView({ taskId, onClose, variant }: Props) {
   };
 
   /**
-   * Return in the title (sheet only): no newline — a title is one line — the
-   * caret jumps to the end of the notes instead. The keyboard never drops, so
-   * the field switch reads as one continuous motion.
+   * Return in the title moves to the end of the notes. The keyboard never drops,
+   * so the field switch reads as one continuous motion.
    */
   const jumpToNotes = () => {
     const notes = notesRef.current;
@@ -135,6 +134,8 @@ export default function TaskDetailView({ taskId, onClose, variant }: Props) {
   };
 
   const DetailTextInput = variant === 'sheet' ? BottomSheetTextInput : TextInput;
+  /** See the title field below: the web deliberately does not wrap. */
+  const titleWraps = Platform.OS !== 'web';
   /**
    * Pane only, and deliberately just one field's worth.
    *
@@ -168,16 +169,30 @@ export default function TaskDetailView({ taskId, onClose, variant }: Props) {
         <Card style={styles.pad14}>
           <View style={styles.titleRow}>
             <TaskCheckbox completed={task.completed} priority={task.priority} onPress={() => toggleComplete(task.id)} size={22} />
+            {/*
+              Wraps on native, one line on the web.
+
+              A multiline field renders a textarea there, and a textarea is two
+              rows tall before anything is typed — it stood taller than the text
+              in it and read as an invitation to write a paragraph. Growing one
+              to fit its content means measuring and re-measuring on every
+              keystroke; a plain input is one line by construction, and a long
+              title scrolls rather than wrapping. Native has no such problem, so
+              it keeps wrapping.
+
+              Return goes to the notes either way. Only the multiline case needs
+              telling — left alone it would put a newline into a title.
+            */}
             <DetailTextInput
               value={task.title}
               onChangeText={(v) => updateTask(task.id, { title: v })}
               style={[styles.titleInput, task.completed && styles.titleCompleted]}
-              multiline
+              multiline={titleWraps}
+              returnKeyType="next"
+              onSubmitEditing={jumpToNotes}
+              {...(titleWraps ? ({ submitBehavior: 'submit' } as const) : {})}
               {...keyboardTargetProps}
               {...accessoryProps}
-              {...(variant === 'sheet'
-                ? ({ submitBehavior: 'submit', returnKeyType: 'next', onSubmitEditing: jumpToNotes } as const)
-                : {})}
             />
           </View>
         </Card>
