@@ -1,5 +1,5 @@
-import React, { useMemo, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Pressable, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import Animated, { useAnimatedRef } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../theme/colors';
@@ -24,6 +24,7 @@ import { TaskListFilter } from '../navigation/types';
 import { hoverBg } from '../theme/hover';
 import { PANE_MAX_WIDTH, useSidebar } from '../navigation/SidebarContext';
 import { useDetail } from '../navigation/DetailContext';
+import { useSelection } from '../navigation/SelectionContext';
 import TaskRow from '../components/TaskRow';
 import Card from '../components/Card';
 import Divider from '../components/Divider';
@@ -54,7 +55,13 @@ export default function TaskListScreen({ mode, filter }: Props) {
   const accent = useAccent();
   const insets = useSafeAreaInsets();
   const { wide, openDrawer } = useSidebar();
-  const { openTask } = useDetail();
+  const { width: windowWidth } = useWindowDimensions();
+  /**
+   * A narrow window still has room for tags once the list name is dropped; a
+   * phone-sized one has room for neither, so it gets the count instead.
+   */
+  const rowContext = wide ? true : windowWidth >= 600 ? ('tags' as const) : ('count' as const);
+  const { openTask, openTaskId } = useDetail();
   const {
     state,
     updateTask,
@@ -199,6 +206,86 @@ export default function TaskListScreen({ mode, filter }: Props) {
     [active, options, state.lists, state.folders]
   );
 
+  const {
+    selectedIds: webSelection,
+    anchorId,
+    setAnchor,
+    select,
+    clear: clearSelection,
+  } = useSelection();
+
+  /**
+   * Whether Shift was down for the press being handled.
+   *
+   * Taken from the pointer event that starts the press rather than from tracked
+   * key state: React Native's press events carry no modifier of their own, and
+   * reading the real one leaves no window for the two to disagree — a key
+   * released while the window was unfocused, say. Capture phase, so it lands
+   * before the press handler asks.
+   */
+  const shiftHeld = useRef(false);
+  useEffect(() => {
+    if (!WEB_ENTRY) return;
+    const onDown = (e: PointerEvent) => {
+      shiftHeld.current = e.shiftKey;
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') clearSelection();
+    };
+    document.addEventListener('pointerdown', onDown, true);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('pointerdown', onDown, true);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [clearSelection]);
+
+  const isSelected = (id: string) =>
+    WEB_ENTRY ? webSelection.includes(id) : selectedIds.includes(id);
+
+  /**
+   * Rows drawn with a tint: selected, or the one the surrounding UI is about.
+   *
+   * The anchor keeps its tint after the detail closes, because it is where the
+   * next shift-click measures from and there would otherwise be nothing saying
+   * so. Gated on the pointer rather than the layout: a narrow desktop window
+   * still has a shift key, and a phone has none, so on a touchscreen the tint
+   * would be pointing at a gesture that cannot be made.
+   */
+  const highlighted = (id: string) =>
+    isSelected(id) ||
+    contextTaskId === id ||
+    (WEB_ENTRY && openTaskId === id) ||
+    (FINE_POINTER && anchorId === id);
+
+  /** Every visible task in display order — the sequence a shift range spans. */
+  const flatIds = useMemo(() => groups.flatMap((g) => g.tasks.map((t) => t.id)), [groups]);
+
+  /**
+   * Shift extends from the last row clicked on its own; anything else opens the
+   * task and makes it the new anchor. Matches how a file list behaves, and means
+   * selecting never needs a mode to be entered first.
+   */
+  const pressRow = (id: string) => {
+    if (!WEB_ENTRY) {
+      if (selectionMode) toggleSelected(id);
+      else openTask(id);
+      return;
+    }
+    if (shiftHeld.current && anchorId) {
+      const from = flatIds.indexOf(anchorId);
+      const to = flatIds.indexOf(id);
+      if (from !== -1 && to !== -1) {
+        const [lo, hi] = from < to ? [from, to] : [to, from];
+        select(flatIds.slice(lo, hi + 1));
+        return;
+      }
+    }
+    clearSelection();
+    setAnchor(id);
+    openTask(id);
+  };
+
   const exitSelection = () => {
     setSelectionMode(false);
     setSelectedIds([]);
@@ -245,11 +332,36 @@ export default function TaskListScreen({ mode, filter }: Props) {
     nextIds: string[],
     moved: { id: string; prevId: string | null; nextId: string | null }
   ) => {
-    // Custom order is a property of the tasks themselves, so it moves the one row.
-    // Every other sort records the arrangement against this view and group instead,
-    // leaving the tasks — and so every other view — untouched.
-    if (options.sortBy === 'manual') reorderTasks(moved.id, moved.prevId, moved.nextId);
-    else setArrangement(key, options.sortBy, groupKey, nextIds);
+    // Grabbing a row that is part of a selection drags the whole selection to
+    // where it lands; grabbing anything else drops the selection first, so a
+    // stray drag can never quietly rearrange rows you had picked out earlier.
+    const group = groups.find((g) => g.key === groupKey);
+    const dragged = isSelected(moved.id) ? webSelection : [];
+    const movingIds =
+      dragged.length > 1 && group
+        ? group.tasks.filter((t) => dragged.includes(t.id)).map((t) => t.id)
+        : [moved.id];
+    if (movingIds.length === 1 && webSelection.length > 0 && !isSelected(moved.id)) {
+      clearSelection();
+    }
+
+    // The library reports the neighbours of the one row it dragged, which may
+    // themselves be moving. Re-derive them from the sequence with the whole
+    // group taken out, so they are the rows the group is landing between.
+    const moving = new Set(movingIds);
+    const remaining = nextIds.filter((id) => !moving.has(id));
+    const at = nextIds.slice(0, nextIds.indexOf(moved.id)).filter((id) => !moving.has(id)).length;
+    const prevId = remaining[at - 1] ?? null;
+    const nextId = remaining[at] ?? null;
+
+    // Custom order is a property of the tasks themselves. Every other sort
+    // records the arrangement against this view and group instead, leaving the
+    // tasks — and so every other view — untouched.
+    if (options.sortBy === 'manual') reorderTasks(movingIds, prevId, nextId);
+    else {
+      const sequence = [...remaining.slice(0, at), ...movingIds, ...remaining.slice(at)];
+      setArrangement(key, options.sortBy, groupKey, sequence);
+    }
   };
 
   const arranged = hasArrangement(options.arrangements, options.sortBy);
@@ -266,6 +378,7 @@ export default function TaskListScreen({ mode, filter }: Props) {
         enabled={canReorder}
         scrollableRef={scrollRef}
         onReorder={(ids, moved) => handleReorder(group.key, ids, moved)}
+        dragCount={(id) => (isSelected(id) ? webSelection.length : 1)}
         renderItem={(task, i) => (
           <ContextMenuTarget
             onOpen={(pos) => {
@@ -278,18 +391,34 @@ export default function TaskListScreen({ mode, filter }: Props) {
               list={getListById(state.lists, task.listId)}
               now={now}
               selectionMode={selectionMode}
-              contextActive={contextTaskId === task.id}
+              active={highlighted(task.id) && !isSelected(task.id)}
               handleGutter={canReorder && FINE_POINTER}
-              showContext={wide}
+              showContext={rowContext}
               hideListId={hide.hideListId}
               hideTag={hide.hideTag}
-              selected={selectedIds.includes(task.id)}
-              onPress={() => (selectionMode ? toggleSelected(task.id) : openTask(task.id))}
+              selected={isSelected(task.id)}
+              onPress={() => pressRow(task.id)}
               onToggleComplete={() => toggleComplete(task.id)}
               onLater={() => snoozeTask(task.id)}
               onDone={() => toggleComplete(task.id)}
             />
-            {i < tasks.length - 1 && <Divider />}
+            {i < tasks.length - 1 &&
+              (() => {
+                const next = tasks[i + 1];
+                // The divider is inset and drawn on the card, so beside a tinted
+                // row it leaves a band of card that reads as a half-drawn line.
+                // Any divider touching one squares off to the full width; one
+                // between two selected rows also takes the tint, so a run of
+                // them closes up into a single block.
+                const touching = highlighted(task.id) || highlighted(next.id);
+                const within = isSelected(task.id) && isSelected(next.id);
+                return (
+                  <Divider
+                    indent={touching ? 0 : undefined}
+                    color={within ? colors.selectedRowBg : undefined}
+                  />
+                );
+              })()}
           </ContextMenuTarget>
         )}
       />
@@ -351,9 +480,14 @@ export default function TaskListScreen({ mode, filter }: Props) {
               <IconViewOptions color={grouped || options.sortBy !== 'manual' ? accent : undefined} />
             </Pressable>
           </Tooltip>
-          <Pressable onPress={() => setSelectionMode(true)} hitSlop={8} style={hoverBg(styles.headerBtn)}>
-            <IconSelectMode />
-          </Pressable>
+          {/* Selecting on the web is shift-click, which needs no mode to enter,
+              so the button that entered one has nothing left to do. Touch keeps
+              it: there is no shift key to hold there. */}
+          {!WEB_ENTRY && (
+            <Pressable onPress={() => setSelectionMode(true)} hitSlop={8} style={hoverBg(styles.headerBtn)}>
+              <IconSelectMode />
+            </Pressable>
+          )}
         </View>
       )}
 
@@ -425,7 +559,7 @@ export default function TaskListScreen({ mode, filter }: Props) {
                       list={getListById(state.lists, task.listId)}
                       now={now}
                       selectionMode={selectionMode}
-            showContext={wide}
+            showContext={rowContext}
                       selected={selectedIds.includes(task.id)}
                       onPress={() =>
                         selectionMode ? toggleSelected(task.id) : openTask(task.id)

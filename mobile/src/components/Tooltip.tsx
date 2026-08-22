@@ -12,6 +12,11 @@ interface Props {
    * of a header want 'end', or the bubble runs off the window.
    */
   align?: 'start' | 'center' | 'end';
+  /**
+   * Which side of the trigger the bubble sits on. A control near the bottom of
+   * the window wants 'above', or the bubble is pushed off screen.
+   */
+  placement?: 'below' | 'above';
   children: React.ReactNode;
 }
 
@@ -24,7 +29,7 @@ const DELAY = 450;
  * Pointer-only: there is no hover to trigger it on a touchscreen, and a tooltip
  * that appears on tap would just be in the way of the thing it describes.
  */
-export default function Tooltip({ label, align = 'end', children }: Props) {
+export default function Tooltip({ label, align = 'end', placement = 'below', children }: Props) {
   const ref = useRef<View>(null);
   const [shown, setShown] = useState(false);
 
@@ -62,7 +67,10 @@ export default function Tooltip({ label, align = 'end', children }: Props) {
       {shown && (
         // Never a hit target: hovering the bubble must not count as hovering the
         // button, or it would flicker as the pointer crosses onto it.
-        <View pointerEvents="none" style={[styles.bubble, ALIGN[align]]}>
+        <View
+          pointerEvents="none"
+          style={[styles.bubble, ALIGN[align], placement === 'above' ? styles.above : styles.below]}
+        >
           <Text style={styles.text} numberOfLines={1}>
             {label}
           </Text>
@@ -84,14 +92,20 @@ const styles = StyleSheet.create({
   },
   bubble: {
     position: 'absolute',
-    top: '100%',
-    marginTop: 8,
     paddingHorizontal: 8,
     paddingVertical: 5,
     borderRadius: 6,
     backgroundColor: colors.textPrimary,
     boxShadow: '0 4px 12px rgba(0, 0, 0, 0.18)',
     zIndex: 10,
+  },
+  below: {
+    top: '100%',
+    marginTop: 8,
+  },
+  above: {
+    bottom: '100%',
+    marginBottom: 8,
   },
   text: {
     fontFamily: fonts.sansMedium,

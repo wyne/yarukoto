@@ -5,10 +5,13 @@ import { colors } from '../theme/colors';
 import { MainTabParamList } from './types';
 import { SidebarProvider, useSidebar } from './SidebarContext';
 import { DetailProvider, useDetail } from './DetailContext';
+import { SelectionProvider, useSelection } from './SelectionContext';
 import Sidebar from '../components/Sidebar';
 import SidebarDrawer from '../components/SidebarDrawer';
 import TaskDetailView from '../components/TaskDetailView';
 import TaskDetailSheet from '../components/TaskDetailSheet';
+import BulkActions from '../components/BulkActions';
+import { WEB_ENTRY } from '../data/platform';
 import UndoToast from '../components/UndoToast';
 import { DragProvider } from '../drag/DragContext';
 import DragOverlay from '../drag/DragOverlay';
@@ -37,9 +40,11 @@ export default function MainTabs() {
   return (
     <SidebarProvider>
       <DetailProvider>
-        <DragProvider>
-          <Layout />
-        </DragProvider>
+        <SelectionProvider>
+          <DragProvider>
+            <Layout />
+          </DragProvider>
+        </SelectionProvider>
       </DetailProvider>
     </SidebarProvider>
   );
@@ -52,17 +57,29 @@ export default function MainTabs() {
 function Layout() {
   const { wide, serverOpen, closeServer } = useSidebar();
   const { openTaskId, closeTask } = useDetail();
-  const showPane = wide && !!openTaskId;
+  const { selectedIds } = useSelection();
+
+  // A selection takes the column over: the actions apply to several tasks, so
+  // showing one task's detail beside them would only mislead about what the next
+  // click is going to change.
+  const bulk = WEB_ENTRY && selectedIds.length > 0;
+  const showPane = wide && (bulk || !!openTaskId);
 
   return (
     <View style={styles.row}>
       <View style={styles.flex}>
         <Tabs />
         <UndoToast />
+        {/* No column to give them, so the actions float over the list instead. */}
+        {bulk && !wide && <BulkActions variant="bar" />}
       </View>
       {showPane && (
         <View style={styles.detailColumn}>
-          <TaskDetailView taskId={openTaskId} onClose={closeTask} variant="pane" />
+          {bulk || !openTaskId ? (
+            <BulkActions variant="pane" />
+          ) : (
+            <TaskDetailView taskId={openTaskId} onClose={closeTask} variant="pane" />
+          )}
         </View>
       )}
       {!wide && <TaskDetailSheet />}

@@ -1,10 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import type { AnimatedRef } from 'react-native-reanimated';
 import Sortable, { useItemContext } from 'react-native-sortables';
 import { FINE_POINTER } from '../data/platform';
 import { colors } from '../theme/colors';
+import { fonts } from '../theme/typography';
 import { IconGrip } from '../icons/Icons';
 
 interface Props<T> {
@@ -24,6 +25,13 @@ interface Props<T> {
   onReorder: (keys: string[], moved: { id: string; prevId: string | null; nextId: string | null }) => void;
   /** When false the list is not draggable and behaves like a plain column. */
   enabled: boolean;
+  /**
+   * How many rows this drag is carrying, given the one being held. Above one it
+   * is shown on the lifted row: the library drags a single item, so the rest of
+   * a selection stays put until the drop, and the count is what says they are
+   * coming too.
+   */
+  dragCount?: (key: string) => number;
   /** Animated.ScrollView hosting this list; enables auto-scroll while dragging. */
   scrollableRef?: AnimatedRef<Animated.ScrollView>;
 }
@@ -37,7 +45,17 @@ interface Props<T> {
  * dependency). The row's own Pressable still wins taps, because the drag only
  * activates on a hold that doesn't move past `dragActivationFailOffset`.
  */
-export default function DragList<T>({ items, keyExtractor, renderItem, onReorder, enabled, scrollableRef }: Props<T>) {
+export default function DragList<T>({
+  items,
+  keyExtractor,
+  renderItem,
+  onReorder,
+  enabled,
+  dragCount,
+  scrollableRef,
+}: Props<T>) {
+  // Which row is lifted, so only that one carries the count.
+  const [activeKey, setActiveKey] = useState<string | null>(null);
   // The library sizes rows from their own content once it switches the column to
   // absolute layout (see applyControlledContainerDimensions in MeasurementsProvider),
   // so rows must carry an explicit width. Measure the column and pass it down.
@@ -89,7 +107,9 @@ export default function DragList<T>({ items, keyExtractor, renderItem, onReorder
         activeItemShadowOpacity={0}
         inactiveItemOpacity={0.45}
         hapticsEnabled
+        onDragStart={(params) => setActiveKey(keyMap.get(params.key) ?? params.key)}
         onDragEnd={(params) => {
+          setActiveKey(null);
           // The library reports React's child keys, which React mangles to '.$<key>'
           // for keyed array children. Map them back before anything downstream tries
           // to match them against task ids.
@@ -105,7 +125,12 @@ export default function DragList<T>({ items, keyExtractor, renderItem, onReorder
         }}
       >
         {items.map((item, index) => (
-          <GlassRow key={keyExtractor(item)} width={containerWidth} handle={enabled && FINE_POINTER}>
+          <GlassRow
+            key={keyExtractor(item)}
+            width={containerWidth}
+            handle={enabled && FINE_POINTER}
+            count={activeKey === keyExtractor(item) ? dragCount?.(keyExtractor(item)) ?? 1 : 1}
+          >
             {renderItem(item, index)}
           </GlassRow>
         ))}
@@ -123,11 +148,14 @@ function GlassRow({
   children,
   width,
   handle,
+  count,
 }: {
   children: React.ReactNode;
   width: number | null;
   /** Render the drag handle, revealed while a pointer is over the row. */
   handle: boolean;
+  /** Rows this drag is carrying. Shown on the lifted row when above one. */
+  count: number;
 }) {
   const { activationAnimationProgress } = useItemContext();
   const ref = useRef<View>(null);
@@ -170,6 +198,11 @@ function GlassRow({
           </Sortable.Handle>
         </View>
       )}
+      {count > 1 && (
+        <View pointerEvents="none" style={styles.count}>
+          <Text style={styles.countText}>{count}</Text>
+        </View>
+      )}
       <Animated.View pointerEvents="none" style={[styles.veil, veil]} />
     </View>
   );
@@ -195,6 +228,26 @@ const styles = StyleSheet.create({
     // Web-only. `touchAction: none` matters most: a gesture starting on the
     // handle only ever drags, so the browser must hand the whole thing over.
     ...({ cursor: 'grab', touchAction: 'none', userSelect: 'none' } as object),
+  },
+  /** Clear of the grip, which sits at the trailing edge. */
+  count: {
+    position: 'absolute',
+    right: 34,
+    top: 0,
+    bottom: 0,
+    justifyContent: 'center',
+  },
+  countText: {
+    overflow: 'hidden',
+    minWidth: 20,
+    textAlign: 'center',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 10,
+    backgroundColor: colors.textPrimary,
+    color: '#fff',
+    fontFamily: fonts.sansSemiBold,
+    fontSize: 11,
   },
   veil: {
     position: 'absolute',
