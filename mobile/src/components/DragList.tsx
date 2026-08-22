@@ -64,6 +64,14 @@ export default function DragList<T>({ items, keyExtractor, renderItem, onReorder
         // pass the value through — stretch every row to the full card width.
         alignItems={'stretch' as never}
         sortEnabled={enabled}
+        // Locks the lifted row to the vertical axis. Rows are stretched to the
+        // container's width, so clamping x to `containerWidth - itemWidth`
+        // clamps it to zero — the row cannot drift sideways at all.
+        //
+        // 'vertical' rather than 'none': vertical over-drag has to stay allowed
+        // so the row can be pulled past the top or bottom edge, which is what
+        // auto-scroll follows on a long list.
+        overDrag="vertical"
         // With a mouse the row is grabbed by a handle, so a drag starts on the
         // movement itself. No hold is needed and none of it can be confused
         // with a click, because the handle is the only thing that starts a drag
