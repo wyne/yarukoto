@@ -15,7 +15,7 @@ import Card from './Card';
 import Divider from './Divider';
 import TaskCheckbox from './TaskCheckbox';
 import { IconCalendarBox, IconCheckBig, IconChevronDown, IconDotsHorizontal, IconFolder, IconPlus, IconTag } from '../icons/Icons';
-import { DATE_OPTIONS, TIME_OPTIONS } from './pickers/DueDatePickerSheet';
+import DueDateTimeControls from './pickers/DueDateTimeControls';
 
 interface Props {
   taskId: string;
@@ -270,54 +270,11 @@ export default function TaskDetailView({ taskId, onClose, variant }: Props) {
               showsVerticalScrollIndicator={false}
             >
               {menu === 'due' && (
-                <>
-                  <Text style={styles.menuSection}>Date</Text>
-                  <View style={styles.chipsRow}>
-                    {DATE_OPTIONS.map((opt) => {
-                      const val = opt.get(new Date());
-                      const active = val === task.dueDate;
-                      return (
-                        <Pressable
-                          key={opt.label}
-                          style={hoverBg([styles.chip, active && { backgroundColor: accent, borderColor: accent }], active)}
-                          onPress={() => {
-                            updateTask(task.id, { dueDate: val, dueTime: val ? task.dueTime : undefined });
-                            closeMenu();
-                          }}
-                        >
-                          <Text style={[styles.chipText, active && { color: '#fff' }]}>{opt.label}</Text>
-                        </Pressable>
-                      );
-                    })}
-                  </View>
-                  <Text style={[styles.menuSection, { marginTop: 10 }]}>Time</Text>
-                  <View style={styles.chipsRow}>
-                    {TIME_OPTIONS.map((opt) => {
-                      const active = opt.value === task.dueTime;
-                      const disabled = !task.dueDate;
-                      return (
-                        <Pressable
-                          key={opt.label}
-                          disabled={disabled}
-                          style={hoverBg(
-                            [
-                              styles.chip,
-                              active && { backgroundColor: accent, borderColor: accent },
-                              disabled && styles.chipDisabled,
-                            ],
-                            active || disabled
-                          )}
-                          onPress={() => {
-                            updateTask(task.id, { dueTime: opt.value });
-                            closeMenu();
-                          }}
-                        >
-                          <Text style={[styles.chipText, active && { color: '#fff' }]}>{opt.label}</Text>
-                        </Pressable>
-                      );
-                    })}
-                  </View>
-                </>
+                <DueDateTimeControls
+                  date={task.dueDate}
+                  time={task.dueTime}
+                  onChange={(dueDate, dueTime) => updateTask(task.id, { dueDate, dueTime })}
+                />
               )}
 
               {menu === 'list' && (
@@ -818,9 +775,6 @@ const styles = StyleSheet.create({
     fontFamily: fonts.sansMedium,
     fontSize: 13,
     color: colors.textPrimary,
-  },
-  chipDisabled: {
-    opacity: 0.4,
   },
   addRow: {
     flexDirection: 'row',

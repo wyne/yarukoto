@@ -30,6 +30,7 @@ module.exports = ({ config }) => {
     icon: development ? './assets/icon-dev.png' : config.icon,
     plugins: [
       ...(config.plugins ?? []),
+      'expo-asset',
       './plugins/native-glass-keyboard-dismiss',
     ],
     ios: {
