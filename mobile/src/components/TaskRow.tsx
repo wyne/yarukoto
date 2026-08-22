@@ -9,7 +9,7 @@ import { Task, ListDef } from '../data/types';
 import { formatDueShort, isOverdue } from '../data/dateUtils';
 import TaskCheckbox from './TaskCheckbox';
 import SwipeableRow from './SwipeableRow';
-import { IconCheckBig, IconGrip, IconStar } from '../icons/Icons';
+import { IconCheckBig, IconGrip, IconStar, IconTag } from '../icons/Icons';
 
 interface Props {
   task: Task;
@@ -18,10 +18,14 @@ interface Props {
   selectionMode?: boolean;
   selected?: boolean;
   /**
-   * Whether there's room for list and tag names beside the title. Narrow layouts
-   * pass false: on one line they crowd out the title, and the due date matters more.
+   * How much room there is beside the title.
+   *
+   * 'full' spells out the list and the tags. 'tags' drops the list name, which
+   * the view usually implies anyway, and keeps the tags. 'count' has room for
+   * neither and shows how many tags there are instead — enough to know a task
+   * is tagged, and which ones is a tap away.
    */
-  showContext?: boolean;
+  showContext?: boolean | 'tags' | 'count';
   /** Suppressed as redundant when the whole view or group is already this list. */
   hideListId?: string;
   /** Suppressed as redundant when the whole view or group is already this tag. */
@@ -88,8 +92,10 @@ export default function TaskRow({
   const listName = hideListId && task.listId === hideListId ? null : list?.name;
   const visibleTags = hideTag ? task.tags.filter((t) => t !== hideTag) : task.tags;
   const tagsStr = visibleTags.length ? visibleTags.map((t) => `#${t}`).join(' ') : null;
-  const restParts = [listName, tagsStr].filter(Boolean) as string[];
-  const showRest = showContext && restParts.length > 0;
+  const level = showContext === true ? 'full' : showContext || 'none';
+  const restParts = (level === 'full' ? [listName, tagsStr] : [tagsStr]).filter(Boolean) as string[];
+  const showRest = (level === 'full' || level === 'tags') && restParts.length > 0;
+  const tagCount = level === 'count' && !task.completed ? visibleTags.length : 0;
   const showStar = overdue && task.priority === 'high' && !task.completed;
   const subtaskDone = task.subtasks.filter((s) => s.done).length;
   const showBadge = !showStar && task.subtasks.length > 0 && !task.completed;
@@ -131,12 +137,18 @@ export default function TaskRow({
       <Text style={[styles.title, task.completed && styles.titleCompleted]} numberOfLines={1}>
         {task.title}
       </Text>
-      {(dueLabel || showRest) && !task.completed && (
+      {(dueLabel || showRest || tagCount > 0) && !task.completed && (
         <View style={styles.metaRow}>
           {showRest && (
             <Text style={[styles.metaMuted, styles.metaRest]} numberOfLines={1}>
               {restParts.join(' · ')}
             </Text>
+          )}
+          {tagCount > 0 && (
+            <View style={styles.tagCount}>
+              <IconTag size={12} color={colors.textTertiary} strokeWidth={1.7} />
+              <Text style={styles.metaMuted}>{tagCount}</Text>
+            </View>
           )}
           {dueLabel && (
             <Text style={[overdue ? styles.metaOverdue : styles.metaMuted, styles.metaDue]} numberOfLines={1}>
@@ -224,6 +236,11 @@ const styles = StyleSheet.create({
   titleCompleted: {
     textDecorationLine: 'line-through',
     color: colors.textSecondary,
+  },
+  tagCount: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
   },
   metaRow: {
     flexDirection: 'row',

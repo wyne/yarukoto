@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import Animated, { useAnimatedRef } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../theme/colors';
@@ -55,6 +55,12 @@ export default function TaskListScreen({ mode, filter }: Props) {
   const accent = useAccent();
   const insets = useSafeAreaInsets();
   const { wide, openDrawer } = useSidebar();
+  const { width: windowWidth } = useWindowDimensions();
+  /**
+   * A narrow window still has room for tags once the list name is dropped; a
+   * phone-sized one has room for neither, so it gets the count instead.
+   */
+  const rowContext = wide ? true : windowWidth >= 600 ? ('tags' as const) : ('count' as const);
   const { openTask, openTaskId } = useDetail();
   const {
     state,
@@ -237,9 +243,20 @@ export default function TaskListScreen({ mode, filter }: Props) {
   const isSelected = (id: string) =>
     WEB_ENTRY ? webSelection.includes(id) : selectedIds.includes(id);
 
-  /** Rows drawn with a tint: selected, or the one the pane and menus are about. */
+  /**
+   * Rows drawn with a tint: selected, or the one the surrounding UI is about.
+   *
+   * The anchor keeps its tint after the detail closes, because it is where the
+   * next shift-click measures from and there would otherwise be nothing saying
+   * so. Gated on the pointer rather than the layout: a narrow desktop window
+   * still has a shift key, and a phone has none, so on a touchscreen the tint
+   * would be pointing at a gesture that cannot be made.
+   */
   const highlighted = (id: string) =>
-    isSelected(id) || contextTaskId === id || (WEB_ENTRY && openTaskId === id);
+    isSelected(id) ||
+    contextTaskId === id ||
+    (WEB_ENTRY && openTaskId === id) ||
+    (FINE_POINTER && anchorId === id);
 
   /** Every visible task in display order — the sequence a shift range spans. */
   const flatIds = useMemo(() => groups.flatMap((g) => g.tasks.map((t) => t.id)), [groups]);
@@ -308,18 +325,43 @@ export default function TaskListScreen({ mode, filter }: Props) {
   // to restore the sort, instead of the drop rewriting the task to match where it
   // landed. Search is the one exception — its results are a transient slice, so an
   // arrangement made inside them wouldn't mean anything once the query clears.
-  const canReorder = !selectionMode && !query.trim() && webSelection.length === 0;
+  const canReorder = !selectionMode && !query.trim();
 
   const handleReorder = (
     groupKey: string,
     nextIds: string[],
     moved: { id: string; prevId: string | null; nextId: string | null }
   ) => {
-    // Custom order is a property of the tasks themselves, so it moves the one row.
-    // Every other sort records the arrangement against this view and group instead,
-    // leaving the tasks — and so every other view — untouched.
-    if (options.sortBy === 'manual') reorderTasks(moved.id, moved.prevId, moved.nextId);
-    else setArrangement(key, options.sortBy, groupKey, nextIds);
+    // Grabbing a row that is part of a selection drags the whole selection to
+    // where it lands; grabbing anything else drops the selection first, so a
+    // stray drag can never quietly rearrange rows you had picked out earlier.
+    const group = groups.find((g) => g.key === groupKey);
+    const dragged = isSelected(moved.id) ? webSelection : [];
+    const movingIds =
+      dragged.length > 1 && group
+        ? group.tasks.filter((t) => dragged.includes(t.id)).map((t) => t.id)
+        : [moved.id];
+    if (movingIds.length === 1 && webSelection.length > 0 && !isSelected(moved.id)) {
+      clearSelection();
+    }
+
+    // The library reports the neighbours of the one row it dragged, which may
+    // themselves be moving. Re-derive them from the sequence with the whole
+    // group taken out, so they are the rows the group is landing between.
+    const moving = new Set(movingIds);
+    const remaining = nextIds.filter((id) => !moving.has(id));
+    const at = nextIds.slice(0, nextIds.indexOf(moved.id)).filter((id) => !moving.has(id)).length;
+    const prevId = remaining[at - 1] ?? null;
+    const nextId = remaining[at] ?? null;
+
+    // Custom order is a property of the tasks themselves. Every other sort
+    // records the arrangement against this view and group instead, leaving the
+    // tasks — and so every other view — untouched.
+    if (options.sortBy === 'manual') reorderTasks(movingIds, prevId, nextId);
+    else {
+      const sequence = [...remaining.slice(0, at), ...movingIds, ...remaining.slice(at)];
+      setArrangement(key, options.sortBy, groupKey, sequence);
+    }
   };
 
   const arranged = hasArrangement(options.arrangements, options.sortBy);
@@ -336,6 +378,7 @@ export default function TaskListScreen({ mode, filter }: Props) {
         enabled={canReorder}
         scrollableRef={scrollRef}
         onReorder={(ids, moved) => handleReorder(group.key, ids, moved)}
+        dragCount={(id) => (isSelected(id) ? webSelection.length : 1)}
         renderItem={(task, i) => (
           <ContextMenuTarget
             onOpen={(pos) => {
@@ -348,9 +391,9 @@ export default function TaskListScreen({ mode, filter }: Props) {
               list={getListById(state.lists, task.listId)}
               now={now}
               selectionMode={selectionMode}
-              active={contextTaskId === task.id || (WEB_ENTRY && openTaskId === task.id)}
+              active={highlighted(task.id) && !isSelected(task.id)}
               handleGutter={canReorder && FINE_POINTER}
-              showContext={wide}
+              showContext={rowContext}
               hideListId={hide.hideListId}
               hideTag={hide.hideTag}
               selected={isSelected(task.id)}
@@ -516,7 +559,7 @@ export default function TaskListScreen({ mode, filter }: Props) {
                       list={getListById(state.lists, task.listId)}
                       now={now}
                       selectionMode={selectionMode}
-            showContext={wide}
+            showContext={rowContext}
                       selected={selectedIds.includes(task.id)}
                       onPress={() =>
                         selectionMode ? toggleSelected(task.id) : openTask(task.id)

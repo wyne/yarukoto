@@ -52,9 +52,17 @@ export default function BulkActions({ variant }: Props) {
 
   const count = selectedIds.length;
 
-  const done = () => {
-    clear();
+  /**
+   * After an edit the selection stands: setting a date and then a priority on
+   * the same rows is one thought, and having to reselect between them would make
+   * it two.
+   */
+  const applied = () => setPicker(null);
+
+  /** For the two that empty the list of what was selected. */
+  const finished = () => {
     setPicker(null);
+    clear();
   };
 
   /**
@@ -81,7 +89,7 @@ export default function BulkActions({ variant }: Props) {
     // selection: every task moves to tomorrow rather than each shifting by a day
     // from wherever it already sat.
     bulkUpdate(selectedIds, { dueDate: toISODate(addDays(new Date(), 1)) });
-    done();
+    applied();
   };
 
   const completeAll = () => {
@@ -89,12 +97,14 @@ export default function BulkActions({ variant }: Props) {
       const task = state.tasks.find((t) => t.id === id);
       if (task && !task.completed) toggleComplete(id);
     });
-    done();
+    // Completing takes the rows out of the list, so there is nothing left to
+    // keep selected.
+    finished();
   };
 
   const removeAll = () => {
     deleteTasks(selectedIds);
-    done();
+    finished();
   };
 
   const actions = [
@@ -113,7 +123,7 @@ export default function BulkActions({ variant }: Props) {
         anchor={anchor}
         onApply={(dueDate, dueTime) => {
           bulkUpdate(selectedIds, { dueDate, dueTime });
-          done();
+          applied();
         }}
       />
       <PriorityPickerSheet
@@ -122,7 +132,7 @@ export default function BulkActions({ variant }: Props) {
         anchor={anchor}
         onApply={(priority) => {
           bulkUpdate(selectedIds, { priority });
-          done();
+          applied();
         }}
       />
       <ListPickerSheet
@@ -132,7 +142,7 @@ export default function BulkActions({ variant }: Props) {
         value={null}
         onApply={(listId) => {
           bulkUpdate(selectedIds, { listId });
-          done();
+          applied();
         }}
       />
       <TagPickerSheet
@@ -145,7 +155,7 @@ export default function BulkActions({ variant }: Props) {
             const t = state.tasks.find((x) => x.id === id);
             if (t) bulkUpdate([id], { tags: Array.from(new Set([...t.tags, ...tags])) });
           });
-          done();
+          applied();
         }}
       />
     </>

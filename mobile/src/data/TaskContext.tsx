@@ -59,7 +59,7 @@ type Action =
   | { type: 'ADD_SUBTASK'; taskId: string; title: string }
   | { type: 'TOGGLE_SUBTASK'; taskId: string; subtaskId: string }
   | { type: 'SNOOZE_TASK'; id: string }
-  | { type: 'REORDER_TASKS'; id: string; prevId: string | null; nextId: string | null }
+  | { type: 'REORDER_TASKS'; ids: string[]; prevId: string | null; nextId: string | null }
   | { type: 'SET_ARRANGEMENT'; key: string; sortBy: SortBy; groupKey: string; ids: string[] }
   | { type: 'CLEAR_ARRANGEMENT'; key: string; sortBy: SortBy }
   | { type: 'ADD_LIST'; list: ListDef }
@@ -106,24 +106,39 @@ const ORDER_EPSILON = 1e-6;
 
 function reorderTask(
   tasks: Task[],
-  id: string,
+  ids: string[],
   prevId: string | null,
   nextId: string | null
 ): Task[] {
-  const moved = tasks.find((t) => t.id === id);
-  if (!moved) return tasks;
+  // `ids` is usually one row, and several when a selection is dragged as a
+  // group. They share the gap between the neighbours, spread evenly so they keep
+  // the order they were in.
+  const moving = ids.filter((id) => tasks.some((t) => t.id === id));
+  if (moving.length === 0) return tasks;
   const prev = prevId ? tasks.find((t) => t.id === prevId) : undefined;
   const next = nextId ? tasks.find((t) => t.id === nextId) : undefined;
 
-  let order: number;
+  let start: number;
+  let step: number;
   if (prev && next) {
-    if (next.order - prev.order < ORDER_EPSILON) return renumber(tasks, id, prevId);
-    order = (prev.order + next.order) / 2;
-  } else if (prev) order = prev.order + 1;
-  else if (next) order = next.order - 1;
-  else return tasks;
+    const gap = next.order - prev.order;
+    // Room for one midpoint per moved row, or there is nothing left to split.
+    if (gap < ORDER_EPSILON * (moving.length + 1)) return renumber(tasks, moving, prevId);
+    step = gap / (moving.length + 1);
+    start = prev.order + step;
+  } else if (prev) {
+    start = prev.order + 1;
+    step = 1;
+  } else if (next) {
+    start = next.order - moving.length;
+    step = 1;
+  } else return tasks;
 
-  return tasks.map((t) => (t.id === id ? { ...t, order } : t));
+  const orders = new Map(moving.map((id, i) => [id, start + i * step]));
+  return tasks.map((t) => {
+    const order = orders.get(t.id);
+    return order === undefined || order === t.order ? t : { ...t, order };
+  });
 }
 
 /**
@@ -132,11 +147,12 @@ function reorderTask(
  * which reopens room to subdivide. Rewrites everything, so it only runs when the
  * midpoint above genuinely has nowhere left to go.
  */
-function renumber(tasks: Task[], id: string, prevId: string | null): Task[] {
-  const rest = [...tasks].sort((a, b) => a.order - b.order).filter((t) => t.id !== id);
-  const moved = tasks.find((t) => t.id === id)!;
+function renumber(tasks: Task[], ids: string[], prevId: string | null): Task[] {
+  const moving = new Set(ids);
+  const rest = [...tasks].sort((a, b) => a.order - b.order).filter((t) => !moving.has(t.id));
+  const moved = ids.map((id) => tasks.find((t) => t.id === id)!);
   const at = prevId ? rest.findIndex((t) => t.id === prevId) + 1 : 0;
-  const sequence = [...rest.slice(0, at), moved, ...rest.slice(at)];
+  const sequence = [...rest.slice(0, at), ...moved, ...rest.slice(at)];
   const next = new Map(sequence.map((t, i) => [t.id, i]));
   return tasks.map((t) => {
     const order = next.get(t.id);
@@ -246,7 +262,7 @@ function applyAction(state: State, action: Action): State {
         ),
       };
     case 'REORDER_TASKS':
-      return { ...state, tasks: reorderTask(state.tasks, action.id, action.prevId, action.nextId) };
+      return { ...state, tasks: reorderTask(state.tasks, action.ids, action.prevId, action.nextId) };
     case 'SET_ARRANGEMENT':
       // A drag under an active sort. The whole group's sequence is recorded on the
       // view; no task is touched, so the Custom order and every other view are left
@@ -459,7 +475,7 @@ interface TaskContextValue {
   toggleSubtask: (taskId: string, subtaskId: string) => void;
   snoozeTask: (id: string) => void;
   /** `ids` is the visible slice in its new order. */
-  reorderTasks: (id: string, prevId: string | null, nextId: string | null) => void;
+  reorderTasks: (ids: string[], prevId: string | null, nextId: string | null) => void;
   setArrangement: (key: string, sortBy: SortBy, groupKey: string, ids: string[]) => void;
   clearArrangement: (key: string, sortBy: SortBy) => void;
   addList: (name: string, folderId: string) => void;
@@ -647,9 +663,9 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
   // group dirty rather than guessing, and let the reducer's identity check decide
   // which rows actually carry a new `updatedAt`.
   const reorderTasks = useCallback(
-    (id: string, prevId: string | null, nextId: string | null) => {
-      dispatch({ type: 'REORDER_TASKS', id, prevId, nextId });
-      markDirty([id, prevId, nextId].filter((x): x is string => !!x));
+    (ids: string[], prevId: string | null, nextId: string | null) => {
+      dispatch({ type: 'REORDER_TASKS', ids, prevId, nextId });
+      markDirty([...ids, prevId, nextId].filter((x): x is string => !!x));
     },
     [markDirty]
   );
