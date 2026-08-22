@@ -1,8 +1,11 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import type { AnimatedRef } from 'react-native-reanimated';
 import Sortable, { useItemContext } from 'react-native-sortables';
+import { FINE_POINTER } from '../data/platform';
+import { colors } from '../theme/colors';
+import { IconGrip } from '../icons/Icons';
 
 interface Props<T> {
   items: T[];
@@ -61,6 +64,15 @@ export default function DragList<T>({ items, keyExtractor, renderItem, onReorder
         // pass the value through — stretch every row to the full card width.
         alignItems={'stretch' as never}
         sortEnabled={enabled}
+        // With a mouse the row is grabbed by a handle, so a drag starts on the
+        // movement itself. No hold is needed and none of it can be confused
+        // with a click, because the handle is the only thing that starts a drag
+        // and it does nothing else. Zero delay is safe for the same reason.
+        //
+        // Touch keeps the whole row and the hold: there is no hover to reveal a
+        // handle with, and the hold is what separates a drag from a scroll.
+        customHandle={FINE_POINTER}
+        dragActivationDelay={FINE_POINTER ? 0 : undefined}
         scrollableRef={scrollableRef}
         activeItemScale={1.03}
         activeItemOpacity={0.95}
@@ -85,7 +97,7 @@ export default function DragList<T>({ items, keyExtractor, renderItem, onReorder
         }}
       >
         {items.map((item, index) => (
-          <GlassRow key={keyExtractor(item)} width={containerWidth}>
+          <GlassRow key={keyExtractor(item)} width={containerWidth} handle={enabled && FINE_POINTER}>
             {renderItem(item, index)}
           </GlassRow>
         ))}
@@ -99,16 +111,57 @@ export default function DragList<T>({ items, keyExtractor, renderItem, onReorder
  * shadow fade in over the row. The veil is an absolute-fill overlay so it never
  * shifts the layout, and `pointerEvents="none"` keeps taps and swipes intact.
  */
-function GlassRow({ children, width }: { children: React.ReactNode; width: number | null }) {
+function GlassRow({
+  children,
+  width,
+  handle,
+}: {
+  children: React.ReactNode;
+  width: number | null;
+  /** Render the drag handle, revealed while a pointer is over the row. */
+  handle: boolean;
+}) {
   const { activationAnimationProgress } = useItemContext();
+  const ref = useRef<View>(null);
+  const [hovered, setHovered] = useState(false);
+
+  // Listened for on the host node: the row's own hover lives on a Pressable
+  // further in, and the handle deliberately sits outside it.
+  useEffect(() => {
+    if (!handle) return;
+    const node = ref.current as unknown as HTMLElement | null;
+    if (!node?.addEventListener) return;
+    const enter = () => setHovered(true);
+    const leave = () => setHovered(false);
+    node.addEventListener('pointerenter', enter);
+    node.addEventListener('pointerleave', leave);
+    return () => {
+      node.removeEventListener('pointerenter', enter);
+      node.removeEventListener('pointerleave', leave);
+    };
+  }, [handle]);
 
   const veil = useAnimatedStyle(() => ({
     opacity: activationAnimationProgress.value,
   }));
 
   return (
-    <View style={[styles.glass, width !== null && { width }]}>
+    <View ref={ref} style={[styles.glass, width !== null && { width }]}>
       {children}
+      {/*
+        Outside the row's Pressable on purpose. Nested inside it, a press on the
+        handle reaches the row and opens the task — and inside SwipeableRow it
+        would be competing with that gesture for the same touch.
+      */}
+      {handle && hovered && (
+        <View style={styles.handleSlot}>
+          <Sortable.Handle>
+            <View style={styles.handle} accessibilityLabel="Drag to reorder">
+              <IconGrip />
+            </View>
+          </Sortable.Handle>
+        </View>
+      )}
       <Animated.View pointerEvents="none" style={[styles.veil, veil]} />
     </View>
   );
@@ -117,6 +170,23 @@ function GlassRow({ children, width }: { children: React.ReactNode; width: numbe
 const styles = StyleSheet.create({
   glass: {
     position: 'relative',
+  },
+  /** Sits over the row's trailing edge, only while the pointer is on the row. */
+  handleSlot: {
+    position: 'absolute',
+    right: 2,
+    top: 0,
+    bottom: 0,
+    justifyContent: 'center',
+  },
+  handle: {
+    paddingHorizontal: 5,
+    paddingVertical: 6,
+    borderRadius: 6,
+    backgroundColor: colors.surface,
+    // Web-only. `touchAction: none` matters most: a gesture starting on the
+    // handle only ever drags, so the browser must hand the whole thing over.
+    ...({ cursor: 'grab', touchAction: 'none', userSelect: 'none' } as object),
   },
   veil: {
     position: 'absolute',
