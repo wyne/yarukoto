@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import Animated, { useAnimatedRef } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -24,6 +24,7 @@ import { TaskListFilter } from '../navigation/types';
 import { hoverBg } from '../theme/hover';
 import { PANE_MAX_WIDTH, useSidebar } from '../navigation/SidebarContext';
 import { useDetail } from '../navigation/DetailContext';
+import { useSelection } from '../navigation/SelectionContext';
 import TaskRow from '../components/TaskRow';
 import Card from '../components/Card';
 import Divider from '../components/Divider';
@@ -54,7 +55,7 @@ export default function TaskListScreen({ mode, filter }: Props) {
   const accent = useAccent();
   const insets = useSafeAreaInsets();
   const { wide, openDrawer } = useSidebar();
-  const { openTask } = useDetail();
+  const { openTask, openTaskId } = useDetail();
   const {
     state,
     updateTask,
@@ -199,6 +200,75 @@ export default function TaskListScreen({ mode, filter }: Props) {
     [active, options, state.lists, state.folders]
   );
 
+  const {
+    selectedIds: webSelection,
+    anchorId,
+    setAnchor,
+    select,
+    clear: clearSelection,
+  } = useSelection();
+
+  /**
+   * Whether Shift was down for the press being handled.
+   *
+   * Taken from the pointer event that starts the press rather than from tracked
+   * key state: React Native's press events carry no modifier of their own, and
+   * reading the real one leaves no window for the two to disagree — a key
+   * released while the window was unfocused, say. Capture phase, so it lands
+   * before the press handler asks.
+   */
+  const shiftHeld = useRef(false);
+  useEffect(() => {
+    if (!WEB_ENTRY) return;
+    const onDown = (e: PointerEvent) => {
+      shiftHeld.current = e.shiftKey;
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') clearSelection();
+    };
+    document.addEventListener('pointerdown', onDown, true);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('pointerdown', onDown, true);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [clearSelection]);
+
+  const isSelected = (id: string) =>
+    WEB_ENTRY ? webSelection.includes(id) : selectedIds.includes(id);
+
+  /** Rows drawn with a tint: selected, or the one the pane and menus are about. */
+  const highlighted = (id: string) =>
+    isSelected(id) || contextTaskId === id || (WEB_ENTRY && openTaskId === id);
+
+  /** Every visible task in display order — the sequence a shift range spans. */
+  const flatIds = useMemo(() => groups.flatMap((g) => g.tasks.map((t) => t.id)), [groups]);
+
+  /**
+   * Shift extends from the last row clicked on its own; anything else opens the
+   * task and makes it the new anchor. Matches how a file list behaves, and means
+   * selecting never needs a mode to be entered first.
+   */
+  const pressRow = (id: string) => {
+    if (!WEB_ENTRY) {
+      if (selectionMode) toggleSelected(id);
+      else openTask(id);
+      return;
+    }
+    if (shiftHeld.current && anchorId) {
+      const from = flatIds.indexOf(anchorId);
+      const to = flatIds.indexOf(id);
+      if (from !== -1 && to !== -1) {
+        const [lo, hi] = from < to ? [from, to] : [to, from];
+        select(flatIds.slice(lo, hi + 1));
+        return;
+      }
+    }
+    clearSelection();
+    setAnchor(id);
+    openTask(id);
+  };
+
   const exitSelection = () => {
     setSelectionMode(false);
     setSelectedIds([]);
@@ -238,7 +308,7 @@ export default function TaskListScreen({ mode, filter }: Props) {
   // to restore the sort, instead of the drop rewriting the task to match where it
   // landed. Search is the one exception — its results are a transient slice, so an
   // arrangement made inside them wouldn't mean anything once the query clears.
-  const canReorder = !selectionMode && !query.trim();
+  const canReorder = !selectionMode && !query.trim() && webSelection.length === 0;
 
   const handleReorder = (
     groupKey: string,
@@ -278,18 +348,34 @@ export default function TaskListScreen({ mode, filter }: Props) {
               list={getListById(state.lists, task.listId)}
               now={now}
               selectionMode={selectionMode}
-              contextActive={contextTaskId === task.id}
+              active={contextTaskId === task.id || (WEB_ENTRY && openTaskId === task.id)}
               handleGutter={canReorder && FINE_POINTER}
               showContext={wide}
               hideListId={hide.hideListId}
               hideTag={hide.hideTag}
-              selected={selectedIds.includes(task.id)}
-              onPress={() => (selectionMode ? toggleSelected(task.id) : openTask(task.id))}
+              selected={isSelected(task.id)}
+              onPress={() => pressRow(task.id)}
               onToggleComplete={() => toggleComplete(task.id)}
               onLater={() => snoozeTask(task.id)}
               onDone={() => toggleComplete(task.id)}
             />
-            {i < tasks.length - 1 && <Divider />}
+            {i < tasks.length - 1 &&
+              (() => {
+                const next = tasks[i + 1];
+                // The divider is inset and drawn on the card, so beside a tinted
+                // row it leaves a band of card that reads as a half-drawn line.
+                // Any divider touching one squares off to the full width; one
+                // between two selected rows also takes the tint, so a run of
+                // them closes up into a single block.
+                const touching = highlighted(task.id) || highlighted(next.id);
+                const within = isSelected(task.id) && isSelected(next.id);
+                return (
+                  <Divider
+                    indent={touching ? 0 : undefined}
+                    color={within ? colors.selectedRowBg : undefined}
+                  />
+                );
+              })()}
           </ContextMenuTarget>
         )}
       />
@@ -351,9 +437,14 @@ export default function TaskListScreen({ mode, filter }: Props) {
               <IconViewOptions color={grouped || options.sortBy !== 'manual' ? accent : undefined} />
             </Pressable>
           </Tooltip>
-          <Pressable onPress={() => setSelectionMode(true)} hitSlop={8} style={hoverBg(styles.headerBtn)}>
-            <IconSelectMode />
-          </Pressable>
+          {/* Selecting on the web is shift-click, which needs no mode to enter,
+              so the button that entered one has nothing left to do. Touch keeps
+              it: there is no shift key to hold there. */}
+          {!WEB_ENTRY && (
+            <Pressable onPress={() => setSelectionMode(true)} hitSlop={8} style={hoverBg(styles.headerBtn)}>
+              <IconSelectMode />
+            </Pressable>
+          )}
         </View>
       )}
 

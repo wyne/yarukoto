@@ -46,11 +46,11 @@ interface Props {
    */
   handleGutter?: boolean;
   /**
-   * Held in the hover state while a context menu — or a picker it opened — is
-   * acting on this row, so moving the pointer away doesn't lose track of which
-   * task is being edited.
+   * Held in the hover state while this is the row being acted on — a context
+   * menu, a picker one opened, or the task shown in the detail pane. Moving the
+   * pointer away shouldn't lose track of which task the surrounding UI is about.
    */
-  contextActive?: boolean;
+  active?: boolean;
   onPress: () => void;
   onLongPress?: (e: GestureResponderEvent) => void;
   onToggleComplete: () => void;
@@ -73,7 +73,7 @@ export default function TaskRow({
   hideDue,
   dragSource,
   handleGutter,
-  contextActive,
+  active,
   onPress,
   onLongPress,
   onToggleComplete,
@@ -108,7 +108,7 @@ export default function TaskRow({
           dragSource && { backgroundColor: colors.accentTintBg },
           task.completed && styles.rowCompleted,
           handleGutter && styles.rowHandleGutter,
-          contextActive && !selected && !dragSource && styles.rowHovered,
+          active && !selected && !dragSource && styles.rowHovered,
         ],
         !selected && !dragSource ? styles.rowHovered : null
       )}
