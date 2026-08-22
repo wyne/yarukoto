@@ -134,6 +134,8 @@ export default function TaskDetailView({ taskId, onClose, variant }: Props) {
   };
 
   const DetailTextInput = variant === 'sheet' ? BottomSheetTextInput : TextInput;
+  /** See the title field below: the web deliberately does not wrap. */
+  const titleWraps = Platform.OS !== 'web';
   /**
    * Pane only, and deliberately just one field's worth.
    *
@@ -168,19 +170,27 @@ export default function TaskDetailView({ taskId, onClose, variant }: Props) {
           <View style={styles.titleRow}>
             <TaskCheckbox completed={task.completed} priority={task.priority} onPress={() => toggleComplete(task.id)} size={22} />
             {/*
-              Deliberately single-line. A title is one line by nature, and
-              `multiline` renders a textarea on the web — two rows tall before
-              anything is typed, which read as an invitation to write a paragraph.
-              It also made Return insert a newline into a field that has nowhere
-              to put one; now it moves to the notes, in both the pane and the
-              sheet.
+              Wraps on native, one line on the web.
+
+              A multiline field renders a textarea there, and a textarea is two
+              rows tall before anything is typed — it stood taller than the text
+              in it and read as an invitation to write a paragraph. Growing one
+              to fit its content means measuring and re-measuring on every
+              keystroke; a plain input is one line by construction, and a long
+              title scrolls rather than wrapping. Native has no such problem, so
+              it keeps wrapping.
+
+              Return goes to the notes either way. Only the multiline case needs
+              telling — left alone it would put a newline into a title.
             */}
             <DetailTextInput
               value={task.title}
               onChangeText={(v) => updateTask(task.id, { title: v })}
               style={[styles.titleInput, task.completed && styles.titleCompleted]}
+              multiline={titleWraps}
               returnKeyType="next"
               onSubmitEditing={jumpToNotes}
+              {...(titleWraps ? ({ submitBehavior: 'submit' } as const) : {})}
               {...keyboardTargetProps}
               {...accessoryProps}
             />
