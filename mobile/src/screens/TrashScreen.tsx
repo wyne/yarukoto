@@ -11,6 +11,7 @@ import { useTasks } from '../data/TaskContext';
 import { getListById, trashedTasks } from '../data/selectors';
 import { formatDueShort } from '../data/dateUtils';
 import { confirmDestructive } from '../data/confirm';
+import { useSyncRefresh } from '../data/useSyncRefresh';
 import Card from '../components/Card';
 import GlassIconButton from '../components/GlassIconButton';
 import Divider from '../components/Divider';
@@ -27,6 +28,7 @@ type Props = BottomTabScreenProps<MainTabParamList, 'TrashTab'>;
 export default function TrashScreen({}: Props) {
   const accent = useAccent();
   const insets = useSafeAreaInsets();
+  const refreshControl = useSyncRefresh();
   const { wide, openDrawer } = useSidebar();
   const { state, restoreTasks, purgeTasks } = useTasks();
   const now = new Date();
@@ -61,7 +63,10 @@ export default function TrashScreen({}: Props) {
         )}
       </View>
 
-      <ScrollView contentContainerStyle={[styles.scroll, wide && styles.paneWide]}>
+      <ScrollView
+        refreshControl={refreshControl}
+        contentContainerStyle={[styles.scroll, wide && styles.paneWide]}
+      >
         {tasks.length === 0 ? (
           <Text style={styles.empty}>Trash is empty.</Text>
         ) : (

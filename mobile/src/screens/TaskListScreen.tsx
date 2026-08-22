@@ -16,6 +16,8 @@ import {
 } from '../data/selectors';
 import { isSameDay, toISODate } from '../data/dateUtils';
 import { QuickAddDefaults } from '../data/TaskContext';
+import { hapticSelect } from '../data/haptics';
+import { useSyncRefresh } from '../data/useSyncRefresh';
 import { FINE_POINTER, WEB_ENTRY } from '../data/platform';
 import { TaskGroup, groupTasks, hasArrangement, viewKey } from '../data/viewOptions';
 import { useCollapsedSections } from '../data/uiPrefs';
@@ -55,6 +57,7 @@ interface Props {
 export default function TaskListScreen({ mode, filter }: Props) {
   const accent = useAccent();
   const insets = useSafeAreaInsets();
+  const refreshControl = useSyncRefresh();
   const { wide, openDrawer } = useSidebar();
   const { width: windowWidth } = useWindowDimensions();
   /**
@@ -294,6 +297,7 @@ export default function TaskListScreen({ mode, filter }: Props) {
   };
 
   const toggleSelected = (id: string) => {
+    hapticSelect();
     setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   };
 
@@ -518,6 +522,7 @@ export default function TaskListScreen({ mode, filter }: Props) {
 
       <Animated.ScrollView
         ref={scrollRef}
+        refreshControl={refreshControl}
         // Scrolling away from an open row is how you dismiss it everywhere else.
         onScrollBeginDrag={closeOpenSwipeRow}
         contentContainerStyle={[

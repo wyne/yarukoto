@@ -2,6 +2,7 @@ import React, { useRef } from 'react';
 import { Animated, Pressable, StyleSheet } from 'react-native';
 import { colors, priorityColor } from '../theme/colors';
 import { Priority } from '../data/types';
+import { hapticAction } from '../data/haptics';
 import { IconCheckBig } from '../icons/Icons';
 
 interface Props {
@@ -15,6 +16,7 @@ export default function TaskCheckbox({ completed, priority, onPress, size = 20 }
   const scale = useRef(new Animated.Value(1)).current;
 
   const handlePress = () => {
+    hapticAction();
     Animated.sequence([
       Animated.timing(scale, { toValue: 0.75, duration: 80, useNativeDriver: true }),
       Animated.spring(scale, { toValue: 1, friction: 4, useNativeDriver: true }),

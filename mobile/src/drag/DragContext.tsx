@@ -1,7 +1,7 @@
 import React, { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react';
 import { Animated } from 'react-native';
 import { Point, Rect, resolveDropTarget } from './hitTest';
-import { hapticPickup, hapticTargetChange } from './haptics';
+import { hapticPickup, hapticTargetChange } from '../data/haptics';
 
 export interface DragPayload {
   taskId: string;
