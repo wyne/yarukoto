@@ -119,9 +119,8 @@ export default function TaskDetailView({ taskId, onClose, variant }: Props) {
   };
 
   /**
-   * Return in the title (sheet only): no newline — a title is one line — the
-   * caret jumps to the end of the notes instead. The keyboard never drops, so
-   * the field switch reads as one continuous motion.
+   * Return in the title moves to the end of the notes. The keyboard never drops,
+   * so the field switch reads as one continuous motion.
    */
   const jumpToNotes = () => {
     const notes = notesRef.current;
@@ -168,16 +167,22 @@ export default function TaskDetailView({ taskId, onClose, variant }: Props) {
         <Card style={styles.pad14}>
           <View style={styles.titleRow}>
             <TaskCheckbox completed={task.completed} priority={task.priority} onPress={() => toggleComplete(task.id)} size={22} />
+            {/*
+              Deliberately single-line. A title is one line by nature, and
+              `multiline` renders a textarea on the web — two rows tall before
+              anything is typed, which read as an invitation to write a paragraph.
+              It also made Return insert a newline into a field that has nowhere
+              to put one; now it moves to the notes, in both the pane and the
+              sheet.
+            */}
             <DetailTextInput
               value={task.title}
               onChangeText={(v) => updateTask(task.id, { title: v })}
               style={[styles.titleInput, task.completed && styles.titleCompleted]}
-              multiline
+              returnKeyType="next"
+              onSubmitEditing={jumpToNotes}
               {...keyboardTargetProps}
               {...accessoryProps}
-              {...(variant === 'sheet'
-                ? ({ submitBehavior: 'submit', returnKeyType: 'next', onSubmitEditing: jumpToNotes } as const)
-                : {})}
             />
           </View>
         </Card>
