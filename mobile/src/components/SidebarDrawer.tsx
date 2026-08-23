@@ -115,6 +115,27 @@ export default function SidebarDrawer(props: BottomTabBarProps) {
   }, [open]);
 
   /**
+   * Shut the panel from wherever it is, and tell React once it has arrived.
+   *
+   * A worklet, so the movement starts on the touch that asked for it rather
+   * than after a render — going through React first is a pause you can see, and
+   * the drag not having one is the only reason it ever felt better than the tap.
+   * Telling React last is safe because `closeDrawer` re-runs this same movement
+   * on a panel already at rest, which costs nothing.
+   */
+  const shut = useCallback(() => {
+    'worklet';
+    progress.value = withTiming(
+      0,
+      { duration: DRAWER_CLOSE_MS * progress.value, easing: DRAWER_CLOSE_EASING },
+      (finished) => {
+        'worklet';
+        if (finished) scheduleOnRN(closeDrawer);
+      }
+    );
+  }, [progress, closeDrawer]);
+
+  /**
    * Drag the backdrop to close, and let go early to have it finish the job.
    *
    * The backdrop rather than the panel, deliberately. A horizontal drag across
@@ -140,20 +161,11 @@ export default function SidebarDrawer(props: BottomTabBarProps) {
         });
         return;
       }
-      progress.value = withTiming(
-        0,
-        { duration: DRAWER_CLOSE_MS * progress.value, easing: DRAWER_CLOSE_EASING },
-        (finished) => {
-          'worklet';
-          // Tell React the drawer is shut. The effect above will run `close` on
-          // a panel already at 0, which settles it immediately.
-          if (finished) scheduleOnRN(closeDrawer);
-        }
-      );
+      shut();
     });
 
   const tap = Gesture.Tap().onEnd(() => {
-    scheduleOnRN(closeDrawer);
+    shut();
   });
 
   const panel = useAnimatedStyle(() => ({
