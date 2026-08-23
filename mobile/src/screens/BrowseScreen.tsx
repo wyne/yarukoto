@@ -15,7 +15,7 @@ import {
   folderTotal,
   inboxCount,
   listCounts,
-  listsInFolder,
+  navGroups,
   tagCounts,
   tasksForToday,
   tasksUpcomingCount,
@@ -43,7 +43,8 @@ export default function BrowseScreen({ navigation }: Props) {
   const [addOpen, setAddOpen] = useState(false);
   const [listTarget, setListTarget] = useState<ListDef | null>(null);
   const [newListName, setNewListName] = useState('');
-  const [newListFolder, setNewListFolder] = useState(state.folders[0]?.id);
+  /** null puts the new list at the root, beside the folders. */
+  const [newListFolder, setNewListFolder] = useState<string | null>(null);
 
   const openFilteredInbox = (filter: InboxParams) => {
     navigation.navigate('InboxTab', filter);
@@ -97,16 +98,21 @@ export default function BrowseScreen({ navigation }: Props) {
           </Pressable>
         </Card>
 
-        {activeFolders(state.folders).map((folder) => {
-          const lists = listsInFolder(state.lists, folder.id);
+        {navGroups(state.lists, state.folders).map((group) => {
+          const lists = group.lists;
           if (lists.length === 0) return null;
+          const folder = group.folder;
           return (
-            <View key={folder.id} style={{ marginTop: 16 }}>
-              <View style={styles.folderHeader}>
-                <Text style={styles.folderLabel}>{folder.name}</Text>
-                <View style={styles.line} />
-                <Text style={styles.folderTotal}>{folderTotal(state.lists, counts, folder.id)}</Text>
-              </View>
+            <View key={folder?.id ?? 'root'} style={{ marginTop: 16 }}>
+              {/* The loose lists at the root have no folder to name, so they get
+                  a card with no heading above it. */}
+              {folder && (
+                <View style={styles.folderHeader}>
+                  <Text style={styles.folderLabel}>{folder.name}</Text>
+                  <View style={styles.line} />
+                  <Text style={styles.folderTotal}>{folderTotal(state.lists, counts, folder.id)}</Text>
+                </View>
+              )}
               <Card>
                 {lists.map((list, i) => (
                   <View key={list.id}>
@@ -170,6 +176,13 @@ export default function BrowseScreen({ navigation }: Props) {
           style={styles.newListInput}
         />
         <View style={styles.folderPicker}>
+          {/* A list no longer needs a folder, so "No folder" leads the chips. */}
+          <Pressable
+            style={[styles.folderChip, newListFolder === null && { backgroundColor: accent, borderColor: accent }]}
+            onPress={() => setNewListFolder(null)}
+          >
+            <Text style={[styles.folderChipText, newListFolder === null && { color: '#fff' }]}>No folder</Text>
+          </Pressable>
           {activeFolders(state.folders).map((f) => {
             const active = f.id === newListFolder;
             return (
@@ -186,7 +199,7 @@ export default function BrowseScreen({ navigation }: Props) {
         <Pressable
           style={[styles.createBtn, { backgroundColor: colors.textPrimary }]}
           onPress={() => {
-            if (newListName.trim() && newListFolder) {
+            if (newListName.trim()) {
               addList(newListName.trim(), newListFolder);
               setNewListName('');
               setAddOpen(false);

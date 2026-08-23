@@ -24,7 +24,9 @@ export interface ListRow {
   id: string;
   name: string;
   color: string;
-  folder_id: string;
+  /** NULL = a list at the root of the nav, not inside a folder. */
+  folder_id: string | null;
+  order_key: number;
   updated_at: string;
   deleted_at: string | null;
 }
@@ -32,6 +34,7 @@ export interface ListRow {
 export interface FolderRow {
   id: string;
   name: string;
+  order_key: number;
   updated_at: string;
   deleted_at: string | null;
 }
@@ -71,6 +74,7 @@ export function listFromRow(row: ListRow): ListDef {
     name: row.name,
     color: row.color,
     folderId: row.folder_id,
+    order: row.order_key,
     updatedAt: row.updated_at,
     deletedAt: row.deleted_at ?? undefined,
   };
@@ -80,6 +84,7 @@ export function folderFromRow(row: FolderRow): FolderDef {
   return {
     id: row.id,
     name: row.name,
+    order: row.order_key,
     updatedAt: row.updated_at,
     deletedAt: row.deleted_at ?? undefined,
   };

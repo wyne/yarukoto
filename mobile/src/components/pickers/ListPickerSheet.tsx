@@ -7,10 +7,7 @@ import { hoverBg } from '../../theme/hover';
 import { fonts } from '../../theme/typography';
 import { useAccent } from '../../theme/ThemeContext';
 import { useTasks } from '../../data/TaskContext';
-import {
-  activeFolders,
-  listsInFolder,
-} from '../../data/selectors';
+import { navGroups } from '../../data/selectors';
 
 interface Props {
   visible: boolean;
@@ -44,10 +41,10 @@ export default function ListPickerSheet({ visible, onClose, value, onApply, anch
       <Pressable style={hoverBg(styles.row)} onPress={() => choose(null)}>
         <Text style={[styles.rowText, value === null && { color: accent, fontFamily: fonts.sansSemiBold }]}>Inbox</Text>
       </Pressable>
-      {activeFolders(state.folders).map((folder) => (
-        <View key={folder.id}>
-          <Text style={styles.folderLabel}>{folder.name}</Text>
-          {listsInFolder(state.lists, folder.id).map((list) => (
+      {navGroups(state.lists, state.folders).map((group) => (
+        <View key={group.folder?.id ?? 'root'}>
+          {group.folder && <Text style={styles.folderLabel}>{group.folder.name}</Text>}
+          {group.lists.map((list) => (
             <Pressable key={list.id} style={hoverBg(styles.row)} onPress={() => choose(list.id)}>
               <View style={[styles.dot, { backgroundColor: list.color }]} />
               <Text style={[styles.rowText, value === list.id && { color: accent, fontFamily: fonts.sansSemiBold }]}>

@@ -7,7 +7,7 @@ import { hoverBg } from '../theme/hover';
 import { fonts } from '../theme/typography';
 import { useAccent } from '../theme/ThemeContext';
 import { useTasks } from '../data/TaskContext';
-import { activeFolders, getListById, listsInFolder, tagCounts } from '../data/selectors';
+import { getListById, navGroups, tagCounts } from '../data/selectors';
 import { formatDueFull, formatTime24to12 } from '../data/dateUtils';
 import { confirmDestructive } from '../data/confirm';
 import { Priority } from '../data/types';
@@ -357,10 +357,10 @@ export default function TaskDetailView({ taskId, onClose, variant }: Props) {
                     <Text style={styles.menuLabel}>Inbox</Text>
                     {task.listId === null && <IconCheckBig size={14} color={accent} strokeWidth={2.4} />}
                   </Pressable>
-                  {activeFolders(state.folders).map((folder) => (
-                    <View key={folder.id}>
-                      <Text style={styles.menuSection}>{folder.name}</Text>
-                      {listsInFolder(state.lists, folder.id).map((list) => (
+                  {navGroups(state.lists, state.folders).map((group) => (
+                    <View key={group.folder?.id ?? 'root'}>
+                      {group.folder && <Text style={styles.menuSection}>{group.folder.name}</Text>}
+                      {group.lists.map((list) => (
                         <Pressable
                           key={list.id}
                           style={hoverBg(styles.menuRow)}

@@ -1,15 +1,17 @@
-import React, { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useCallback, useMemo, useState } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import Animated, { useAnimatedRef } from 'react-native-reanimated';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useWindowDimensions } from 'react-native';
 import { colors } from '../theme/colors';
 import { hoverBg } from '../theme/hover';
 import { fonts } from '../theme/typography';
 import { useAccent } from '../theme/ThemeContext';
 import { useTasks } from '../data/TaskContext';
 import {
-  activeFolders,
   activeTasks,
+  folderTotal,
   inboxCount,
   listCounts,
   listsInFolder,
@@ -19,7 +21,14 @@ import {
 } from '../data/selectors';
 import { InboxParams } from '../navigation/types';
 import { useSidebar } from '../navigation/SidebarContext';
+import NavContextMenu, { NavMenuTarget } from './NavContextMenu';
+import ContextMenuTarget from './ContextMenuTarget';
+import type { PopoverAnchor } from './Popover';
 import { FolderDef, ListDef } from '../data/types';
+import { FINE_POINTER } from '../data/platform';
+import DragList from './DragList';
+import { NavRow, flattenTree, resolveDrop } from './sidebar/navTree';
+import { loadCollapsedFolders, saveCollapsedFolders } from '../data/storage';
 import ListOptionsSheet from './pickers/ListOptionsSheet';
 import FolderOptionsSheet from './pickers/FolderOptionsSheet';
 import NewListSheet from './pickers/NewListSheet';
@@ -27,6 +36,7 @@ import NewFolderSheet from './pickers/NewFolderSheet';
 import SyncIndicator from './SyncIndicator';
 import {
   IconCalendar,
+  IconChevronDown,
   IconChevronLeft,
   IconChevronRight,
   IconClock,
@@ -37,6 +47,10 @@ import {
   IconTag,
   IconTrash,
 } from '../icons/Icons';
+
+/** One nesting step: how far a list inside a folder is inset, and how far the
+ *  finger must travel sideways to nest or un-nest one while dragging. */
+const INDENT = 22;
 
 export const SIDEBAR_WIDTH = 260;
 /** Icon-only rail when the pinned sidebar is collapsed. */
@@ -62,14 +76,163 @@ export default function Sidebar({ state, navigation, onNavigate }: Props) {
   const accent = useAccent();
   const [listTarget, setListTarget] = useState<ListDef | null>(null);
   const [folderTarget, setFolderTarget] = useState<FolderDef | null>(null);
-  const [newListFolder, setNewListFolder] = useState<FolderDef | null>(null);
+  /** Outer null = closed; `folder` null = a list at the root. */
+  const [newList, setNewList] = useState<{ folder: FolderDef | null } | null>(null);
   const [newFolderOpen, setNewFolderOpen] = useState(false);
-  const { wide, collapsed: collapsedPref, toggleCollapsed, openServer } = useSidebar();
+  /**
+   * The folder whose lists are hidden because its header is being dragged.
+   *
+   * Armed on touch-down, ~200ms before the library recognises the hold, so the
+   * item set is never mutated mid-drag. See `flattenTree`.
+   */
+  const [draggingFolderId, setDraggingFolderId] = useState<string | null>(null);
+  /** Folders folded shut. Restored from the device and saved on every toggle. */
+  const [collapsedFolders, setCollapsedFolders] = useState<string[]>(loadCollapsedFolders);
+  const [menuTarget, setMenuTarget] = useState<NavMenuTarget | null>(null);
+  const [menuAt, setMenuAt] = useState<PopoverAnchor | null>(null);
+  /**
+   * Where the touch that armed the current drag went down, in window
+   * coordinates, plus whether the menu it opened has since been dismissed.
+   *
+   * Held in a ref rather than state: it is read inside gesture callbacks that
+   * must not be rebuilt as the finger moves, and nothing renders from it.
+   */
+  const press = React.useRef<{
+    x: number;
+    y: number;
+    depth: 0 | 1;
+    /** The depth the sideways travel is currently asking for. */
+    intent: 0 | 1;
+    cancelled: boolean;
+  } | null>(null);
+  const { wide, collapsed: collapsedPref, toggleCollapsed, openServer, closeDrawer } = useSidebar();
+  const scrollRef = useAnimatedRef<Animated.ScrollView>();
   // The drawer is a transient overlay, so it always shows the full sidebar.
   const collapsed = wide && collapsedPref;
   const insets = useSafeAreaInsets();
-  const { state: data, syncStatus } = useTasks();
+  const { height: winHeight } = useWindowDimensions();
+  const { state: data, syncStatus, reorderList, reorderFolder } = useTasks();
   const now = new Date();
+  const rows = useMemo(
+    () => flattenTree(data.folders, data.lists, { collapsed: collapsedFolders, dragging: draggingFolderId }),
+    [data.folders, data.lists, collapsedFolders, draggingFolderId]
+  );
+
+  const toggleFolder = useCallback((id: string) => {
+    setCollapsedFolders((current) => {
+      const next = current.includes(id) ? current.filter((f) => f !== id) : [...current, id];
+      saveCollapsedFolders(next);
+      return next;
+    });
+  }, []);
+
+  const rowFor = useCallback(
+    (key: string): NavMenuTarget | null => {
+      const row = rows.find((r) => r.key === key);
+      if (!row) return null;
+      return row.kind === 'folder'
+        ? { kind: 'folder', id: row.folder.id }
+        : { kind: 'list', id: row.list.id };
+    },
+    [rows]
+  );
+
+  const closeMenu = useCallback(() => {
+    setMenuTarget(null);
+    setMenuAt(null);
+  }, []);
+
+  /**
+   * A row has been touched, well before any hold is recognised.
+   *
+   * Armed from the row's own `onPressIn` rather than a touch handler on the
+   * wrapper: gesture-handler claims the touch natively, so a plain View around
+   * the row never sees `onTouchStart` at all. The row's Pressable does, which is
+   * also what makes a plain tap still work.
+   *
+   * The point it carries is the only reliable position available for the
+   * gesture. The library's drag-start reports no coordinates, and by the time it
+   * fires the row is mid-lift — scaled and translating — so measuring it then
+   * gives a moving target. It is also the baseline the travel tests measure
+   * from, so one capture serves the menu's anchor, the 8px cancel and the
+   * sideways depth intent alike.
+   */
+  const arm = useCallback(
+    (key: string, point: { x: number; y: number }) => {
+      const depth = rows.find((r) => r.key === key)?.depth ?? 0;
+      press.current = { ...point, depth, intent: depth, cancelled: false };
+      // A folder travels as a unit, so its children fold away for the duration.
+      setDraggingFolderId(key.startsWith('f:') ? key.slice(2) : null);
+    },
+    [rows]
+  );
+
+  /**
+   * The hold has been recognised: the row is lifting, so the menu comes up with
+   * it, anchored where the finger went down.
+   *
+   * The press point rather than the row's own rect, for two reasons. The library
+   * reports no position here, and measuring the row now would measure it
+   * mid-lift — scaled and translating. It is also the baseline the travel test
+   * below has to work from, so one value serves both.
+   *
+   * With a mouse there is no hold at all: a drag starts from the grip, and the
+   * menu comes from right-click instead. Popping a panel because someone grabbed
+   * the handle would be actively wrong.
+   */
+  const dragStart = useCallback(
+    (key: string) => {
+      if (FINE_POINTER) return;
+      const at = press.current;
+      if (!at) return;
+      setMenuTarget(rowFor(key));
+      setMenuAt({ x: at.x, y: at.y, width: 0, height: 0 });
+    },
+    [rowFor]
+  );
+
+  /**
+   * The finger has travelled far enough to mean "I am dragging this", so the
+   * menu gets out of the way and the drag carries on underneath it.
+   *
+   * Eight points, and `cancelled` so this fires once rather than on every frame
+   * of the rest of the drag.
+   *
+   * This does not fight `dragActivationFailOffset`, though the two numbers look
+   * like they should: that one only applies while the hold is still being
+   * recognised — it is how a scroll flick escapes — and by the time anything
+   * here runs the row is already lifted and the ScrollView has lost the gesture.
+   */
+  const dragMove = useCallback(
+    (_key: string, point: { x: number; y: number }) => {
+      const at = press.current;
+      if (!at) return;
+      // Sideways travel is how a list is nested or pulled back out. Vertical
+      // position alone cannot say: the slot under a folder's last child is both
+      // "another child" and "a root list following the folder". One indent step
+      // of travel switches between them, which is how the outliners do it and
+      // the only way a nested list can be dragged back to the root at all.
+      at.intent = Math.min(1, Math.max(0, at.depth + Math.round((point.x - at.x) / INDENT))) as 0 | 1;
+      if (at.cancelled) return;
+      if (Math.hypot(point.x - at.x, point.y - at.y) <= 8) return;
+      at.cancelled = true;
+      closeMenu();
+    },
+    [closeMenu]
+  );
+
+  const reorder = useCallback(
+    (keys: string[], moved: { id: string }) => {
+      const byKey = new Map(rows.map((r) => [r.key, r]));
+      const next = keys.map((k) => byKey.get(k)).filter((r): r is NavRow => !!r);
+      const row = byKey.get(moved.id);
+      const drop = resolveDrop(next, moved.id, press.current?.intent ?? 0);
+      if (!row || !drop) return;
+      if (row.kind === 'list') reorderList(row.list.id, drop.parentId, drop.prevId, drop.nextId);
+      else reorderFolder(row.folder.id, drop.prevId, drop.nextId);
+    },
+    [rows, reorderList, reorderFolder]
+  );
 
   const counts = listCounts(data.tasks);
   const tags = tagCounts(data.tasks);
@@ -121,7 +284,12 @@ export default function Sidebar({ state, navigation, onNavigate }: Props) {
         )}
       </View>
 
-      <ScrollView style={styles.scrollArea} contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      <Animated.ScrollView
+        ref={scrollRef}
+        style={styles.scrollArea}
+        contentContainerStyle={styles.scroll}
+        showsVerticalScrollIndicator={false}
+      >
         {viewsFor().map(({ route, label, Icon }) => {
           const active = current.name === route && (route !== 'InboxTab' || !filtered);
           const count = viewCount(route);
@@ -145,71 +313,77 @@ export default function Sidebar({ state, navigation, onNavigate }: Props) {
           );
         })}
 
-        {activeFolders(data.folders).map((folder) => {
-          const lists = listsInFolder(data.lists, folder.id);
-          return (
-            <View key={folder.id}>
-              {!collapsed && (
-                <View style={styles.folderRow}>
-                  <Pressable
-                    style={styles.folderLabelPress}
-                    onLongPress={() => setFolderTarget(folder)}
-                    delayLongPress={350}
-                    accessibilityLabel={`Edit folder ${folder.name}`}
-                  >
-                    <Text style={[styles.sectionLabel, styles.folderLabel]} numberOfLines={1}>
-                      {folder.name}
-                    </Text>
-                  </Pressable>
-                  <Pressable
-                    onPress={() => setNewListFolder(folder)}
-                    hitSlop={8}
-                    accessibilityLabel={`New list in ${folder.name}`}
-                  >
-                    <IconPlus size={12} strokeWidth={1.6} color={colors.textFaint} />
-                  </Pressable>
-                </View>
+        {/*
+          Folders and their lists are one flat sortable, not a sortable per
+          folder: the library reorders siblings and cannot hand an item to
+          another container, so nesting would leave a list dragged towards a
+          different folder with no slot opening for it. `navTree` flattens the
+          tree on the way in and reads the meaning back out of the drop.
+
+          Collapsed rail mode opts out — there is nothing to drag when the rows
+          are 20pt colour badges with no folder headings between them.
+        */}
+        <DragList
+          items={rows}
+          keyExtractor={(row) => row.key}
+          enabled={!collapsed}
+          scrollableRef={scrollRef}
+          onDragStart={dragStart}
+          onDragMove={dragMove}
+          onDropped={() => setDraggingFolderId(null)}
+          onReorder={reorder}
+          // From the data, not from `rows`: by the time a folder is being
+          // dragged its children have already been folded out of the tree, so
+          // counting rows would always say one.
+          dragCount={(key) =>
+            key.startsWith('f:') ? listsInFolder(data.lists, key.slice(2)).length + 1 : 1
+          }
+          renderItem={(row) => (
+            // Right-click is the mouse's way in: there is no hold to long-press
+            // with, and the grip is reserved for dragging. Web-only by
+            // construction — on native this is a plain View.
+            <ContextMenuTarget
+              onOpen={(pos) => {
+                setMenuTarget(rowFor(row.key));
+                setMenuAt({ x: pos.x, y: pos.y, width: 0, height: 0 });
+              }}
+            >
+              {row.kind === 'folder' ? (
+                <FolderRow
+                  onPressIn={(point) => arm(row.key, point)}
+                  folder={row.folder}
+                  rail={collapsed}
+                  count={folderTotal(data.lists, counts, row.folder.id)}
+                  folded={collapsedFolders.includes(row.folder.id)}
+                  onToggle={() => toggleFolder(row.folder.id)}
+                />
+              ) : (
+                <ListRow
+                  onPressIn={(point) => arm(row.key, point)}
+                  list={row.list}
+                  rail={collapsed}
+                  depth={row.depth}
+                  count={counts[row.list.id] ?? 0}
+                  active={filterActive('list', row.list.id)}
+                  accent={accent}
+                  onPress={() => openFilter({ listId: row.list.id })}
+                />
               )}
-              {lists.map((list) => {
-                const active = filterActive('list', list.id);
-                return (
-                  <Pressable
-                    key={list.id}
-                    style={hoverBg([styles.row, collapsed && styles.rowCollapsed, active && { backgroundColor: colors.selectedRowBg }], active)}
-                    onPress={() => openFilter({ listId: list.id })}
-                    accessibilityLabel={list.name}
-                    onLongPress={() => setListTarget(list)}
-                    delayLongPress={350}
-                  >
-                    {collapsed ? (
-                      <View style={[styles.letterBadge, { backgroundColor: list.color }]}>
-                        <Text style={styles.letterBadgeText}>{list.name.charAt(0).toUpperCase()}</Text>
-                      </View>
-                    ) : (
-                      <Pressable onPress={() => setListTarget(list)} hitSlop={8} accessibilityLabel={`Change ${list.name} colour`}>
-                        <View style={[styles.dot, { backgroundColor: list.color }]} />
-                      </Pressable>
-                    )}
-                    {!collapsed && (
-                      <>
-                        <Text style={[styles.rowLabel, active && { color: accent, fontFamily: fonts.sansSemiBold }]}>
-                          {list.name}
-                        </Text>
-                        <Text style={styles.rowCount}>{counts[list.id] ?? 0}</Text>
-                      </>
-                    )}
-                  </Pressable>
-                );
-              })}
-            </View>
-          );
-        })}
+            </ContextMenuTarget>
+          )}
+        />
 
         {!collapsed && (
-          <Pressable style={hoverBg(styles.newFolderRow)} onPress={() => setNewFolderOpen(true)} accessibilityLabel="New folder">
-            <IconPlus size={15} color={colors.textTertiary} />
-            <Text style={styles.newFolderLabel}>New folder</Text>
-          </Pressable>
+          <View style={styles.addRow}>
+            <Pressable style={hoverBg(styles.newRow)} onPress={() => setNewList({ folder: null })} accessibilityLabel="New list">
+              <IconPlus size={15} color={colors.textTertiary} />
+              <Text style={styles.newLabel}>New list</Text>
+            </Pressable>
+            <Pressable style={hoverBg(styles.newRow)} onPress={() => setNewFolderOpen(true)} accessibilityLabel="New folder">
+              <IconPlus size={15} color={colors.textTertiary} />
+              <Text style={styles.newLabel}>New folder</Text>
+            </Pressable>
+          </View>
         )}
 
         {tags.length > 0 && !collapsed && (
@@ -236,7 +410,7 @@ export default function Sidebar({ state, navigation, onNavigate }: Props) {
             })}
           </View>
         )}
-      </ScrollView>
+      </Animated.ScrollView>
 
       <Pressable
         style={hoverBg([styles.footer, collapsed && styles.footerCollapsed, { paddingBottom: Math.max(12, insets.bottom) }])}
@@ -251,11 +425,157 @@ export default function Sidebar({ state, navigation, onNavigate }: Props) {
         />
       </Pressable>
 
+      <NavContextMenu
+        // The nav is inside the drawer's Modal in the narrow layout, and a
+        // second Modal presented from within one never appears on iOS. Drawn
+        // into the sidebar instead, which fills the height it needs.
+        inline
+        bounds={{ width: SIDEBAR_WIDTH, height: winHeight }}
+        target={menuTarget}
+        at={menuAt}
+        onClose={closeMenu}
+        onRename={() => {
+          if (!menuTarget) return;
+          // The sheets portal to a provider outside the drawer's Modal, so from
+          // the drawer they would open behind it. Closing the nav first is also
+          // simply what you want: you have left the list to go edit it.
+          closeDrawer();
+          if (menuTarget.kind === 'list') {
+            setListTarget(data.lists.find((l) => l.id === menuTarget.id) ?? null);
+          } else {
+            setFolderTarget(data.folders.find((f) => f.id === menuTarget.id) ?? null);
+          }
+        }}
+        onNewList={
+          menuTarget?.kind === 'folder'
+            ? () => {
+                const folder = data.folders.find((f) => f.id === menuTarget.id) ?? null;
+                closeDrawer();
+                setNewList({ folder });
+              }
+            : undefined
+        }
+      />
       <ListOptionsSheet list={listTarget} onClose={() => setListTarget(null)} />
       <FolderOptionsSheet folder={folderTarget} onClose={() => setFolderTarget(null)} />
-      <NewListSheet folder={newListFolder} onClose={() => setNewListFolder(null)} />
+      <NewListSheet visible={!!newList} folder={newList?.folder ?? null} onClose={() => setNewList(null)} />
       <NewFolderSheet visible={newFolderOpen} onClose={() => setNewFolderOpen(false)} />
     </View>
+  );
+}
+
+/**
+ * A folder, as a row rather than a caption.
+ *
+ * Folders used to be uppercase section labels — typography, not objects. That
+ * read badly once they became things you grab and reorder: you cannot drag a
+ * heading. As a row with the same height, icon column and trailing count as a
+ * list, a folder looks like the peer it now is, and its chevron has somewhere
+ * obvious to live.
+ */
+function FolderRow({
+  folder,
+  rail,
+  count,
+  folded,
+  onToggle,
+  onPressIn,
+}: {
+  folder: FolderDef;
+  onPressIn: (point: { x: number; y: number }) => void;
+  /** The collapsed icon-only sidebar, not a folded folder. */
+  rail: boolean;
+  count: number;
+  folded: boolean;
+  onToggle: () => void;
+}) {
+  if (rail) return null;
+  return (
+    <Pressable
+      style={hoverBg(styles.row)}
+      onPress={onToggle}
+      onPressIn={(e) => onPressIn({ x: e.nativeEvent.pageX, y: e.nativeEvent.pageY })}
+      accessibilityLabel={folder.name}
+    >
+      <View style={styles.chevron}>
+        {folded ? <IconChevronRight size={12} /> : <IconChevronDown size={12} />}
+      </View>
+      <View style={styles.rowIcon}>
+        <IconFolder size={16} color={colors.textTertiary} />
+      </View>
+      <Text style={styles.rowLabel} numberOfLines={1}>
+        {folder.name}
+      </Text>
+      {count > 0 && <Text style={styles.rowCount}>{count}</Text>}
+    </Pressable>
+  );
+}
+
+function ListRow({
+  list,
+  rail,
+  depth,
+  count,
+  active,
+  accent,
+  onPress,
+  onPressIn,
+}: {
+  list: ListDef;
+  onPressIn: (point: { x: number; y: number }) => void;
+  rail: boolean;
+  /** 1 when the list sits inside a folder, and is inset under it. */
+  depth: 0 | 1;
+  count: number;
+  active: boolean;
+  accent: string;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      style={hoverBg(
+        [
+          styles.row,
+          rail && styles.rowCollapsed,
+          // The inset lands on the row, not the label, so the whole row still
+          // takes a press and the hover fill starts where the row appears to.
+          !rail && depth === 1 && { marginLeft: INDENT },
+          active && { backgroundColor: colors.selectedRowBg },
+        ],
+        active
+      )}
+      onPress={onPress}
+      onPressIn={(e) => onPressIn({ x: e.nativeEvent.pageX, y: e.nativeEvent.pageY })}
+      accessibilityLabel={list.name}
+    >
+      {rail ? (
+        <View style={[styles.letterBadge, { backgroundColor: list.color }]}>
+          <Text style={styles.letterBadgeText}>{list.name.charAt(0).toUpperCase()}</Text>
+        </View>
+      ) : (
+        <>
+          {/* Holds the column a folder's chevron occupies, so every row's icon
+              and label line up whether or not it has one. Every list keeps it,
+              nested ones included — otherwise the reclaimed column cancels out
+              the indent below and a child sits exactly where a root list does. */}
+          <View style={styles.chevron} />
+          <View style={styles.rowIcon}>
+            <View style={[styles.dot, { backgroundColor: list.color }]} />
+          </View>
+        </>
+      )}
+      {!rail && (
+        <>
+          <Text
+            style={[styles.rowLabel, active && { color: accent, fontFamily: fonts.sansSemiBold }]}
+            numberOfLines={1}
+          >
+            {list.name}
+          </Text>
+          {count > 0 && <Text style={styles.rowCount}>{count}</Text>}
+        </>
+      )}
+    </Pressable>
   );
 }
 
@@ -325,6 +645,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.textFaint,
   },
+  /** The Tags caption. Folders used to share this and are now rows instead. */
   sectionLabel: {
     fontFamily: fonts.monoRegular,
     fontSize: 10.5,
@@ -335,50 +656,41 @@ const styles = StyleSheet.create({
     paddingTop: 18,
     paddingBottom: 6,
   },
-  /**
-   * Only the folder heading flexes; sectionLabel is shared with Tags, which isn't
-   * in a row. Its vertical padding moves to the row, otherwise centring the label's
-   * lopsided 18/6 box against the icon pushes the text visibly below it.
-   */
-  folderLabel: {
-    flex: 1,
-    paddingTop: 0,
-    paddingBottom: 0,
-  },
-  folderLabelPress: {
-    flex: 1,
-    minWidth: 0,
-  },
-  folderRow: {
+  /** Both adds share a line, now that a list can be made at the root too. */
+  addRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    paddingTop: 18,
-    paddingBottom: 6,
-    // Trailing inset matches the 10 the rows below are padded by, so the + lines
-    // up with their counts.
-    paddingRight: 10,
+    marginTop: 4,
   },
   /** Mirrors the sidebar row metrics so it sits on the same rhythm as the lists. */
-  newFolderRow: {
+  newRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 8,
     paddingHorizontal: 10,
     borderRadius: 8,
     minHeight: 36,
-    marginTop: 4,
   },
   /** Matches TaskDetailView's "Add subtask" — the app's other subordinate add row. */
-  newFolderLabel: {
+  newLabel: {
     fontFamily: fonts.sansRegular,
     fontSize: 14,
     color: colors.textTertiary,
+  },
+  /** Reserves the chevron's column so every row's icon and label line up. */
+  chevron: {
+    width: 12,
+    alignItems: 'center',
+  },
+  /** One column for whatever marks a row — a folder's icon, a list's dot — so
+   *  every label starts at the same x whichever kind of row it is. */
+  rowIcon: {
+    width: 16,
+    alignItems: 'center',
   },
   dot: {
     width: 10,
     height: 10,
     borderRadius: 3,
-    marginHorizontal: 4,
   },
   letterBadge: {
     width: 20,

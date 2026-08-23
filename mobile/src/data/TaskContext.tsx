@@ -30,7 +30,8 @@ import {
 } from './storage';
 import { ApiError, createApi } from './api';
 import { Outbox, SyncStatus, mergeBatch, pullSince, pushDirty } from './sync';
-import { activeLists } from './selectors';
+import { activeFolders, activeLists } from './selectors';
+import { Ordered, applyOrders, computeOrders, reorderRows } from './ordering';
 export { ApiError } from './api';
 export type { SyncState, SyncStatus } from './sync';
 
@@ -62,6 +63,8 @@ type Action =
   | { type: 'REORDER_TASKS'; ids: string[]; prevId: string | null; nextId: string | null }
   | { type: 'SET_ARRANGEMENT'; key: string; sortBy: SortBy; groupKey: string; ids: string[] }
   | { type: 'CLEAR_ARRANGEMENT'; key: string; sortBy: SortBy }
+  | { type: 'REORDER_LIST'; id: string; folderId: string | null; prevId: string | null; nextId: string | null }
+  | { type: 'REORDER_FOLDER'; id: string; prevId: string | null; nextId: string | null }
   | { type: 'ADD_LIST'; list: ListDef }
   | { type: 'ADD_FOLDER'; folder: FolderDef }
   | { type: 'UPDATE_LIST'; id: string; patch: Partial<ListDef> }
@@ -95,69 +98,17 @@ function tombstoneListPrefs(prefs: ViewPref[], listIds: string[], now: string): 
 }
 
 /**
- * Moves one task between two neighbours under the Custom order.
+ * The nav's root: the folders and the lists that aren't inside one, which sit
+ * among them as siblings and therefore share a single run of positions.
  *
- * Taking the midpoint of the neighbours it landed between touches exactly one
- * record, so a drag no longer renumbers everything around it. `order` is a float
- * and gaps start far apart, but halving the same gap repeatedly does eventually
- * exhaust the precision — `ORDER_EPSILON` is where that stops being safe.
+ * Applying the resulting orders to both collections is safe because list and
+ * folder ids are prefixed (`l-`, `f-`) and cannot collide.
  */
-const ORDER_EPSILON = 1e-6;
-
-function reorderTask(
-  tasks: Task[],
-  ids: string[],
-  prevId: string | null,
-  nextId: string | null
-): Task[] {
-  // `ids` is usually one row, and several when a selection is dragged as a
-  // group. They share the gap between the neighbours, spread evenly so they keep
-  // the order they were in.
-  const moving = ids.filter((id) => tasks.some((t) => t.id === id));
-  if (moving.length === 0) return tasks;
-  const prev = prevId ? tasks.find((t) => t.id === prevId) : undefined;
-  const next = nextId ? tasks.find((t) => t.id === nextId) : undefined;
-
-  let start: number;
-  let step: number;
-  if (prev && next) {
-    const gap = next.order - prev.order;
-    // Room for one midpoint per moved row, or there is nothing left to split.
-    if (gap < ORDER_EPSILON * (moving.length + 1)) return renumber(tasks, moving, prevId);
-    step = gap / (moving.length + 1);
-    start = prev.order + step;
-  } else if (prev) {
-    start = prev.order + 1;
-    step = 1;
-  } else if (next) {
-    start = next.order - moving.length;
-    step = 1;
-  } else return tasks;
-
-  const orders = new Map(moving.map((id, i) => [id, start + i * step]));
-  return tasks.map((t) => {
-    const order = orders.get(t.id);
-    return order === undefined || order === t.order ? t : { ...t, order };
-  });
-}
-
-/**
- * The precision escape hatch. Respaces every task by whole numbers in their
- * current order, dropping the moved one in directly after its new predecessor,
- * which reopens room to subdivide. Rewrites everything, so it only runs when the
- * midpoint above genuinely has nowhere left to go.
- */
-function renumber(tasks: Task[], ids: string[], prevId: string | null): Task[] {
-  const moving = new Set(ids);
-  const rest = [...tasks].sort((a, b) => a.order - b.order).filter((t) => !moving.has(t.id));
-  const moved = ids.map((id) => tasks.find((t) => t.id === id)!);
-  const at = prevId ? rest.findIndex((t) => t.id === prevId) + 1 : 0;
-  const sequence = [...rest.slice(0, at), ...moved, ...rest.slice(at)];
-  const next = new Map(sequence.map((t, i) => [t.id, i]));
-  return tasks.map((t) => {
-    const order = next.get(t.id);
-    return order === undefined || order === t.order ? t : { ...t, order };
-  });
+function rootScope(folders: FolderDef[], lists: ListDef[]): Ordered[] {
+  return [
+    ...folders.filter((f) => !f.deletedAt),
+    ...lists.filter((l) => l.folderId === null && !l.deletedAt),
+  ];
 }
 
 /** Applies a change to one view's arrangements, dropping keys that empty out. */
@@ -262,7 +213,11 @@ function applyAction(state: State, action: Action): State {
         ),
       };
     case 'REORDER_TASKS':
-      return { ...state, tasks: reorderTask(state.tasks, action.ids, action.prevId, action.nextId) };
+      // Tasks rank globally, so their scope is the whole collection.
+      return {
+        ...state,
+        tasks: reorderRows(state.tasks, state.tasks, action.ids, action.prevId, action.nextId),
+      };
     case 'SET_ARRANGEMENT':
       // A drag under an active sort. The whole group's sequence is recorded on the
       // view; no task is touched, so the Custom order and every other view are left
@@ -282,6 +237,43 @@ function applyAction(state: State, action: Action): State {
         ...state,
         viewPrefs: withArrangements(state.viewPrefs, action.key, ({ [action.sortBy]: _drop, ...rest }) => rest),
       };
+    }
+    /**
+     * Relocation and reordering in one pass: the list is moved to its
+     * destination *first*, so `prevId`/`nextId` — which the drag read off that
+     * destination — resolve against a scope it already belongs to. The other way
+     * round would mean looking its new neighbours up where it came from.
+     */
+    case 'REORDER_LIST': {
+      const relocated = state.lists.map((l) =>
+        l.id === action.id && l.folderId !== action.folderId ? { ...l, folderId: action.folderId } : l
+      );
+      if (action.folderId !== null) {
+        const scope = relocated.filter((l) => l.folderId === action.folderId && !l.deletedAt);
+        return {
+          ...state,
+          lists: reorderRows(relocated, scope, [action.id], action.prevId, action.nextId),
+        };
+      }
+      // Dropped at the root, where the peers are the folders as well as the
+      // other loose lists — so the positions are worked out once over both and
+      // then written to each collection.
+      const orders = computeOrders(
+        rootScope(state.folders, relocated),
+        [action.id],
+        action.prevId,
+        action.nextId
+      );
+      return { ...state, lists: applyOrders(relocated, orders), folders: applyOrders(state.folders, orders) };
+    }
+    case 'REORDER_FOLDER': {
+      const orders = computeOrders(
+        rootScope(state.folders, state.lists),
+        [action.id],
+        action.prevId,
+        action.nextId
+      );
+      return { ...state, folders: applyOrders(state.folders, orders), lists: applyOrders(state.lists, orders) };
     }
     case 'ADD_LIST':
       return { ...state, lists: [...state.lists, action.list] };
@@ -478,7 +470,11 @@ interface TaskContextValue {
   reorderTasks: (ids: string[], prevId: string | null, nextId: string | null) => void;
   setArrangement: (key: string, sortBy: SortBy, groupKey: string, ids: string[]) => void;
   clearArrangement: (key: string, sortBy: SortBy) => void;
-  addList: (name: string, folderId: string) => void;
+  /** `folderId` is the destination — null for the root, alongside the folders. */
+  reorderList: (id: string, folderId: string | null, prevId: string | null, nextId: string | null) => void;
+  reorderFolder: (id: string, prevId: string | null, nextId: string | null) => void;
+  /** `folderId` null puts the list at the root, beside the folders. */
+  addList: (name: string, folderId: string | null) => void;
   addFolder: (name: string) => void;
   setListColor: (listId: string, color: string) => void;
   renameList: (listId: string, name: string) => void;
@@ -696,19 +692,70 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     },
     [markDirty]
   );
+  /**
+   * Moves a list within its folder, or into another one.
+   *
+   * `markDirty` covers the whole affected scope, not just the moved row and its
+   * two neighbours the way `reorderTasks` does. That narrower version has a
+   * hole: when `reorderRows` falls back to renumbering, every peer's `order`
+   * changes but only three ids get pushed. Container scopes are single digits,
+   * and the reducer's identity check still decides which rows actually carry a
+   * new `updatedAt`, so marking the lot costs nothing and closes it.
+   */
+  const reorderList = useCallback(
+    (id: string, folderId: string | null, prevId: string | null, nextId: string | null) => {
+      const list = state.lists.find((l) => l.id === id);
+      dispatch({ type: 'REORDER_LIST', id, folderId, prevId, nextId });
+      // Both folders on a cross-folder move: the one it left has to be respaced
+      // and pushed too.
+      const touched = state.lists.filter(
+        (l) => !l.deletedAt && (l.folderId === folderId || l.folderId === list?.folderId)
+      );
+      // A drop at the root can respace the folders as well, since they share
+      // that run of positions.
+      const roots =
+        folderId === null || list?.folderId === null
+          ? activeFolders(state.folders).map((f) => f.id)
+          : [];
+      markDirty([id, ...touched.map((l) => l.id), ...roots]);
+    },
+    [state.lists, markDirty]
+  );
+  const reorderFolder = useCallback(
+    (id: string, prevId: string | null, nextId: string | null) => {
+      dispatch({ type: 'REORDER_FOLDER', id, prevId, nextId });
+      markDirty([id, ...rootScope(state.folders, state.lists).map((r) => r.id)]);
+    },
+    [state.folders, state.lists, markDirty]
+  );
+  /**
+   * Appended, not prepended.
+   *
+   * Tasks are created with `order: -Date.now()` so the newest lands on top —
+   * right for a quick-add field you type into all day. A list is made
+   * deliberately, almost always from the `+` on a particular folder heading,
+   * and you expect it to appear where you pressed: at the end of that folder.
+   */
   const addList = useCallback(
-    (name: string, folderId: string) => {
+    (name: string, folderId: string | null) => {
+      // At the root the siblings include the folders, since they share that run
+      // of positions.
+      const siblings: Ordered[] =
+        folderId === null
+          ? rootScope(state.folders, state.lists)
+          : state.lists.filter((l) => l.folderId === folderId && !l.deletedAt);
       const list = {
         id: newListId(),
         name,
         folderId,
         color: LIST_COLORS[Math.floor(Math.random() * LIST_COLORS.length)],
+        order: siblings.length ? Math.max(...siblings.map((l) => l.order)) + 1 : 0,
         updatedAt: new Date().toISOString(),
       };
       dispatch({ type: 'ADD_LIST', list });
       markDirty([list.id]);
     },
-    [markDirty]
+    [state.lists, state.folders, markDirty]
   );
   const setListColor = useCallback(
     (listId: string, color: string) => {
@@ -753,13 +800,20 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     },
     [state.lists, state.tasks, state.viewPrefs, markDirty]
   );
+  /** Appended for the same reason as `addList`, over the whole folder list. */
   const addFolder = useCallback(
     (name: string) => {
-      const folder = { id: newFolderId(), name, updatedAt: new Date().toISOString() };
+      const siblings = rootScope(state.folders, state.lists);
+      const folder = {
+        id: newFolderId(),
+        name,
+        order: siblings.length ? Math.max(...siblings.map((f) => f.order)) + 1 : 0,
+        updatedAt: new Date().toISOString(),
+      };
       dispatch({ type: 'ADD_FOLDER', folder });
       markDirty([folder.id]);
     },
-    [markDirty]
+    [state.folders, state.lists, markDirty]
   );
   const getViewOptions = useCallback(
     (key: string) => viewOptionsFor(state.viewPrefs, key),
@@ -941,6 +995,8 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       reorderTasks,
       setArrangement,
       clearArrangement,
+      reorderList,
+      reorderFolder,
       addList,
       addFolder,
       setListColor,
@@ -975,6 +1031,8 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       reorderTasks,
       setArrangement,
       clearArrangement,
+      reorderList,
+      reorderFolder,
       addList,
       addFolder,
       setListColor,

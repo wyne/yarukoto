@@ -6,11 +6,10 @@ import { useAccent } from '../../theme/ThemeContext';
 import { useTasks } from '../../data/TaskContext';
 import { useDetail } from '../../navigation/DetailContext';
 import {
-  activeFolders,
   activeTasks,
   getListById,
   inboxTasks,
-  listsInFolder,
+  navGroups,
   tagCounts,
   unscheduledTasks,
 } from '../../data/selectors';
@@ -115,10 +114,10 @@ export default function SchedulePane() {
               setPickerOpen(false);
             }} />
           ))}
-          {activeFolders(state.folders).map((folder) => (
-            <View key={folder.id}>
-              <Text style={styles.sectionLabel}>{folder.name}</Text>
-              {listsInFolder(state.lists, folder.id).map((list) => (
+          {navGroups(state.lists, state.folders).map((group) => (
+            <View key={group.folder?.id ?? 'root'}>
+              {group.folder && <Text style={styles.sectionLabel}>{group.folder.name}</Text>}
+              {group.lists.map((list) => (
                 <ScopeRow
                   key={list.id}
                   label={list.name}

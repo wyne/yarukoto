@@ -22,6 +22,19 @@ interface Props {
    * from the pointer the way one always has.
    */
   align?: 'start' | 'end';
+  /**
+   * Render into the current view instead of a Modal of its own.
+   *
+   * For the one case a Modal cannot serve: a popover opened from inside another
+   * Modal. iOS presents a Modal as its own view controller, and a second one
+   * presented from within the first does not come up at all — which is what the
+   * nav drawer is. Inline mode draws the same panel as an absolutely positioned
+   * overlay in the host view, so it needs the host to fill the area the panel
+   * should be placed against.
+   */
+  inline?: boolean;
+  /** Inline mode: the host's size, used for placement instead of the window's. */
+  bounds?: { width: number; height: number };
   children: React.ReactNode;
 }
 
@@ -50,9 +63,12 @@ export default function Popover({
   anchor,
   width: preferred = 380,
   align = 'end',
+  inline,
+  bounds,
   children,
 }: Props) {
-  const { width: winWidth, height: winHeight } = useWindowDimensions();
+  const window = useWindowDimensions();
+  const { width: winWidth, height: winHeight } = bounds ?? window;
   // Narrow windows get whatever is available rather than an overflowing card.
   const width = Math.min(preferred, winWidth - EDGE * 2);
 
@@ -76,8 +92,8 @@ export default function Popover({
   const spaceBelow = winHeight - below - EDGE;
   const flip = spaceBelow < 200 && anchor.y > spaceBelow;
 
-  return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+  const body = (
+    <>
       {/* Catches the click-away. Transparent, so the page stays readable behind
           it — a popover is a light touch, not a modal interruption. */}
       <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
@@ -90,6 +106,14 @@ export default function Popover({
       >
         {children}
       </View>
+    </>
+  );
+
+  if (inline) return visible ? body : null;
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      {body}
     </Modal>
   );
 }

@@ -29,8 +29,9 @@ const ACCENT_KEY = 'yarukoto.accent';
 const PLAN_KEY = 'yarukoto.planPrefs';
 const COLLAPSED_KEY = 'yarukoto.collapsedSections';
 const SAVED_SERVERS_KEY = 'yarukoto.savedServers';
+const FOLDERS_KEY = 'yarukoto.collapsedFolders';
 
-const ALL_KEYS = [URL_KEY, MODE_KEY, TOKEN_KEY, ACCENT_KEY, PLAN_KEY, COLLAPSED_KEY, SAVED_SERVERS_KEY];
+const ALL_KEYS = [URL_KEY, MODE_KEY, TOKEN_KEY, ACCENT_KEY, PLAN_KEY, COLLAPSED_KEY, SAVED_SERVERS_KEY, FOLDERS_KEY];
 
 let cache: Record<string, string | null> = {};
 let primed = false;
@@ -248,3 +249,21 @@ export function removeSavedServer(url: string): void {
  * cheap for a personal task list and correct by construction. Persisting it only
  * becomes worthwhile alongside a local cache of the tasks themselves.
  */
+
+/**
+ * Folders the user has folded shut in the nav.
+ *
+ * Device-local rather than synced, like the other collapse state above: which
+ * folders you have shut is about the screen in front of you, not about how the
+ * lists are arranged. The ordering right next to it in the nav *is* synced,
+ * because that is an arrangement you would expect to travel.
+ */
+export function loadCollapsedFolders(): string[] {
+  const stored = readJson<unknown>(FOLDERS_KEY);
+  return Array.isArray(stored) ? stored.filter((id): id is string => typeof id === 'string') : [];
+}
+
+export function saveCollapsedFolders(ids: string[]): void {
+  if (ids.length === 0) remove(FOLDERS_KEY);
+  else writeJson(FOLDERS_KEY, ids);
+}

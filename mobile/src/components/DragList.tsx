@@ -34,6 +34,17 @@ interface Props<T> {
   dragCount?: (key: string) => number;
   /** Animated.ScrollView hosting this list; enables auto-scroll while dragging. */
   scrollableRef?: AnimatedRef<Animated.ScrollView>;
+  /** The hold was recognised and the row is lifting. */
+  onDragStart?: (key: string) => void;
+  /** The lifted row has moved. `point` is the current touch, in window coordinates. */
+  onDragMove?: (key: string, point: { x: number; y: number }) => void;
+  /**
+   * The gesture is over and the list is stable again.
+   *
+   * Fires on release whether or not anything moved: `onActiveItemDropped` alone
+   * is not enough, because a hold that never turns into a drag never drops.
+   */
+  onDropped?: () => void;
 }
 
 /**
@@ -53,6 +64,9 @@ export default function DragList<T>({
   enabled,
   dragCount,
   scrollableRef,
+  onDragStart,
+  onDragMove,
+  onDropped,
 }: Props<T>) {
   // Which row is lifted, so only that one carries the count.
   const [activeKey, setActiveKey] = useState<string | null>(null);
@@ -61,13 +75,22 @@ export default function DragList<T>({
   // so rows must carry an explicit width. Measure the column and pass it down.
   const [containerWidth, setContainerWidth] = useState<number | null>(null);
 
-  // Both spellings, so this keeps working if the library ever reports raw keys.
+  // The library reports React's own child keys, and React rewrites the ones it
+  // is given: a keyed array child becomes `.$<key>` with `=` and `:` escaped to
+  // `=0` and `=2`. So `l:l-home` arrives as `.$l=2l-home`.
+  //
+  // Reproducing that escaping is what makes a key with punctuation in it — the
+  // sidebar's `f:`/`l:` prefixes, say — survive the round trip. Guessing wrong
+  // fails silently: every lookup misses, and a drag appears to work while
+  // nothing is written. Every spelling is registered, so this also keeps working
+  // if the library ever reports raw keys.
   const keyMap = useMemo(() => {
     const m = new Map<string, string>();
     for (const item of items) {
       const key = keyExtractor(item);
       m.set(key, key);
       m.set(`.$${key}`, key);
+      m.set(`.$${key.replace(/[=:]/g, (c) => (c === '=' ? '=0' : '=2'))}`, key);
     }
     return m;
   }, [items, keyExtractor]);
@@ -107,9 +130,20 @@ export default function DragList<T>({
         activeItemShadowOpacity={0}
         inactiveItemOpacity={0.45}
         hapticsEnabled
-        onDragStart={(params) => setActiveKey(keyMap.get(params.key) ?? params.key)}
+        reorderTriggerOrigin="touch"
+        onDragStart={(params) => {
+          const key = keyMap.get(params.key) ?? params.key;
+          setActiveKey(key);
+          onDragStart?.(key);
+        }}
+        onDragMove={(params) => {
+          const { absoluteX, absoluteY } = params.touchData;
+          onDragMove?.(keyMap.get(params.key) ?? params.key, { x: absoluteX, y: absoluteY });
+        }}
+        onActiveItemDropped={() => onDropped?.()}
         onDragEnd={(params) => {
           setActiveKey(null);
+          onDropped?.();
           // The library reports React's child keys, which React mangles to '.$<key>'
           // for keyed array children. Map them back before anything downstream tries
           // to match them against task ids.
