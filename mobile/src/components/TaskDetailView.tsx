@@ -258,8 +258,14 @@ export default function TaskDetailView({ taskId, onClose, variant }: Props) {
                   onPickTime={openTimePicker}
                 >
                   <View
-                    accessibilityRole="button"
-                    accessibilityLabel={task.dueTime ? `Time, ${formatTime24to12(task.dueTime)}` : 'Time, none'}
+                    accessibilityRole={Platform.OS === 'web' ? undefined : 'button'}
+                    accessibilityLabel={
+                      Platform.OS === 'web'
+                        ? undefined
+                        : task.dueTime
+                          ? `Time, ${formatTime24to12(task.dueTime)}`
+                          : 'Time, none'
+                    }
                     style={[styles.metaValueButton, styles.menuValueButton]}
                   >
                     <Text style={[styles.metaValue, task.dueTime && { color: accent }]}>

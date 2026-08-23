@@ -1,17 +1,12 @@
 import React from 'react';
-import { Platform, Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
+import { Platform, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import MenuView, { type MenuAction, type NativeActionEvent } from '@expo/ui/community/menu';
 import { colors } from '../../theme/colors';
 import { fonts } from '../../theme/typography';
 import { useAccent } from '../../theme/ThemeContext';
-import { addDays, formatDueFull, formatTime24to12, toISODate } from '../../data/dateUtils';
-
-const QUICK_DATES: { id: string; label: string; get: (now: Date) => string }[] = [
-  { id: 'today', label: 'Today', get: (now) => toISODate(now) },
-  { id: 'tomorrow', label: 'Tomorrow', get: (now) => toISODate(addDays(now, 1)) },
-  { id: 'next-week', label: 'Next week', get: (now) => toISODate(addDays(now, 7)) },
-  { id: 'this-weekend', label: 'This weekend', get: (now) => toISODate(addDays(now, (6 - now.getDay() + 7) % 7 || 6)) },
-];
+import { formatDueFull, formatTime24to12 } from '../../data/dateUtils';
+import WebDateTimeQuickMenu from './WebDateTimeQuickMenu';
+import { QUICK_DATES } from './dateTimeQuickOptions';
 
 interface Props {
   date?: string;
@@ -99,9 +94,17 @@ export default function DueDateQuickMenu({
 
   if (Platform.OS === 'web') {
     return (
-      <Pressable onPress={onCustomDate} style={[styles.webFallback, style]}>
+      <WebDateTimeQuickMenu
+        mode="date"
+        date={date}
+        time={time}
+        showTimeShortcut={!!onCustomTime}
+        onChange={onChange}
+        onDone={onDone}
+        style={[styles.webFallback, style]}
+      >
         {trigger}
-      </Pressable>
+      </WebDateTimeQuickMenu>
     );
   }
 
