@@ -14,7 +14,6 @@ import {
   folderTotal,
   inboxCount,
   listCounts,
-  listsInFolder,
   tagCounts,
   tasksForToday,
   trashedTasks,
@@ -93,7 +92,6 @@ export default function Sidebar({ state, navigation, onNavigate }: Props) {
    * Armed on touch-down, ~200ms before the library recognises the hold, so the
    * item set is never mutated mid-drag. See `flattenTree`.
    */
-  const [draggingFolderId, setDraggingFolderId] = useState<string | null>(null);
   /** Folders folded shut. Restored from the device and saved on every toggle. */
   const [collapsedFolders, setCollapsedFolders] = useState<string[]>(loadCollapsedFolders);
   const [menuTarget, setMenuTarget] = useState<NavMenuTarget | null>(null);
@@ -121,8 +119,8 @@ export default function Sidebar({ state, navigation, onNavigate }: Props) {
   const { state: data, syncStatus, reorderList, reorderFolder } = useTasks();
   const now = new Date();
   const rows = useMemo(
-    () => flattenTree(data.folders, data.lists, { collapsed: collapsedFolders, dragging: draggingFolderId }),
-    [data.folders, data.lists, collapsedFolders, draggingFolderId]
+    () => flattenTree(data.folders, data.lists, { collapsed: collapsedFolders }),
+    [data.folders, data.lists, collapsedFolders]
   );
 
   const toggleFolder = useCallback((id: string) => {
@@ -168,8 +166,6 @@ export default function Sidebar({ state, navigation, onNavigate }: Props) {
     (key: string, point: { x: number; y: number }) => {
       const depth = rows.find((r) => r.key === key)?.depth ?? 0;
       press.current = { ...point, depth, intent: depth };
-      // A folder travels as a unit, so its children fold away for the duration.
-      setDraggingFolderId(key.startsWith('f:') ? key.slice(2) : null);
     },
     [rows]
   );
@@ -315,6 +311,10 @@ export default function Sidebar({ state, navigation, onNavigate }: Props) {
           );
         })}
 
+        {/* Sets the tree apart from the fixed views above it, which are a
+            different kind of thing: those are always there, these are yours. */}
+        <View style={styles.treeSeparator} />
+
         {/*
           Folders and their lists are one flat sortable, not a sortable per
           folder: the library reorders siblings and cannot hand an item to
@@ -337,14 +337,10 @@ export default function Sidebar({ state, navigation, onNavigate }: Props) {
           // was asking "which did you mean?" gets out of the way together.
           liftAfter={LIFT_THRESHOLD}
           onLift={closeMenu}
-          onDropped={() => setDraggingFolderId(null)}
           onReorder={reorder}
-          // From the data, not from `rows`: by the time a folder is being
-          // dragged its children have already been folded out of the tree, so
-          // counting rows would always say one.
-          dragCount={(key) =>
-            key.startsWith('f:') ? listsInFolder(data.lists, key.slice(2)).length + 1 : 1
-          }
+          // The children of a dragged folder stay where they are and catch up
+          // on the drop, so there is no hidden bundle to put a count on.
+          resetKey={collapsedFolders.join('|')}
           renderItem={(row) => (
             // Right-click is the mouse's way in: there is no hold to long-press
             // with, and the grip is reserved for dragging. Web-only by
@@ -509,16 +505,22 @@ function FolderRow({
       onPressIn={(e) => onPressIn({ x: e.nativeEvent.pageX, y: e.nativeEvent.pageY })}
       accessibilityLabel={folder.name}
     >
-      <View style={styles.chevron}>
-        {folded ? <IconChevronRight size={12} /> : <IconChevronDown size={12} />}
-      </View>
       <View style={styles.rowIcon}>
-        <IconFolder size={16} color={colors.textTertiary} />
+        <IconFolder size={17} color={colors.textTertiary} />
       </View>
       <Text style={styles.rowLabel} numberOfLines={1}>
         {folder.name}
       </Text>
       {count > 0 && <Text style={styles.rowCount}>{count}</Text>}
+      {/*
+        Trailing, so the leading icon column is the same one the fixed views
+        above use and every icon in the nav sits on one line. Lists get no
+        spacer opposite it: their counts then keep the trailing edge the views
+        above share, and only a folder's count steps in to make room.
+      */}
+      <View style={styles.chevron}>
+        {folded ? <IconChevronRight size={12} /> : <IconChevronDown size={12} />}
+      </View>
     </Pressable>
   );
 }
@@ -572,11 +574,6 @@ function ListRow({
         </View>
       ) : (
         <>
-          {/* Holds the column a folder's chevron occupies, so every row's icon
-              and label line up whether or not it has one. Every list keeps it,
-              nested ones included — otherwise the reclaimed column cancels out
-              the indent below and a child sits exactly where a root list does. */}
-          <View style={styles.chevron} />
           <View style={styles.rowIcon}>
             <View style={[styles.dot, { backgroundColor: list.color }]} />
           </View>
@@ -674,6 +671,15 @@ const styles = StyleSheet.create({
     paddingTop: 18,
     paddingBottom: 6,
   },
+  treeSeparator: {
+    height: 1,
+    backgroundColor: colors.border,
+    // Inset to the row text rather than the full width, so it reads as a rule
+    // between two groups of rows and not as an edge of the sidebar.
+    marginHorizontal: 10,
+    marginTop: 10,
+    marginBottom: 6,
+  },
   /** Both adds share a line, now that a list can be made at the root too. */
   addRow: {
     flexDirection: 'row',
@@ -695,14 +701,19 @@ const styles = StyleSheet.create({
     color: colors.textTertiary,
   },
   /** Reserves the chevron's column so every row's icon and label line up. */
+  /** The disclosure column, at the trailing edge of a folder row. */
   chevron: {
     width: 12,
     alignItems: 'center',
   },
-  /** One column for whatever marks a row — a folder's icon, a list's dot — so
-   *  every label starts at the same x whichever kind of row it is. */
+  /**
+   * One column for whatever marks a row — a folder's icon, a list's dot.
+   *
+   * Sized to the bare icons the fixed views above draw, so a label starts at the
+   * same x in both halves of the nav.
+   */
   rowIcon: {
-    width: 16,
+    width: 18,
     alignItems: 'center',
   },
   dot: {

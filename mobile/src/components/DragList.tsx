@@ -56,12 +56,21 @@ interface Props<T> {
   /** The finger passed `liftAfter` — this is a drag now, not a hold. */
   onLift?: () => void;
   /**
-   * The gesture is over and the list is stable again.
+   * Remounts the sortable when this changes.
    *
-   * Fires on release whether or not anything moved: `onActiveItemDropped` alone
-   * is not enough, because a hold that never turns into a drag never drops.
+   * For callers that show and hide rows under keys they reuse — a collapsing
+   * tree. The library tracks which items it has measured in a set that is
+   * added to and deleted from on the UI thread, from two different places: an
+   * item's own layout, and its unmount cleanup. When the same key leaves and
+   * returns quickly, the delete can land after the add, and from then on the set
+   * never matches the item count, so measurements stop being applied and the
+   * rows sit at stale positions until some unrelated re-layout shakes it loose.
+   *
+   * Remounting hands it a clean context instead. Key this on what actually hides
+   * rows, not on the rows themselves: adding or deleting one brings a genuinely
+   * new key, which the library handles, and reordering must never remount.
    */
-  onDropped?: () => void;
+  resetKey?: string;
 }
 
 /**
@@ -83,9 +92,9 @@ export default function DragList<T>({
   scrollableRef,
   onDragStart,
   onDragMove,
-  onDropped,
   liftAfter,
   onLift,
+  resetKey,
 }: Props<T>) {
   // Which row is lifted, so only that one carries the count.
   const [activeKey, setActiveKey] = useState<string | null>(null);
@@ -142,6 +151,7 @@ export default function DragList<T>({
   return (
     <View onLayout={(e) => setContainerWidth(e.nativeEvent.layout.width)}>
       <Sortable.Flex
+        key={resetKey}
         flexDirection="column"
         flexWrap="nowrap"
         // The library defaults to `flex-start` (so dragged items keep their
@@ -212,10 +222,8 @@ export default function DragList<T>({
           }
           onDragMove?.(keyMap.get(params.key) ?? params.key, { x: absoluteX, y: absoluteY });
         }}
-        onActiveItemDropped={() => onDropped?.()}
         onDragEnd={(params) => {
           setActiveKey(null);
-          onDropped?.();
           // The library reports React's child keys, which React mangles to '.$<key>'
           // for keyed array children. Map them back before anything downstream tries
           // to match them against task ids.

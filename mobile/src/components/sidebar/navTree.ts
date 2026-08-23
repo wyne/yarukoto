@@ -42,20 +42,12 @@ export function idOf(row: NavRow): string {
 interface FlattenOptions {
   /** Folders whose children are hidden — the ones the user has collapsed. */
   collapsed?: readonly string[];
-  /**
-   * Additionally hide this folder's children, because its row is being dragged.
-   *
-   * Armed on touch-down, before the library recognises the hold, so the item set
-   * is never mutated mid-drag. A folder moves as a unit, and dragging a header
-   * while its lists stay behind reads as if they are being left.
-   */
-  dragging?: string | null;
 }
 
 export function flattenTree(
   folders: FolderDef[],
   lists: ListDef[],
-  { collapsed = [], dragging }: FlattenOptions = {}
+  { collapsed = [] }: FlattenOptions = {}
 ): NavRow[] {
   // Folders and root lists interleave, so the root is one merged sequence
   // ordered by the position they share.
@@ -77,7 +69,7 @@ export function flattenTree(
   for (const row of root) {
     rows.push(row);
     if (row.kind !== 'folder') continue;
-    if (row.folder.id === dragging || collapsed.includes(row.folder.id)) continue;
+    if (collapsed.includes(row.folder.id)) continue;
     for (const list of listsInFolder(lists, row.folder.id)) {
       rows.push({ kind: 'list', key: listKey(list.id), list, depth: 1 });
     }
