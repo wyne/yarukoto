@@ -32,4 +32,5 @@ export type MainTabParamList = {
 export type RootStackParamList = {
   FirstRun: undefined;
   Main: NavigatorScreenParams<MainTabParamList> | undefined;
+  DateTimePicker: { mode: 'date' | 'time'; requestId: number };
 };

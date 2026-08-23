@@ -1,5 +1,6 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import Animated, { useAnimatedStyle, withTiming } from 'react-native-reanimated';
 import { colors } from '../theme/colors';
 import { fonts } from '../theme/typography';
 import { IconChevronDown } from '../icons/Icons';
@@ -15,6 +16,13 @@ interface Props {
 }
 
 export default function SectionHeader({ label, count, color, collapsed, onToggle }: Props) {
+  const chevronStyle = useAnimatedStyle(
+    () => ({
+      transform: [{ rotate: withTiming(collapsed ? '-90deg' : '0deg', { duration: 160 }) }],
+    }),
+    [collapsed]
+  );
+
   const content = (
     <View style={styles.row}>
       {color && <View style={[styles.dot, { backgroundColor: color }]} />}
@@ -22,9 +30,9 @@ export default function SectionHeader({ label, count, color, collapsed, onToggle
       <View style={styles.line} />
       {count !== undefined && <Text style={styles.count}>{count}</Text>}
       {onToggle && (
-        <View style={{ transform: [{ rotate: collapsed ? '-90deg' : '0deg' }] }}>
+        <Animated.View style={chevronStyle}>
           <IconChevronDown />
-        </View>
+        </Animated.View>
       )}
     </View>
   );

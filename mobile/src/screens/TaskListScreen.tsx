@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
-import Animated, { useAnimatedRef } from 'react-native-reanimated';
+import Animated, { FadeIn, FadeOut, LinearTransition, useAnimatedRef } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../theme/colors';
 import { fonts } from '../theme/typography';
@@ -48,6 +48,9 @@ import TagPickerSheet from '../components/pickers/TagPickerSheet';
 import { IconMenu, IconSearch, IconSelectMode, IconViewOptions } from '../icons/Icons';
 
 const TITLES = { all: 'All', inbox: 'Inbox', today: 'Today' } as const;
+const GROUP_LAYOUT = LinearTransition.duration(180);
+const GROUP_ENTER = FadeIn.duration(140);
+const GROUP_EXIT = FadeOut.duration(120);
 
 interface Props {
   mode: 'all' | 'inbox' | 'today';
@@ -539,7 +542,7 @@ export default function TaskListScreen({ mode, filter }: Props) {
             groups.map((group) => {
               const collapsed = sections.isGroupCollapsed(group.key);
               return (
-                <View key={group.key} style={styles.group}>
+                <Animated.View key={group.key} layout={GROUP_LAYOUT} style={styles.group}>
                   <View style={{ marginHorizontal: 6 }}>
                     <SectionHeader
                       label={group.label}
@@ -549,8 +552,12 @@ export default function TaskListScreen({ mode, filter }: Props) {
                       onToggle={() => sections.toggleGroup(group.key)}
                     />
                   </View>
-                  {!collapsed && renderTaskCard(group)}
-                </View>
+                  {!collapsed && (
+                    <Animated.View entering={GROUP_ENTER} exiting={GROUP_EXIT} layout={GROUP_LAYOUT}>
+                      {renderTaskCard(group)}
+                    </Animated.View>
+                  )}
+                </Animated.View>
               );
             })
           ) : (
@@ -558,7 +565,7 @@ export default function TaskListScreen({ mode, filter }: Props) {
           ))}
 
         {completed.length > 0 && (
-          <>
+          <Animated.View layout={GROUP_LAYOUT}>
             <View style={{ marginHorizontal: 6 }}>
               <SectionHeader
                 label={`Completed · ${completed.length}`}
@@ -567,29 +574,31 @@ export default function TaskListScreen({ mode, filter }: Props) {
               />
             </View>
             {!sections.completedCollapsed && (
-              <Card style={{ marginHorizontal: 12 }}>
-                {completed.map((task, i) => (
-                  <View key={task.id}>
-                    <TaskRow
-                      task={task}
-                      list={getListById(state.lists, task.listId)}
-                      now={now}
-                      selectionMode={selectionMode}
-            showContext={rowContext}
-                      selected={selectedIds.includes(task.id)}
-                      onPress={() =>
-                        selectionMode ? toggleSelected(task.id) : openTask(task.id)
-                      }
-                      onToggleComplete={() => toggleComplete(task.id)}
-                      onLater={() => snoozeTask(task.id)}
-                      onDone={() => toggleComplete(task.id)}
-                    />
-                    {i < completed.length - 1 && <Divider />}
-                  </View>
-                ))}
-              </Card>
+              <Animated.View entering={GROUP_ENTER} exiting={GROUP_EXIT} layout={GROUP_LAYOUT}>
+                <Card style={{ marginHorizontal: 12 }}>
+                  {completed.map((task, i) => (
+                    <View key={task.id}>
+                      <TaskRow
+                        task={task}
+                        list={getListById(state.lists, task.listId)}
+                        now={now}
+                        selectionMode={selectionMode}
+                        showContext={rowContext}
+                        selected={selectedIds.includes(task.id)}
+                        onPress={() =>
+                          selectionMode ? toggleSelected(task.id) : openTask(task.id)
+                        }
+                        onToggleComplete={() => toggleComplete(task.id)}
+                        onLater={() => snoozeTask(task.id)}
+                        onDone={() => toggleComplete(task.id)}
+                      />
+                      {i < completed.length - 1 && <Divider />}
+                    </View>
+                  ))}
+                </Card>
+              </Animated.View>
             )}
-          </>
+          </Animated.View>
         )}
       </Animated.ScrollView>
 
