@@ -1,12 +1,23 @@
 import React from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
+import { useSharedValue, withTiming } from 'react-native-reanimated';
+import { scheduleOnRN } from 'react-native-worklets';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { BottomTabBarProps, createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { colors } from '../theme/colors';
 import { MainTabParamList } from './types';
-import { SidebarProvider, useSidebar } from './SidebarContext';
+import {
+  DRAWER_CLOSE_EASING,
+  DRAWER_CLOSE_MS,
+  DRAWER_OPEN_EASING,
+  DRAWER_OPEN_MS,
+  SidebarProvider,
+  useSidebar,
+} from './SidebarContext';
 import { DetailProvider, useDetail } from './DetailContext';
 import { SelectionProvider, useSelection } from './SelectionContext';
-import Sidebar from '../components/Sidebar';
+import Sidebar, { SIDEBAR_WIDTH } from '../components/Sidebar';
+import { closeOpenSwipeRow, swipeRowOpen } from '../components/SwipeableRow';
 import SidebarDrawer from '../components/SidebarDrawer';
 import TaskDetailView from '../components/TaskDetailView';
 import TaskDetailSheet from '../components/TaskDetailSheet';
@@ -37,6 +48,30 @@ function TabBar(props: BottomTabBarProps) {
   return <SidebarDrawer {...props} />;
 }
 
+/**
+ * Sideways travel before the drag becomes the drawer's, and the vertical travel
+ * that gives up on it first.
+ *
+ * The fail is deliberately the smaller of the two, which is what makes the drag
+ * have to be plainly sideways: at forty-five degrees the vertical reaches 15
+ * before the horizontal reaches 20, so a list dragged on the diagonal scrolls,
+ * as it should. Only a drag that stays near the horizontal ever takes the nav.
+ */
+const SWIPE_ACTIVATE_X = 20;
+const SWIPE_FAIL_Y = 15;
+/** Rightward points per second that open the drawer however far it has come. */
+const SWIPE_FLING = 350;
+
+/**
+ * iOS only, because it is the only platform where there is anything to drag.
+ *
+ * The drawer lives in a window that is always mounted there, so the panel is
+ * already off screen waiting and follows the finger from the first pixel.
+ * Elsewhere it is a Modal that is not presented until it opens — a swipe would
+ * pull on nothing, then have a modal appear part-way through.
+ */
+const SWIPE_TO_OPEN = Platform.OS === 'ios';
+
 export default function MainTabs() {
   return (
     <SidebarProvider>
@@ -56,7 +91,7 @@ export default function MainTabs() {
  * than covering it. Narrow: the same detail rendered as a pull-up sheet.
  */
 function Layout() {
-  const { wide, serverOpen, closeServer } = useSidebar();
+  const { wide, drawerOpen, openDrawer, drawerProgress, serverOpen, closeServer } = useSidebar();
   const { openTaskId, closeTask } = useDetail();
   const { selectedIds } = useSelection();
 
@@ -66,14 +101,71 @@ function Layout() {
   const bulk = WEB_ENTRY && selectedIds.length > 0;
   const showPane = wide && (bulk || !!openTaskId);
 
+  /** Set for the length of a swipe that turned out to be shutting a row. */
+  const blockedByRow = useSharedValue(false);
+
+  /**
+   * Swipe right anywhere in the app to pull the drawer out.
+   *
+   * Anywhere rather than from the edge, because rightward is free: a row swipes
+   * left to reveal its actions and nothing swipes right, so the whole list is an
+   * unclaimed surface for it. An edge strip was the cautious version of this and
+   * it was hard to hit — a gesture you have to aim for is one you stop using.
+   *
+   * The detector has to be out here rather than on the drawer. The drawer is in
+   * a window of its own, and a separate window cannot pass a touch it does not
+   * want back to the app beneath it, so a catcher over there would swallow
+   * whatever it covered. In the app's own tree gesture-handler can arbitrate,
+   * which is what leaves scrolling and tapping alone.
+   */
+  const swipeOpen = Gesture.Pan()
+    .enabled(SWIPE_TO_OPEN && !wide && !drawerOpen)
+    // Rightward only, so a row's own leftward swipe is never in the running.
+    .activeOffsetX(SWIPE_ACTIVATE_X)
+    .failOffsetY([-SWIPE_FAIL_Y, SWIPE_FAIL_Y])
+    .onStart(() => {
+      // A rightward drag is also how an open row is shut, and that reading wins
+      // — it is the nearer thing to the finger. Do it here rather than leave the
+      // two gestures to fight over the touch, since this one may well have taken
+      // it already.
+      blockedByRow.value = swipeRowOpen.value;
+      if (blockedByRow.value) scheduleOnRN(closeOpenSwipeRow);
+    })
+    .onUpdate((e) => {
+      if (blockedByRow.value) return;
+      drawerProgress.value = Math.min(1, Math.max(0, e.translationX / SIDEBAR_WIDTH));
+    })
+    .onEnd((e) => {
+      if (blockedByRow.value) return;
+      // A flick opens it from anywhere; otherwise it goes wherever it is nearer.
+      const opening = e.velocityX > SWIPE_FLING || (e.velocityX >= 0 && drawerProgress.value > 0.5);
+      if (opening) {
+        drawerProgress.value = withTiming(1, {
+          duration: DRAWER_OPEN_MS * (1 - drawerProgress.value),
+          easing: DRAWER_OPEN_EASING,
+        });
+        // The drawer was never open as far as React knows, so this is what makes
+        // it real — and what hands the panel its own interactivity back.
+        scheduleOnRN(openDrawer);
+        return;
+      }
+      // Abandoned. Nothing in React changed, so nothing else will put it back.
+      drawerProgress.value = withTiming(0, {
+        duration: DRAWER_CLOSE_MS * drawerProgress.value,
+        easing: DRAWER_CLOSE_EASING,
+      });
+    });
+
   return (
     <View style={styles.row}>
-      <View style={styles.flex}>
-        <Tabs />
-        <UndoToast />
-        {/* No column to give them, so the actions float over the list instead. */}
-        {bulk && !wide && <BulkActions variant="bar" />}
-      </View>
+      <GestureDetector gesture={swipeOpen}>
+        <View style={styles.flex}>
+          <Tabs />
+          <UndoToast />
+          {/* No column to give them, so the actions float over the list instead. */}
+          {bulk && !wide && <BulkActions variant="bar" />}
+        </View>
+      </GestureDetector>
       {showPane && (
         <View style={styles.detailColumn}>
           {bulk || !openTaskId ? (

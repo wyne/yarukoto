@@ -1,16 +1,17 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Modal, Platform, StyleSheet } from 'react-native';
-import Animated, {
-  Easing,
-  useAnimatedStyle,
-  useSharedValue,
-  withTiming,
-} from 'react-native-reanimated';
+import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import { FullWindowOverlay } from 'react-native-screens';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
-import { useSidebar } from '../navigation/SidebarContext';
+import {
+  DRAWER_CLOSE_EASING,
+  DRAWER_CLOSE_MS,
+  DRAWER_OPEN_EASING,
+  DRAWER_OPEN_MS,
+  useSidebar,
+} from '../navigation/SidebarContext';
 import Sidebar, { SIDEBAR_WIDTH } from './Sidebar';
 
 /**
@@ -33,28 +34,16 @@ import Sidebar, { SIDEBAR_WIDTH } from './Sidebar';
  */
 const IOS = Platform.OS === 'ios';
 
-/**
- * Opening decelerates and closing accelerates, rather than easing at both ends.
- *
- * A panel arriving under your thumb should look like it is being caught, and one
- * leaving like it is being let go. Symmetric easing gives both halves the same
- * hesitant start, which reads as the drawer thinking about it.
- */
-const OPEN_MS = 280;
-const CLOSE_MS = 220;
-const OPEN_EASING = Easing.out(Easing.cubic);
-const CLOSE_EASING = Easing.in(Easing.cubic);
-
 const BACKDROP_OPACITY = 0.35;
 /** Points per second leftwards that close the drawer regardless of how far it is open. */
 const FLING_VELOCITY = -450;
 
 /** Narrow-layout wrapper: slides the sidebar in from the left over the current screen. */
 export default function SidebarDrawer(props: BottomTabBarProps) {
-  const { drawerOpen, closeDrawer } = useSidebar();
+  // 0 shut, 1 fully open. Every visible part of the drawer is a reading of it,
+  // and it is shared so the edge swipe out in the layout can drive it too.
+  const { drawerOpen, closeDrawer, drawerProgress: progress } = useSidebar();
 
-  /** 0 shut, 1 fully open. Every visible part of the drawer is a reading of this. */
-  const progress = useSharedValue(0);
   /** Where `progress` was when the current drag took hold. */
   const grabbed = useSharedValue(0);
 
@@ -75,8 +64,21 @@ export default function SidebarDrawer(props: BottomTabBarProps) {
    */
   const presented = useRef(IOS);
 
+  /**
+   * Both of these time the distance still to travel, not the whole span.
+   *
+   * A swipe let go at nine tenths open has one tenth left, and giving that the
+   * full duration would crawl it — the panel would leap to the finger's pace and
+   * then wade the last few points. Scaling keeps one speed however the movement
+   * was started, so finishing a gesture and tapping the menu look like the same
+   * drawer.
+   */
   const open = useCallback(() => {
-    progress.value = withTiming(1, { duration: OPEN_MS, easing: OPEN_EASING });
+    const left = 1 - progress.value;
+    progress.value = withTiming(1, {
+      duration: DRAWER_OPEN_MS * left,
+      easing: DRAWER_OPEN_EASING,
+    });
   }, [progress]);
 
   const settled = useCallback(() => {
@@ -85,12 +87,16 @@ export default function SidebarDrawer(props: BottomTabBarProps) {
   }, []);
 
   const close = useCallback(() => {
-    progress.value = withTiming(0, { duration: CLOSE_MS, easing: CLOSE_EASING }, (finished) => {
-      'worklet';
-      // Interrupted means a reopen took it over, and the drawer must stay up for
-      // that. Only a close that ran to the end has earned the teardown.
-      if (finished) scheduleOnRN(settled);
-    });
+    progress.value = withTiming(
+      0,
+      { duration: DRAWER_CLOSE_MS * progress.value, easing: DRAWER_CLOSE_EASING },
+      (finished) => {
+        'worklet';
+        // Interrupted means a reopen took it over, and the drawer must stay up
+        // for that. Only a close that ran to the end has earned the teardown.
+        if (finished) scheduleOnRN(settled);
+      }
+    );
   }, [progress, settled]);
 
   useEffect(() => {
@@ -128,15 +134,22 @@ export default function SidebarDrawer(props: BottomTabBarProps) {
       // A flick closes it from anywhere; otherwise it goes wherever it is nearer.
       const closing = e.velocityX < FLING_VELOCITY || (e.velocityX <= 0 && progress.value < 0.5);
       if (!closing) {
-        progress.value = withTiming(1, { duration: OPEN_MS, easing: OPEN_EASING });
+        progress.value = withTiming(1, {
+          duration: DRAWER_OPEN_MS * (1 - progress.value),
+          easing: DRAWER_OPEN_EASING,
+        });
         return;
       }
-      progress.value = withTiming(0, { duration: CLOSE_MS, easing: CLOSE_EASING }, (finished) => {
-        'worklet';
-        // Tell React the drawer is shut. The effect above will run `close` on a
-        // panel already at 0, which settles it immediately.
-        if (finished) scheduleOnRN(closeDrawer);
-      });
+      progress.value = withTiming(
+        0,
+        { duration: DRAWER_CLOSE_MS * progress.value, easing: DRAWER_CLOSE_EASING },
+        (finished) => {
+          'worklet';
+          // Tell React the drawer is shut. The effect above will run `close` on
+          // a panel already at 0, which settles it immediately.
+          if (finished) scheduleOnRN(closeDrawer);
+        }
+      );
     });
 
   const tap = Gesture.Tap().onEnd(() => {

@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import ReanimatedSwipeable, {
   type SwipeableMethods,
 } from 'react-native-gesture-handler/ReanimatedSwipeable';
+import { makeMutable } from 'react-native-reanimated';
 import { colors } from '../theme/colors';
 import { useDragActive } from '../drag/DragContext';
 import { hapticAction } from '../data/haptics';
@@ -26,6 +27,21 @@ const OPEN_THRESHOLD = 40;
 const EDGE_OFFSET = 15;
 
 /**
+ * Far enough that a rightward drag never becomes the row's.
+ *
+ * The swipeable arms both directions from one pair of thresholds
+ * (`activeOffsetX([-dragOffsetFromRightEdge, dragOffsetFromLeftEdge])`), and the
+ * rightward one defaults to 10 points whether or not there is anything over
+ * there to reveal. There is not — these rows only open leftwards — so all that
+ * claim did was take the gesture from the nav, which opens on a rightward drag
+ * anywhere in the list, and being the nearer handler the row won every time.
+ *
+ * Shutting an open row by dragging it back is not lost: the nav's own gesture
+ * recognises that case and closes the row instead of pulling itself out.
+ */
+const NEVER_FROM_LEFT = 10000;
+
+/**
  * The row currently showing its actions, app-wide.
  *
  * One row open at a time is the point: rows left open behind you are the state
@@ -35,10 +51,20 @@ const EDGE_OFFSET = 15;
  */
 let openRow: SwipeableMethods | null = null;
 
+/**
+ * The same fact as `openRow`, in a form the UI thread can read.
+ *
+ * For the swipe that opens the nav: it takes a rightward drag anywhere in the
+ * list, which is exactly the drag that shuts an open row. A gesture on the UI
+ * thread cannot ask a module variable, so the answer is kept somewhere it can.
+ */
+export const swipeRowOpen = makeMutable(false);
+
 /** Closes whichever row is open. For scroll, navigation and mode changes. */
 export function closeOpenSwipeRow() {
   openRow?.close();
   openRow = null;
+  swipeRowOpen.value = false;
 }
 
 interface Props {
@@ -70,7 +96,9 @@ export default function SwipeableRow({ children, onLater, onDone, disabled }: Pr
   const dragging = useDragActive();
 
   const forget = useCallback(() => {
-    if (openRow === rowRef.current) openRow = null;
+    if (openRow !== rowRef.current) return;
+    openRow = null;
+    swipeRowOpen.value = false;
   }, []);
 
   // Unmounting while open — completing the task from its own action does exactly
@@ -80,6 +108,7 @@ export default function SwipeableRow({ children, onLater, onDone, disabled }: Pr
   const claim = useCallback(() => {
     if (openRow && openRow !== rowRef.current) openRow.close();
     openRow = rowRef.current;
+    swipeRowOpen.value = true;
   }, []);
 
   // Action first, close second: the tap is a request to do the thing, and
@@ -131,6 +160,7 @@ export default function SwipeableRow({ children, onLater, onDone, disabled }: Pr
       renderRightActions={actions}
       rightThreshold={OPEN_THRESHOLD}
       dragOffsetFromRightEdge={EDGE_OFFSET}
+      dragOffsetFromLeftEdge={NEVER_FROM_LEFT}
       // Nothing lives past the two actions, so there is nothing to stretch into.
       overshootRight={false}
       onSwipeableWillOpen={claim}
