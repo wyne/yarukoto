@@ -114,6 +114,8 @@ export default function Sidebar({ state, navigation, onNavigate }: Props) {
    * scroll.
    */
   const [foldingFolders, setFoldingFolders] = useState(false);
+  /** Counts folded drags, so each one ends on a fresh sortable. See `dragEnd`. */
+  const [foldEpoch, setFoldEpoch] = useState(0);
   /** Folders folded shut. Restored from the device and saved on every toggle. */
   const [collapsedFolders, setCollapsedFolders] = useState<string[]>(loadCollapsedFolders);
   const [menuTarget, setMenuTarget] = useState<NavMenuTarget | null>(null);
@@ -187,6 +189,30 @@ export default function Sidebar({ state, navigation, onNavigate }: Props) {
     },
     [closeMenu, rows]
   );
+
+  /**
+   * The drag is over: unfold, and hand the sortable a clean context.
+   *
+   * Unfolding alone leaves the rows clipped, because the damage is not in the
+   * rows. The sortable lays its items out absolutely, stacking each one at the
+   * total height of those above it, and it took those heights from rows that
+   * were folded flat at the time — so it goes on placing full-height rows in
+   * the space a folded one needed. Nothing outside the library can correct a
+   * measurement it holds internally, which is why reopening the sidebar was the
+   * only thing that worked: it remounts.
+   *
+   * So do that deliberately, via the escape hatch already here for exactly this
+   * — a sortable whose measurements have gone stale. It is safe now in a way it
+   * never is mid-drag: the gesture a remount would have destroyed is finished.
+   *
+   * Only after a drag that actually folded. A list drag disturbs no heights and
+   * keeps its drop animation, which the remount would otherwise cut short.
+   */
+  const dragEnd = useCallback(() => {
+    if (!foldingFolders) return;
+    setFoldingFolders(false);
+    setFoldEpoch((n) => n + 1);
+  }, [foldingFolders]);
 
   /**
    * A row has been touched, well before any hold is recognised.
@@ -378,12 +404,14 @@ export default function Sidebar({ state, navigation, onNavigate }: Props) {
           // was asking "which did you mean?" gets out of the way together.
           liftAfter={LIFT_THRESHOLD}
           onLift={lift}
-          onDragEnd={() => setFoldingFolders(false)}
+          onDragEnd={dragEnd}
           onReorder={reorder}
-          // Keyed on what hides rows outright. The drag fold is absent on
-          // purpose: it changes heights, never the item set, so the sortable
-          // must ride it out rather than be handed a new context mid-gesture.
-          resetKey={collapsedFolders.join('|')}
+          // Two things invalidate the sortable's measurements: rows appearing
+          // and disappearing outright, and a fold having flattened them while
+          // it was reading their heights. Note what is absent — the fold going
+          // *on*. Remounting there would destroy the gesture that asked for it,
+          // so the epoch only turns once the drag is over.
+          resetKey={`${collapsedFolders.join('|')}#${foldEpoch}`}
           renderItem={(row) => (
             // Wrapped whether or not it can fold: making the wrapper
             // conditional would change the element tree the moment a fold
