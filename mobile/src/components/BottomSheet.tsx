@@ -11,6 +11,8 @@ import { IconChevronLeft } from '../icons/Icons';
 interface Props {
   visible: boolean;
   onClose: () => void;
+  /** Called after a native sheet has finished dismissing. */
+  onDismissed?: () => void;
   title: string;
   /**
    * Where this was opened from. Supplying it lets a roomy web window show the
@@ -35,6 +37,7 @@ interface Props {
 export default function BottomSheet({
   visible,
   onClose,
+  onDismissed,
   title,
   anchor,
   popoverWidth,
@@ -60,7 +63,7 @@ export default function BottomSheet({
   }
 
   return (
-    <NativeSheet visible={visible} onClose={onClose} title={title}>
+    <NativeSheet visible={visible} onClose={onClose} onDismissed={onDismissed} title={title}>
       {children}
     </NativeSheet>
   );
