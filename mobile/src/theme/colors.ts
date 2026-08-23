@@ -47,6 +47,15 @@ export const colors = {
   selectedRowBg: '#E9EEFD',
   /** Pointer resting on a row or menu item. Below selection, above the surface. */
   hoverBg: '#F2F2EE',
+  /**
+   * A row being held, while its context menu is open.
+   *
+   * Darker than the canvas rather than lighter, because it stands for a finger
+   * on the row; the hover tint above goes the other way, and reading as "under
+   * pressure" is the whole job. Deliberately not `selectedRowBg`, which already
+   * means "this is the view you are looking at".
+   */
+  heldRowBg: '#DDDDD5',
 
   swipeLater: '#55554F',
   swipeDone: '#1E7A3C',

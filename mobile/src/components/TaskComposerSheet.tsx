@@ -14,7 +14,7 @@ import { QuickAddDefaults, useTasks } from '../data/TaskContext';
 import { Priority } from '../data/types';
 import { parseQuickAdd } from '../data/quickAdd';
 import { formatDueShort } from '../data/dateUtils';
-import { activeFolders, getListById, listsInFolder } from '../data/selectors';
+import { getListById, navGroups } from '../data/selectors';
 import { applySuggestion, useQuickAddSuggestions } from '../data/quickAddSuggestions';
 import DueDateQuickMenu from './pickers/DueDateQuickMenu';
 import NativeSheet from './NativeSheet';
@@ -374,10 +374,10 @@ export default function TaskComposerSheet({ visible, onClose, defaults, contextL
                   <Text style={styles.menuLabel}>Inbox</Text>
                   {effective.listId === null && <IconCheckBig size={14} color={accent} strokeWidth={2.4} />}
                 </Pressable>
-                {activeFolders(state.folders).map((folder) => (
-                  <View key={folder.id}>
-                    <Text style={styles.menuSection}>{folder.name}</Text>
-                    {listsInFolder(state.lists, folder.id).map((list) => (
+                {navGroups(state.lists, state.folders).map((group) => (
+                  <View key={group.folder?.id ?? 'root'}>
+                    {group.folder && <Text style={styles.menuSection}>{group.folder.name}</Text>}
+                    {group.lists.map((list) => (
                       <Pressable
                         key={list.id}
                         style={styles.menuRow}

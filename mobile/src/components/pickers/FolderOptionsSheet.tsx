@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput } from 'react-native';
+import { Pressable, StyleSheet, Text } from 'react-native';
 import BottomSheet from '../BottomSheet';
+import SheetTextInput from '../SheetTextInput';
 import { colors } from '../../theme/colors';
 import { fonts } from '../../theme/typography';
 import { useTasks } from '../../data/TaskContext';
@@ -55,9 +56,9 @@ export default function FolderOptionsSheet({ folder, onClose }: Props) {
   };
 
   return (
-    <BottomSheet visible onClose={onClose} title={`Edit ${folder.name}`}>
+    <BottomSheet visible onClose={onClose} title={`Edit ${folder.name}`} keyboard>
       <Text style={styles.label}>Name</Text>
-      <TextInput
+      <SheetTextInput
         value={name}
         onChangeText={setName}
         placeholder="Folder name"

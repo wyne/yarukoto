@@ -28,16 +28,25 @@ export function buildSampleData(now: Date): SampleData {
   const id = (prefix: string): string => `${prefix}-${(seq[prefix] = (seq[prefix] ?? 0) + 1)}`;
   const iso = (offsetDays: number): string => toISODate(addDays(now, offsetDays));
 
+  // `order` is spelled out rather than derived from array position: this file
+  // promises same input, same output, every field included, and a reader
+  // checking what the nav should look like shouldn't have to count rows.
+  //
+  // Two spaces are at work. Inside a folder a list's order counts from 0. At the
+  // root, folders and loose lists share one run — which is why `l-reading` (1)
+  // falls between the two folders (0 and 2), and why the sample data is worth
+  // having a root list at all: it is the arrangement the nav has to get right.
   const folders: FolderDef[] = [
-    { id: 'f-work', name: 'Work', updatedAt: stamp },
-    { id: 'f-personal', name: 'Personal', updatedAt: stamp },
+    { id: 'f-work', name: 'Work', order: 0, updatedAt: stamp },
+    { id: 'f-personal', name: 'Personal', order: 2, updatedAt: stamp },
   ];
 
   const lists: ListDef[] = [
-    { id: 'l-engineering', name: 'Engineering', color: '#2E62D9', folderId: 'f-work', updatedAt: stamp },
-    { id: 'l-admin', name: 'Admin', color: '#DB8A00', folderId: 'f-work', updatedAt: stamp },
-    { id: 'l-home', name: 'Home', color: '#1E7A3C', folderId: 'f-personal', updatedAt: stamp },
-    { id: 'l-errands', name: 'Errands', color: '#8A5FD6', folderId: 'f-personal', updatedAt: stamp },
+    { id: 'l-engineering', name: 'Engineering', color: '#2E62D9', folderId: 'f-work', order: 0, updatedAt: stamp },
+    { id: 'l-admin', name: 'Admin', color: '#DB8A00', folderId: 'f-work', order: 1, updatedAt: stamp },
+    { id: 'l-reading', name: 'Reading', color: '#C22B23', folderId: null, order: 1, updatedAt: stamp },
+    { id: 'l-home', name: 'Home', color: '#1E7A3C', folderId: 'f-personal', order: 0, updatedAt: stamp },
+    { id: 'l-errands', name: 'Errands', color: '#8A5FD6', folderId: 'f-personal', order: 1, updatedAt: stamp },
   ];
 
   let order = 0;

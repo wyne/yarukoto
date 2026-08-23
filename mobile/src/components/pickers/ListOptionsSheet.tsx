@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import BottomSheet from '../BottomSheet';
+import SheetTextInput from '../SheetTextInput';
 import { LIST_COLORS, colors } from '../../theme/colors';
 import { fonts } from '../../theme/typography';
 import { useTasks } from '../../data/TaskContext';
@@ -48,9 +49,9 @@ export default function ListOptionsSheet({ list, onClose }: Props) {
   };
 
   return (
-    <BottomSheet visible onClose={onClose} title={`Edit ${list.name}`}>
+    <BottomSheet visible onClose={onClose} title={`Edit ${list.name}`} keyboard>
       <Text style={styles.label}>Name</Text>
-      <TextInput
+      <SheetTextInput
         value={name}
         onChangeText={setName}
         placeholder="List name"

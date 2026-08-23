@@ -37,12 +37,27 @@ export interface ListDef extends Synced {
   id: string;
   name: string;
   color: string;
-  folderId: string;
+  /** null = at the root of the nav, alongside the folders rather than inside one. */
+  folderId: string | null;
+  /**
+   * Position among this list's siblings — the other lists in its folder, or, for
+   * a root list, the folders and other root lists it sits between.
+   *
+   * That second case is why a root list's `order` and a folder's are values in
+   * one shared space: the nav interleaves them, so they have to be comparable.
+   *
+   * Scoping to the parent is what lets a move between folders write exactly one
+   * record — `folderId` and `order` change together and no sibling shifts.
+   * Fractional like `Task.order`, for the same reason.
+   */
+  order: number;
 }
 
 export interface FolderDef extends Synced {
   id: string;
   name: string;
+  /** Position among the root's rows, which it shares with the root's lists. */
+  order: number;
 }
 
 export type GroupBy = 'none' | 'list' | 'date' | 'tag' | 'priority';

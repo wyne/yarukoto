@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { FolderDef, ListDef, Task } from './types';
-import { activeFolders, activeLists } from './selectors';
+import { activeFolders, orderedLists } from './selectors';
 
 /**
  * The trailing-token autocomplete behind both task-entry surfaces: the pinned
@@ -32,9 +32,14 @@ export function useQuickAddSuggestions(
     () => new Map(activeFolders(state.folders).map((f) => [f.id, f.name])),
     [state.folders]
   );
+  // `orderedLists`, not `activeLists`: this is one flat sequence, and a list's
+  // order is scoped to its folder, so a flat sort would interleave the folders.
   const lists = useMemo(
-    () => activeLists(state.lists).map((l) => ({ label: l.name, hint: folderName.get(l.folderId) })),
-    [state.lists, folderName]
+    () => orderedLists(state.lists, state.folders).map((l) => ({
+      label: l.name,
+      hint: l.folderId ? folderName.get(l.folderId) : undefined,
+    })),
+    [state.lists, state.folders, folderName]
   );
 
   const trailing = text.match(TRAILING);

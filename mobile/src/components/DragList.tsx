@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import Animated, { useAnimatedStyle } from 'react-native-reanimated';
+import Animated, { useAnimatedStyle, useDerivedValue, useSharedValue, withTiming } from 'react-native-reanimated';
+import type { SharedValue } from 'react-native-reanimated';
 import type { AnimatedRef } from 'react-native-reanimated';
 import Sortable, { useItemContext } from 'react-native-sortables';
 import { FINE_POINTER } from '../data/platform';
@@ -34,6 +35,42 @@ interface Props<T> {
   dragCount?: (key: string) => number;
   /** Animated.ScrollView hosting this list; enables auto-scroll while dragging. */
   scrollableRef?: AnimatedRef<Animated.ScrollView>;
+  /** The hold was recognised and the row is lifting. */
+  onDragStart?: (key: string) => void;
+  /** The lifted row has moved. `point` is the current touch, in window coordinates. */
+  onDragMove?: (key: string, point: { x: number; y: number }) => void;
+  /**
+   * Hold the lift back until the finger has travelled this far, in points.
+   *
+   * For rows where the hold means two things. A hold that opens a menu has not
+   * yet said which of the two it is, and lifting the row straight away answers
+   * for the user — it reads as "you are dragging this", under a menu asking them
+   * to choose. Deferring the lift until the finger commits to travelling keeps
+   * the row still while the menu is the subject, and hands it over the moment it
+   * is not.
+   *
+   * Unset lifts on activation, which is right where the hold means only one
+   * thing: the lift is the whole confirmation that the row has been grabbed.
+   */
+  liftAfter?: number;
+  /** The finger passed `liftAfter` — this is a drag now, not a hold. */
+  onLift?: () => void;
+  /**
+   * Remounts the sortable when this changes.
+   *
+   * For callers that show and hide rows under keys they reuse — a collapsing
+   * tree. The library tracks which items it has measured in a set that is
+   * added to and deleted from on the UI thread, from two different places: an
+   * item's own layout, and its unmount cleanup. When the same key leaves and
+   * returns quickly, the delete can land after the add, and from then on the set
+   * never matches the item count, so measurements stop being applied and the
+   * rows sit at stale positions until some unrelated re-layout shakes it loose.
+   *
+   * Remounting hands it a clean context instead. Key this on what actually hides
+   * rows, not on the rows themselves: adding or deleting one brings a genuinely
+   * new key, which the library handles, and reordering must never remount.
+   */
+  resetKey?: string;
 }
 
 /**
@@ -53,21 +90,60 @@ export default function DragList<T>({
   enabled,
   dragCount,
   scrollableRef,
+  onDragStart,
+  onDragMove,
+  liftAfter,
+  onLift,
+  resetKey,
 }: Props<T>) {
   // Which row is lifted, so only that one carries the count.
   const [activeKey, setActiveKey] = useState<string | null>(null);
+
+  /**
+   * How lifted the active row is: 0 flat, 1 fully raised.
+   *
+   * A shared value rather than state because the library's decoration props
+   * accept one, so the whole lift — its scale, both opacities and the glass
+   * veil — animates on the UI thread off this single number.
+   */
+  const lift = useSharedValue(liftAfter === undefined ? 1 : 0);
+  // Where the finger was when the drag was claimed, to measure travel against.
+  const origin = useRef<{ x: number; y: number } | null>(null);
+  const lifted = useRef(liftAfter === undefined);
+
+  const raise = () => {
+    if (lifted.current) return;
+    lifted.current = true;
+    lift.value = withTiming(1, { duration: 180 });
+    onLift?.();
+  };
+
+  // Scaled from `lift` so the row rises into the drag rather than appearing in
+  // it. The numbers are the library's defaults at full lift.
+  const activeScale = useDerivedValue(() => 1 + 0.03 * lift.value);
+  const activeOpacity = useDerivedValue(() => 1 - 0.05 * lift.value);
+  const inactiveOpacity = useDerivedValue(() => 1 - 0.55 * lift.value);
   // The library sizes rows from their own content once it switches the column to
   // absolute layout (see applyControlledContainerDimensions in MeasurementsProvider),
   // so rows must carry an explicit width. Measure the column and pass it down.
   const [containerWidth, setContainerWidth] = useState<number | null>(null);
 
-  // Both spellings, so this keeps working if the library ever reports raw keys.
+  // The library reports React's own child keys, and React rewrites the ones it
+  // is given: a keyed array child becomes `.$<key>` with `=` and `:` escaped to
+  // `=0` and `=2`. So `l:l-home` arrives as `.$l=2l-home`.
+  //
+  // Reproducing that escaping is what makes a key with punctuation in it — the
+  // sidebar's `f:`/`l:` prefixes, say — survive the round trip. Guessing wrong
+  // fails silently: every lookup misses, and a drag appears to work while
+  // nothing is written. Every spelling is registered, so this also keeps working
+  // if the library ever reports raw keys.
   const keyMap = useMemo(() => {
     const m = new Map<string, string>();
     for (const item of items) {
       const key = keyExtractor(item);
       m.set(key, key);
       m.set(`.$${key}`, key);
+      m.set(`.$${key.replace(/[=:]/g, (c) => (c === '=' ? '=0' : '=2'))}`, key);
     }
     return m;
   }, [items, keyExtractor]);
@@ -75,6 +151,7 @@ export default function DragList<T>({
   return (
     <View onLayout={(e) => setContainerWidth(e.nativeEvent.layout.width)}>
       <Sortable.Flex
+        key={resetKey}
         flexDirection="column"
         flexWrap="nowrap"
         // The library defaults to `flex-start` (so dragged items keep their
@@ -100,14 +177,51 @@ export default function DragList<T>({
         customHandle={FINE_POINTER}
         dragActivationDelay={FINE_POINTER ? 0 : undefined}
         scrollableRef={scrollableRef}
-        activeItemScale={1.03}
-        activeItemOpacity={0.95}
+        // Snapping is what re-centres the row under the finger on pickup, and
+        // it is interpolated by the library's own activation progress — so it
+        // moves even with every other decoration held back, which is exactly the
+        // twitch a deferred lift is trying to avoid.
+        //
+        // Off entirely rather than deferred: the interpolation is already
+        // finished by the time the threshold is crossed, so switching it on then
+        // would teleport the row to centre rather than glide to it. Left off, the
+        // row simply keeps the offset it was grabbed at — which is what a UIKit
+        // table view does when you reorder one.
+        enableActiveItemSnap={liftAfter === undefined}
+        activeItemScale={activeScale}
+        activeItemOpacity={activeOpacity}
         // The lifted row's shadow comes from the glass veil below (boxShadow works
         // on iOS, Android and web), so the library's iOS-only shadow stays off.
         activeItemShadowOpacity={0}
-        inactiveItemOpacity={0.45}
+        inactiveItemOpacity={inactiveOpacity}
         hapticsEnabled
-        onDragStart={(params) => setActiveKey(keyMap.get(params.key) ?? params.key)}
+        reorderTriggerOrigin="touch"
+        onDragStart={(params) => {
+          const key = keyMap.get(params.key) ?? params.key;
+          setActiveKey(key);
+          origin.current = null;
+          if (liftAfter === undefined) {
+            lifted.current = true;
+            lift.value = 1;
+          } else {
+            lifted.current = false;
+            lift.value = 0;
+          }
+          onDragStart?.(key);
+        }}
+        onDragMove={(params) => {
+          const { absoluteX, absoluteY } = params.touchData;
+          // Measured from the first sample after the drag was claimed, which
+          // lands within a frame of the touch that claimed it. `onDragMove`
+          // only fires on movement, so a hold that never moves never lifts —
+          // which is the behaviour this exists for.
+          origin.current ??= { x: absoluteX, y: absoluteY };
+          if (liftAfter !== undefined) {
+            const { x, y } = origin.current;
+            if (Math.hypot(absoluteX - x, absoluteY - y) > liftAfter) raise();
+          }
+          onDragMove?.(keyMap.get(params.key) ?? params.key, { x: absoluteX, y: absoluteY });
+        }}
         onDragEnd={(params) => {
           setActiveKey(null);
           // The library reports React's child keys, which React mangles to '.$<key>'
@@ -130,6 +244,7 @@ export default function DragList<T>({
             width={containerWidth}
             handle={enabled && FINE_POINTER}
             count={activeKey === keyExtractor(item) ? dragCount?.(keyExtractor(item)) ?? 1 : 1}
+            lift={lift}
           >
             {renderItem(item, index)}
           </GlassRow>
@@ -149,9 +264,12 @@ function GlassRow({
   width,
   handle,
   count,
+  lift,
 }: {
   children: React.ReactNode;
   width: number | null;
+  /** See DragList's `liftAfter`: gates the veil so it fades in with the lift. */
+  lift: SharedValue<number>;
   /** Render the drag handle, revealed while a pointer is over the row. */
   handle: boolean;
   /** Rows this drag is carrying. Shown on the lifted row when above one. */
@@ -178,7 +296,7 @@ function GlassRow({
   }, [handle]);
 
   const veil = useAnimatedStyle(() => ({
-    opacity: activationAnimationProgress.value,
+    opacity: activationAnimationProgress.value * lift.value,
   }));
 
   return (

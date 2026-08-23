@@ -4,15 +4,37 @@ import { fromISODate, isSameDay, startOfDay } from './dateUtils';
 /**
  * Lists and folders are soft-deleted like tasks — the row stays so the deletion
  * reaches other devices instead of the container reappearing on the next pull.
- * Every view therefore has to exclude them, which is what these two are for:
- * enumerate through `activeLists`/`activeFolders` rather than raw state.
+ * Every view therefore has to exclude them, which is what `activeLists` and
+ * `activeFolders` below are for: enumerate through those rather than raw state.
+ *
+ * They also sort, which is the other half of their job. The arrays they're
+ * handed come from the sync pull, which returns rows by `server_updated_at`, so
+ * leaning on array order meant the nav re-sorted itself whenever you renamed
+ * something and came back differently on every launch.
+ */
+
+/**
+ * The tie-break is `id`, deliberately, not `name`: ids never change, so no edit
+ * can move a row. Ties are reachable — two devices inserting at the same spot
+ * while offline both land on the same midpoint — and `Array.sort` being stable
+ * is no help, because "stable relative to the input array" is the exact
+ * property being thrown away here.
+ */
+export function compareOrder<T extends { id: string; order: number }>(a: T, b: T): number {
+  return a.order - b.order || a.id.localeCompare(b.id);
+}
+
+/**
+ * Note the order is only meaningful *within a folder* — a list's `order`
+ * restarts per folder, so a flat sort of every list interleaves them. Callers
+ * wanting the whole tree in nav order want `orderedLists`.
  */
 export function activeLists(lists: ListDef[]): ListDef[] {
-  return lists.filter((l) => !l.deletedAt);
+  return lists.filter((l) => !l.deletedAt).sort(compareOrder);
 }
 
 export function activeFolders(folders: FolderDef[]): FolderDef[] {
-  return folders.filter((f) => !f.deletedAt);
+  return folders.filter((f) => !f.deletedAt).sort(compareOrder);
 }
 
 /**
@@ -25,8 +47,59 @@ export function getListById(lists: ListDef[], id: string | null): ListDef | unde
   return lists.find((l) => l.id === id && !l.deletedAt);
 }
 
-export function listsInFolder(lists: ListDef[], folderId: string): ListDef[] {
+/** `null` asks for the lists at the root, which sit among the folders. */
+export function listsInFolder(lists: ListDef[], folderId: string | null): ListDef[] {
   return activeLists(lists).filter((l) => l.folderId === folderId);
+}
+
+/**
+ * One row of the nav's root: a folder together with its lists, or a run of
+ * lists that aren't in one.
+ */
+export interface NavGroup {
+  /** null for the run of loose lists at the root. */
+  folder: FolderDef | null;
+  lists: ListDef[];
+}
+
+/**
+ * The nav's shape, for every surface that renders folders and lists together.
+ *
+ * The root interleaves the two — a loose list can sit above one folder and
+ * below another — so walking `activeFolders` alone silently drops every list
+ * that isn't in a folder. Consecutive loose lists collapse into one
+ * heading-less group, which is what makes this drop straight into the pickers
+ * that already render a heading per folder.
+ */
+export function navGroups(lists: ListDef[], folders: FolderDef[]): NavGroup[] {
+  const root = [
+    ...activeFolders(folders).map((folder) => ({ folder, order: folder.order, id: folder.id })),
+    ...listsInFolder(lists, null).map((list) => ({ list, order: list.order, id: list.id })),
+  ].sort(compareOrder);
+
+  const groups: NavGroup[] = [];
+  for (const entry of root) {
+    if ('folder' in entry) {
+      groups.push({ folder: entry.folder, lists: listsInFolder(lists, entry.folder.id) });
+      continue;
+    }
+    const last = groups[groups.length - 1];
+    if (last && last.folder === null) last.lists.push(entry.list);
+    else groups.push({ folder: null, lists: [entry.list] });
+  }
+  return groups;
+}
+
+/**
+ * Every active list in the order the nav shows them, flattened.
+ *
+ * The nav's root interleaves folders with the lists that aren't in one, so this
+ * walks that merged sequence and drops each folder's lists in behind it. For
+ * the surfaces that want one flat sequence rather than the tree — a picker, an
+ * autocomplete, the rank behind grouping by list.
+ */
+export function orderedLists(lists: ListDef[], folders: FolderDef[]): ListDef[] {
+  return navGroups(lists, folders).flatMap((g) => g.lists);
 }
 
 /**

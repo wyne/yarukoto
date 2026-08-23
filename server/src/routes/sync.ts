@@ -96,10 +96,16 @@ function upsertList(db: Database.Database, list: ListDef): ListDef {
   if (existing && existing.updated_at >= list.updatedAt) {
     return listFromRow(db.prepare('SELECT * FROM lists WHERE id = ?').get(list.id) as ListRow);
   }
+  // Every field the record carries has to appear in all three places below.
+  // better-sqlite3 binds by walking the *statement's* parameters and looking each
+  // one up on the object — properties the SQL doesn't name are ignored in silence.
+  // So a column missed here doesn't throw: the push returns 200 and the value is
+  // dropped on the floor, surfacing much later as "my ordering doesn't stick".
   db.prepare(
-    `INSERT INTO lists (id, name, color, folder_id, updated_at, deleted_at, server_updated_at)
-     VALUES (@id, @name, @color, @folderId, @updatedAt, @deletedAt, @serverUpdatedAt)
+    `INSERT INTO lists (id, name, color, folder_id, order_key, updated_at, deleted_at, server_updated_at)
+     VALUES (@id, @name, @color, @folderId, @order, @updatedAt, @deletedAt, @serverUpdatedAt)
      ON CONFLICT(id) DO UPDATE SET name = excluded.name, color = excluded.color, folder_id = excluded.folder_id,
+       order_key = excluded.order_key,
        updated_at = excluded.updated_at, deleted_at = excluded.deleted_at,
        server_updated_at = excluded.server_updated_at`
   ).run({ ...list, deletedAt: list.deletedAt ?? null, serverUpdatedAt: new Date().toISOString() });
@@ -135,10 +141,12 @@ function upsertFolder(db: Database.Database, folder: FolderDef): FolderDef {
   if (existing && existing.updated_at >= folder.updatedAt) {
     return folderFromRow(db.prepare('SELECT * FROM folders WHERE id = ?').get(folder.id) as FolderRow);
   }
+  // Same silent-bind caveat as upsertList above.
   db.prepare(
-    `INSERT INTO folders (id, name, updated_at, deleted_at, server_updated_at)
-     VALUES (@id, @name, @updatedAt, @deletedAt, @serverUpdatedAt)
-     ON CONFLICT(id) DO UPDATE SET name = excluded.name, updated_at = excluded.updated_at,
+    `INSERT INTO folders (id, name, order_key, updated_at, deleted_at, server_updated_at)
+     VALUES (@id, @name, @order, @updatedAt, @deletedAt, @serverUpdatedAt)
+     ON CONFLICT(id) DO UPDATE SET name = excluded.name, order_key = excluded.order_key,
+       updated_at = excluded.updated_at,
        deleted_at = excluded.deleted_at, server_updated_at = excluded.server_updated_at`
   ).run({ ...folder, deletedAt: folder.deletedAt ?? null, serverUpdatedAt: new Date().toISOString() });
   return folder;

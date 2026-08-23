@@ -1,5 +1,6 @@
 import { FolderDef, GroupBy, ListDef, Priority, SortBy, Task, ViewPref } from './types';
 import { fromISODate, startOfDay } from './dateUtils';
+import { orderedLists } from './selectors';
 
 export type { GroupBy, SortBy };
 
@@ -218,17 +219,14 @@ export function groupTasks(tasks: Task[], options: ViewOptions, ctx: GroupContex
   switch (groupBy) {
     case 'list': {
       // Inbox first, then folder order and list order within each folder.
+      //
+      // Ranked through `orderedLists` rather than from the arrays' own order:
+      // `ctx` carries raw state, which arrives from the sync pull sorted by
+      // `server_updated_at`. Doing it here rather than asking callers to hand in
+      // sorted arrays means a future caller cannot get this subtly wrong.
       const rank = new Map<string, number>();
-      const listsByFolder = new Map<string, ListDef[]>();
-      for (const list of ctx.lists) {
-        const lists = listsByFolder.get(list.folderId) ?? [];
-        lists.push(list);
-        listsByFolder.set(list.folderId, lists);
-      }
       let i = 1;
-      for (const folder of ctx.folders) {
-        for (const list of listsByFolder.get(folder.id) ?? []) rank.set(list.id, i++);
-      }
+      for (const list of orderedLists(ctx.lists, ctx.folders)) rank.set(list.id, i++);
       return groups.sort((a, b) => {
         const ar = a.key === '__inbox' ? 0 : (rank.get(a.key) ?? Infinity);
         const br = b.key === '__inbox' ? 0 : (rank.get(b.key) ?? Infinity);
