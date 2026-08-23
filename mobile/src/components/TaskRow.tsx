@@ -16,7 +16,7 @@ import { Task, ListDef } from '../data/types';
 import { formatDueShort, isOverdue } from '../data/dateUtils';
 import TaskCheckbox from './TaskCheckbox';
 import SwipeableRow from './SwipeableRow';
-import { IconCheckBig, IconGrip, IconStar, IconTag } from '../icons/Icons';
+import { IconCheckBig, IconGrip, IconNote, IconStar, IconTag } from '../icons/Icons';
 
 interface Props {
   task: Task;
@@ -103,6 +103,7 @@ export default function TaskRow({
   const restParts = (level === 'full' ? [listName, tagsStr] : [tagsStr]).filter(Boolean) as string[];
   const showRest = (level === 'full' || level === 'tags') && restParts.length > 0;
   const tagCount = level === 'count' && !task.completed ? visibleTags.length : 0;
+  const hasNotes = task.notes.trim().length > 0;
   const showStar = overdue && task.priority === 'high' && !task.completed;
   const subtaskDone = task.subtasks.filter((s) => s.done).length;
   const showBadge = !showStar && task.subtasks.length > 0 && !task.completed;
@@ -141,9 +142,16 @@ export default function TaskRow({
         <TaskCheckbox completed={task.completed} priority={task.priority} onPress={onToggleComplete} />
       )}
       {leading}
-      <Text style={[styles.title, task.completed && styles.titleCompleted]} numberOfLines={1}>
-        {task.title}
-      </Text>
+      <View style={styles.titleRow}>
+        <Text style={[styles.title, task.completed && styles.titleCompleted]} numberOfLines={1}>
+          {task.title}
+        </Text>
+        {hasNotes && (
+          <View accessible accessibilityLabel="Has notes" style={styles.notesMeta}>
+            <IconNote size={13} color={colors.textTertiary} strokeWidth={1.6} />
+          </View>
+        )}
+      </View>
       {(dueLabel || showRest || tagCount > 0) && !task.completed && (
         <View style={styles.metaRow}>
           {showRest && (
@@ -233,10 +241,16 @@ const styles = StyleSheet.create({
   rowCompleted: {
     opacity: 0.55,
   },
-  title: {
+  titleRow: {
     flex: 1,
     // Guarantees the title never collapses entirely behind long metadata.
     minWidth: 64,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  title: {
+    flexShrink: 1,
     fontFamily: fonts.sansMedium,
     fontSize: 15,
     color: colors.textPrimary,
@@ -249,6 +263,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 3,
+  },
+  notesMeta: {
+    flexShrink: 0,
   },
   metaRow: {
     flexDirection: 'row',
