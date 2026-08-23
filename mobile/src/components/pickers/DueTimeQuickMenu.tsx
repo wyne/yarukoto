@@ -1,13 +1,8 @@
 import React from 'react';
-import { Platform, Pressable, type StyleProp, type ViewStyle } from 'react-native';
+import { Platform, type StyleProp, type ViewStyle } from 'react-native';
 import MenuView, { type MenuAction, type NativeActionEvent } from '@expo/ui/community/menu';
-
-const QUICK_TIMES = [
-  { id: '09:00', label: '9:00 AM' },
-  { id: '12:00', label: '12:00 PM' },
-  { id: '17:00', label: '5:00 PM' },
-  { id: '20:00', label: '8:00 PM' },
-] as const;
+import WebDateTimeQuickMenu from './WebDateTimeQuickMenu';
+import { QUICK_TIMES } from './dateTimeQuickOptions';
 
 interface Props {
   time?: string;
@@ -57,9 +52,15 @@ export default function DueTimeQuickMenu({ time, onChange, onPickTime, children,
 
   if (Platform.OS === 'web') {
     return (
-      <Pressable onPress={onPickTime} style={style}>
+      <WebDateTimeQuickMenu
+        mode="time"
+        time={time}
+        accessibilityLabel={time ? `Time, ${time}` : 'Time, none'}
+        onChange={(_, dueTime) => onChange(dueTime)}
+        style={style}
+      >
         {children}
-      </Pressable>
+      </WebDateTimeQuickMenu>
     );
   }
 
