@@ -1,6 +1,14 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import Animated, { useAnimatedRef } from 'react-native-reanimated';
+import Animated, {
+  useAnimatedRef,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
+// Reanimated deprecated its own `runOnJS` in favour of this one, which lives in
+// the worklets package it now sits on. Already a direct dependency.
+import { scheduleOnRN } from 'react-native-worklets';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useWindowDimensions } from 'react-native';
@@ -55,6 +63,14 @@ const INDENT = 22;
  */
 const LIFT_THRESHOLD = 8;
 
+/**
+ * How long a dragged folder takes to gather its lists up, and to put them back.
+ *
+ * Matched to the row's own lift in DragList, so the fold reads as one movement
+ * with the rise rather than a second thing happening to the list.
+ */
+const FOLD_MS = 180;
+
 export const SIDEBAR_WIDTH = 260;
 /** Icon-only rail when the pinned sidebar is collapsed. */
 export const SIDEBAR_COLLAPSED_WIDTH = 56;
@@ -78,11 +94,28 @@ interface Props extends BottomTabBarProps {
 export default function Sidebar({ state, navigation, onNavigate }: Props) {
   const accent = useAccent();
   /**
-   * The folder whose lists are hidden because its header is being dragged.
+   * A folder is being dragged, so every folder's lists are folded shut.
    *
-   * Armed on touch-down, ~200ms before the library recognises the hold, so the
-   * item set is never mutated mid-drag. See `flattenTree`.
+   * All of them, not just the one that rose. A folder cannot be dropped inside
+   * another — `resolveDrop` gives folders no parent, because the schema is two
+   * levels deep and has no way to say otherwise — but a nav still showing its
+   * nested lists offers slots between them, which look exactly like somewhere a
+   * folder could land. Flattening to folder headers and root lists leaves only
+   * the drops that mean something.
+   *
+   * Deliberately not `collapsedFolders`: that one decides which rows exist, and
+   * a row leaving the tree mid-drag is what `resetKey` exists to survive — it
+   * remounts the sortable, which would destroy the very gesture that asked for
+   * the fold. This hides the children in place instead, so the item set the
+   * library is dragging never changes. See `FoldAway`.
+   *
+   * Armed at the lift rather than on touch-down: `onPressIn` fires on any touch
+   * at all, so folding there emptied folders on a tap or the first moment of a
+   * scroll.
    */
+  const [foldingFolders, setFoldingFolders] = useState(false);
+  /** Counts folded drags, so each one ends on a fresh sortable. See `dragEnd`. */
+  const [foldEpoch, setFoldEpoch] = useState(0);
   /** Folders folded shut. Restored from the device and saved on every toggle. */
   const [collapsedFolders, setCollapsedFolders] = useState<string[]>(loadCollapsedFolders);
   const [menuTarget, setMenuTarget] = useState<NavMenuTarget | null>(null);
@@ -137,6 +170,49 @@ export default function Sidebar({ state, navigation, onNavigate }: Props) {
     setMenuTarget(null);
     setMenuAt(null);
   }, []);
+
+  /**
+   * The hold became a drag: the menu goes, and a dragged folder folds the tree
+   * down to its top level.
+   *
+   * Only a folder does this. Dragging a list is the one case that needs the
+   * folders open, since dropping it inside one is the whole affordance.
+   *
+   * The drop needs no memory of what was open. A folder already collapsed
+   * contributes no rows to fold, and nothing here touches `collapsedFolders`,
+   * so clearing the flag restores exactly the set that was expanded before.
+   */
+  const lift = useCallback(
+    (key: string) => {
+      closeMenu();
+      if (rows.find((r) => r.key === key)?.kind === 'folder') setFoldingFolders(true);
+    },
+    [closeMenu, rows]
+  );
+
+  /**
+   * The drag is over: unfold, and hand the sortable a clean context.
+   *
+   * Unfolding alone leaves the rows clipped, because the damage is not in the
+   * rows. The sortable lays its items out absolutely, stacking each one at the
+   * total height of those above it, and it took those heights from rows that
+   * were folded flat at the time — so it goes on placing full-height rows in
+   * the space a folded one needed. Nothing outside the library can correct a
+   * measurement it holds internally, which is why reopening the sidebar was the
+   * only thing that worked: it remounts.
+   *
+   * So do that deliberately, via the escape hatch already here for exactly this
+   * — a sortable whose measurements have gone stale. It is safe now in a way it
+   * never is mid-drag: the gesture a remount would have destroyed is finished.
+   *
+   * Only after a drag that actually folded. A list drag disturbs no heights and
+   * keeps its drop animation, which the remount would otherwise cut short.
+   */
+  const dragEnd = useCallback(() => {
+    if (!foldingFolders) return;
+    setFoldingFolders(false);
+    setFoldEpoch((n) => n + 1);
+  }, [foldingFolders]);
 
   /**
    * A row has been touched, well before any hold is recognised.
@@ -327,45 +403,54 @@ export default function Sidebar({ state, navigation, onNavigate }: Props) {
           // what turns a hold into a drag, so the row rises and the menu that
           // was asking "which did you mean?" gets out of the way together.
           liftAfter={LIFT_THRESHOLD}
-          onLift={closeMenu}
+          onLift={lift}
+          onDragEnd={dragEnd}
           onReorder={reorder}
-          // The children of a dragged folder stay where they are and catch up
-          // on the drop, so there is no hidden bundle to put a count on.
-          resetKey={collapsedFolders.join('|')}
+          // Two things invalidate the sortable's measurements: rows appearing
+          // and disappearing outright, and a fold having flattened them while
+          // it was reading their heights. Note what is absent — the fold going
+          // *on*. Remounting there would destroy the gesture that asked for it,
+          // so the epoch only turns once the drag is over.
+          resetKey={`${collapsedFolders.join('|')}#${foldEpoch}`}
           renderItem={(row) => (
-            // Right-click is the mouse's way in: there is no hold to long-press
-            // with, and the grip is reserved for dragging. Web-only by
-            // construction — on native this is a plain View.
-            <ContextMenuTarget
-              onOpen={(pos) => {
-                setMenuTarget(rowFor(row.key));
-                setMenuAt({ x: pos.x, y: pos.y, width: 0, height: 0 });
-              }}
-            >
-              {row.kind === 'folder' ? (
-                <FolderRow
-                  onPressIn={(point) => arm(row.key, point)}
-                  held={menuTarget?.id === row.folder.id}
-                  folder={row.folder}
-                  rail={collapsed}
-                  count={folderTotal(data.lists, counts, row.folder.id)}
-                  folded={collapsedFolders.includes(row.folder.id)}
-                  onToggle={() => toggleFolder(row.folder.id)}
-                />
-              ) : (
-                <ListRow
-                  onPressIn={(point) => arm(row.key, point)}
-                  held={menuTarget?.id === row.list.id}
-                  list={row.list}
-                  rail={collapsed}
-                  depth={row.depth}
-                  count={counts[row.list.id] ?? 0}
-                  active={filterActive('list', row.list.id)}
-                  accent={accent}
-                  onPress={() => openFilter({ listId: row.list.id })}
-                />
-              )}
-            </ContextMenuTarget>
+            // Wrapped whether or not it can fold: making the wrapper
+            // conditional would change the element tree the moment a fold
+            // starts, remounting the row under the finger that asked for it.
+            <FoldAway folded={foldingFolders && row.depth === 1}>
+              {/* Right-click is the mouse's way in: there is no hold to long-press
+                  with, and the grip is reserved for dragging. Web-only by
+                  construction — on native this is a plain View. */}
+              <ContextMenuTarget
+                onOpen={(pos) => {
+                  setMenuTarget(rowFor(row.key));
+                  setMenuAt({ x: pos.x, y: pos.y, width: 0, height: 0 });
+                }}
+              >
+                {row.kind === 'folder' ? (
+                  <FolderRow
+                    onPressIn={(point) => arm(row.key, point)}
+                    held={menuTarget?.id === row.folder.id}
+                    folder={row.folder}
+                    rail={collapsed}
+                    count={folderTotal(data.lists, counts, row.folder.id)}
+                    folded={collapsedFolders.includes(row.folder.id)}
+                    onToggle={() => toggleFolder(row.folder.id)}
+                  />
+                ) : (
+                  <ListRow
+                    onPressIn={(point) => arm(row.key, point)}
+                    held={menuTarget?.id === row.list.id}
+                    list={row.list}
+                    rail={collapsed}
+                    depth={row.depth}
+                    count={counts[row.list.id] ?? 0}
+                    active={filterActive('list', row.list.id)}
+                    accent={accent}
+                    onPress={() => openFilter({ listId: row.list.id })}
+                  />
+                )}
+              </ContextMenuTarget>
+            </FoldAway>
           )}
         />
 
@@ -453,6 +538,59 @@ export default function Sidebar({ state, navigation, onNavigate }: Props) {
         }
       />
     </View>
+  );
+}
+
+/**
+ * Folds a row shut in place, without taking it out of the tree.
+ *
+ * For the lists under a folder being dragged. Dropping them from the item set
+ * would be the obvious way and is the one thing that must not happen: the
+ * sortable rebuilds `indexToKey` from the child keys with no regard for a drag
+ * in flight, so removing rows mid-gesture swaps the order array out from under
+ * the index the drag started at. Height is safe where the key set is not — the
+ * library re-measures items whose dimensions change and says so, calling out
+ * "collapsible items which change their height when the user starts dragging
+ * them" as a case it handles.
+ *
+ * The height has to be measured because there is nothing to animate to
+ * otherwise, and it is read from an inner view that keeps its natural size, so
+ * the number stays available all the way through the fold.
+ *
+ * The override is detached once a fold has finished opening, rather than left
+ * applied at its natural height. An animated style goes on applying whatever it
+ * last wrote, so a style that merely stops mentioning height — by returning
+ * `undefined`, or by dropping the key — leaves the row pinned to the measurement
+ * the fold ended on, and a row that later grew never shows the difference. Only
+ * taking the whole style out of the array gives the height back.
+ */
+function FoldAway({ folded, children }: { folded: boolean; children: React.ReactNode }) {
+  const height = useSharedValue<number | null>(null);
+  const progress = useSharedValue(0);
+  /** Whether the height override is attached at all. See above. */
+  const [overriding, setOverriding] = useState(false);
+
+  useEffect(() => {
+    // Attached before the fold starts and detached only once one has finished
+    // opening, so it spans the animation in both directions. An interrupted
+    // animation reports `finished: false` and leaves it attached, which is
+    // right: something else is already driving it.
+    if (folded) setOverriding(true);
+    progress.value = withTiming(folded ? 1 : 0, { duration: FOLD_MS }, (finished) => {
+      'worklet';
+      if (finished && !folded) scheduleOnRN(setOverriding, false);
+    });
+  }, [folded, progress]);
+
+  const style = useAnimatedStyle(() => ({
+    height: (height.value ?? 0) * (1 - progress.value),
+    opacity: 1 - progress.value,
+  }));
+
+  return (
+    <Animated.View style={[styles.fold, overriding && style]}>
+      <View onLayout={(e) => (height.value = e.nativeEvent.layout.height)}>{children}</View>
+    </Animated.View>
   );
 }
 
@@ -619,6 +757,13 @@ const styles = StyleSheet.create({
   },
   scrollArea: {
     flex: 1,
+  },
+  /**
+   * Clips the row while it folds. Without it the content keeps its natural
+   * height and simply overflows the shrinking box, so nothing appears to close.
+   */
+  fold: {
+    overflow: 'hidden',
   },
   scroll: {
     paddingHorizontal: 8,

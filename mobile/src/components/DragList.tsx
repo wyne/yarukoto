@@ -54,7 +54,15 @@ interface Props<T> {
    */
   liftAfter?: number;
   /** The finger passed `liftAfter` — this is a drag now, not a hold. */
-  onLift?: () => void;
+  onLift?: (key: string) => void;
+  /**
+   * The drag is over, whether or not it changed the order.
+   *
+   * Separate from `onReorder`, which stays silent when a row is put back where
+   * it came from. Anything armed for the duration of a drag has to be disarmed
+   * on every ending, not just the ones that wrote something.
+   */
+  onDragEnd?: () => void;
   /**
    * Remounts the sortable when this changes.
    *
@@ -94,6 +102,7 @@ export default function DragList<T>({
   onDragMove,
   liftAfter,
   onLift,
+  onDragEnd,
   resetKey,
 }: Props<T>) {
   // Which row is lifted, so only that one carries the count.
@@ -111,11 +120,11 @@ export default function DragList<T>({
   const origin = useRef<{ x: number; y: number } | null>(null);
   const lifted = useRef(liftAfter === undefined);
 
-  const raise = () => {
+  const raise = (key: string) => {
     if (lifted.current) return;
     lifted.current = true;
     lift.value = withTiming(1, { duration: 180 });
-    onLift?.();
+    onLift?.(key);
   };
 
   // Scaled from `lift` so the row rises into the drag rather than appearing in
@@ -211,6 +220,7 @@ export default function DragList<T>({
         }}
         onDragMove={(params) => {
           const { absoluteX, absoluteY } = params.touchData;
+          const key = keyMap.get(params.key) ?? params.key;
           // Measured from the first sample after the drag was claimed, which
           // lands within a frame of the touch that claimed it. `onDragMove`
           // only fires on movement, so a hold that never moves never lifts —
@@ -218,12 +228,13 @@ export default function DragList<T>({
           origin.current ??= { x: absoluteX, y: absoluteY };
           if (liftAfter !== undefined) {
             const { x, y } = origin.current;
-            if (Math.hypot(absoluteX - x, absoluteY - y) > liftAfter) raise();
+            if (Math.hypot(absoluteX - x, absoluteY - y) > liftAfter) raise(key);
           }
-          onDragMove?.(keyMap.get(params.key) ?? params.key, { x: absoluteX, y: absoluteY });
+          onDragMove?.(key, { x: absoluteX, y: absoluteY });
         }}
         onDragEnd={(params) => {
           setActiveKey(null);
+          onDragEnd?.();
           // The library reports React's child keys, which React mangles to '.$<key>'
           // for keyed array children. Map them back before anything downstream tries
           // to match them against task ids.
