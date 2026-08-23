@@ -178,6 +178,7 @@ export function groupTasks(tasks: Task[], options: ViewOptions, ctx: GroupContex
   }
 
   const buckets = new Map<string, TaskGroup>();
+  const listsById = new Map(ctx.lists.map((list) => [list.id, list]));
   const push = (key: string, label: string, task: Task, color?: string) => {
     const g = buckets.get(key) ?? { key, label, tasks: [], color };
     g.tasks.push(task);
@@ -187,7 +188,7 @@ export function groupTasks(tasks: Task[], options: ViewOptions, ctx: GroupContex
   for (const t of tasks) {
     switch (groupBy) {
       case 'list': {
-        const list = t.listId ? ctx.lists.find((l) => l.id === t.listId) : undefined;
+        const list = t.listId ? listsById.get(t.listId) : undefined;
         if (list) push(list.id, list.name, t, list.color);
         else push('__inbox', 'Inbox', t);
         break;
@@ -218,9 +219,15 @@ export function groupTasks(tasks: Task[], options: ViewOptions, ctx: GroupContex
     case 'list': {
       // Inbox first, then folder order and list order within each folder.
       const rank = new Map<string, number>();
+      const listsByFolder = new Map<string, ListDef[]>();
+      for (const list of ctx.lists) {
+        const lists = listsByFolder.get(list.folderId) ?? [];
+        lists.push(list);
+        listsByFolder.set(list.folderId, lists);
+      }
       let i = 1;
       for (const folder of ctx.folders) {
-        for (const l of ctx.lists.filter((x) => x.folderId === folder.id)) rank.set(l.id, i++);
+        for (const list of listsByFolder.get(folder.id) ?? []) rank.set(list.id, i++);
       }
       return groups.sort((a, b) => {
         const ar = a.key === '__inbox' ? 0 : (rank.get(a.key) ?? Infinity);

@@ -45,6 +45,8 @@ export function useCollapsedSections(viewKey: string): CollapsedController {
       }),
     completedCollapsed: value.completed,
     toggleCompleted: () => update({ ...value, completed: !value.completed }),
-    expandAllGroups: () => update({ ...value, groups: [] }),
+    expandAllGroups: () => {
+      if (value.groups.length > 0) update({ ...value, groups: [] });
+    },
   };
 }

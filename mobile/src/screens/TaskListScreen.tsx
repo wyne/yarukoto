@@ -1,6 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
-import Animated, { FadeIn, FadeOut, LinearTransition, useAnimatedRef } from 'react-native-reanimated';
+import Animated, {
+  FadeIn,
+  FadeOut,
+  LinearTransition,
+  useAnimatedRef,
+} from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../theme/colors';
 import { fonts } from '../theme/typography';
@@ -10,7 +15,6 @@ import {
   activeTasks,
   completedInboxTasks,
   completedTasksList,
-  getListById,
   inboxTasks,
   tasksForToday,
 } from '../data/selectors';
@@ -89,7 +93,15 @@ export default function TaskListScreen({ mode, filter }: Props) {
   const scrollRef = useAnimatedRef<Animated.ScrollView>();
 
   const key = viewKey(mode, filter);
-  const options = getViewOptions(key);
+  // getViewOptions normalises a stored preference into a new object. Keep that
+  // identity stable until this view's preferences actually change, otherwise
+  // local UI state (opening search, a menu, selection, sync status) needlessly
+  // invalidates the comparatively expensive group/sort pass below.
+  const options = useMemo(() => getViewOptions(key), [getViewOptions, key]);
+  const listsById = useMemo(
+    () => new Map(state.lists.filter((list) => !list.deletedAt).map((list) => [list.id, list])),
+    [state.lists]
+  );
 
   const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -397,7 +409,7 @@ export default function TaskListScreen({ mode, filter }: Props) {
           >
             <TaskRow
               task={task}
-              list={getListById(state.lists, task.listId)}
+              list={task.listId ? listsById.get(task.listId) : undefined}
               now={now}
               selectionMode={selectionMode}
               active={highlighted(task.id) && !isSelected(task.id)}
@@ -583,7 +595,7 @@ export default function TaskListScreen({ mode, filter }: Props) {
                     <View key={task.id}>
                       <TaskRow
                         task={task}
-                        list={getListById(state.lists, task.listId)}
+                        list={task.listId ? listsById.get(task.listId) : undefined}
                         now={now}
                         selectionMode={selectionMode}
                         showContext={rowContext}
@@ -626,8 +638,17 @@ export default function TaskListScreen({ mode, filter }: Props) {
         onClose={() => setOptionsOpen(false)}
         value={options}
         onChange={(next) => {
+          if (
+            next.groupBy === options.groupBy &&
+            next.sortBy === options.sortBy &&
+            next.arrangements === options.arrangements
+          ) {
+            return;
+          }
           setViewOptions(key, next);
-          sections.expandAllGroups();
+          // Sort changes retain the same sections, so there is nothing to reset
+          // or persist. A new grouping dimension gets a clean expanded view.
+          if (next.groupBy !== options.groupBy) sections.expandAllGroups();
         }}
         onRestore={restoreSort}
         anchor={optionsAnchor}

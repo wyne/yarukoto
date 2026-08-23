@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { colors } from '../theme/colors';
 import { hoverBg } from '../theme/hover';
@@ -31,6 +31,30 @@ interface Props {
 export default function ViewOptionsSheet({ visible, onClose, value, onChange, onRestore, anchor }: Props) {
   const accent = useAccent();
   const { width } = useWindowDimensions();
+  const [draft, setDraft] = useState(value);
+  const wasVisible = useRef(false);
+  const pendingApply = useRef<ViewOptions | null>(null);
+
+  // Native uses an explicit Done action, so choices stay local to the sheet
+  // until then. Web has no Done button and continues to update immediately.
+  useEffect(() => {
+    if (visible && !wasVisible.current) setDraft(value);
+    wasVisible.current = visible;
+  }, [value, visible]);
+
+  const displayedValue = WEB_ENTRY ? value : draft;
+  const updateValue = (next: ViewOptions) => {
+    if (WEB_ENTRY) onChange(next);
+    else setDraft(next);
+  };
+  const restoreOrder = () => {
+    if (WEB_ENTRY) {
+      onRestore();
+      return;
+    }
+    const { [displayedValue.sortBy]: _removed, ...arrangements } = displayedValue.arrangements;
+    setDraft({ ...displayedValue, arrangements });
+  };
 
   const renderRow = <T extends string>(
     label: string,
@@ -59,19 +83,19 @@ export default function ViewOptionsSheet({ visible, onClose, value, onChange, on
 
   const body = (
     <>
-      {renderRow<GroupBy>('Group by', GROUP_BY_OPTIONS, value.groupBy, (groupBy) =>
-        onChange({ ...value, groupBy })
+      {renderRow<GroupBy>('Group by', GROUP_BY_OPTIONS, displayedValue.groupBy, (groupBy) =>
+        updateValue({ ...displayedValue, groupBy })
       )}
-      {renderRow<SortBy>('Sort by', SORT_BY_OPTIONS, value.sortBy, (sortBy) =>
-        onChange({ ...value, sortBy })
+      {renderRow<SortBy>('Sort by', SORT_BY_OPTIONS, displayedValue.sortBy, (sortBy) =>
+        updateValue({ ...displayedValue, sortBy })
       )}
       {/* Switching sorts just stops matching this sort's arrangement, leaving it
           intact for later. This is the way back for someone who wants to drop the
           arrangement and keep the sort they already have. */}
-      {hasArrangement(value.arrangements, value.sortBy) && (
-        <Pressable style={hoverBg(styles.restore)} onPress={onRestore}>
+      {hasArrangement(displayedValue.arrangements, displayedValue.sortBy) && (
+        <Pressable style={hoverBg(styles.restore)} onPress={restoreOrder}>
           <Text style={styles.restoreText}>
-            Order customised — restore {sortLabel(value.sortBy)} sort
+            Order customised — restore {sortLabel(displayedValue.sortBy)} sort
           </Text>
         </Pressable>
       )}
@@ -92,9 +116,28 @@ export default function ViewOptionsSheet({ visible, onClose, value, onChange, on
   }
 
   return (
-    <BottomSheet visible={visible} onClose={onClose} title="View options">
+    <BottomSheet
+      visible={visible}
+      onClose={onClose}
+      onDismissed={
+        WEB_ENTRY
+          ? undefined
+          : () => {
+              const next = pendingApply.current;
+              pendingApply.current = null;
+              if (next) onChange(next);
+            }
+      }
+      title="View options"
+    >
       {body}
-      <Pressable style={styles.doneBtn} onPress={onClose}>
+      <Pressable
+        style={styles.doneBtn}
+        onPress={() => {
+          if (!WEB_ENTRY) pendingApply.current = draft;
+          onClose();
+        }}
+      >
         <Text style={styles.doneBtnText}>Done</Text>
       </Pressable>
     </BottomSheet>

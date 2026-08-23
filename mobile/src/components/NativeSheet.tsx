@@ -15,6 +15,8 @@ import { fonts } from '../theme/typography';
 interface Props {
   visible: boolean;
   onClose: () => void;
+  /** Called after the native dismissal animation has completely finished. */
+  onDismissed?: () => void;
   title?: string;
   /** Raise the sheet behind the keyboard instead of letting it cover the field. */
   keyboard?: boolean;
@@ -47,6 +49,7 @@ interface Props {
 export default function NativeSheet({
   visible,
   onClose,
+  onDismissed,
   title,
   keyboard,
   grabber = true,
@@ -61,6 +64,8 @@ export default function NativeSheet({
   const ref = useRef<React.ElementRef<typeof BottomSheetModal>>(null);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
+  const onDismissedRef = useRef(onDismissed);
+  onDismissedRef.current = onDismissed;
   const onShowRef = useRef(onShow);
   onShowRef.current = onShow;
   const shownRef = useRef(false);
@@ -146,6 +151,7 @@ export default function NativeSheet({
         // dismiss — clearing this keeps it from re-entering DISMISSING.
         presentedRef.current = false;
         onCloseRef.current?.();
+        onDismissedRef.current?.();
       }}
     >
       {/*
