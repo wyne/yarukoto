@@ -28,10 +28,6 @@ import { FINE_POINTER } from '../data/platform';
 import DragList from './DragList';
 import { NavRow, flattenTree, resolveDrop } from './sidebar/navTree';
 import { loadCollapsedFolders, saveCollapsedFolders } from '../data/storage';
-import ListOptionsSheet from './pickers/ListOptionsSheet';
-import FolderOptionsSheet from './pickers/FolderOptionsSheet';
-import NewListSheet from './pickers/NewListSheet';
-import NewFolderSheet from './pickers/NewFolderSheet';
 import SyncIndicator from './SyncIndicator';
 import {
   IconCalendar,
@@ -81,11 +77,6 @@ interface Props extends BottomTabBarProps {
 
 export default function Sidebar({ state, navigation, onNavigate }: Props) {
   const accent = useAccent();
-  const [listTarget, setListTarget] = useState<ListDef | null>(null);
-  const [folderTarget, setFolderTarget] = useState<FolderDef | null>(null);
-  /** Outer null = closed; `folder` null = a list at the root. */
-  const [newList, setNewList] = useState<{ folder: FolderDef | null } | null>(null);
-  const [newFolderOpen, setNewFolderOpen] = useState(false);
   /**
    * The folder whose lists are hidden because its header is being dragged.
    *
@@ -110,7 +101,7 @@ export default function Sidebar({ state, navigation, onNavigate }: Props) {
     /** The depth the sideways travel is currently asking for. */
     intent: 0 | 1;
   } | null>(null);
-  const { wide, collapsed: collapsedPref, toggleCollapsed, openServer, closeDrawer } = useSidebar();
+  const { wide, collapsed: collapsedPref, toggleCollapsed, openServer, openNavSheet } = useSidebar();
   const scrollRef = useAnimatedRef<Animated.ScrollView>();
   // The drawer is a transient overlay, so it always shows the full sidebar.
   const collapsed = wide && collapsedPref;
@@ -380,11 +371,19 @@ export default function Sidebar({ state, navigation, onNavigate }: Props) {
 
         {!collapsed && (
           <View style={styles.addRow}>
-            <Pressable style={hoverBg(styles.newRow)} onPress={() => setNewList({ folder: null })} accessibilityLabel="New list">
+            <Pressable
+              style={hoverBg(styles.newRow)}
+              onPress={() => openNavSheet({ kind: 'newList', folderId: null })}
+              accessibilityLabel="New list"
+            >
               <IconPlus size={15} color={colors.textTertiary} />
               <Text style={styles.newLabel}>New list</Text>
             </Pressable>
-            <Pressable style={hoverBg(styles.newRow)} onPress={() => setNewFolderOpen(true)} accessibilityLabel="New folder">
+            <Pressable
+              style={hoverBg(styles.newRow)}
+              onPress={() => openNavSheet({ kind: 'newFolder' })}
+              accessibilityLabel="New folder"
+            >
               <IconPlus size={15} color={colors.textTertiary} />
               <Text style={styles.newLabel}>New folder</Text>
             </Pressable>
@@ -439,32 +438,20 @@ export default function Sidebar({ state, navigation, onNavigate }: Props) {
         target={menuTarget}
         at={menuAt}
         onClose={closeMenu}
-        onRename={() => {
-          if (!menuTarget) return;
-          // The sheets portal to a provider outside the drawer's Modal, so from
-          // the drawer they would open behind it. Closing the nav first is also
-          // simply what you want: you have left the list to go edit it.
-          closeDrawer();
-          if (menuTarget.kind === 'list') {
-            setListTarget(data.lists.find((l) => l.id === menuTarget.id) ?? null);
-          } else {
-            setFolderTarget(data.folders.find((f) => f.id === menuTarget.id) ?? null);
-          }
-        }}
+        onRename={() =>
+          menuTarget &&
+          openNavSheet(
+            menuTarget.kind === 'list'
+              ? { kind: 'renameList', id: menuTarget.id }
+              : { kind: 'renameFolder', id: menuTarget.id }
+          )
+        }
         onNewList={
           menuTarget?.kind === 'folder'
-            ? () => {
-                const folder = data.folders.find((f) => f.id === menuTarget.id) ?? null;
-                closeDrawer();
-                setNewList({ folder });
-              }
+            ? () => openNavSheet({ kind: 'newList', folderId: menuTarget.id })
             : undefined
         }
       />
-      <ListOptionsSheet list={listTarget} onClose={() => setListTarget(null)} />
-      <FolderOptionsSheet folder={folderTarget} onClose={() => setFolderTarget(null)} />
-      <NewListSheet visible={!!newList} folder={newList?.folder ?? null} onClose={() => setNewList(null)} />
-      <NewFolderSheet visible={newFolderOpen} onClose={() => setNewFolderOpen(false)} />
     </View>
   );
 }

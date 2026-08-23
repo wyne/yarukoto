@@ -16,6 +16,7 @@ import UndoToast from '../components/UndoToast';
 import { DragProvider } from '../drag/DragContext';
 import DragOverlay from '../drag/DragOverlay';
 import ServerSheet from '../components/pickers/ServerSheet';
+import NavSheets from '../components/sidebar/NavSheets';
 import AllScreen from '../screens/AllScreen';
 import InboxScreen from '../screens/InboxScreen';
 import TodayScreen from '../screens/TodayScreen';
@@ -84,6 +85,7 @@ function Layout() {
       )}
       {!wide && <TaskDetailSheet />}
       <ServerSheet visible={serverOpen} onClose={closeServer} />
+      <NavSheets />
       <DragOverlay />
     </View>
   );
