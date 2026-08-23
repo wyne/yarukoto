@@ -1,5 +1,7 @@
 import React, { useEffect } from 'react';
 import { Modal, Platform, Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { GlassView } from 'expo-glass-effect';
+import { LIQUID_GLASS } from '../data/platform';
 import { colors } from '../theme/colors';
 
 /** Where the control that opened the popover sits, in window coordinates. */
@@ -92,20 +94,33 @@ export default function Popover({
   const spaceBelow = winHeight - below - EDGE;
   const flip = spaceBelow < 200 && anchor.y > spaceBelow;
 
+  const place = [
+    { width, left },
+    flip ? { bottom: winHeight - anchor.y + MARGIN } : { top: below },
+  ];
+
   const body = (
     <>
       {/* Catches the click-away. Transparent, so the page stays readable behind
           it — a popover is a light touch, not a modal interruption. */}
       <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
-      <View
-        style={[
-          styles.card,
-          { width, left },
-          flip ? { bottom: winHeight - anchor.y + MARGIN } : { top: below },
-        ]}
-      >
-        {children}
-      </View>
+      {LIQUID_GLASS ? (
+        /*
+         * The system material, so the panel reads as one of the OS's own menus
+         * rather than a card the app drew: it refracts and tints from whatever
+         * it is over, which a fixed surface colour cannot do.
+         *
+         * It brings its own edge and shading, so the card's border and shadow
+         * come off — layering ours on top is what makes glass look like a
+         * sticker of glass. `isInteractive` stays off: that is for controls that
+         * morph under a finger, and this is a surface things sit on.
+         */
+        <GlassView glassEffectStyle="regular" style={[styles.card, styles.glassCard, place]}>
+          {children}
+        </GlassView>
+      ) : (
+        <View style={[styles.card, place]}>{children}</View>
+      )}
     </>
   );
 
@@ -129,5 +144,15 @@ const styles = StyleSheet.create({
     paddingTop: 14,
     paddingBottom: 6,
     boxShadow: '0 12px 32px rgba(0, 0, 0, 0.18)',
+  },
+  /** Overrides the flat card's own surface. See the glass branch above. */
+  glassCard: {
+    backgroundColor: 'transparent',
+    borderWidth: 0,
+    boxShadow: undefined,
+    // Matches the corner the system rounds its own menus to, which is tighter
+    // than the app's cards.
+    borderRadius: 14,
+    overflow: 'hidden',
   },
 });

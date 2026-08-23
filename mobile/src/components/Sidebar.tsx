@@ -52,6 +52,14 @@ import {
  *  finger must travel sideways to nest or un-nest one while dragging. */
 const INDENT = 22;
 
+/**
+ * How far the finger travels before a hold becomes a drag.
+ *
+ * Below the indent step, so nudging sideways to change nesting depth reads as a
+ * drag well before it reads as a change of depth.
+ */
+const LIFT_THRESHOLD = 8;
+
 export const SIDEBAR_WIDTH = 260;
 /** Icon-only rail when the pinned sidebar is collapsed. */
 export const SIDEBAR_COLLAPSED_WIDTH = 56;
@@ -103,7 +111,6 @@ export default function Sidebar({ state, navigation, onNavigate }: Props) {
     depth: 0 | 1;
     /** The depth the sideways travel is currently asking for. */
     intent: 0 | 1;
-    cancelled: boolean;
   } | null>(null);
   const { wide, collapsed: collapsedPref, toggleCollapsed, openServer, closeDrawer } = useSidebar();
   const scrollRef = useAnimatedRef<Animated.ScrollView>();
@@ -160,7 +167,7 @@ export default function Sidebar({ state, navigation, onNavigate }: Props) {
   const arm = useCallback(
     (key: string, point: { x: number; y: number }) => {
       const depth = rows.find((r) => r.key === key)?.depth ?? 0;
-      press.current = { ...point, depth, intent: depth, cancelled: false };
+      press.current = { ...point, depth, intent: depth };
       // A folder travels as a unit, so its children fold away for the duration.
       setDraggingFolderId(key.startsWith('f:') ? key.slice(2) : null);
     },
@@ -192,16 +199,15 @@ export default function Sidebar({ state, navigation, onNavigate }: Props) {
   );
 
   /**
-   * The finger has travelled far enough to mean "I am dragging this", so the
-   * menu gets out of the way and the drag carries on underneath it.
+   * Tracks how deep the finger is asking the row to sit.
    *
-   * Eight points, and `cancelled` so this fires once rather than on every frame
-   * of the rest of the drag.
+   * Turning the hold into a drag is `liftAfter`'s job, on the same travel; this
+   * only reads the sideways component of it.
    *
-   * This does not fight `dragActivationFailOffset`, though the two numbers look
-   * like they should: that one only applies while the hold is still being
+   * None of these distances fight `dragActivationFailOffset`, though the numbers
+   * look like they should: that one only applies while the hold is still being
    * recognised — it is how a scroll flick escapes — and by the time anything
-   * here runs the row is already lifted and the ScrollView has lost the gesture.
+   * here runs the drag is claimed and the ScrollView has lost the gesture.
    */
   const dragMove = useCallback(
     (_key: string, point: { x: number; y: number }) => {
@@ -213,12 +219,8 @@ export default function Sidebar({ state, navigation, onNavigate }: Props) {
       // of travel switches between them, which is how the outliners do it and
       // the only way a nested list can be dragged back to the root at all.
       at.intent = Math.min(1, Math.max(0, at.depth + Math.round((point.x - at.x) / INDENT))) as 0 | 1;
-      if (at.cancelled) return;
-      if (Math.hypot(point.x - at.x, point.y - at.y) <= 8) return;
-      at.cancelled = true;
-      closeMenu();
     },
-    [closeMenu]
+    []
   );
 
   const reorder = useCallback(
@@ -330,6 +332,11 @@ export default function Sidebar({ state, navigation, onNavigate }: Props) {
           scrollableRef={scrollRef}
           onDragStart={dragStart}
           onDragMove={dragMove}
+          // One threshold governs both halves of the gesture: crossing it is
+          // what turns a hold into a drag, so the row rises and the menu that
+          // was asking "which did you mean?" gets out of the way together.
+          liftAfter={LIFT_THRESHOLD}
+          onLift={closeMenu}
           onDropped={() => setDraggingFolderId(null)}
           onReorder={reorder}
           // From the data, not from `rows`: by the time a folder is being
@@ -351,6 +358,7 @@ export default function Sidebar({ state, navigation, onNavigate }: Props) {
               {row.kind === 'folder' ? (
                 <FolderRow
                   onPressIn={(point) => arm(row.key, point)}
+                  held={menuTarget?.id === row.folder.id}
                   folder={row.folder}
                   rail={collapsed}
                   count={folderTotal(data.lists, counts, row.folder.id)}
@@ -360,6 +368,7 @@ export default function Sidebar({ state, navigation, onNavigate }: Props) {
               ) : (
                 <ListRow
                   onPressIn={(point) => arm(row.key, point)}
+                  held={menuTarget?.id === row.list.id}
                   list={row.list}
                   rail={collapsed}
                   depth={row.depth}
@@ -480,9 +489,12 @@ function FolderRow({
   folded,
   onToggle,
   onPressIn,
+  held,
 }: {
   folder: FolderDef;
   onPressIn: (point: { x: number; y: number }) => void;
+  /** Its menu is open. See `heldRowBg`. */
+  held: boolean;
   /** The collapsed icon-only sidebar, not a folded folder. */
   rail: boolean;
   count: number;
@@ -492,7 +504,7 @@ function FolderRow({
   if (rail) return null;
   return (
     <Pressable
-      style={hoverBg(styles.row)}
+      style={hoverBg([styles.row, held && { backgroundColor: colors.heldRowBg }], held)}
       onPress={onToggle}
       onPressIn={(e) => onPressIn({ x: e.nativeEvent.pageX, y: e.nativeEvent.pageY })}
       accessibilityLabel={folder.name}
@@ -520,9 +532,12 @@ function ListRow({
   accent,
   onPress,
   onPressIn,
+  held,
 }: {
   list: ListDef;
   onPressIn: (point: { x: number; y: number }) => void;
+  /** Its menu is open. See `heldRowBg`. */
+  held: boolean;
   rail: boolean;
   /** 1 when the list sits inside a folder, and is inset under it. */
   depth: 0 | 1;
@@ -541,8 +556,11 @@ function ListRow({
           // takes a press and the hover fill starts where the row appears to.
           !rail && depth === 1 && { marginLeft: INDENT },
           active && { backgroundColor: colors.selectedRowBg },
+          // Last, so a held row reads as held even when it is also the view
+          // you are currently looking at.
+          held && { backgroundColor: colors.heldRowBg },
         ],
-        active
+        active || held
       )}
       onPress={onPress}
       onPressIn={(e) => onPressIn({ x: e.nativeEvent.pageX, y: e.nativeEvent.pageY })}
