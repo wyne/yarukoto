@@ -21,6 +21,8 @@ interface Props {
   label: string;
   /** The icon. Anything that draws itself in a {@link SIZE}-point circle. */
   children: ReactNode;
+  /** Optional tint for prominent glass actions. */
+  tintColor?: string;
   ref?: Ref<View>;
 }
 
@@ -35,7 +37,7 @@ interface Props {
  * `isInteractive` hands it to UIKit, which morphs the glass under the finger,
  * while the flat path keeps the pointer hover tint that a mouse expects.
  */
-export default function GlassIconButton({ onPress, label, children, ref }: Props) {
+export default function GlassIconButton({ onPress, label, children, tintColor, ref }: Props) {
   if (!LIQUID_GLASS) {
     return (
       <Pressable
@@ -44,7 +46,11 @@ export default function GlassIconButton({ onPress, label, children, ref }: Props
         hitSlop={8}
         accessibilityRole="button"
         accessibilityLabel={label}
-        style={hoverBg(styles.flatButton)}
+        style={
+          tintColor
+            ? [styles.flatButton, styles.tintedFallback, { backgroundColor: tintColor }]
+            : hoverBg(styles.flatButton)
+        }
       >
         {children}
       </Pressable>
@@ -59,7 +65,7 @@ export default function GlassIconButton({ onPress, label, children, ref }: Props
       accessibilityLabel={label}
       style={styles.glassPress}
     >
-      <GlassView style={styles.glassButton} isInteractive>
+      <GlassView style={styles.glassButton} tintColor={tintColor} isInteractive>
         {children}
       </GlassView>
     </Pressable>
@@ -108,6 +114,15 @@ const styles = StyleSheet.create({
     padding: 6,
     margin: -6,
     borderRadius: 8,
+  },
+  tintedFallback: {
+    width: SIZE,
+    height: SIZE,
+    padding: 0,
+    margin: 0,
+    borderRadius: SIZE / 2,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   glassGroup: {
     flexDirection: 'row',

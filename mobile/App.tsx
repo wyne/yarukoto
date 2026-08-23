@@ -13,6 +13,7 @@ import { TaskProvider } from './src/data/TaskContext';
 import { initStorage } from './src/data/storage';
 import RootNavigator from './src/navigation/RootNavigator';
 import { RootStackParamList } from './src/navigation/types';
+import { DateTimePickerProvider, navigationRef } from './src/navigation/DateTimePickerContext';
 
 /**
  * Web URLs. Without this the address bar never moves off `/`, so a reload — or a
@@ -78,12 +79,14 @@ export default function App() {
       <SafeAreaProvider>
         <ThemeProvider>
           <TaskProvider>
-            <BottomSheetModalProvider>
-              <NavigationContainer linking={linking}>
-                <StatusBar style="dark" />
-                <RootNavigator />
-              </NavigationContainer>
-            </BottomSheetModalProvider>
+            <DateTimePickerProvider>
+              <BottomSheetModalProvider>
+                <NavigationContainer ref={navigationRef} linking={linking}>
+                  <StatusBar style="dark" />
+                  <RootNavigator />
+                </NavigationContainer>
+              </BottomSheetModalProvider>
+            </DateTimePickerProvider>
           </TaskProvider>
         </ThemeProvider>
       </SafeAreaProvider>

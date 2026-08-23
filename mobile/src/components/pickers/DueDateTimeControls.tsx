@@ -1,23 +1,20 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import DateTimePicker from '@expo/ui/community/datetime-picker';
 import { colors } from '../../theme/colors';
 import { fonts } from '../../theme/typography';
 import { useAccent } from '../../theme/ThemeContext';
-import { addDays, formatTime24to12, fromISODate, toISODate } from '../../data/dateUtils';
-
-/** Shared with the composer's date popover so there's one set of presets. */
-export const DATE_OPTIONS: { label: string; get: (now: Date) => string | undefined }[] = [
-  { label: 'Today', get: (now) => toISODate(now) },
-  { label: 'Tomorrow', get: (now) => toISODate(addDays(now, 1)) },
-  { label: 'This weekend', get: (now) => toISODate(addDays(now, (6 - now.getDay() + 7) % 7 || 6)) },
-  { label: 'Next week', get: (now) => toISODate(addDays(now, 7)) },
-];
+import { formatTime24to12, fromISODate, toISODate } from '../../data/dateUtils';
 
 interface Props {
   date?: string;
   time?: string;
   onChange: (date: string | undefined, time: string | undefined) => void;
+  initialMode?: PickerMode;
+  /** Allows switching between date and time inside the control. */
+  allowModeSwitch?: boolean;
+  /** Called after a native picker value is selected in inline menus. Sheets omit this so Apply remains explicit. */
+  onDone?: () => void;
 }
 
 function parseTime(time?: string): { hours: number; minutes: number } {
@@ -45,102 +42,177 @@ function isTime(value: string): boolean {
   return /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
 }
 
-export default function DueDateTimeControls({ date, time, onChange }: Props) {
+type PickerMode = 'date' | 'time';
+
+export default function DueDateTimeControls({
+  date,
+  time,
+  onChange,
+  initialMode = 'date',
+  allowModeSwitch = true,
+  onDone,
+}: Props) {
   const accent = useAccent();
   const now = new Date();
   const pickerValue = valueForPicker(date, time);
   const nativePicker = Platform.OS !== 'web';
+  const [pickerMode, setPickerMode] = useState<PickerMode>(initialMode);
 
-  const setDate = (next: string | undefined) => onChange(next, next ? time : undefined);
-  const setTime = (next: string | undefined) => onChange(next ? (date ?? toISODate(now)) : date, next);
+  useEffect(() => {
+    setPickerMode(initialMode);
+  }, [initialMode]);
 
-  return (
-    <View style={styles.wrap}>
-      <Text style={styles.label}>Date</Text>
-      <View style={styles.chipsRow}>
-        {DATE_OPTIONS.map((opt) => {
-          const value = opt.get(now);
-          const active = value === date;
-          return (
-            <Pressable
-              key={opt.label}
-              style={[styles.chip, active && { backgroundColor: accent, borderColor: accent }]}
-              onPress={() => setDate(value)}
-            >
-              <Text style={[styles.chipText, active && styles.chipTextActive]}>{opt.label}</Text>
+  const finish = () => {
+    onDone?.();
+  };
+  const dismissDialog = () => {
+    if (onDone) {
+      onDone();
+      return;
+    }
+    setPickerMode(initialMode);
+  };
+  const setDate = (next: string | undefined, done = false) => {
+    onChange(next, next ? time : undefined);
+    if (done) finish();
+  };
+  const setTime = (next: string | undefined, done = false) => {
+    onChange(next ? (date ?? toISODate(now)) : date, next);
+    if (done) finish();
+  };
+  const dateLabel = date
+    ? fromISODate(date).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })
+    : 'Pick a date';
+  const timeLabel = time ? formatTime24to12(time) : 'None';
+
+  if (pickerMode === 'date') {
+    return (
+      <View style={styles.wrap}>
+        <View style={styles.headerRow}>
+          <Text style={styles.label}>Custom date</Text>
+          {allowModeSwitch && !!date && (
+            <Pressable style={styles.modeButton} onPress={() => setPickerMode('time')}>
+              <Text style={[styles.modeButtonText, { color: accent }]}>Time</Text>
             </Pressable>
-          );
-        })}
-        <Pressable
-          style={[styles.chip, !date && { backgroundColor: accent, borderColor: accent }]}
-          onPress={() => setDate(undefined)}
-        >
-          <Text style={[styles.chipText, !date && styles.chipTextActive]}>No date</Text>
-        </Pressable>
-      </View>
-
-      {nativePicker ? (
-        <DateTimePicker
-          value={pickerValue}
-          mode="date"
-          presentation="inline"
-          display={Platform.OS === 'ios' ? 'inline' : 'default'}
-          onValueChange={(_, selected) => setDate(toISODate(selected))}
-          style={styles.nativeDatePicker}
-        />
-      ) : (
-        <TextInput
-          value={date ?? ''}
-          onChangeText={(value) => {
-            const trimmed = value.trim();
-            if (!trimmed) setDate(undefined);
-            else if (isISODate(trimmed)) setDate(trimmed);
-          }}
-          placeholder="YYYY-MM-DD"
-          placeholderTextColor={colors.textFaint}
-          style={styles.textInput}
-        />
-      )}
-
-      <Text style={[styles.label, styles.timeLabel]}>Time</Text>
-      {nativePicker ? (
-        <DateTimePicker
-          value={pickerValue}
-          mode="time"
-          presentation="inline"
-          display={Platform.OS === 'ios' ? 'compact' : 'default'}
-          onValueChange={(_, selected) => setTime(timeFromDate(selected))}
-          style={styles.nativeTimePicker}
-        />
-      ) : (
-        <TextInput
-          value={time ?? ''}
-          onChangeText={(value) => {
-            const trimmed = value.trim();
-            if (!trimmed) setTime(undefined);
-            else if (isTime(trimmed)) setTime(trimmed);
-          }}
-          placeholder="HH:MM"
-          placeholderTextColor={colors.textFaint}
-          style={styles.textInput}
-        />
-      )}
-      <View style={styles.timeActions}>
-        {!!time && (
-          <Text style={styles.selectedTime}>{formatTime24to12(time)}</Text>
+          )}
+        </View>
+        {nativePicker && Platform.OS === 'ios' ? (
+          <View style={styles.nativeRow}>
+            <Text style={styles.nativeRowLabel}>{dateLabel}</Text>
+            <DateTimePicker
+              value={pickerValue}
+              mode="date"
+              display="compact"
+              accentColor={accent}
+              onValueChange={(_, selected) => setDate(toISODate(selected), true)}
+              style={styles.compactNativePicker}
+            />
+          </View>
+        ) : nativePicker ? (
+          <DateTimePicker
+            value={pickerValue}
+            mode="date"
+            presentation="dialog"
+            display="default"
+            accentColor={accent}
+            positiveButton={{ label: 'Set' }}
+            negativeButton={{ label: 'Cancel' }}
+            onDismiss={dismissDialog}
+            onValueChange={(_, selected) => setDate(toISODate(selected), true)}
+            style={styles.dialogHost}
+          />
+        ) : (
+          <TextInput
+            value={date ?? ''}
+            onChangeText={(value) => {
+              const trimmed = value.trim();
+              if (!trimmed) setDate(undefined);
+              else if (isISODate(trimmed)) setDate(trimmed);
+            }}
+            placeholder="YYYY-MM-DD"
+            placeholderTextColor={colors.textFaint}
+            style={styles.textInput}
+          />
         )}
-        <Pressable style={styles.clearTime} onPress={() => setTime(undefined)}>
-          <Text style={styles.clearTimeText}>No time</Text>
-        </Pressable>
+        {(date || time) && (
+          <Pressable style={styles.clearRow} onPress={() => setDate(undefined, true)}>
+            <Text style={styles.clearText}>Clear due date</Text>
+          </Pressable>
+        )}
       </View>
-    </View>
-  );
+    );
+  }
+
+  if (pickerMode === 'time') {
+    return (
+      <View style={styles.wrap}>
+        <View style={styles.headerRow}>
+          <Text style={styles.label}>Time</Text>
+          {allowModeSwitch && (
+            <Pressable style={styles.modeButton} onPress={() => setPickerMode('date')}>
+              <Text style={[styles.modeButtonText, { color: accent }]}>Date</Text>
+            </Pressable>
+          )}
+        </View>
+        {nativePicker && Platform.OS === 'ios' ? (
+          <View style={styles.nativeRow}>
+            <Text style={styles.nativeRowLabel}>{timeLabel}</Text>
+            <DateTimePicker
+              value={pickerValue}
+              mode="time"
+              display="compact"
+              accentColor={accent}
+              onValueChange={(_, selected) => setTime(timeFromDate(selected), true)}
+              style={styles.compactNativePicker}
+            />
+          </View>
+        ) : nativePicker ? (
+          <DateTimePicker
+            value={pickerValue}
+            mode="time"
+            presentation="dialog"
+            display="default"
+            accentColor={accent}
+            positiveButton={{ label: 'Set' }}
+            negativeButton={{ label: 'Cancel' }}
+            onDismiss={dismissDialog}
+            onValueChange={(_, selected) => setTime(timeFromDate(selected), true)}
+            style={styles.dialogHost}
+          />
+        ) : (
+          <TextInput
+            value={time ?? ''}
+            onChangeText={(value) => {
+              const trimmed = value.trim();
+              if (!trimmed) setTime(undefined);
+              else if (isTime(trimmed)) setTime(trimmed);
+            }}
+            placeholder="HH:MM"
+            placeholderTextColor={colors.textFaint}
+            style={styles.textInput}
+          />
+        )}
+        {!!time && (
+          <Pressable style={styles.clearRow} onPress={() => setTime(undefined, true)}>
+            <Text style={styles.clearText}>Clear time</Text>
+          </Pressable>
+        )}
+      </View>
+    );
+  }
 }
 
 const styles = StyleSheet.create({
   wrap: {
     paddingHorizontal: 14,
     paddingVertical: 6,
+  },
+  headerRow: {
+    minHeight: 28,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
   },
   label: {
     fontFamily: fonts.monoRegular,
@@ -150,37 +222,40 @@ const styles = StyleSheet.create({
     color: colors.textTertiary,
     marginBottom: 8,
   },
-  timeLabel: {
-    marginTop: 14,
+  modeButton: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
   },
-  chipsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
+  modeButtonText: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 13,
   },
-  chip: {
+  nativeRow: {
+    minHeight: 44,
+    marginTop: 8,
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
   },
-  chipText: {
+  nativeRowLabel: {
     fontFamily: fonts.sansMedium,
-    fontSize: 13,
+    fontSize: 14,
     color: colors.textPrimary,
   },
-  chipTextActive: {
-    color: '#fff',
+  compactNativePicker: {
+    minWidth: 116,
+    minHeight: 32,
   },
-  nativeDatePicker: {
+  dialogHost: {
     width: '100%',
-    minHeight: Platform.OS === 'ios' ? 320 : 260,
-    marginTop: 8,
-  },
-  nativeTimePicker: {
-    width: '100%',
-    minHeight: Platform.OS === 'ios' ? 44 : 180,
+    height: 1,
   },
   textInput: {
     borderWidth: 1,
@@ -192,24 +267,13 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: colors.textPrimary,
   },
-  timeActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
+  clearRow: {
     marginTop: 8,
+    paddingVertical: 8,
   },
-  selectedTime: {
+  clearText: {
     fontFamily: fonts.sansMedium,
     fontSize: 13,
-    color: colors.textSecondary,
-  },
-  clearTime: {
-    paddingVertical: 6,
-  },
-  clearTimeText: {
-    fontFamily: fonts.sansMedium,
-    fontSize: 13,
-    color: colors.textTertiary,
+    color: colors.priorityHigh,
   },
 });

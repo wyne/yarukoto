@@ -16,9 +16,10 @@ import { parseQuickAdd } from '../data/quickAdd';
 import { formatDueShort } from '../data/dateUtils';
 import { activeFolders, getListById, listsInFolder } from '../data/selectors';
 import { applySuggestion, useQuickAddSuggestions } from '../data/quickAddSuggestions';
-import DueDateTimeControls from './pickers/DueDateTimeControls';
+import DueDateQuickMenu from './pickers/DueDateQuickMenu';
 import NativeSheet from './NativeSheet';
 import { IconCalendarBox, IconCheckBig, IconFlag, IconFolder, IconPlus, IconTag } from '../icons/Icons';
+import { useNativeDateTimePicker } from '../navigation/DateTimePickerContext';
 
 const PRIORITY_MENU: { key: Priority; label: string }[] = [
   { key: 'high', label: 'High Priority' },
@@ -28,7 +29,7 @@ const PRIORITY_MENU: { key: Priority; label: string }[] = [
 ];
 
 /** Which helper menu is open. Only ever one. */
-type Menu = 'date' | 'priority' | 'tags' | 'list';
+type Menu = 'priority' | 'tags' | 'list';
 
 /**
  * One height for every helper menu, ~5 rows plus the panel's own padding.
@@ -52,11 +53,8 @@ interface Props {
  * The task composer: a title field with helper buttons that each open a small
  * menu, in the shape of TickTick's.
  *
- * The menus are rendered in-flow — the gorhom sheet clips to its rounded
- * corners, so an overlay above the toolbar would be cut off — and the sheet
- * grows to fit them. They are deliberately inline rather than the app's
- * existing picker sheets, which each open their own RN Modal; nesting those
- * inside this one is fragile.
+ * List, tag, and priority menus render in-flow because the sheet clips overlays
+ * to its rounded corners. Date and time use native picker modals instead.
  *
  * The field holds focus for the whole session, menus included, so the keyboard
  * never animates once the sheet is up. Combined with the panel's fixed height,
@@ -65,6 +63,7 @@ interface Props {
 export default function TaskComposerSheet({ visible, onClose, defaults, contextLabel }: Props) {
   const accent = useAccent();
   const { state, addTaskFromQuickAdd } = useTasks();
+  const presentDateTimePicker = useNativeDateTimePicker();
   // BottomSheetTextInput rather than RN's: it registers the field with the sheet,
   // which is how keyboardBehavior knows an input is focused and sizes around it.
   const inputRef = useRef<React.ComponentRef<typeof BottomSheetTextInput>>(null);
@@ -187,6 +186,20 @@ export default function TaskComposerSheet({ visible, onClose, defaults, contextL
     setMenu(null);
     inputRef.current?.focus();
   };
+  const openDuePicker = (mode: 'date' | 'time') => {
+    setMenu(null);
+    inputRef.current?.blur();
+    presentDateTimePicker({
+      mode,
+      date: effective.dueDate,
+      time: effective.dueTime,
+      onChange: (nextDate, nextTime) => {
+        setDueDate(nextDate);
+        setDueTime(nextTime);
+      },
+      onDismiss: () => requestAnimationFrame(() => inputRef.current?.focus()),
+    });
+  };
 
   const helper = (key: Menu, Icon: React.ComponentType<{ size?: number; color?: string }>, active: boolean) => (
     <Pressable
@@ -280,7 +293,21 @@ export default function TaskComposerSheet({ visible, onClose, defaults, contextL
       )}
 
       <View style={styles.toolbar}>
-        {helper('date', IconCalendarBox, !!effective.dueDate)}
+        <DueDateQuickMenu
+          date={effective.dueDate}
+          time={effective.dueTime}
+          onChange={(nextDate, nextTime) => {
+            setDueDate(nextDate);
+            setDueTime(nextTime);
+          }}
+          onCustomDate={() => openDuePicker('date')}
+          onCustomTime={() => openDuePicker('time')}
+          onDone={closeMenu}
+        >
+          <View style={styles.helper}>
+            <IconCalendarBox size={20} color={effective.dueDate ? accent : colors.textTertiary} />
+          </View>
+        </DueDateQuickMenu>
         {helper('priority', IconFlag, effective.priority !== 'none')}
         {helper('tags', IconTag, effective.tags.length > 0)}
         {helper('list', IconFolder, effective.listId !== null)}
@@ -320,17 +347,6 @@ export default function TaskComposerSheet({ visible, onClose, defaults, contextL
                   {effective.priority === p.key && <IconCheckBig size={14} color={accent} strokeWidth={2.4} />}
                 </Pressable>
               ))}
-
-            {menu === 'date' && (
-              <DueDateTimeControls
-                date={effective.dueDate}
-                time={effective.dueTime}
-                onChange={(nextDate, nextTime) => {
-                  setDueDate(nextDate);
-                  setDueTime(nextTime);
-                }}
-              />
-            )}
 
             {/* Tags stay open on tap — picking several at once is the normal case. */}
             {menu === 'tags' && (

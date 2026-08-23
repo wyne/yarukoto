@@ -8,14 +8,16 @@ import { fonts } from '../theme/typography';
 import { useAccent } from '../theme/ThemeContext';
 import { useTasks } from '../data/TaskContext';
 import { activeFolders, getListById, listsInFolder, tagCounts } from '../data/selectors';
-import { formatDueFull } from '../data/dateUtils';
+import { formatDueFull, formatTime24to12 } from '../data/dateUtils';
 import { confirmDestructive } from '../data/confirm';
 import { Priority } from '../data/types';
 import Card from './Card';
 import Divider from './Divider';
 import TaskCheckbox from './TaskCheckbox';
-import { IconCalendarBox, IconCheckBig, IconChevronDown, IconDotsHorizontal, IconFolder, IconPlus, IconTag } from '../icons/Icons';
-import DueDateTimeControls from './pickers/DueDateTimeControls';
+import { IconCalendarBox, IconCheckBig, IconChevronDown, IconClock, IconDotsHorizontal, IconFolder, IconPlus, IconTag } from '../icons/Icons';
+import DueDateQuickMenu from './pickers/DueDateQuickMenu';
+import DueTimeQuickMenu from './pickers/DueTimeQuickMenu';
+import { useNativeDateTimePicker } from '../navigation/DateTimePickerContext';
 
 interface Props {
   taskId: string;
@@ -33,7 +35,7 @@ const PRIORITIES: { key: Priority; label: string }[] = [
 
 /**
  * One height for every meta menu, matching the composer's panel. The menus
- * differ in length — 5 dates, however many lists and tags — and sharing one
+ * differ in length based on the available lists and tags, and sharing one
  * height keeps the panel stable when switching between them.
  */
 const MENU_PANEL_HEIGHT = 222;
@@ -43,6 +45,7 @@ export default function TaskDetailView({ taskId, onClose, variant }: Props) {
   const accent = useAccent();
   const insets = useSafeAreaInsets();
   const { state, updateTask, toggleComplete, deleteTasks, addSubtask, toggleSubtask } = useTasks();
+  const presentDateTimePicker = useNativeDateTimePicker();
   const task = state.tasks.find((t) => t.id === taskId);
   // The sheet supplies its own top chrome and safe-area padding.
   const topPad = variant === 'pane' ? insets.top + 6 : 6;
@@ -54,20 +57,39 @@ export default function TaskDetailView({ taskId, onClose, variant }: Props) {
   const Scroll: React.ComponentType<ScrollViewProps> =
     variant === 'sheet' ? (BottomSheetScrollView as React.ComponentType<ScrollViewProps>) : ScrollView;
 
-  const [menu, setMenu] = useState<'due' | 'list' | 'tags' | null>(null);
+  const [menu, setMenu] = useState<'list' | 'tags' | null>(null);
   const [addingSubtask, setAddingSubtask] = useState(false);
   const [newSubtask, setNewSubtask] = useState('');
   const [newTag, setNewTag] = useState('');
 
-  // Inline menus rather than the app's stacked picker sheets, which each open
-  // their own RN Modal; nesting those inside the detail sheet is fragile.
+  // Lists and tags stay inline so switching between them does not stack sheets.
   const closeMenu = () => {
     Keyboard.dismiss();
     setMenu(null);
   };
-  const toggleMenu = (m: 'due' | 'list' | 'tags') => {
+  const toggleMenu = (m: 'list' | 'tags') => {
     Keyboard.dismiss();
     setMenu((prev) => (prev === m ? null : m));
+  };
+  const openDatePicker = () => {
+    if (!task) return;
+    Keyboard.dismiss();
+    setMenu(null);
+    presentDateTimePicker({
+      mode: 'date',
+      date: task.dueDate,
+      time: task.dueTime,
+      onChange: (dueDate, dueTime) => updateTask(task.id, { dueDate, dueTime }),
+    });
+  };
+  const openTimePicker = () => {
+    if (!task) return;
+    presentDateTimePicker({
+      mode: 'time',
+      date: task.dueDate,
+      time: task.dueTime,
+      onChange: (dueDate, dueTime) => updateTask(task.id, { dueDate, dueTime }),
+    });
   };
 
   const notesRef = useRef<TextInput>(null);
@@ -154,13 +176,15 @@ export default function TaskDetailView({ taskId, onClose, variant }: Props) {
 
   const content = (
     <View style={[styles.screen, { paddingTop: topPad }]}>
-      <View style={styles.header}>
-        <Pressable onPress={onClose} hitSlop={8}>
-          <Text style={[styles.close, { color: accent }]}>Close</Text>
-        </Pressable>
-        <Text style={styles.headerCenter}>{list ? list.name : 'Inbox'}</Text>
-        <IconDotsHorizontal />
-      </View>
+      {variant === 'pane' && (
+        <View style={styles.header}>
+          <Pressable onPress={onClose} hitSlop={8}>
+            <Text style={[styles.close, { color: accent }]}>Close</Text>
+          </Pressable>
+          <Text style={styles.headerCenter}>{list ? list.name : 'Inbox'}</Text>
+          <IconDotsHorizontal />
+        </View>
+      )}
 
       <Scroll
         contentContainerStyle={[styles.scroll, keyboardUp && styles.scrollKeyboard]}
@@ -198,13 +222,59 @@ export default function TaskDetailView({ taskId, onClose, variant }: Props) {
         </Card>
 
         <Card style={{ marginTop: 12 }}>
-          <Pressable style={hoverBg(styles.metaRow)} onPress={() => toggleMenu('due')}>
+          <View style={styles.metaRow}>
             <IconCalendarBox size={18} color={colors.textSecondary} />
-            <Text style={styles.metaLabel}>Due</Text>
-            <Text style={[styles.metaValue, task.dueDate && { color: accent }]}>
-              {formatDueFull(task.dueDate, task.dueTime)}
-            </Text>
-          </Pressable>
+            <Text style={styles.metaLabelFixed}>Date</Text>
+            <DueDateQuickMenu
+              date={task.dueDate}
+              time={task.dueTime}
+              style={styles.metaValueMenu}
+              onChange={(dueDate, dueTime) => updateTask(task.id, { dueDate, dueTime })}
+              onCustomDate={openDatePicker}
+              onDone={closeMenu}
+            >
+              <View style={[styles.metaValueButton, styles.menuValueButton]}>
+                <Text
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                  style={[styles.metaValue, styles.dueValue, task.dueDate && { color: accent }]}
+                >
+                  {formatDueFull(task.dueDate)}
+                </Text>
+                <IconChevronDown size={12} color={task.dueDate ? accent : colors.textTertiary} strokeWidth={1.8} />
+              </View>
+            </DueDateQuickMenu>
+          </View>
+          {!!task.dueDate && (
+            <>
+              <Divider indent={44} />
+              <View style={styles.metaRow}>
+                <IconClock size={18} color={colors.textSecondary} />
+                <Text style={styles.metaLabelFixed}>Time</Text>
+                <DueTimeQuickMenu
+                  time={task.dueTime}
+                  style={styles.metaValueMenu}
+                  onChange={(dueTime) => updateTask(task.id, { dueTime })}
+                  onPickTime={openTimePicker}
+                >
+                  <View
+                    accessibilityRole="button"
+                    accessibilityLabel={task.dueTime ? `Time, ${formatTime24to12(task.dueTime)}` : 'Time, none'}
+                    style={[styles.metaValueButton, styles.menuValueButton]}
+                  >
+                    <Text style={[styles.metaValue, task.dueTime && { color: accent }]}>
+                      {task.dueTime ? formatTime24to12(task.dueTime) : 'None'}
+                    </Text>
+                    <IconChevronDown
+                      size={12}
+                      color={task.dueTime ? accent : colors.textTertiary}
+                      strokeWidth={1.8}
+                    />
+                  </View>
+                </DueTimeQuickMenu>
+              </View>
+            </>
+          )}
           <Divider indent={44} />
           <Pressable style={hoverBg(styles.metaRow)} onPress={() => toggleMenu('list')}>
             <IconFolder size={18} color={colors.textSecondary} />
@@ -269,14 +339,6 @@ export default function TaskDetailView({ taskId, onClose, variant }: Props) {
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}
             >
-              {menu === 'due' && (
-                <DueDateTimeControls
-                  date={task.dueDate}
-                  time={task.dueTime}
-                  onChange={(dueDate, dueTime) => updateTask(task.id, { dueDate, dueTime })}
-                />
-              )}
-
               {menu === 'list' && (
                 <>
                   <Pressable
@@ -566,6 +628,24 @@ const styles = StyleSheet.create({
     fontFamily: fonts.monoRegular,
     fontSize: 13,
     color: colors.textSecondary,
+  },
+  metaValueMenu: {
+    flex: 1,
+  },
+  metaValueButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: 4,
+    minHeight: 30,
+    borderRadius: 8,
+    paddingLeft: 8,
+  },
+  menuValueButton: {
+    width: '100%',
+  },
+  dueValue: {
+    flexShrink: 1,
   },
   tagsWrap: {
     flex: 1,

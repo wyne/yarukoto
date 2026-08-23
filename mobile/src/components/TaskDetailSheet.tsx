@@ -69,7 +69,7 @@ export default function TaskDetailSheet() {
       snapPoints={['92%']}
       background={colors.screenBg}
       footerComponent={KeyboardDismissFooter}
-      // TaskDetailView draws its own header and padding; the sheet body must not pad again.
+      // TaskDetailView owns its horizontal layout; the sheet body must not pad again.
       contentStyle={styles.body}
     >
       <TaskDetailView taskId={taskId} onClose={closeTask} variant="sheet" />

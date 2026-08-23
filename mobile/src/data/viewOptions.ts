@@ -216,13 +216,17 @@ export function groupTasks(tasks: Task[], options: ViewOptions, ctx: GroupContex
 
   switch (groupBy) {
     case 'list': {
-      // Folder order, then list order within each folder, with Inbox last.
+      // Inbox first, then folder order and list order within each folder.
       const rank = new Map<string, number>();
-      let i = 0;
+      let i = 1;
       for (const folder of ctx.folders) {
         for (const l of ctx.lists.filter((x) => x.folderId === folder.id)) rank.set(l.id, i++);
       }
-      return groups.sort((a, b) => (rank.get(a.key) ?? Infinity) - (rank.get(b.key) ?? Infinity));
+      return groups.sort((a, b) => {
+        const ar = a.key === '__inbox' ? 0 : (rank.get(a.key) ?? Infinity);
+        const br = b.key === '__inbox' ? 0 : (rank.get(b.key) ?? Infinity);
+        return ar - br;
+      });
     }
     case 'date':
       return groups.sort((a, b) => DATE_BUCKET_ORDER.indexOf(a.key) - DATE_BUCKET_ORDER.indexOf(b.key));
