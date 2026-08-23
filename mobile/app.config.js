@@ -31,6 +31,12 @@ module.exports = ({ config }) => {
     plugins: [
       ...(config.plugins ?? []),
       'expo-asset',
+      // Must precede 'expo-notifications': mods run last-registered-first, so
+      // registering the stripper first lets it delete `aps-environment` after
+      // expo-notifications adds it. Listing expo-notifications explicitly also
+      // pins its position, which autolinking otherwise decides for us.
+      './plugins/local-notifications-only',
+      'expo-notifications',
       './plugins/native-glass-keyboard-dismiss',
     ],
     ios: {
