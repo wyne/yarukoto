@@ -41,7 +41,7 @@ import type { PopoverAnchor } from '../components/Popover';
 import SortOverrideBanner from '../components/SortOverrideBanner';
 import Tooltip from '../components/Tooltip';
 import { closeOpenSwipeRow } from '../components/SwipeableRow';
-import GlassIconButton, { GlassIconButtonGroup } from '../components/GlassIconButton';
+import GlassIconButton, { GlassIconButtonGroup, GlassTextButton } from '../components/GlassIconButton';
 import DueDatePickerSheet from '../components/pickers/DueDatePickerSheet';
 import ListPickerSheet from '../components/pickers/ListPickerSheet';
 import TagPickerSheet from '../components/pickers/TagPickerSheet';
@@ -439,13 +439,16 @@ export default function TaskListScreen({ mode, filter }: Props) {
     <View style={[styles.screen, { paddingTop: insets.top + 6 }]}>
       {selectionMode ? (
         <View style={[styles.selectHeader, wide && styles.paneWide]}>
-          <Pressable onPress={exitSelection}>
-            <Text style={[styles.headerAction, { color: accent }]}>Cancel</Text>
-          </Pressable>
-          <Text style={styles.selectedCount}>{selectedIds.length} selected</Text>
-          <Pressable onPress={() => setSelectedIds(allSelected ? [] : active.map((t) => t.id))}>
+          <GlassTextButton
+            onPress={() => setSelectedIds(allSelected ? [] : active.map((t) => t.id))}
+            label={allSelected ? 'Deselect all tasks' : 'Select all tasks'}
+          >
             <Text style={[styles.headerAction, { color: accent }]}>{allSelected ? 'None' : 'All'}</Text>
-          </Pressable>
+          </GlassTextButton>
+          <Text style={styles.selectedCount}>{selectedIds.length} selected</Text>
+          <GlassTextButton onPress={exitSelection} label="Cancel selection">
+            <Text style={[styles.headerAction, { color: accent }]}>Cancel</Text>
+          </GlassTextButton>
         </View>
       ) : (
         <View style={[styles.header, wide && styles.paneWide]}>
@@ -472,7 +475,7 @@ export default function TaskListScreen({ mode, filter }: Props) {
               <Text style={styles.count}>{active.length}</Text>
             </View>
           )}
-          <GlassIconButtonGroup>
+          <GlassIconButtonGroup joined>
             <Tooltip label="Search">
               <GlassIconButton
                 onPress={() => {
