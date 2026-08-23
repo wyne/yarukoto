@@ -232,6 +232,8 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   scroll: {
+    /** Reaches the bottom on a short list. See TaskListScreen's `scrollContent`. */
+    flexGrow: 1,
     paddingHorizontal: 12,
     paddingBottom: 16,
   },
