@@ -27,6 +27,13 @@ interface Props {
    * with dismiss as the only exit.
    */
   onBack?: () => void;
+  /**
+   * Raise the sheet above the keyboard. For pickers with a text field in them.
+   *
+   * Ignored by the popover branch, which is only reached on a wide web window
+   * where there is no keyboard to be covered by.
+   */
+  keyboard?: boolean;
   children: React.ReactNode;
 }
 
@@ -42,6 +49,7 @@ export default function BottomSheet({
   anchor,
   popoverWidth,
   onBack,
+  keyboard,
   children,
 }: Props) {
   const { width } = useWindowDimensions();
@@ -63,7 +71,13 @@ export default function BottomSheet({
   }
 
   return (
-    <NativeSheet visible={visible} onClose={onClose} onDismissed={onDismissed} title={title}>
+    <NativeSheet
+      visible={visible}
+      onClose={onClose}
+      onDismissed={onDismissed}
+      title={title}
+      keyboard={keyboard}
+    >
       {children}
     </NativeSheet>
   );

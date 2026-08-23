@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput } from 'react-native';
+import { Pressable, StyleSheet, Text } from 'react-native';
 import NativeSheet from '../NativeSheet';
+import SheetTextInput from '../SheetTextInput';
 import { colors } from '../../theme/colors';
 import { fonts } from '../../theme/typography';
 import { useTasks } from '../../data/TaskContext';
@@ -13,7 +14,11 @@ interface Props {
 export default function NewFolderSheet({ visible, onClose }: Props) {
   const { addFolder } = useTasks();
   const [name, setName] = useState('');
-  const inputRef = useRef<TextInput>(null);
+  // BottomSheetTextInput rather than RN's: it registers the field with the sheet,
+// which is how keyboardBehavior knows an input is focused and sizes around it.
+// With a plain one the sheet stays at its content height and the keyboard simply
+// covers it.
+  const inputRef = useRef<React.ComponentRef<typeof SheetTextInput>>(null);
 
   useEffect(() => {
     if (visible) setName('');
@@ -36,7 +41,7 @@ export default function NewFolderSheet({ visible, onClose }: Props) {
       // hidden), so the keyboard rises with the sheet.
       onShow={() => inputRef.current?.focus()}
     >
-      <TextInput
+      <SheetTextInput
         ref={inputRef}
         value={name}
         onChangeText={setName}
