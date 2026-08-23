@@ -1,6 +1,6 @@
-import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
-import { useWindowDimensions } from 'react-native';
-import { Easing, useSharedValue } from 'react-native-reanimated';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { Platform, useWindowDimensions } from 'react-native';
+import { Easing, useSharedValue, withTiming } from 'react-native-reanimated';
 import type { SharedValue } from 'react-native-reanimated';
 
 /** Above this width the sidebar is pinned open and the bottom tab bar goes away. */
@@ -19,6 +19,16 @@ export const WIDE_BREAKPOINT = 900;
  * leaving like it is being let go. Symmetric easing gives both halves the same
  * hesitant start, which reads as the drawer thinking about it.
  */
+/**
+ * Whether the drawer exists before it is opened.
+ *
+ * iOS keeps it in a window overlay that is mounted for the life of the app, so
+ * the panel is always there to be moved. Elsewhere it is a Modal that does not
+ * exist until it opens, and nothing can be animated into a host that has not
+ * been presented yet — that one has to wait to be told it is on screen.
+ */
+export const DRAWER_PREMOUNTED = Platform.OS === 'ios';
+
 export const DRAWER_OPEN_MS = 280;
 export const DRAWER_CLOSE_MS = 220;
 export const DRAWER_OPEN_EASING = Easing.out(Easing.cubic);
@@ -93,25 +103,69 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
     if (wide) setDrawerOpen(false);
   }, [wide]);
 
+  /**
+   * Both of these move the panel before telling React anything.
+   *
+   * Waiting on the state was a visible pause. `drawerOpen` lives in this
+   * context, so setting it rebuilds the value and re-renders every consumer —
+   * the layout, the navigator, the nav itself, whichever screen is mounted —
+   * and none of that had to finish before the panel could start moving, but it
+   * did. Tapping the menu or the shade sat still for it; only the drag felt
+   * immediate, because a drag animates on the UI thread and tells React
+   * afterwards. These now do the same.
+   *
+   * The drawer runs the same movement again when the state does land, which is
+   * a frame or two later and from wherever this got to. Durations scale to the
+   * distance left, so what it re-issues is all but identical to what is already
+   * running — and it is the one carrying the callback that tears the drawer
+   * down at the end of a close.
+   */
+  const startOpening = useCallback(() => {
+    // Not off iOS: there the drawer is a Modal that does not exist until it is
+    // opened, and animating one before it has been presented is exactly the
+    // wait this is trying to remove. It waits for `onShow` instead.
+    if (!DRAWER_PREMOUNTED) return;
+    drawerProgress.value = withTiming(1, {
+      duration: DRAWER_OPEN_MS * (1 - drawerProgress.value),
+      easing: DRAWER_OPEN_EASING,
+    });
+  }, [drawerProgress]);
+
+  // Always safe, on any platform: something being closed is on screen already.
+  const startClosing = useCallback(() => {
+    drawerProgress.value = withTiming(0, {
+      duration: DRAWER_CLOSE_MS * drawerProgress.value,
+      easing: DRAWER_CLOSE_EASING,
+    });
+  }, [drawerProgress]);
+
+  const dismissDrawer = useCallback(() => {
+    startClosing();
+    setDrawerOpen(false);
+  }, [startClosing]);
+
   const value = useMemo<SidebarValue>(
     () => ({
       wide,
       drawerOpen,
-      openDrawer: () => setDrawerOpen(true),
-      closeDrawer: () => setDrawerOpen(false),
+      openDrawer: () => {
+        startOpening();
+        setDrawerOpen(true);
+      },
+      closeDrawer: dismissDrawer,
       drawerProgress,
       collapsed,
       toggleCollapsed: () => setCollapsed((v) => !v),
       serverOpen,
-      openServer: () => { setDrawerOpen(false); setServerOpen(true); },
+      openServer: () => { dismissDrawer(); setServerOpen(true); },
       closeServer: () => setServerOpen(false),
       navSheet,
       // Closes the nav on the way, as the server sheet does: you have left it to
       // go make or edit something.
-      openNavSheet: (sheet: NavSheet) => { setDrawerOpen(false); setNavSheet(sheet); },
+      openNavSheet: (sheet: NavSheet) => { dismissDrawer(); setNavSheet(sheet); },
       closeNavSheet: () => setNavSheet(null),
     }),
-    [wide, drawerOpen, drawerProgress, collapsed, serverOpen, navSheet]
+    [wide, drawerOpen, drawerProgress, startOpening, dismissDrawer, collapsed, serverOpen, navSheet]
   );
 
   return <SidebarContext.Provider value={value}>{children}</SidebarContext.Provider>;
