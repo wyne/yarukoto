@@ -1,4 +1,4 @@
-import { ReactNode, Ref } from 'react';
+import { createContext, ReactNode, Ref, useContext } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { GlassContainer, GlassView } from 'expo-glass-effect';
 import { LIQUID_GLASS } from '../data/platform';
@@ -14,6 +14,7 @@ const SIZE = 36;
  */
 const GROUP_GAP = 6;
 const GROUP_SPACING = 10;
+const JoinedGlassGroupContext = createContext(false);
 
 interface Props {
   onPress: () => void;
@@ -24,6 +25,12 @@ interface Props {
   /** Optional tint for prominent glass actions. */
   tintColor?: string;
   ref?: Ref<View>;
+}
+
+interface TextButtonProps {
+  onPress: () => void;
+  label: string;
+  children: ReactNode;
 }
 
 /**
@@ -38,6 +45,8 @@ interface Props {
  * while the flat path keeps the pointer hover tint that a mouse expects.
  */
 export default function GlassIconButton({ onPress, label, children, tintColor, ref }: Props) {
+  const joined = useContext(JoinedGlassGroupContext);
+
   if (!LIQUID_GLASS) {
     return (
       <Pressable
@@ -51,6 +60,20 @@ export default function GlassIconButton({ onPress, label, children, tintColor, r
             ? [styles.flatButton, styles.tintedFallback, { backgroundColor: tintColor }]
             : hoverBg(styles.flatButton)
         }
+      >
+        {children}
+      </Pressable>
+    );
+  }
+
+  if (joined) {
+    return (
+      <Pressable
+        ref={ref}
+        onPress={onPress}
+        accessibilityRole="button"
+        accessibilityLabel={label}
+        style={styles.joinedButton}
       >
         {children}
       </Pressable>
@@ -72,14 +95,46 @@ export default function GlassIconButton({ onPress, label, children, tintColor, r
   );
 }
 
+/** A compact text action that uses the same native glass treatment as header icons. */
+export function GlassTextButton({ onPress, label, children }: TextButtonProps) {
+  if (!LIQUID_GLASS) {
+    return (
+      <Pressable
+        onPress={onPress}
+        accessibilityRole="button"
+        accessibilityLabel={label}
+        style={styles.flatTextButton}
+      >
+        {children}
+      </Pressable>
+    );
+  }
+
+  return (
+    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={label}>
+      <GlassView style={styles.glassTextButton} isInteractive>
+        {children}
+      </GlassView>
+    </Pressable>
+  );
+}
+
 /**
  * Sits adjacent header buttons in one glass group, so their capsules merge as
  * they near each other instead of each refracting the background on its own.
  *
  * Off glass it is a plain row, spaced the way the headers already space them.
  */
-export function GlassIconButtonGroup({ children }: { children: ReactNode }) {
+export function GlassIconButtonGroup({ children, joined = false }: { children: ReactNode; joined?: boolean }) {
   if (!LIQUID_GLASS) return <View style={styles.flatGroup}>{children}</View>;
+
+  if (joined) {
+    return (
+      <GlassView style={styles.joinedGroup} isInteractive>
+        <JoinedGlassGroupContext.Provider value>{children}</JoinedGlassGroupContext.Provider>
+      </GlassView>
+    );
+  }
 
   return (
     <GlassContainer spacing={GROUP_SPACING} style={styles.glassGroup}>
@@ -128,6 +183,29 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: GROUP_GAP,
+  },
+  joinedGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: SIZE / 2,
+  },
+  joinedButton: {
+    width: SIZE,
+    height: SIZE,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  glassTextButton: {
+    minWidth: 68,
+    height: SIZE,
+    paddingHorizontal: 12,
+    borderRadius: SIZE / 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  flatTextButton: {
+    minWidth: 68,
+    alignItems: 'center',
   },
   flatGroup: {
     flexDirection: 'row',
