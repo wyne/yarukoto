@@ -378,6 +378,8 @@ const styles = StyleSheet.create({
   // artefact the clip is there to prevent.
   agendaFrame: { overflow: 'hidden' },
   agenda: {
+    /** Reaches the bottom on a light day. See TaskListScreen's `scrollContent`. */
+    flexGrow: 1,
     paddingHorizontal: 12,
     paddingTop: 12,
     paddingBottom: 24,

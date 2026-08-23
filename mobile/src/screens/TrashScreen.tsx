@@ -132,7 +132,8 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.priorityHigh,
   },
-  scroll: { paddingBottom: 24 },
+  /** `flexGrow` reaches the bottom on a short list. See TaskListScreen's `scrollContent`. */
+  scroll: { flexGrow: 1, paddingBottom: 24 },
   empty: {
     textAlign: 'center',
     marginTop: 32,

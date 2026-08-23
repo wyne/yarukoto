@@ -761,6 +761,23 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   scrollContent: {
+    /**
+     * Stretches the content to the viewport when there is less than a screenful
+     * of it, so the scrollable area reaches the bottom instead of ending under
+     * the last row.
+     *
+     * The ScrollView's own frame already fills the screen — RN gives it
+     * `flexGrow: 1` in its base style. What stops short is the content inside
+     * it, and the content is what you can pull on: below it the drag finds the
+     * frame's empty backing rather than anything scrollable, so pull-to-refresh
+     * only answers in the band the rows happen to occupy. On a list with two
+     * tasks that is a couple of hundred points at the top of an otherwise
+     * reachable screen.
+     *
+     * `flexGrow` rather than `flex`, and on the content rather than the frame:
+     * a full screenful must still be free to run past the bottom and scroll.
+     */
+    flexGrow: 1,
     paddingBottom: 24,
     gap: 12,
   },
