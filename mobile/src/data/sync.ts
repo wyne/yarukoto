@@ -31,6 +31,10 @@ export interface SyncStatus {
 export class Outbox {
   private ids = new Set<string>();
 
+  constructor(ids: string[] = []) {
+    this.mark(ids);
+  }
+
   mark(ids: string[]): void {
     for (const id of ids) this.ids.add(id);
   }
@@ -51,6 +55,11 @@ export class Outbox {
   /** A point-in-time copy, safe to hand to a reducer action. */
   snapshot(): Set<string> {
     return new Set(this.ids);
+  }
+
+  /** A JSON-friendly copy for persistence. */
+  toArray(): string[] {
+    return Array.from(this.ids);
   }
 }
 

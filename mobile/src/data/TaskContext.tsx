@@ -17,15 +17,21 @@ import {
 import { LIST_COLORS } from '../theme/colors';
 import {
   AppMode,
+  clearDirtyIds,
   addSavedServer,
+  clearServerSnapshot,
   clearServerUrl,
   clearToken,
+  loadDirtyIds,
   loadMode,
   loadServerUrl,
+  loadServerSnapshot,
   loadToken,
+  saveDirtyIds,
   removeSavedServer as removeSavedServerStorage,
   saveMode,
   saveServerUrl,
+  saveServerSnapshot,
   saveToken,
 } from './storage';
 import { ApiError, createApi } from './api';
@@ -404,15 +410,23 @@ function reducer(state: State, action: Action): State {
 function initState(): State {
   const mode = loadMode();
   // Sample data is rebuilt rather than restored, so its dates stay relative to
-  // today. Server data is empty until the first sync populates it.
-  const seeded = mode === 'sample' ? buildSampleData(new Date()) : { tasks: [], lists: [], folders: [] };
+  // today. Server data rehydrates from the last local snapshot, then sync catches
+  // it up in the background.
+  const cached = mode === 'server' ? loadServerSnapshot() : null;
+  const seeded =
+    mode === 'sample'
+      ? { ...buildSampleData(new Date()), viewPrefs: [] }
+      : {
+          tasks: cached?.tasks ?? [],
+          lists: cached?.lists ?? [],
+          folders: cached?.folders ?? [],
+          viewPrefs: cached?.viewPrefs ?? [],
+        };
   return {
     ...seeded,
     mode,
     serverUrl: mode === 'server' ? loadServerUrl() : '',
     token: mode === 'server' ? loadToken() : '',
-    // Like tasks, saved view options arrive with the first sync.
-    viewPrefs: [],
   };
 }
 
@@ -514,7 +528,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
 
   // Ids changed locally since the last successful push. A ref, not state: it's
   // mutated on every edit, and none of that should trigger a re-render.
-  const outboxRef = useRef(new Outbox());
+  const outboxRef = useRef(new Outbox(loadDirtyIds()));
 
   // The sync loop below runs on its own timer, outside React's render cycle, so
   // it reads state through a ref to always see the latest values.
@@ -523,9 +537,9 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     stateRef.current = state;
   }, [state]);
 
-  // Session-scoped, deliberately not persisted — see the note in storage.ts.
-  // Undefined means the next pull is a full hydrate.
-  const cursorRef = useRef<string | undefined>(undefined);
+  // Persisted with the local server snapshot. Undefined means the next pull is a
+  // full hydrate, which is still the right answer until a cached collection exists.
+  const cursorRef = useRef<string | undefined>(loadServerSnapshot()?.cursor);
 
   const [syncStatus, setSyncStatus] = useState<SyncStatus>({ state: 'syncing', pending: 0 });
 
@@ -538,6 +552,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
   // the moment it's made rather than up to a cycle later.
   const markDirty = useCallback((ids: string[]) => {
     outboxRef.current.mark(ids);
+    saveDirtyIds(outboxRef.current.toArray());
     setSyncStatus((s) => {
       const pending = outboxRef.current.size;
       // 'offline' and 'unauthorized' are more important to keep on screen than
@@ -839,6 +854,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     addSavedServer(url, token);
     cursorRef.current = batch.now;
     outboxRef.current = new Outbox();
+    clearDirtyIds();
 
     dispatch({ type: 'CONNECT', serverUrl: url, token });
     dispatch({
@@ -853,6 +869,8 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     clearServerUrl();
     clearToken();
     cursorRef.current = undefined;
+    clearServerSnapshot();
+    clearDirtyIds();
     saveMode('sample');
     dispatch({ type: 'USE_SAMPLE_DATA', data: buildSampleData(new Date()) });
   }, []);
@@ -860,6 +878,8 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     clearServerUrl();
     clearToken();
     cursorRef.current = undefined;
+    clearServerSnapshot();
+    clearDirtyIds();
     saveMode('none');
     dispatch({ type: 'DISCONNECT' });
   }, []);
@@ -896,6 +916,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       try {
         if (outboxRef.current.size > 0) {
           const pushed = await pushDirty(api, outboxRef.current, stateRef.current);
+          saveDirtyIds(outboxRef.current.toArray());
           setMergeDirtyIds(outboxRef.current.snapshot());
           dispatch({
             type: 'MERGE',
@@ -907,6 +928,13 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
         }
         const pulled = await pullSince(api, cursorRef.current);
         cursorRef.current = pulled.now;
+        saveServerSnapshot({
+          tasks: stateRef.current.tasks,
+          lists: stateRef.current.lists,
+          folders: stateRef.current.folders,
+          viewPrefs: stateRef.current.viewPrefs,
+          cursor: cursorRef.current,
+        });
         setMergeDirtyIds(outboxRef.current.snapshot());
         dispatch({
           type: 'MERGE',
@@ -973,6 +1001,17 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       subscription.remove();
     };
   }, [state.mode, state.serverUrl, state.token]);
+
+  useEffect(() => {
+    if (state.mode !== 'server') return;
+    saveServerSnapshot({
+      tasks: state.tasks,
+      lists: state.lists,
+      folders: state.folders,
+      viewPrefs: state.viewPrefs,
+      cursor: cursorRef.current,
+    });
+  }, [state.mode, state.tasks, state.lists, state.folders, state.viewPrefs]);
 
   const syncNow = useCallback(() => cycleRef.current?.() ?? Promise.resolve(), []);
 
