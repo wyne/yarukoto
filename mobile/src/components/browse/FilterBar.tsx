@@ -53,15 +53,29 @@ export default function FilterBar({ criteria, onChange }: Props) {
     });
   };
 
-  const listCount = criteria.listIds.length + criteria.folderIds.length;
+  /**
+   * Counted against what still exists.
+   *
+   * `filterTasks` already ignores an id whose list has been deleted, so the chip
+   * has to as well — otherwise it goes on claiming a filter that stopped
+   * applying, and the one place you would look to explain a result set is the
+   * one place lying about it.
+   */
+  const liveListIds = criteria.listIds.filter(
+    (id) => id === INBOX_LIST_ID || !!getListById(state.lists, id)
+  );
+  const liveFolderIds = criteria.folderIds.filter((id) =>
+    state.folders.some((f) => f.id === id && !f.deletedAt)
+  );
+  const listCount = liveListIds.length + liveFolderIds.length;
+
   const listsLabel = () => {
     if (listCount === 0) return 'Lists';
     if (listCount > 1) return `${listCount} lists`;
-    const [id] = criteria.listIds;
+    const [id] = liveListIds;
     if (id === INBOX_LIST_ID) return 'Inbox';
     if (id) return getListById(state.lists, id)?.name ?? 'Lists';
-    const folder = state.folders.find((f) => f.id === criteria.folderIds[0]);
-    return folder?.name ?? 'Lists';
+    return state.folders.find((f) => f.id === liveFolderIds[0])?.name ?? 'Lists';
   };
 
   const tagsLabel = () => {

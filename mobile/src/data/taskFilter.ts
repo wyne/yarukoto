@@ -42,6 +42,15 @@ export type DueFilter = 'any' | 'overdue' | 'today' | 'week' | 'later' | 'nodate
 export type StatusFilter = 'active' | 'completed' | 'any';
 
 /**
+ * The same vocabularies as runtime values, for validating what comes back off
+ * the device. A stored criteria set is only as trustworthy as the build that
+ * wrote it — an older one, or a hand-edited store, can name a filter this
+ * version has never heard of.
+ */
+export const DUE_FILTERS: DueFilter[] = ['any', 'overdue', 'today', 'week', 'later', 'nodate'];
+export const STATUS_FILTERS: StatusFilter[] = ['active', 'completed', 'any'];
+
+/**
  * Inbox is a real choice in the list filter, but its tasks have `listId: null`
  * and null cannot be a member of a list of ids. This stands in for it, and is
  * the same spelling `groupTasks` uses for the Inbox group.
