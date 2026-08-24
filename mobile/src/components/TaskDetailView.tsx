@@ -6,6 +6,7 @@ import { colors, priorityColor } from '../theme/colors';
 import { hoverBg } from '../theme/hover';
 import { fonts } from '../theme/typography';
 import { useAccent } from '../theme/ThemeContext';
+import { FINE_POINTER } from '../data/platform';
 import { useTasks } from '../data/TaskContext';
 import { getListById, navGroups, tagCounts } from '../data/selectors';
 import { formatDueFull, formatTime24to12 } from '../data/dateUtils';
@@ -13,8 +14,19 @@ import { confirmDestructive } from '../data/confirm';
 import { Priority } from '../data/types';
 import Card from './Card';
 import Divider from './Divider';
+import DragList from './DragList';
 import TaskCheckbox from './TaskCheckbox';
-import { IconCalendarBox, IconCheckBig, IconChevronDown, IconClock, IconDotsHorizontal, IconFolder, IconPlus, IconTag } from '../icons/Icons';
+import {
+  IconCalendarBox,
+  IconCheckBig,
+  IconChevronDown,
+  IconClock,
+  IconDotsHorizontal,
+  IconFolder,
+  IconPlus,
+  IconTag,
+  IconTrash,
+} from '../icons/Icons';
 import DueDateQuickMenu from './pickers/DueDateQuickMenu';
 import DueTimeQuickMenu from './pickers/DueTimeQuickMenu';
 import { useNativeDateTimePicker } from '../navigation/DateTimePickerContext';
@@ -138,6 +150,17 @@ export default function TaskDetailView({ taskId, onClose, variant }: Props) {
       deleteTasks([task.id]);
       onClose();
     });
+  };
+
+  const reorderSubtasks = (ids: string[]) => {
+    const byId = new Map(task.subtasks.map((s) => [s.id, s]));
+    const subtasks = ids.map((id) => byId.get(id)).filter((s): s is (typeof task.subtasks)[number] => !!s);
+    if (subtasks.length !== task.subtasks.length) return;
+    updateTask(task.id, { subtasks });
+  };
+
+  const removeSubtask = (subtaskId: string) => {
+    updateTask(task.id, { subtasks: task.subtasks.filter((s) => s.id !== subtaskId) });
   };
 
   /**
@@ -457,12 +480,31 @@ export default function TaskDetailView({ taskId, onClose, variant }: Props) {
               </>
             )}
           </View>
-          {task.subtasks.map((st) => (
-            <Pressable key={st.id} style={hoverBg(styles.subtaskRow)} onPress={() => toggleSubtask(task.id, st.id)}>
-              <TaskCheckbox completed={st.done} priority="none" onPress={() => toggleSubtask(task.id, st.id)} size={17} />
-              <Text style={[styles.subtaskText, st.done && styles.subtaskDone]}>{st.title}</Text>
-            </Pressable>
-          ))}
+          <DragList
+            items={task.subtasks}
+            keyExtractor={(st) => st.id}
+            enabled={task.subtasks.length > 1}
+            onReorder={(ids) => reorderSubtasks(ids)}
+            renderItem={(st) => (
+              <View style={[styles.subtaskRow, FINE_POINTER && task.subtasks.length > 1 && styles.subtaskRowWithHandle]}>
+                <TaskCheckbox completed={st.done} priority="none" onPress={() => toggleSubtask(task.id, st.id)} size={17} />
+                <Pressable style={hoverBg(styles.subtaskTitleButton)} onPress={() => toggleSubtask(task.id, st.id)}>
+                  <Text style={[styles.subtaskText, st.done && styles.subtaskDone]}>{st.title}</Text>
+                </Pressable>
+                <View style={styles.subtaskActions}>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`Remove ${st.title}`}
+                    hitSlop={6}
+                    style={hoverBg(styles.subtaskIconButton)}
+                    onPress={() => removeSubtask(st.id)}
+                  >
+                    <IconTrash size={15} color={colors.priorityHigh} strokeWidth={1.6} />
+                  </Pressable>
+                </View>
+              </View>
+            )}
+          />
           {addingSubtask ? (
             <View style={styles.subtaskRow}>
               <DetailTextInput
@@ -722,6 +764,16 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     minHeight: 40,
   },
+  subtaskRowWithHandle: {
+    paddingRight: 40,
+  },
+  subtaskTitleButton: {
+    flex: 1,
+    minWidth: 0,
+    alignSelf: 'stretch',
+    justifyContent: 'center',
+    borderRadius: 6,
+  },
   subtaskText: {
     fontFamily: fonts.sansRegular,
     fontSize: 14,
@@ -737,6 +789,18 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.textPrimary,
     padding: 0,
+  },
+  subtaskActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+  },
+  subtaskIconButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   addSubtaskText: {
     fontFamily: fonts.sansRegular,
