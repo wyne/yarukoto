@@ -32,6 +32,7 @@ import AllScreen from '../screens/AllScreen';
 import InboxScreen from '../screens/InboxScreen';
 import TodayScreen from '../screens/TodayScreen';
 import CalendarScreen from '../screens/CalendarScreen';
+import ActivityScreen from '../screens/ActivityScreen';
 import BrowseScreen from '../screens/BrowseScreen';
 import TrashScreen from '../screens/TrashScreen';
 
@@ -212,6 +213,7 @@ function Tabs() {
       <Tab.Screen name="InboxTab" component={InboxScreen} options={{ title: 'Inbox' }} />
       <Tab.Screen name="TodayTab" component={TodayScreen} options={{ title: 'Today' }} />
       <Tab.Screen name="CalendarTab" component={CalendarScreen} options={{ title: 'Calendar' }} />
+      <Tab.Screen name="ActivityTab" component={ActivityScreen} options={{ title: 'Activity' }} />
       <Tab.Screen name="BrowseTab" component={BrowseScreen} options={{ title: 'Browse' }} />
       <Tab.Screen name="TrashTab" component={TrashScreen} options={{ title: 'Trash' }} />
     </Tab.Navigator>

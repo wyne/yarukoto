@@ -25,6 +25,7 @@ export type MainTabParamList = {
   InboxTab: InboxParams | undefined;
   TodayTab: undefined;
   CalendarTab: undefined;
+  ActivityTab: undefined;
   BrowseTab: undefined;
   TrashTab: undefined;
 };

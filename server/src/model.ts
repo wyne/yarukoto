@@ -165,7 +165,36 @@ export function upsertTask(db: Database.Database, task: Task, op: 'create' | 'up
     serverUpdatedAt: new Date().toISOString(),
   });
 
-  recordRevision(db, task, op);
+  // A task can be changed again before its first sync. The record outbox then
+  // sends only the latest snapshot, but activity should still preserve the
+  // states we can infer with certainty: every task began active and incomplete.
+  if (op === 'create' && (task.completed || task.deletedAt)) {
+    recordRevision(
+      db,
+      {
+        ...task,
+        completed: false,
+        completedAt: undefined,
+        deletedAt: undefined,
+        updatedAt: task.createdAt,
+      },
+      'create'
+    );
+    if (task.completed) {
+      recordRevision(
+        db,
+        {
+          ...task,
+          deletedAt: undefined,
+          updatedAt: task.completedAt ?? task.updatedAt,
+        },
+        'update'
+      );
+    }
+    if (task.deletedAt) recordRevision(db, task, 'delete');
+  } else {
+    recordRevision(db, task, op);
+  }
   return task;
 }
 

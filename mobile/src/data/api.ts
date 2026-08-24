@@ -23,6 +23,15 @@ export interface SyncPush {
   viewPrefs?: ViewPref[];
 }
 
+export interface ActivityRevision {
+  id: number;
+  taskId: string;
+  task: Task;
+  previousTask: Task | null;
+  op: 'create' | 'update' | 'delete' | 'restore' | string;
+  recordedAt: string;
+}
+
 /** What `/api/v1/health` reports about the build it's running. */
 export interface ServerInfo {
   version: string;
@@ -36,6 +45,7 @@ export interface Api {
   health: () => Promise<ServerInfo | null>;
   pull: (since?: string) => Promise<SyncBatch>;
   push: (batch: SyncPush) => Promise<SyncBatch>;
+  activity: (limit?: number) => Promise<ActivityRevision[]>;
 }
 
 /** A fetch wrapper carrying the server's base URL and bearer token. */
@@ -85,5 +95,9 @@ export function createApi(serverUrl: string, token: string): Api {
     },
     pull: (since) => syncRequest(`/api/v1/sync${since ? `?since=${encodeURIComponent(since)}` : ''}`),
     push: (batch) => syncRequest('/api/v1/sync', { method: 'POST', body: JSON.stringify(batch) }),
+    activity: async (limit = 80) => {
+      const body = await request(`/api/v1/activity?limit=${encodeURIComponent(limit)}`);
+      return Array.isArray(body?.revisions) ? body.revisions : [];
+    },
   };
 }

@@ -39,6 +39,7 @@ import { loadCollapsedFolders, saveCollapsedFolders } from '../data/storage';
 import SyncIndicator from './SyncIndicator';
 import {
   IconCalendar,
+  IconBell,
   IconChevronDown,
   IconChevronLeft,
   IconChevronRight,
@@ -81,6 +82,7 @@ function viewsFor() {
     { route: 'InboxTab', label: 'Inbox', Icon: IconInboxTray },
     { route: 'TodayTab', label: 'Today', Icon: IconClock },
     { route: 'CalendarTab', label: 'Calendar', Icon: IconCalendar },
+    { route: 'ActivityTab', label: 'Activity', Icon: IconBell },
     { route: 'BrowseTab', label: 'Browse', Icon: IconFolder },
     { route: 'TrashTab', label: 'Trash', Icon: IconTrash },
   ];
