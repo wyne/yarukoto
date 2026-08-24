@@ -1,10 +1,12 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ACCENT_OPTIONS, AccentColor, DEFAULT_ACCENT } from '../theme/colors';
+import { FolderDef, ListDef, Task, ViewPref } from './types';
 
 /**
  * Persistence for the server connection — which mode the app is in, the server
- * URL and access token — and for the device-local UI preferences: accent colour,
- * the Plan screen's layout, and which sections a view has collapsed.
+ * URL and access token — the latest server-backed snapshot, and the device-local
+ * UI preferences: accent colour, the Plan screen's layout, and which sections a
+ * view has collapsed.
  *
  * These preferences stay on the device rather than syncing. Unlike grouping and
  * sort, which describe how you want a list arranged everywhere, they describe how
@@ -30,8 +32,23 @@ const PLAN_KEY = 'yarukoto.planPrefs';
 const COLLAPSED_KEY = 'yarukoto.collapsedSections';
 const SAVED_SERVERS_KEY = 'yarukoto.savedServers';
 const FOLDERS_KEY = 'yarukoto.collapsedFolders';
+const SERVER_SNAPSHOT_KEY = 'yarukoto.serverSnapshot';
+const DIRTY_IDS_KEY = 'yarukoto.dirtyIds';
 
-const ALL_KEYS = [URL_KEY, MODE_KEY, TOKEN_KEY, ACCENT_KEY, PLAN_KEY, COLLAPSED_KEY, SAVED_SERVERS_KEY, FOLDERS_KEY];
+const ALL_KEYS = [
+  URL_KEY,
+  MODE_KEY,
+  TOKEN_KEY,
+  ACCENT_KEY,
+  PLAN_KEY,
+  COLLAPSED_KEY,
+  SAVED_SERVERS_KEY,
+  FOLDERS_KEY,
+  SERVER_SNAPSHOT_KEY,
+  DIRTY_IDS_KEY,
+];
+
+const SERVER_SNAPSHOT_SCHEMA = 1;
 
 let cache: Record<string, string | null> = {};
 let primed = false;
@@ -266,4 +283,70 @@ export function loadCollapsedFolders(): string[] {
 export function saveCollapsedFolders(ids: string[]): void {
   if (ids.length === 0) remove(FOLDERS_KEY);
   else writeJson(FOLDERS_KEY, ids);
+}
+
+export interface ServerSnapshot {
+  schemaVersion: typeof SERVER_SNAPSHOT_SCHEMA;
+  tasks: Task[];
+  lists: ListDef[];
+  folders: FolderDef[];
+  viewPrefs: ViewPref[];
+  cursor?: string;
+  savedAt: string;
+}
+
+function hasStringId(value: unknown): value is { id: string } {
+  return !!value && typeof value === 'object' && typeof (value as { id?: unknown }).id === 'string';
+}
+
+function isRecordArray(value: unknown): value is { id: string }[] {
+  return Array.isArray(value) && value.every(hasStringId);
+}
+
+export function loadServerSnapshot(): ServerSnapshot | null {
+  const stored = readJson<Partial<ServerSnapshot>>(SERVER_SNAPSHOT_KEY);
+  if (!stored || stored.schemaVersion !== SERVER_SNAPSHOT_SCHEMA) return null;
+  if (
+    !isRecordArray(stored.tasks) ||
+    !isRecordArray(stored.lists) ||
+    !isRecordArray(stored.folders) ||
+    !isRecordArray(stored.viewPrefs)
+  ) {
+    return null;
+  }
+  return {
+    schemaVersion: SERVER_SNAPSHOT_SCHEMA,
+    tasks: stored.tasks as Task[],
+    lists: stored.lists as ListDef[],
+    folders: stored.folders as FolderDef[],
+    viewPrefs: stored.viewPrefs as ViewPref[],
+    cursor: typeof stored.cursor === 'string' ? stored.cursor : undefined,
+    savedAt: typeof stored.savedAt === 'string' ? stored.savedAt : new Date(0).toISOString(),
+  };
+}
+
+export function saveServerSnapshot(snapshot: Omit<ServerSnapshot, 'schemaVersion' | 'savedAt'>): void {
+  writeJson(SERVER_SNAPSHOT_KEY, {
+    schemaVersion: SERVER_SNAPSHOT_SCHEMA,
+    ...snapshot,
+    savedAt: new Date().toISOString(),
+  });
+}
+
+export function clearServerSnapshot(): void {
+  remove(SERVER_SNAPSHOT_KEY);
+}
+
+export function loadDirtyIds(): string[] {
+  const stored = readJson<unknown>(DIRTY_IDS_KEY);
+  return Array.isArray(stored) ? stored.filter((id): id is string => typeof id === 'string') : [];
+}
+
+export function saveDirtyIds(ids: string[]): void {
+  if (ids.length === 0) remove(DIRTY_IDS_KEY);
+  else writeJson(DIRTY_IDS_KEY, ids);
+}
+
+export function clearDirtyIds(): void {
+  remove(DIRTY_IDS_KEY);
 }
