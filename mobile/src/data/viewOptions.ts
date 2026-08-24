@@ -154,7 +154,14 @@ interface GroupContext {
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-function dateBucket(t: Task, now: Date): { key: string; label: string } {
+/**
+ * Which stretch of time a task's due date falls in.
+ *
+ * Exported because the Browse filter offers the same vocabulary it groups by —
+ * "overdue", "today" and the rest should mean one thing in the app, and two
+ * implementations of "is this overdue" would eventually disagree.
+ */
+export function dateBucket(t: Task, now: Date): { key: string; label: string } {
   if (!t.dueDate) return { key: 'nodate', label: 'No date' };
   const diff = Math.round((startOfDay(fromISODate(t.dueDate)).getTime() - startOfDay(now).getTime()) / DAY_MS);
   if (diff < 0) return { key: 'overdue', label: 'Overdue' };

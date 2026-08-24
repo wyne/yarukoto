@@ -1,6 +1,15 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ACCENT_OPTIONS, AccentColor, DEFAULT_ACCENT } from '../theme/colors';
 import { FolderDef, ListDef, Task, ViewPref } from './types';
+import {
+  DUE_FILTERS,
+  DueFilter,
+  EMPTY_CRITERIA,
+  STATUS_FILTERS,
+  StatusFilter,
+  TaskCriteria,
+  isEmptyCriteria,
+} from './taskFilter';
 
 /**
  * Persistence for the server connection — which mode the app is in, the server
@@ -34,6 +43,7 @@ const SAVED_SERVERS_KEY = 'yarukoto.savedServers';
 const FOLDERS_KEY = 'yarukoto.collapsedFolders';
 const SERVER_SNAPSHOT_KEY = 'yarukoto.serverSnapshot';
 const DIRTY_IDS_KEY = 'yarukoto.dirtyIds';
+const BROWSE_KEY = 'yarukoto.browseCriteria';
 
 const ALL_KEYS = [
   URL_KEY,
@@ -46,6 +56,7 @@ const ALL_KEYS = [
   FOLDERS_KEY,
   SERVER_SNAPSHOT_KEY,
   DIRTY_IDS_KEY,
+  BROWSE_KEY,
 ];
 
 const SERVER_SNAPSHOT_SCHEMA = 1;
@@ -283,6 +294,45 @@ export function loadCollapsedFolders(): string[] {
 export function saveCollapsedFolders(ids: string[]): void {
   if (ids.length === 0) remove(FOLDERS_KEY);
   else writeJson(FOLDERS_KEY, ids);
+}
+
+function stringArray(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : [];
+}
+
+/**
+ * What Browse was last asked.
+ *
+ * Kept on the device rather than synced: it is where you had got to on this
+ * screen, not a decision about your tasks, and arriving at a phone already
+ * narrowed by something typed on a laptop would be a puzzle rather than a
+ * convenience.
+ *
+ * Validated a field at a time, like the plan prefs. A value this build has
+ * never heard of falls back on its own without taking the rest of the criteria
+ * with it — the ids are not checked here, because whether a list still exists
+ * is a question for the screen, which has the lists.
+ */
+export function loadBrowseCriteria(): TaskCriteria {
+  const stored = readJson<Partial<TaskCriteria>>(BROWSE_KEY);
+  if (!stored) return EMPTY_CRITERIA;
+  return {
+    query: typeof stored.query === 'string' ? stored.query : EMPTY_CRITERIA.query,
+    listIds: stringArray(stored.listIds),
+    folderIds: stringArray(stored.folderIds),
+    tags: stringArray(stored.tags),
+    due: DUE_FILTERS.includes(stored.due as DueFilter) ? (stored.due as DueFilter) : EMPTY_CRITERIA.due,
+    status: STATUS_FILTERS.includes(stored.status as StatusFilter)
+      ? (stored.status as StatusFilter)
+      : EMPTY_CRITERIA.status,
+  };
+}
+
+export function saveBrowseCriteria(criteria: TaskCriteria): void {
+  // Nothing to remember once it is back to asking for everything, and an absent
+  // key is what a fresh install looks like.
+  if (isEmptyCriteria(criteria)) remove(BROWSE_KEY);
+  else writeJson(BROWSE_KEY, criteria);
 }
 
 export interface ServerSnapshot {
