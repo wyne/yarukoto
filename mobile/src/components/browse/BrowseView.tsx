@@ -11,6 +11,7 @@ import Card from '../Card';
 import Divider from '../Divider';
 import TaskRow from '../TaskRow';
 import { closeOpenSwipeRow } from '../SwipeableRow';
+import FilterBar from './FilterBar';
 
 interface Props {
   criteria: TaskCriteria;
@@ -68,6 +69,10 @@ export default function BrowseView({ criteria, onCriteriaChange }: Props) {
           returnKeyType="search"
           clearButtonMode="while-editing"
         />
+      </View>
+
+      <View style={wide && styles.paneWide}>
+        <FilterBar criteria={criteria} onChange={onCriteriaChange} />
       </View>
 
       <ScrollView
