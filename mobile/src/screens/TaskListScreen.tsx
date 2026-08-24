@@ -19,6 +19,7 @@ import {
   tasksForToday,
 } from '../data/selectors';
 import { isSameDay, toISODate } from '../data/dateUtils';
+import { taskMatcher } from '../data/taskFilter';
 import { QuickAddDefaults } from '../data/TaskContext';
 import { hapticSelect } from '../data/haptics';
 import { useSyncRefresh } from '../data/useSyncRefresh';
@@ -211,9 +212,7 @@ export default function TaskListScreen({ mode, filter }: Props) {
       c = c.filter(matchFilter);
     }
     if (query.trim()) {
-      const q = query.trim().toLowerCase();
-      const match = (t: (typeof a)[number]) =>
-        t.title.toLowerCase().includes(q) || t.tags.some((tag) => tag.toLowerCase().includes(q));
+      const match = taskMatcher(query);
       a = a.filter(match);
       c = c.filter(match);
     }
