@@ -66,7 +66,16 @@ export function registerSyncRoutes(app: FastifyInstance, db: Database.Database):
 
     const run = db.transaction(() => {
       for (const task of tasks) {
-        const op = task.deletedAt ? 'delete' : 'update';
+        const existing = db.prepare('SELECT deleted_at FROM tasks WHERE id = ?').get(task.id) as
+          | { deleted_at: string | null }
+          | undefined;
+        const op = !existing
+          ? 'create'
+          : task.deletedAt
+            ? 'delete'
+            : existing.deleted_at
+              ? 'restore'
+              : 'update';
         acceptedTasks.push(upsertTask(db, task, op));
       }
       for (const list of lists) {
