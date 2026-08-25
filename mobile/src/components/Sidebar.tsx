@@ -89,7 +89,8 @@ function viewsFor() {
   ];
 }
 
-const NATIVE_SECONDARY_SCREENS = {
+const NATIVE_LIST_SCREENS = {
+  AllTab: 'All',
   TodayTab: 'Today',
   ActivityTab: 'Activity',
   TrashTab: 'Trash',
@@ -319,33 +320,36 @@ export default function Sidebar({ state, navigation, onNavigate }: Props) {
 
   const current = state.routes[state.index];
   const inboxRoute = state.routes.find((r) => r.name === 'InboxTab');
+  const listRoute = state.routes.find((r) => r.name === 'ListsTab');
   const native = Platform.OS !== 'web';
-  const inboxState = (inboxRoute as {
+  const listState = (listRoute as {
     state?: { index: number; routes: Array<{ name: string; params?: InboxParams }> };
   } | undefined)?.state;
-  const pendingInbox = native
-    ? inboxRoute?.params as { screen?: string; params?: InboxParams } | undefined
+  const pendingList = native
+    ? listRoute?.params as { screen?: string; params?: InboxParams } | undefined
     : undefined;
-  const nestedInboxRoute = inboxState?.routes[inboxState.index];
-  const nativeInboxScreen = native
-    ? nestedInboxRoute?.name ?? pendingInbox?.screen ?? 'InboxHome'
+  const nestedListRoute = listState?.routes[listState.index];
+  const nativeListScreen = native
+    ? nestedListRoute?.name ?? pendingList?.screen ?? 'All'
     : undefined;
   const inboxParams = native
-    ? nativeInboxScreen === 'InboxHome'
-      ? nestedInboxRoute?.params ?? pendingInbox?.params
+    ? nativeListScreen === 'FilteredList'
+      ? nestedListRoute?.params ?? pendingList?.params
       : undefined
     : inboxRoute?.params as InboxParams | undefined;
   const filtered = !!(inboxParams?.listId || inboxParams?.folderId || inboxParams?.tag);
   const onInbox = current.name === 'InboxTab';
+  const onListTab = native && current.name === 'ListsTab';
 
   const go = (route: string, params?: object) => {
     const nativeScreen = native
-      ? NATIVE_SECONDARY_SCREENS[route as keyof typeof NATIVE_SECONDARY_SCREENS]
+      ? NATIVE_LIST_SCREENS[route as keyof typeof NATIVE_LIST_SCREENS]
       : undefined;
-    if (native && (route === 'InboxTab' || nativeScreen)) {
-      (navigation.navigate as (name: string, params?: object) => void)('InboxTab', {
-        screen: nativeScreen ?? 'InboxHome',
-        params: nativeScreen ? undefined : params ?? {},
+    const filteredList = native && route === 'InboxTab' && !!params;
+    if (native && (nativeScreen || filteredList)) {
+      (navigation.navigate as (name: string, params?: object) => void)('ListsTab', {
+        screen: nativeScreen ?? 'FilteredList',
+        params: nativeScreen ? undefined : params,
       });
     } else {
       (navigation.navigate as (name: string, params?: object) => void)(route, params);
@@ -364,7 +368,7 @@ export default function Sidebar({ state, navigation, onNavigate }: Props) {
   // Params replace rather than merge, so setting one filter clears the others.
   const openFilter = (filter: InboxParams) => go('InboxTab', filter);
   const filterActive = (type: 'list' | 'folder' | 'tag', value: string) => {
-    if (!onInbox || (native && nativeInboxScreen !== 'InboxHome')) return false;
+    if (native ? !onListTab || nativeListScreen !== 'FilteredList' : !onInbox) return false;
     if (type === 'list') return inboxParams?.listId === value;
     if (type === 'folder') return inboxParams?.folderId === value;
     return inboxParams?.tag === value;
@@ -399,13 +403,13 @@ export default function Sidebar({ state, navigation, onNavigate }: Props) {
       >
         {viewsFor().map(({ route, label, Icon }) => {
           const nativeScreen = native
-            ? NATIVE_SECONDARY_SCREENS[route as keyof typeof NATIVE_SECONDARY_SCREENS]
+            ? NATIVE_LIST_SCREENS[route as keyof typeof NATIVE_LIST_SCREENS]
             : undefined;
           const active = nativeScreen
-            ? onInbox && nativeInboxScreen === nativeScreen
-            : current.name === route && (
-                route !== 'InboxTab' || (!filtered && (!native || nativeInboxScreen === 'InboxHome'))
-              );
+            ? onListTab && nativeListScreen === nativeScreen
+            : route === 'InboxTab'
+              ? native ? onInbox : onInbox && !filtered
+              : current.name === route;
           const count = viewCount(route);
           return (
             <Pressable
