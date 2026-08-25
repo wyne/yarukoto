@@ -9,22 +9,41 @@ import { PANE_MAX_WIDTH, useSidebar } from '../navigation/SidebarContext';
 import { MainTabParamList } from '../navigation/types';
 import { ActivityRevision, createApi } from '../data/api';
 import { useTasks } from '../data/TaskContext';
-import { Task } from '../data/types';
-import { formatDueShort } from '../data/dateUtils';
+import { ListDef, Task } from '../data/types';
+import { formatDueFull, formatDueShort } from '../data/dateUtils';
 import Card from '../components/Card';
 import Divider from '../components/Divider';
 import GlassIconButton from '../components/GlassIconButton';
-import { IconBell, IconMenu } from '../icons/Icons';
+import { IconBell, IconChevronRight, IconMenu } from '../icons/Icons';
 
 type Props = BottomTabScreenProps<MainTabParamList, 'ActivityTab'>;
 
+type ActivityKind = 'create' | 'edit' | 'complete' | 'delete' | 'restore' | 'reopen';
+
+interface ActivityChange {
+  label: string;
+  before: string;
+  after: string;
+}
+
 interface ActivityItem {
   id: string;
+  kind: ActivityKind;
   title: string;
   detail?: string;
+  changes?: ActivityChange[];
   taskTitle: string;
   recordedAt: string;
 }
+
+const EVENT_COLORS: Record<ActivityKind, string> = {
+  create: colors.success,
+  edit: colors.priorityLow,
+  complete: colors.purple,
+  delete: colors.priorityHigh,
+  restore: colors.teal,
+  reopen: colors.orange,
+};
 
 const todayLabel = new Intl.DateTimeFormat(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
 const timeLabel = new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' });
@@ -43,35 +62,82 @@ function dayLabel(value: string): string {
   return todayLabel.format(date);
 }
 
-function sameList(a: Task, b: Task): boolean {
-  return a.listId === b.listId;
+function compactText(value: string, fallback = 'None'): string {
+  return value.replace(/\s+/g, ' ').trim() || fallback;
 }
 
-function sameTags(a: Task, b: Task): boolean {
-  return a.tags.length === b.tags.length && a.tags.every((tag, i) => tag === b.tags[i]);
+function priorityLabel(value: Task['priority']): string {
+  return value === 'none' ? 'None' : `${value[0].toUpperCase()}${value.slice(1)}`;
 }
 
-function sameSubtasks(a: Task, b: Task): boolean {
-  return JSON.stringify(a.subtasks) === JSON.stringify(b.subtasks);
+function listLabel(lists: ListDef[], id: string | null): string {
+  if (!id) return 'Inbox';
+  return lists.find((list) => list.id === id)?.name ?? 'Unknown list';
 }
 
-function changedDetails(task: Task, previous: Task | null): string | undefined {
-  if (!previous) return undefined;
-  const details: string[] = [];
-  if (task.title !== previous.title) details.push('title');
-  if (task.notes !== previous.notes) details.push('notes');
-  if (task.priority !== previous.priority) details.push('priority');
-  if (task.dueDate !== previous.dueDate || task.dueTime !== previous.dueTime) details.push('date');
-  if (!sameList(task, previous)) details.push('list');
-  if (!sameTags(task, previous)) details.push('tags');
-  if (!sameSubtasks(task, previous)) details.push('subtasks');
-  return details.length ? details.join(', ') : undefined;
+function tagsLabel(tags: string[]): string {
+  return tags.length ? tags.map((tag) => `#${tag}`).join(' ') : 'None';
 }
 
-function summarize(revision: ActivityRevision, now: Date): ActivityItem[] {
+function subtasksLabel(task: Task, previous?: Task): string {
+  const done = task.subtasks.filter((subtask) => subtask.done).length;
+  const previousDone = previous?.subtasks.filter((subtask) => subtask.done).length;
+  if (previous && done !== previousDone) return `${done}/${task.subtasks.length} done`;
+  if (task.subtasks.length === 0) return 'None';
+  return task.subtasks.map((subtask) => compactText(subtask.title, 'Untitled')).join(', ');
+}
+
+function changesFor(task: Task, previous: Task | null, lists: ListDef[]): ActivityChange[] {
+  if (!previous) return [];
+  const changes: ActivityChange[] = [];
+  if (task.title !== previous.title) {
+    changes.push({ label: 'Title', before: compactText(previous.title, 'Untitled'), after: compactText(task.title, 'Untitled') });
+  }
+  if (task.notes !== previous.notes) {
+    changes.push({ label: 'Notes', before: compactText(previous.notes), after: compactText(task.notes) });
+  }
+  if (task.priority !== previous.priority) {
+    changes.push({ label: 'Priority', before: priorityLabel(previous.priority), after: priorityLabel(task.priority) });
+  }
+  if (task.dueDate !== previous.dueDate || task.dueTime !== previous.dueTime) {
+    changes.push({
+      label: 'Date',
+      before: formatDueFull(previous.dueDate, previous.dueTime),
+      after: formatDueFull(task.dueDate, task.dueTime),
+    });
+  }
+  if (task.listId !== previous.listId) {
+    changes.push({ label: 'List', before: listLabel(lists, previous.listId), after: listLabel(lists, task.listId) });
+  }
+  if (JSON.stringify(task.tags) !== JSON.stringify(previous.tags)) {
+    changes.push({ label: 'Tags', before: tagsLabel(previous.tags), after: tagsLabel(task.tags) });
+  }
+  if (JSON.stringify(task.subtasks) !== JSON.stringify(previous.subtasks)) {
+    changes.push({
+      label: 'Subtasks',
+      before: subtasksLabel(previous),
+      after: subtasksLabel(task, previous),
+    });
+  }
+  if (task.order !== previous.order) {
+    changes.push({
+      label: 'Position',
+      before: 'Previous',
+      after: task.order < previous.order ? 'Moved earlier' : 'Moved later',
+    });
+  }
+  return changes;
+}
+
+function editTitle(changes: ActivityChange[]): string {
+  if (changes.length === 1) return `Edited ${changes[0].label.toLowerCase()}`;
+  return `Edited ${changes.length} fields`;
+}
+
+function summarize(revision: ActivityRevision, now: Date, lists: ListDef[]): ActivityItem[] {
   const { task, previousTask, op } = revision;
   const taskTitle = task.title.trim() || previousTask?.title.trim() || 'Untitled task';
-  const detail = changedDetails(task, previousTask);
+  const changes = changesFor(task, previousTask, lists);
   const due = formatDueShort(now, task.dueDate, task.dueTime);
 
   if (op === 'create') {
@@ -80,40 +146,50 @@ function summarize(revision: ActivityRevision, now: Date): ActivityItem[] {
     // and changed again before its first sync. Expand those combined revisions
     // so existing history is useful too; newer servers emit separate rows.
     if (task.deletedAt) {
-      items.push({ id: `${revision.id}-deleted`, title: 'Deleted task', taskTitle, recordedAt: revision.recordedAt });
+      items.push({ id: `${revision.id}-deleted`, kind: 'delete', title: 'Deleted task', taskTitle, recordedAt: revision.recordedAt });
     }
     if (task.completed) {
-      items.push({ id: `${revision.id}-completed`, title: 'Completed task', taskTitle, recordedAt: revision.recordedAt });
+      items.push({ id: `${revision.id}-completed`, kind: 'complete', title: 'Completed task', taskTitle, recordedAt: revision.recordedAt });
     }
     items.push({
       id: String(revision.id),
+      kind: 'create',
       title: 'Created task',
       taskTitle,
-      detail: due || undefined,
+      detail: due ? `Due ${due}` : undefined,
       recordedAt: revision.recordedAt,
     });
     return items;
   }
   if (op === 'delete' || task.deletedAt) {
-    return [{ id: String(revision.id), title: 'Deleted task', taskTitle, recordedAt: revision.recordedAt }];
+    return [{ id: String(revision.id), kind: 'delete', title: 'Deleted task', taskTitle, recordedAt: revision.recordedAt }];
   }
   if (op === 'restore') {
-    return [{ id: String(revision.id), title: 'Restored task', taskTitle, recordedAt: revision.recordedAt }];
+    return [{ id: String(revision.id), kind: 'restore', title: 'Restored task', taskTitle, recordedAt: revision.recordedAt }];
   }
+
+  const items: ActivityItem[] = [];
   if (previousTask && !previousTask.completed && task.completed) {
-    return [{ id: String(revision.id), title: 'Completed task', taskTitle, recordedAt: revision.recordedAt }];
+    items.push({ id: `${revision.id}-completed`, kind: 'complete', title: 'Completed task', taskTitle, recordedAt: revision.recordedAt });
   }
   if (previousTask && previousTask.completed && !task.completed) {
-    return [{ id: String(revision.id), title: 'Reopened task', taskTitle, recordedAt: revision.recordedAt }];
+    items.push({ id: `${revision.id}-reopened`, kind: 'reopen', title: 'Reopened task', taskTitle, recordedAt: revision.recordedAt });
   }
-  return [
-    {
-      id: String(revision.id),
-      title: detail ? `Edited ${detail}` : 'Edited task',
+
+  if (changes.length > 0) {
+    items.push({
+      id: `${revision.id}-edited`,
+      kind: 'edit',
+      title: editTitle(changes),
       taskTitle,
+      changes,
       recordedAt: revision.recordedAt,
-    },
-  ];
+    });
+  }
+  if (items.length === 0) {
+    items.push({ id: String(revision.id), kind: 'edit', title: 'Edited task', taskTitle, recordedAt: revision.recordedAt });
+  }
+  return items;
 }
 
 export default function ActivityScreen({}: Props) {
@@ -137,14 +213,14 @@ export default function ActivityScreen({}: Props) {
     try {
       const api = createApi(state.serverUrl, state.token);
       const revisions = await api.activity(120);
-      setItems(revisions.flatMap((revision) => summarize(revision, now)));
+      setItems(revisions.flatMap((revision) => summarize(revision, now, state.lists)));
       setError(null);
     } catch {
       setError('Activity could not be loaded.');
     } finally {
       setLoaded(true);
     }
-  }, [state.mode, state.serverUrl, state.token, now]);
+  }, [state.mode, state.serverUrl, state.token, state.lists, now]);
 
   useEffect(() => {
     load();
@@ -200,9 +276,9 @@ export default function ActivityScreen({}: Props) {
                 {dayItems.map((item, i) => (
                   <View key={item.id}>
                     <View style={styles.row}>
-                      <View style={[styles.dot, { backgroundColor: accent }]} />
+                      <View style={[styles.dot, { backgroundColor: EVENT_COLORS[item.kind] }]} />
                       <View style={styles.rowText}>
-                        <Text style={styles.rowTitle} numberOfLines={1}>
+                        <Text style={[styles.rowTitle, { color: EVENT_COLORS[item.kind] }]} numberOfLines={1}>
                           {item.title}
                         </Text>
                         <Text style={styles.rowTask} numberOfLines={1}>
@@ -212,6 +288,25 @@ export default function ActivityScreen({}: Props) {
                           <Text style={styles.rowMeta} numberOfLines={1}>
                             {item.detail}
                           </Text>
+                        )}
+                        {!!item.changes?.length && (
+                          <View style={styles.changes}>
+                            {item.changes.slice(0, 2).map((change) => (
+                              <View key={change.label} style={styles.changeRow}>
+                                <Text style={styles.changeLabel}>{change.label}</Text>
+                                <Text style={styles.changeBefore} numberOfLines={1} ellipsizeMode="tail">
+                                  {change.before}
+                                </Text>
+                                <IconChevronRight size={11} color={colors.textFaint} />
+                                <Text style={styles.changeAfter} numberOfLines={1} ellipsizeMode="tail">
+                                  {change.after}
+                                </Text>
+                              </View>
+                            ))}
+                            {item.changes.length > 2 && (
+                              <Text style={styles.changeMore}>+{item.changes.length - 2} more</Text>
+                            )}
+                          </View>
                         )}
                       </View>
                       <Text style={styles.time}>{timeLabel.format(new Date(item.recordedAt))}</Text>
@@ -270,7 +365,7 @@ const styles = StyleSheet.create({
   },
   row: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: 10,
     paddingHorizontal: 14,
     paddingVertical: 11,
@@ -280,6 +375,7 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
+    marginTop: 6,
   },
   rowText: {
     flex: 1,
@@ -300,6 +396,43 @@ const styles = StyleSheet.create({
     marginTop: 2,
     fontFamily: fonts.monoRegular,
     fontSize: 11.5,
+    color: colors.textTertiary,
+  },
+  changes: {
+    marginTop: 6,
+    gap: 3,
+  },
+  changeRow: {
+    minWidth: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  changeLabel: {
+    width: 50,
+    fontFamily: fonts.monoRegular,
+    fontSize: 10.5,
+    color: colors.textTertiary,
+  },
+  changeBefore: {
+    flex: 1,
+    minWidth: 0,
+    fontFamily: fonts.sansRegular,
+    fontSize: 12,
+    color: colors.textTertiary,
+    textDecorationLine: 'line-through',
+  },
+  changeAfter: {
+    flex: 1,
+    minWidth: 0,
+    fontFamily: fonts.sansMedium,
+    fontSize: 12,
+    color: colors.textSecondary,
+  },
+  changeMore: {
+    marginLeft: 55,
+    fontFamily: fonts.monoRegular,
+    fontSize: 10.5,
     color: colors.textTertiary,
   },
   time: {

@@ -41,6 +41,8 @@ export const colors = {
   priorityHighBg: '#FBE3E1',
 
   success: '#1E7A3C',
+  teal: '#0E8A8A',
+  orange: '#C2570A',
   purple: '#8A5FD6',
 
   accentTintBg: '#E4EAFE',
