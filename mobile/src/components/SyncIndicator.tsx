@@ -100,7 +100,7 @@ const styles = StyleSheet.create({
   label: {
     flex: 1,
     fontFamily: fonts.monoRegular,
-    fontSize: 11.5,
+    fontSize: 12,
     color: colors.textTertiary,
   },
 });

@@ -96,7 +96,7 @@ export default function WebDateTimeQuickMenu({
           background: colors.surface,
           color: colors.textPrimary,
           fontFamily: fonts.sansRegular,
-          fontSize: 15,
+          fontSize: 16,
           colorScheme: 'light',
         },
       })
@@ -212,7 +212,7 @@ const styles = StyleSheet.create({
   },
   optionLabel: {
     fontFamily: fonts.sansRegular,
-    fontSize: 14,
+    fontSize: 15,
     color: colors.textPrimary,
   },
   destructive: {
@@ -242,7 +242,7 @@ const styles = StyleSheet.create({
   },
   panelTitle: {
     fontFamily: fonts.monoRegular,
-    fontSize: 11,
+    fontSize: 11.5,
     letterSpacing: 1,
     textTransform: 'uppercase',
     color: colors.textTertiary,
@@ -255,6 +255,6 @@ const styles = StyleSheet.create({
   },
   doneText: {
     fontFamily: fonts.sansSemiBold,
-    fontSize: 13,
+    fontSize: 14,
   },
 });

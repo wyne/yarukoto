@@ -157,7 +157,7 @@ const styles = StyleSheet.create({
   },
   chipText: {
     fontFamily: fonts.sansMedium,
-    fontSize: 13,
+    fontSize: 14,
     color: colors.textPrimary,
   },
   chipTextActive: {

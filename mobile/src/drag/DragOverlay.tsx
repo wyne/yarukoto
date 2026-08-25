@@ -69,7 +69,7 @@ const styles = StyleSheet.create({
   },
   text: {
     fontFamily: fonts.sansMedium,
-    fontSize: 13,
+    fontSize: 14,
     color: colors.textPrimary,
   },
   date: {

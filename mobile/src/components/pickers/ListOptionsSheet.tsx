@@ -96,7 +96,7 @@ export default function ListOptionsSheet({ list, onClose }: Props) {
 const styles = StyleSheet.create({
   label: {
     fontFamily: fonts.monoRegular,
-    fontSize: 11,
+    fontSize: 11.5,
     letterSpacing: 1,
     textTransform: 'uppercase',
     color: colors.textTertiary,
@@ -109,7 +109,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontFamily: fonts.sansRegular,
-    fontSize: 15,
+    fontSize: 16,
     color: colors.textPrimary,
     backgroundColor: colors.surface,
     marginBottom: 18,
@@ -142,7 +142,7 @@ const styles = StyleSheet.create({
   },
   saveText: {
     fontFamily: fonts.sansSemiBold,
-    fontSize: 15,
+    fontSize: 16,
     color: '#fff',
   },
   deleteBtn: {
@@ -152,7 +152,7 @@ const styles = StyleSheet.create({
   },
   deleteText: {
     fontFamily: fonts.sansMedium,
-    fontSize: 14,
+    fontSize: 15,
     color: colors.priorityHigh,
   },
 });

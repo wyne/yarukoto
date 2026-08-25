@@ -376,7 +376,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.textPrimary,
     color: '#fff',
     fontFamily: fonts.sansSemiBold,
-    fontSize: 11,
+    fontSize: 11.5,
   },
   veil: {
     position: 'absolute',

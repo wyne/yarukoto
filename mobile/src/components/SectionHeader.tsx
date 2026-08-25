@@ -50,14 +50,14 @@ const styles = StyleSheet.create({
   },
   label: {
     fontFamily: fonts.monoRegular,
-    fontSize: 11,
+    fontSize: 11.5,
     letterSpacing: 1,
     color: colors.textTertiary,
     textTransform: 'uppercase',
   },
   count: {
     fontFamily: fonts.monoRegular,
-    fontSize: 11,
+    fontSize: 11.5,
     color: colors.textFaint,
   },
   dot: {

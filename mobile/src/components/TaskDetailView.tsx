@@ -601,11 +601,11 @@ const styles = StyleSheet.create({
   },
   close: {
     fontFamily: fonts.sansMedium,
-    fontSize: 15,
+    fontSize: 16,
   },
   headerCenter: {
     fontFamily: fonts.monoRegular,
-    fontSize: 12,
+    fontSize: 12.5,
     color: colors.textTertiary,
   },
   scroll: {
@@ -651,7 +651,7 @@ const styles = StyleSheet.create({
   },
   priorityText: {
     fontFamily: fonts.sansMedium,
-    fontSize: 12.5,
+    fontSize: 13,
   },
   metaRow: {
     flexDirection: 'row',
@@ -664,17 +664,17 @@ const styles = StyleSheet.create({
   metaLabel: {
     flex: 1,
     fontFamily: fonts.sansRegular,
-    fontSize: 15,
+    fontSize: 16,
     color: colors.textPrimary,
   },
   metaLabelFixed: {
     fontFamily: fonts.sansRegular,
-    fontSize: 15,
+    fontSize: 16,
     color: colors.textPrimary,
   },
   metaValue: {
     fontFamily: fonts.monoRegular,
-    fontSize: 13,
+    fontSize: 14,
     color: colors.textSecondary,
   },
   metaValueMenu: {
@@ -710,19 +710,19 @@ const styles = StyleSheet.create({
   },
   tagChipText: {
     fontFamily: fonts.monoRegular,
-    fontSize: 12,
+    fontSize: 12.5,
     color: colors.textSecondary,
   },
   sectionLabel: {
     fontFamily: fonts.monoRegular,
-    fontSize: 11,
+    fontSize: 11.5,
     letterSpacing: 1,
     textTransform: 'uppercase',
     color: colors.textTertiary,
   },
   notesInput: {
     fontFamily: fonts.sansRegular,
-    fontSize: 14,
+    fontSize: 15,
     lineHeight: 21,
     color: '#35352F',
     marginTop: 6,
@@ -743,7 +743,7 @@ const styles = StyleSheet.create({
   },
   subtaskCount: {
     fontFamily: fonts.monoRegular,
-    fontSize: 11,
+    fontSize: 11.5,
     color: colors.textTertiary,
   },
   progressTrack: {
@@ -776,7 +776,7 @@ const styles = StyleSheet.create({
   },
   subtaskText: {
     fontFamily: fonts.sansRegular,
-    fontSize: 14,
+    fontSize: 15,
     color: colors.textPrimary,
   },
   subtaskDone: {
@@ -786,7 +786,7 @@ const styles = StyleSheet.create({
   subtaskInput: {
     flex: 1,
     fontFamily: fonts.sansRegular,
-    fontSize: 14,
+    fontSize: 15,
     color: colors.textPrimary,
     padding: 0,
   },
@@ -804,14 +804,14 @@ const styles = StyleSheet.create({
   },
   addSubtaskText: {
     fontFamily: fonts.sansRegular,
-    fontSize: 14,
+    fontSize: 15,
     color: colors.textTertiary,
   },
   delete: {
     textAlign: 'center',
     paddingVertical: 14,
     fontFamily: fonts.sansMedium,
-    fontSize: 14,
+    fontSize: 15,
     color: colors.priorityHigh,
   },
   dismissBar: {
@@ -827,7 +827,7 @@ const styles = StyleSheet.create({
   },
   dismissText: {
     fontFamily: fonts.sansSemiBold,
-    fontSize: 15,
+    fontSize: 16,
     color: colors.textPrimary,
   },
   sheetKeyboardDismissLayer: {
@@ -883,7 +883,7 @@ const styles = StyleSheet.create({
   menuLabel: {
     flex: 1,
     fontFamily: fonts.sansMedium,
-    fontSize: 15,
+    fontSize: 16,
     color: colors.textPrimary,
   },
   menuSection: {
@@ -891,7 +891,7 @@ const styles = StyleSheet.create({
     paddingTop: 6,
     paddingBottom: 6,
     fontFamily: fonts.monoRegular,
-    fontSize: 10.5,
+    fontSize: 11,
     letterSpacing: 1,
     textTransform: 'uppercase',
     color: colors.textFaint,
@@ -900,7 +900,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 4,
     fontFamily: fonts.sansRegular,
-    fontSize: 13,
+    fontSize: 14,
     color: colors.textTertiary,
   },
   listDot: {
@@ -923,7 +923,7 @@ const styles = StyleSheet.create({
   },
   chipText: {
     fontFamily: fonts.sansMedium,
-    fontSize: 13,
+    fontSize: 14,
     color: colors.textPrimary,
   },
   addRow: {
@@ -941,7 +941,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontFamily: fonts.sansRegular,
-    fontSize: 14,
+    fontSize: 15,
     color: colors.textPrimary,
   },
   addBtn: {
@@ -952,7 +952,7 @@ const styles = StyleSheet.create({
   },
   addBtnText: {
     fontFamily: fonts.sansMedium,
-    fontSize: 13,
+    fontSize: 14,
   },
   doneBtn: {
     marginTop: 12,
@@ -965,7 +965,7 @@ const styles = StyleSheet.create({
   },
   doneText: {
     fontFamily: fonts.sansSemiBold,
-    fontSize: 14,
+    fontSize: 15,
     color: colors.textPrimary,
   },
 });

@@ -818,22 +818,22 @@ const styles = StyleSheet.create({
   rowLabel: {
     flex: 1,
     fontFamily: fonts.sansMedium,
-    fontSize: 14,
+    fontSize: 15,
     color: colors.textPrimary,
   },
   tagLabel: {
     fontFamily: fonts.monoRegular,
-    fontSize: 13,
+    fontSize: 13.5,
   },
   rowCount: {
     fontFamily: fonts.monoRegular,
-    fontSize: 12,
+    fontSize: 12.5,
     color: colors.textFaint,
   },
   /** The Tags caption. Folders used to share this and are now rows instead. */
   sectionLabel: {
     fontFamily: fonts.monoRegular,
-    fontSize: 10.5,
+    fontSize: 11,
     letterSpacing: 1,
     textTransform: 'uppercase',
     color: colors.textFaint,
@@ -867,7 +867,7 @@ const styles = StyleSheet.create({
   /** Matches TaskDetailView's "Add subtask" — the app's other subordinate add row. */
   newLabel: {
     fontFamily: fonts.sansRegular,
-    fontSize: 14,
+    fontSize: 15,
     color: colors.textTertiary,
   },
   /** Reserves the chevron's column so every row's icon and label line up. */
@@ -908,7 +908,7 @@ const styles = StyleSheet.create({
   },
   letterBadgeText: {
     fontFamily: fonts.sansBold,
-    fontSize: 12,
+    fontSize: 12.5,
     color: colors.surface,
   },
   footer: {

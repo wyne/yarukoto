@@ -85,11 +85,11 @@ const styles = StyleSheet.create({
   label: {
     flexShrink: 1,
     fontFamily: fonts.sansMedium,
-    fontSize: 13.5,
+    fontSize: 14.5,
     color: '#fff',
   },
   undo: {
     fontFamily: fonts.sansSemiBold,
-    fontSize: 13.5,
+    fontSize: 14.5,
   },
 });

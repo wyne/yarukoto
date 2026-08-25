@@ -77,7 +77,7 @@ export default function TagPickerSheet({ visible, onClose, initialTags, onApply,
           returnKeyType="done"
         />
         <Pressable style={[styles.addBtn, { borderColor: accent }]} onPress={addNewTag}>
-          <Text style={{ color: accent, fontFamily: fonts.sansMedium, fontSize: 13 }}>Add</Text>
+          <Text style={{ color: accent, fontFamily: fonts.sansMedium, fontSize: 14 }}>Add</Text>
         </Pressable>
       </View>
       <Pressable
@@ -108,7 +108,7 @@ const styles = StyleSheet.create({
   },
   chipText: {
     fontFamily: fonts.monoRegular,
-    fontSize: 13,
+    fontSize: 14,
     color: colors.textSecondary,
   },
   addRow: {
@@ -125,7 +125,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontFamily: fonts.sansRegular,
-    fontSize: 14,
+    fontSize: 15,
     color: colors.textPrimary,
   },
   addBtn: {
@@ -142,7 +142,7 @@ const styles = StyleSheet.create({
   },
   applyText: {
     fontFamily: fonts.sansSemiBold,
-    fontSize: 15,
+    fontSize: 16,
     color: '#fff',
   },
 });

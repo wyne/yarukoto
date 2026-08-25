@@ -252,7 +252,7 @@ const styles = StyleSheet.create({
   title: {
     flexShrink: 1,
     fontFamily: fonts.sansMedium,
-    fontSize: 15,
+    fontSize: 16,
     color: colors.textPrimary,
   },
   titleCompleted: {
@@ -285,12 +285,12 @@ const styles = StyleSheet.create({
   },
   metaOverdue: {
     fontFamily: fonts.monoRegular,
-    fontSize: 11.5,
+    fontSize: 12,
     color: colors.priorityHigh,
   },
   metaMuted: {
     fontFamily: fonts.monoRegular,
-    fontSize: 11.5,
+    fontSize: 12,
     color: colors.textTertiary,
   },
   handle: {
@@ -311,7 +311,7 @@ const styles = StyleSheet.create({
   },
   badgeText: {
     fontFamily: fonts.monoRegular,
-    fontSize: 11,
+    fontSize: 11.5,
     color: colors.textTertiary,
   },
   selectCircle: {

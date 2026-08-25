@@ -43,13 +43,13 @@ const styles = StyleSheet.create({
   label: {
     flexShrink: 1,
     fontFamily: fonts.monoRegular,
-    fontSize: 11,
+    fontSize: 11.5,
     letterSpacing: 1,
     textTransform: 'uppercase',
     color: colors.textTertiary,
   },
   action: {
     fontFamily: fonts.sansMedium,
-    fontSize: 13,
+    fontSize: 14,
   },
 });

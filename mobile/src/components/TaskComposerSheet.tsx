@@ -429,12 +429,12 @@ const styles = StyleSheet.create({
   },
   suggestionValue: {
     fontFamily: fonts.monoRegular,
-    fontSize: 13.5,
+    fontSize: 14.5,
     color: colors.textPrimary,
   },
   suggestionHint: {
     fontFamily: fonts.monoRegular,
-    fontSize: 11.5,
+    fontSize: 12,
     color: colors.textFaint,
   },
   chips: {
@@ -450,7 +450,7 @@ const styles = StyleSheet.create({
   },
   chipText: {
     fontFamily: fonts.monoRegular,
-    fontSize: 12,
+    fontSize: 12.5,
   },
   toolbar: {
     flexDirection: 'row',
@@ -504,7 +504,7 @@ const styles = StyleSheet.create({
   menuLabel: {
     flex: 1,
     fontFamily: fonts.sansMedium,
-    fontSize: 15,
+    fontSize: 16,
     color: colors.textPrimary,
   },
   menuSection: {
@@ -512,7 +512,7 @@ const styles = StyleSheet.create({
     paddingTop: 10,
     paddingBottom: 4,
     fontFamily: fonts.monoRegular,
-    fontSize: 10.5,
+    fontSize: 11,
     letterSpacing: 1,
     textTransform: 'uppercase',
     color: colors.textFaint,
@@ -521,7 +521,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontFamily: fonts.sansRegular,
-    fontSize: 13,
+    fontSize: 14,
     color: colors.textTertiary,
   },
   listDot: {

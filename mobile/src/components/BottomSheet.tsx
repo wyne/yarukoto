@@ -86,7 +86,7 @@ export default function BottomSheet({
 const styles = StyleSheet.create({
   title: {
     fontFamily: fonts.monoRegular,
-    fontSize: 11,
+    fontSize: 11.5,
     letterSpacing: 1,
     textTransform: 'uppercase',
     color: colors.textTertiary,

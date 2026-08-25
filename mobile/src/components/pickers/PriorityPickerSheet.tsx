@@ -62,7 +62,7 @@ const styles = StyleSheet.create({
   },
   rowText: {
     fontFamily: fonts.sansRegular,
-    fontSize: 15,
+    fontSize: 16,
     color: colors.textPrimary,
   },
 });

@@ -69,7 +69,7 @@ const styles = StyleSheet.create({
   },
   rowText: {
     fontFamily: fonts.sansRegular,
-    fontSize: 15,
+    fontSize: 16,
     color: colors.textPrimary,
   },
   dot: {
@@ -79,7 +79,7 @@ const styles = StyleSheet.create({
   },
   folderLabel: {
     fontFamily: fonts.monoRegular,
-    fontSize: 11,
+    fontSize: 11.5,
     letterSpacing: 1,
     textTransform: 'uppercase',
     color: colors.textTertiary,

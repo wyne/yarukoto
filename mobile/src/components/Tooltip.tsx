@@ -113,7 +113,7 @@ const styles = StyleSheet.create({
   },
   text: {
     fontFamily: fonts.sansMedium,
-    fontSize: 12,
+    fontSize: 12.5,
     color: '#fff',
   },
 });

@@ -65,7 +65,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontFamily: fonts.sansRegular,
-    fontSize: 14,
+    fontSize: 15,
     color: colors.textPrimary,
     backgroundColor: colors.surface,
   },
@@ -81,7 +81,7 @@ const styles = StyleSheet.create({
   },
   createText: {
     fontFamily: fonts.sansSemiBold,
-    fontSize: 15,
+    fontSize: 16,
     color: '#fff',
   },
 });

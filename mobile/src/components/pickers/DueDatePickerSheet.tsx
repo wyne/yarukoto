@@ -64,7 +64,7 @@ const styles = StyleSheet.create({
   },
   applyText: {
     fontFamily: fonts.sansSemiBold,
-    fontSize: 15,
+    fontSize: 16,
     color: '#fff',
   },
 });

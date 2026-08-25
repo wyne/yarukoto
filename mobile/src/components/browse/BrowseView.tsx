@@ -145,7 +145,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 32,
     fontFamily: fonts.sansRegular,
-    fontSize: 14,
+    fontSize: 15,
     color: colors.textTertiary,
   },
 });

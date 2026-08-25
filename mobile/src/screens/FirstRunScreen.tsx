@@ -218,7 +218,7 @@ const styles = StyleSheet.create({
   },
   tagline: {
     fontFamily: fonts.sansRegular,
-    fontSize: 15,
+    fontSize: 16,
     color: colors.textSecondary,
     marginTop: 6,
     lineHeight: 21,
@@ -241,13 +241,13 @@ const styles = StyleSheet.create({
   fieldInput: {
     flex: 1,
     fontFamily: fonts.monoRegular,
-    fontSize: 14,
+    fontSize: 15,
     color: colors.textPrimary,
     padding: 0,
   },
   error: {
     fontFamily: fonts.sansRegular,
-    fontSize: 12.5,
+    fontSize: 13,
     color: colors.priorityHigh,
   },
   connectBtn: {
@@ -260,7 +260,7 @@ const styles = StyleSheet.create({
   },
   connectText: {
     fontFamily: fonts.sansSemiBold,
-    fontSize: 15,
+    fontSize: 16,
     color: '#fff',
   },
   trustRow: {
@@ -282,7 +282,7 @@ const styles = StyleSheet.create({
   },
   orText: {
     fontFamily: fonts.monoRegular,
-    fontSize: 11,
+    fontSize: 11.5,
     color: colors.textFaint,
   },
   sampleBtn: {
@@ -296,24 +296,24 @@ const styles = StyleSheet.create({
   },
   sampleText: {
     fontFamily: fonts.sansSemiBold,
-    fontSize: 15,
+    fontSize: 16,
   },
   sampleHint: {
     marginTop: 8,
     textAlign: 'center',
     fontFamily: fonts.sansRegular,
-    fontSize: 12.5,
+    fontSize: 13,
     lineHeight: 17,
     color: colors.textTertiary,
   },
   trustText: {
     fontFamily: fonts.monoRegular,
-    fontSize: 12,
+    fontSize: 12.5,
     color: colors.textSecondary,
   },
   savedLabel: {
     fontFamily: fonts.monoRegular,
-    fontSize: 11,
+    fontSize: 11.5,
     letterSpacing: 0.6,
     textTransform: 'uppercase',
     color: colors.textFaint,
@@ -339,7 +339,7 @@ const styles = StyleSheet.create({
   savedUrl: {
     flex: 1,
     fontFamily: fonts.monoRegular,
-    fontSize: 13,
+    fontSize: 14,
     color: colors.textPrimary,
   },
   forgetBtn: {
@@ -354,12 +354,12 @@ const styles = StyleSheet.create({
   footer: {
     textAlign: 'center',
     fontFamily: fonts.sansRegular,
-    fontSize: 13,
+    fontSize: 14,
     color: colors.textTertiary,
   },
   helpText: {
     fontFamily: fonts.sansRegular,
-    fontSize: 14,
+    fontSize: 15,
     lineHeight: 21,
     color: colors.textSecondary,
   },
