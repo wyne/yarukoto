@@ -1,9 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { RefreshControl, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors } from '../theme/colors';
+import { Palette } from '../theme/colors';
+import { makeStyles } from '../theme/styles';
 import { fonts } from '../theme/typography';
-import { useAccent } from '../theme/ThemeContext';
+import { useAccent, useColors } from '../theme/ThemeContext';
 import { PANE_MAX_WIDTH, useSidebar } from '../navigation/SidebarContext';
 import { NATIVE_TAB_CONTENT_PADDING } from '../navigation/nativeTabBarLayout';
 import { WEB_ENTRY } from '../data/platform';
@@ -34,14 +35,23 @@ interface ActivityItem {
   recordedAt: string;
 }
 
-const EVENT_COLORS: Record<ActivityKind, string> = {
-  create: colors.success,
-  edit: colors.priorityLow,
-  complete: colors.purple,
-  delete: colors.priorityHigh,
-  restore: colors.teal,
-  reopen: colors.orange,
-};
+/** A function rather than a table, because the colours it names now move. */
+function eventColor(kind: ActivityKind, c: Palette): string {
+  switch (kind) {
+    case 'create':
+      return c.success;
+    case 'edit':
+      return c.priorityLow;
+    case 'complete':
+      return c.purple;
+    case 'delete':
+      return c.priorityHigh;
+    case 'restore':
+      return c.teal;
+    case 'reopen':
+      return c.orange;
+  }
+}
 
 const todayLabel = new Intl.DateTimeFormat(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
 const timeLabel = new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' });
@@ -191,6 +201,8 @@ function summarize(revision: ActivityRevision, now: Date, lists: ListDef[]): Act
 }
 
 export default function ActivityScreen() {
+  const colors = useColors();
+  const styles = useStyles();
   const accent = useAccent();
   const insets = useSafeAreaInsets();
   const { wide, openDrawer } = useSidebar();
@@ -278,9 +290,9 @@ export default function ActivityScreen() {
                 {dayItems.map((item, i) => (
                   <View key={item.id}>
                     <View style={styles.row}>
-                      <View style={[styles.dot, { backgroundColor: EVENT_COLORS[item.kind] }]} />
+                      <View style={[styles.dot, { backgroundColor: eventColor(item.kind, colors) }]} />
                       <View style={styles.rowText}>
-                        <Text style={[styles.rowTitle, { color: EVENT_COLORS[item.kind] }]} numberOfLines={1}>
+                        <Text style={[styles.rowTitle, { color: eventColor(item.kind, colors) }]} numberOfLines={1}>
                           {item.title}
                         </Text>
                         <Text style={styles.rowTask} numberOfLines={1}>
@@ -325,8 +337,8 @@ export default function ActivityScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.screenBg },
+const useStyles = makeStyles((c) => ({
+  screen: { flex: 1, backgroundColor: c.screenBg },
   paneWide: { width: '100%', maxWidth: PANE_MAX_WIDTH },
   header: {
     flexDirection: 'row',
@@ -339,7 +351,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontFamily: fonts.sansBold,
     fontSize: 22,
-    color: colors.textPrimary,
+    color: c.textPrimary,
   },
   scroll: {
     flexGrow: 1,
@@ -353,7 +365,7 @@ const styles = StyleSheet.create({
     marginTop: 32,
     fontFamily: fonts.sansRegular,
     fontSize: 15,
-    color: colors.textTertiary,
+    color: c.textTertiary,
   },
   group: {
     marginHorizontal: 12,
@@ -366,7 +378,7 @@ const styles = StyleSheet.create({
     fontSize: 11.5,
     letterSpacing: 1,
     textTransform: 'uppercase',
-    color: colors.textTertiary,
+    color: c.textTertiary,
   },
   row: {
     flexDirection: 'row',
@@ -389,19 +401,19 @@ const styles = StyleSheet.create({
   rowTitle: {
     fontFamily: fonts.sansSemiBold,
     fontSize: 15,
-    color: colors.textPrimary,
+    color: c.textPrimary,
   },
   rowTask: {
     marginTop: 2,
     fontFamily: fonts.sansRegular,
     fontSize: 14,
-    color: colors.textSecondary,
+    color: c.textSecondary,
   },
   rowMeta: {
     marginTop: 2,
     fontFamily: fonts.monoRegular,
     fontSize: 12,
-    color: colors.textTertiary,
+    color: c.textTertiary,
   },
   changes: {
     marginTop: 6,
@@ -417,14 +429,14 @@ const styles = StyleSheet.create({
     width: 50,
     fontFamily: fonts.monoRegular,
     fontSize: 11,
-    color: colors.textTertiary,
+    color: c.textTertiary,
   },
   changeBefore: {
     flex: 1,
     minWidth: 0,
     fontFamily: fonts.sansRegular,
     fontSize: 12.5,
-    color: colors.textTertiary,
+    color: c.textTertiary,
     textDecorationLine: 'line-through',
   },
   changeAfter: {
@@ -432,18 +444,18 @@ const styles = StyleSheet.create({
     minWidth: 0,
     fontFamily: fonts.sansMedium,
     fontSize: 12.5,
-    color: colors.textSecondary,
+    color: c.textSecondary,
   },
   changeMore: {
     marginLeft: 55,
     fontFamily: fonts.monoRegular,
     fontSize: 11,
-    color: colors.textTertiary,
+    color: c.textTertiary,
   },
   time: {
     alignSelf: 'flex-start',
     fontFamily: fonts.monoRegular,
     fontSize: 12,
-    color: colors.textTertiary,
+    color: c.textTertiary,
   },
-});
+}));

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text } from 'react-native';
 import BottomSheet from '../BottomSheet';
 import type { PopoverAnchor } from '../Popover';
-import { colors } from '../../theme/colors';
+import { useColors } from '../../theme/ThemeContext';
 import { fonts } from '../../theme/typography';
 import DueDateTimeControls from './DueDateTimeControls';
 
@@ -19,6 +19,7 @@ interface Props {
 }
 
 export default function DueDatePickerSheet({ visible, onClose, initialDate, initialTime, onApply, anchor, onBack }: Props) {
+  const colors = useColors();
   const [date, setDate] = useState(initialDate);
   const [time, setTime] = useState(initialTime);
 
@@ -43,13 +44,13 @@ export default function DueDatePickerSheet({ visible, onClose, initialDate, init
         setTime(nextTime);
       }} />
       <Pressable
-        style={[styles.applyBtn, { backgroundColor: colors.textPrimary }]}
+        style={[styles.applyBtn, { backgroundColor: colors.inverseSurface }]}
         onPress={() => {
           onApply(date, date ? time : undefined);
           onClose();
         }}
       >
-        <Text style={styles.applyText}>Apply</Text>
+        <Text style={[styles.applyText, { color: colors.inverseText }]}>Apply</Text>
       </Pressable>
     </BottomSheet>
   );

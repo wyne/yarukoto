@@ -5,11 +5,12 @@ import { RootStackParamList } from './types';
 import FirstRunScreen from '../screens/FirstRunScreen';
 import MainTabs from './MainTabs';
 import NativeDateTimePickerScreen from '../screens/NativeDateTimePickerScreen';
-import { colors } from '../theme/colors';
+import { useColors } from '../theme/ThemeContext';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function RootNavigator() {
+  const colors = useColors();
   const { state } = useTasks();
 
   return (

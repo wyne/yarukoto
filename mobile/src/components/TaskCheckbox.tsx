@@ -1,6 +1,7 @@
 import React, { useRef } from 'react';
 import { Animated, Pressable, StyleSheet } from 'react-native';
-import { colors, priorityColor } from '../theme/colors';
+import { priorityColor } from '../theme/colors';
+import { useColors } from '../theme/ThemeContext';
 import { Priority } from '../data/types';
 import { hapticAction } from '../data/haptics';
 import { IconCheckBig } from '../icons/Icons';
@@ -13,6 +14,7 @@ interface Props {
 }
 
 export default function TaskCheckbox({ completed, priority, onPress, size = 20 }: Props) {
+  const colors = useColors();
   const scale = useRef(new Animated.Value(1)).current;
 
   const handlePress = () => {
@@ -37,7 +39,7 @@ export default function TaskCheckbox({ completed, priority, onPress, size = 20 }
           },
           completed
             ? { backgroundColor: colors.success }
-            : { borderWidth: 2, borderColor: priorityColor(priority) },
+            : { borderWidth: 2, borderColor: priorityColor(priority, colors) },
         ]}
       >
         {completed && <IconCheckBig size={Math.round(size * 0.6)} color="#fff" strokeWidth={2} />}

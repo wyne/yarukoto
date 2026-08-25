@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
-import { ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
-import { colors } from '../../theme/colors';
+import { useColors } from '../../theme/ThemeContext';
+import { ScrollView, Text, TextInput, View, useWindowDimensions } from 'react-native';
+import { makeStyles } from '../../theme/styles';
 import { fonts } from '../../theme/typography';
 import { useTasks } from '../../data/TaskContext';
 import { useSyncRefresh } from '../../data/useSyncRefresh';
@@ -33,6 +34,8 @@ interface Props {
  * a pull-out on a phone, neither of which wants a screen's geometry baked in.
  */
 export default function BrowseView({ criteria, onCriteriaChange }: Props) {
+  const colors = useColors();
+  const styles = useStyles();
   const { wide } = useSidebar();
   const { width } = useWindowDimensions();
   const refreshControl = useSyncRefresh();
@@ -116,7 +119,7 @@ export default function BrowseView({ criteria, onCriteriaChange }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((c) => ({
   root: {
     flex: 1,
   },
@@ -132,8 +135,8 @@ const styles = StyleSheet.create({
   searchInput: {
     fontFamily: fonts.sansRegular,
     fontSize: 16,
-    color: colors.textPrimary,
-    backgroundColor: colors.chipBg,
+    color: c.textPrimary,
+    backgroundColor: c.chipBg,
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 9,
@@ -155,6 +158,6 @@ const styles = StyleSheet.create({
     marginTop: 32,
     fontFamily: fonts.sansRegular,
     fontSize: 15,
-    color: colors.textTertiary,
+    color: c.textTertiary,
   },
-});
+}));

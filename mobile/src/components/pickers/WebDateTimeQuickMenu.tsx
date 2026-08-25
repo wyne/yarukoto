@@ -1,9 +1,9 @@
 import React, { useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
+import { Pressable, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import Popover, { type PopoverAnchor } from '../Popover';
-import { colors } from '../../theme/colors';
+import { makeStyles } from '../../theme/styles';
 import { fonts } from '../../theme/typography';
-import { useAccent } from '../../theme/ThemeContext';
+import { useAccent, useColors, useScheme } from '../../theme/ThemeContext';
 import { formatTime24to12 } from '../../data/dateUtils';
 import { IconCheckBig, IconChevronLeft } from '../../icons/Icons';
 import { QUICK_DATES, QUICK_TIMES } from './dateTimeQuickOptions';
@@ -33,7 +33,10 @@ export default function WebDateTimeQuickMenu({
   children,
   style,
 }: Props) {
+  const colors = useColors();
+  const styles = useStyles();
   const accent = useAccent();
+  const scheme = useScheme();
   const triggerRef = useRef<View>(null);
   const [anchor, setAnchor] = useState<PopoverAnchor | null>(null);
   const [open, setOpen] = useState(false);
@@ -97,7 +100,7 @@ export default function WebDateTimeQuickMenu({
           color: colors.textPrimary,
           fontFamily: fonts.sansRegular,
           fontSize: 16,
-          colorScheme: 'light',
+          colorScheme: scheme,
         },
       })
     : null;
@@ -188,6 +191,8 @@ function MenuRow({
   destructive?: boolean;
   onPress: () => void;
 }) {
+  const colors = useColors();
+  const styles = useStyles();
   return (
     <Pressable style={styles.optionRow} onPress={onPress} accessibilityRole="menuitem">
       <Text style={[styles.optionLabel, destructive && styles.destructive]}>{label}</Text>
@@ -196,7 +201,7 @@ function MenuRow({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((c) => ({
   options: {
     marginHorizontal: -6,
     marginTop: -6,
@@ -213,15 +218,15 @@ const styles = StyleSheet.create({
   optionLabel: {
     fontFamily: fonts.sansRegular,
     fontSize: 15,
-    color: colors.textPrimary,
+    color: c.textPrimary,
   },
   destructive: {
-    color: colors.priorityHigh,
+    color: c.priorityHigh,
   },
   divider: {
     height: 1,
     marginVertical: 4,
-    backgroundColor: colors.divider,
+    backgroundColor: c.divider,
   },
   customPanel: {
     paddingBottom: 8,
@@ -245,7 +250,7 @@ const styles = StyleSheet.create({
     fontSize: 11.5,
     letterSpacing: 1,
     textTransform: 'uppercase',
-    color: colors.textTertiary,
+    color: c.textTertiary,
   },
   doneButton: {
     minHeight: 30,
@@ -257,4 +262,4 @@ const styles = StyleSheet.create({
     fontFamily: fonts.sansSemiBold,
     fontSize: 14,
   },
-});
+}));

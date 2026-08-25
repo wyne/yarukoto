@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text } from 'react-native';
+import { useColors } from '../../theme/ThemeContext';
+import { Pressable, Text } from 'react-native';
 import BottomSheet from '../BottomSheet';
 import SheetTextInput from '../SheetTextInput';
-import { colors } from '../../theme/colors';
+import { makeStyles } from '../../theme/styles';
 import { fonts } from '../../theme/typography';
 import { useTasks } from '../../data/TaskContext';
 import { FolderDef } from '../../data/types';
@@ -17,6 +18,8 @@ interface Props {
 
 /** Rename or delete a folder. Deleting takes its lists with it — see below. */
 export default function FolderOptionsSheet({ folder, onClose }: Props) {
+  const colors = useColors();
+  const styles = useStyles();
   const { state, renameFolder, deleteFolder } = useTasks();
   const [name, setName] = useState('');
 
@@ -89,46 +92,46 @@ export default function FolderOptionsSheet({ folder, onClose }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((c) => ({
   label: {
     fontFamily: fonts.monoRegular,
     fontSize: 11.5,
     letterSpacing: 1,
     textTransform: 'uppercase',
-    color: colors.textTertiary,
+    color: c.textTertiary,
     marginBottom: 8,
   },
   input: {
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: c.border,
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontFamily: fonts.sansRegular,
     fontSize: 16,
-    color: colors.textPrimary,
-    backgroundColor: colors.surface,
+    color: c.textPrimary,
+    backgroundColor: c.surface,
   },
   hint: {
     marginTop: 10,
     fontFamily: fonts.sansRegular,
     fontSize: 13,
-    color: colors.textTertiary,
+    color: c.textTertiary,
   },
   saveBtn: {
     marginTop: 20,
     borderRadius: 10,
     paddingVertical: 14,
     alignItems: 'center',
-    backgroundColor: colors.textPrimary,
+    backgroundColor: c.inverseSurface,
   },
   saveBtnDisabled: {
-    backgroundColor: colors.textFaint,
+    backgroundColor: c.textFaint,
   },
   saveText: {
     fontFamily: fonts.sansSemiBold,
     fontSize: 16,
-    color: '#fff',
+    color: c.inverseText,
   },
   deleteBtn: {
     marginTop: 4,
@@ -138,6 +141,6 @@ const styles = StyleSheet.create({
   deleteText: {
     fontFamily: fonts.sansMedium,
     fontSize: 15,
-    color: colors.priorityHigh,
+    color: c.priorityHigh,
   },
-});
+}));

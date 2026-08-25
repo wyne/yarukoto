@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
+import { Pressable, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import Animated, {
   FadeIn,
   FadeOut,
@@ -7,9 +7,9 @@ import Animated, {
   useAnimatedRef,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors } from '../theme/colors';
+import { makeStyles } from '../theme/styles';
 import { fonts } from '../theme/typography';
-import { useAccent } from '../theme/ThemeContext';
+import { useAccent, useColors } from '../theme/ThemeContext';
 import { useTasks } from '../data/TaskContext';
 import {
   activeTasks,
@@ -65,6 +65,8 @@ interface Props {
 }
 
 export default function TaskListScreen({ mode, filter }: Props) {
+  const colors = useColors();
+  const styles = useStyles();
   const accent = useAccent();
   const insets = useSafeAreaInsets();
   const refreshControl = useSyncRefresh();
@@ -719,10 +721,10 @@ export default function TaskListScreen({ mode, filter }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((c) => ({
   screen: {
     flex: 1,
-    backgroundColor: colors.screenBg,
+    backgroundColor: c.screenBg,
   },
   header: {
     flexDirection: 'row',
@@ -744,18 +746,18 @@ const styles = StyleSheet.create({
   title: {
     fontFamily: fonts.sansBold,
     fontSize: 22,
-    color: colors.textPrimary,
+    color: c.textPrimary,
   },
   count: {
     fontFamily: fonts.monoRegular,
     fontSize: 13.5,
-    color: colors.textTertiary,
+    color: c.textTertiary,
   },
   searchInput: {
     flex: 1,
     fontFamily: fonts.sansRegular,
     fontSize: 16,
-    color: colors.textPrimary,
+    color: c.textPrimary,
     padding: 0,
   },
   selectHeader: {
@@ -772,7 +774,7 @@ const styles = StyleSheet.create({
   selectedCount: {
     fontFamily: fonts.sansSemiBold,
     fontSize: 16,
-    color: colors.textPrimary,
+    color: c.textPrimary,
   },
   scrollContent: {
     /**
@@ -818,6 +820,6 @@ const styles = StyleSheet.create({
     marginTop: 32,
     fontFamily: fonts.sansRegular,
     fontSize: 15,
-    color: colors.textTertiary,
+    color: c.textTertiary,
   },
-});
+}));

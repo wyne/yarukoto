@@ -1,8 +1,9 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { colors, priorityColor } from '../theme/colors';
+import { Pressable, Text, View } from 'react-native';
+import { priorityColor } from '../theme/colors';
+import { makeStyles } from '../theme/styles';
 import { fonts } from '../theme/typography';
-import { useAccent } from '../theme/ThemeContext';
+import { useAccent, useColors } from '../theme/ThemeContext';
 import { hoverable } from '../theme/hover';
 import { Priority, Task } from '../data/types';
 import { addDays, toISODate } from '../data/dateUtils';
@@ -56,6 +57,8 @@ export default function TaskContextMenu({
   onToggleComplete,
   onDelete,
 }: Props) {
+  const colors = useColors();
+  const styles = useStyles();
   const accent = useAccent();
   if (!task) return null;
 
@@ -96,7 +99,7 @@ export default function TaskContextMenu({
       <View style={styles.chips}>
         {PRIORITIES.map((p) => {
           const active = task.priority === p.value;
-          const tint = p.value === 'none' ? colors.ringNone : priorityColor(p.value);
+          const tint = p.value === 'none' ? colors.ringNone : priorityColor(p.value, colors);
           return (
             <Pressable
               key={p.value}
@@ -141,6 +144,8 @@ function Row({
   onPress: () => void;
   destructive?: boolean;
 }) {
+  const colors = useColors();
+  const styles = useStyles();
   return (
     <Pressable onPress={onPress} style={hoverable(styles.row, styles.rowHovered)}>
       <View style={styles.rowIcon}>{icon}</View>
@@ -149,13 +154,13 @@ function Row({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((c) => ({
   label: {
     fontFamily: fonts.monoRegular,
     fontSize: 11.5,
     letterSpacing: 1,
     textTransform: 'uppercase',
-    color: colors.textTertiary,
+    color: c.textTertiary,
     marginBottom: 8,
   },
   chips: {
@@ -169,18 +174,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 5,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: c.border,
     borderRadius: 7,
     paddingHorizontal: 9,
     paddingVertical: 5,
   },
   chipHovered: {
-    backgroundColor: colors.hoverBg,
+    backgroundColor: c.hoverBg,
   },
   chipText: {
     fontFamily: fonts.sansMedium,
     fontSize: 12.5,
-    color: colors.textPrimary,
+    color: c.textPrimary,
   },
   chipTextActive: {
     color: '#fff',
@@ -193,7 +198,7 @@ const styles = StyleSheet.create({
   },
   divider: {
     height: 1,
-    backgroundColor: colors.divider,
+    backgroundColor: c.divider,
     marginBottom: 6,
   },
   row: {
@@ -205,7 +210,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   rowHovered: {
-    backgroundColor: colors.hoverBg,
+    backgroundColor: c.hoverBg,
   },
   rowIcon: {
     width: 18,
@@ -214,6 +219,6 @@ const styles = StyleSheet.create({
   rowText: {
     fontFamily: fonts.sansRegular,
     fontSize: 15,
-    color: colors.textPrimary,
+    color: c.textPrimary,
   },
-});
+}));

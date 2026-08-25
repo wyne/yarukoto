@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { ACCENT_OPTIONS, AccentColor, DEFAULT_ACCENT } from '../theme/colors';
+import { ACCENT_OPTIONS, AccentColor, DEFAULT_ACCENT, SchemePref } from '../theme/colors';
 import { FolderDef, ListDef, Task, ViewPref } from './types';
 import {
   DUE_FILTERS,
@@ -44,6 +44,7 @@ const FOLDERS_KEY = 'yarukoto.collapsedFolders';
 const SERVER_SNAPSHOT_KEY = 'yarukoto.serverSnapshot';
 const DIRTY_IDS_KEY = 'yarukoto.dirtyIds';
 const BROWSE_KEY = 'yarukoto.browseCriteria';
+const SCHEME_KEY = 'yarukoto.scheme';
 
 const ALL_KEYS = [
   URL_KEY,
@@ -57,6 +58,7 @@ const ALL_KEYS = [
   SERVER_SNAPSHOT_KEY,
   DIRTY_IDS_KEY,
   BROWSE_KEY,
+  SCHEME_KEY,
 ];
 
 const SERVER_SNAPSHOT_SCHEMA = 1;
@@ -171,6 +173,24 @@ export function loadAccent(): AccentColor {
 
 export function saveAccent(accent: AccentColor): void {
   write(ACCENT_KEY, accent);
+}
+
+const SCHEME_PREFS: SchemePref[] = ['system', 'light', 'dark'];
+
+/**
+ * Light, dark, or whatever the device says.
+ *
+ * Device-local like the accent beside it, and for the same reason: it is how
+ * one screen is set up on one machine. A phone that goes dark at sunset has no
+ * business dimming a desktop.
+ */
+export function loadScheme(): SchemePref {
+  const stored = read(SCHEME_KEY);
+  return SCHEME_PREFS.includes(stored as SchemePref) ? (stored as SchemePref) : 'system';
+}
+
+export function saveScheme(pref: SchemePref): void {
+  write(SCHEME_KEY, pref);
 }
 
 /** Which calendar layout the Plan screen is in. 'multi' is the few-day column view. */

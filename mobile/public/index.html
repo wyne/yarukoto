@@ -36,9 +36,10 @@
     -->
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Yarukoto" />
-    <meta name="theme-color" content="#F4F4F1" />
+    <meta name="theme-color" content="#F4F4F1" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#161614" media="(prefers-color-scheme: dark)" />
 
     <!--
       Icons, all cut from assets/brand-mark.svg. Without an apple-touch-icon iOS
@@ -77,15 +78,17 @@
     <style id="yarukoto-mobile-web">
       html,
       body {
-        /* colors.screenBg — fills the status bar strip and any overscroll gutter, so
-           neither shows white while the app itself is the only thing on screen. */
         background-color: #f4f4f1;
-        /* Safari inflates text in landscape without this, which would undo the type scale. */
         -webkit-text-size-adjust: 100%;
         overscroll-behavior: none;
       }
+      @media (prefers-color-scheme: dark) {
+        html,
+        body {
+          background-color: #161614;
+        }
+      }
       body {
-        /* Drops the 300ms double-tap-to-zoom delay on taps. */
         touch-action: manipulation;
       }
       #root {

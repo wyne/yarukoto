@@ -1,6 +1,7 @@
 import { Keyboard, Pressable, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
 import { GlassView } from 'expo-glass-effect';
-import { colors } from '../theme/colors';
+import { makeStyles } from '../theme/styles';
+import { useColors } from '../theme/ThemeContext';
 import { LIQUID_GLASS } from '../data/platform';
 import { IconChevronDown } from '../icons/Icons';
 
@@ -16,6 +17,8 @@ type Props = {
  * starts here must not become a scroll or a sheet drag.
  */
 export default function KeyboardDismissButton({ style }: Props) {
+  const colors = useColors();
+  const styles = useStyles();
   return (
     <View
       accessible
@@ -40,7 +43,7 @@ export default function KeyboardDismissButton({ style }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((c) => ({
   hitShield: {
     width: 64,
     height: 56,
@@ -61,12 +64,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderRadius: 19,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255, 255, 255, 0.72)',
-    backgroundColor: 'rgba(255, 255, 255, 0.68)',
-    shadowColor: '#000',
-    shadowOpacity: 0.18,
+    borderColor: c.glassBorder,
+    backgroundColor: c.glassFill,
+    shadowColor: c.shadow,
+    shadowOpacity: c.shadowOpacity,
     shadowRadius: 18,
     shadowOffset: { width: 0, height: 8 },
     elevation: 20,
   },
-});
+}));

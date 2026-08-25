@@ -1,9 +1,9 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import BottomSheet from '../BottomSheet';
 import type { PopoverAnchor } from '../Popover';
-import { colors } from '../../theme/colors';
-import { hoverBg } from '../../theme/hover';
+import { makeStyles } from '../../theme/styles';
+import { useHoverBg } from '../../theme/hover';
 import { fonts } from '../../theme/typography';
 import { useAccent } from '../../theme/ThemeContext';
 import { useTasks } from '../../data/TaskContext';
@@ -21,6 +21,8 @@ interface Props {
 }
 
 export default function ListPickerSheet({ visible, onClose, value, onApply, anchor, onBack }: Props) {
+  const hoverBg = useHoverBg();
+  const styles = useStyles();
   const accent = useAccent();
   const { state } = useTasks();
 
@@ -58,19 +60,19 @@ export default function ListPickerSheet({ visible, onClose, value, onApply, anch
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((c) => ({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: colors.divider,
+    borderBottomColor: c.divider,
   },
   rowText: {
     fontFamily: fonts.sansRegular,
     fontSize: 16,
-    color: colors.textPrimary,
+    color: c.textPrimary,
   },
   dot: {
     width: 10,
@@ -82,8 +84,8 @@ const styles = StyleSheet.create({
     fontSize: 11.5,
     letterSpacing: 1,
     textTransform: 'uppercase',
-    color: colors.textTertiary,
+    color: c.textTertiary,
     marginTop: 10,
     marginBottom: 2,
   },
-});
+}));

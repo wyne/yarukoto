@@ -1,6 +1,7 @@
 // Icon set traced 1:1 from the inline SVGs in project/Docket Mobile.dc.html.
 import React from 'react';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
+import { useAccent, useColors } from '../theme/ThemeContext';
 
 export interface IconProps {
   size?: number;
@@ -8,7 +9,9 @@ export interface IconProps {
   strokeWidth?: number;
 }
 
-export function IconMenu({ size = 22, color = '#1A1A18', strokeWidth = 1.8 }: IconProps) {
+export function IconMenu({ size = 22, color: colorProp, strokeWidth = 1.8 }: IconProps) {
+  const c = useColors();
+  const color = colorProp ?? c.textPrimary;
   return (
     <Svg width={size} height={size} viewBox="0 0 22 22" fill="none">
       <Path d="M3 6h16M3 11h16M3 16h10" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" />
@@ -16,7 +19,9 @@ export function IconMenu({ size = 22, color = '#1A1A18', strokeWidth = 1.8 }: Ic
   );
 }
 
-export function IconSearch({ size = 20, color = '#1A1A18', strokeWidth = 1.8 }: IconProps) {
+export function IconSearch({ size = 20, color: colorProp, strokeWidth = 1.8 }: IconProps) {
+  const c = useColors();
+  const color = colorProp ?? c.textPrimary;
   return (
     <Svg width={size} height={size} viewBox="0 0 20 20" fill="none">
       <Circle cx={9} cy={9} r={6} stroke={color} strokeWidth={strokeWidth} />
@@ -25,7 +30,9 @@ export function IconSearch({ size = 20, color = '#1A1A18', strokeWidth = 1.8 }: 
   );
 }
 
-export function IconSelectMode({ size = 20, color = '#1A1A18', strokeWidth = 1.8 }: IconProps) {
+export function IconSelectMode({ size = 20, color: colorProp, strokeWidth = 1.8 }: IconProps) {
+  const c = useColors();
+  const color = colorProp ?? c.textPrimary;
   return (
     <Svg width={size} height={size} viewBox="0 0 20 20" fill="none">
       <Path d="M4 6h12M4 10h12M4 14h7" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" />
@@ -34,7 +41,9 @@ export function IconSelectMode({ size = 20, color = '#1A1A18', strokeWidth = 1.8
   );
 }
 
-export function IconPlus({ size = 16, color = '#2E52E0', strokeWidth = 1.8 }: IconProps) {
+export function IconPlus({ size = 16, color: colorProp, strokeWidth = 1.8 }: IconProps) {
+  const accent = useAccent();
+  const color = colorProp ?? accent;
   return (
     <Svg width={size} height={size} viewBox="0 0 16 16" fill="none">
       <Path d="M8 3v10M3 8h10" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" />
@@ -42,7 +51,9 @@ export function IconPlus({ size = 16, color = '#2E52E0', strokeWidth = 1.8 }: Ic
   );
 }
 
-export function IconPlusBig({ size = 20, color = '#2E52E0', strokeWidth = 1.8 }: IconProps) {
+export function IconPlusBig({ size = 20, color: colorProp, strokeWidth = 1.8 }: IconProps) {
+  const accent = useAccent();
+  const color = colorProp ?? accent;
   return (
     <Svg width={size} height={size} viewBox="0 0 20 20" fill="none">
       <Path d="M10 4v12M4 10h12" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" />
@@ -50,7 +61,9 @@ export function IconPlusBig({ size = 20, color = '#2E52E0', strokeWidth = 1.8 }:
   );
 }
 
-export function IconStar({ size = 14, color = '#C22B23' }: IconProps) {
+export function IconStar({ size = 14, color: colorProp }: IconProps) {
+  const c = useColors();
+  const color = colorProp ?? c.priorityHigh;
   return (
     <Svg width={size} height={size} viewBox="0 0 14 14" fill="none">
       <Path d="M7 1.5l1.7 3.4 3.8.6-2.7 2.7.6 3.8L7 10.2 3.6 12l.6-3.8L1.5 5.5l3.8-.6L7 1.5z" fill={color} />
@@ -58,7 +71,9 @@ export function IconStar({ size = 14, color = '#C22B23' }: IconProps) {
   );
 }
 
-export function IconCalendarBox({ size = 18, color = '#55554F', strokeWidth = 1.6 }: IconProps) {
+export function IconCalendarBox({ size = 18, color: colorProp, strokeWidth = 1.6 }: IconProps) {
+  const c = useColors();
+  const color = colorProp ?? c.textSecondary;
   return (
     <Svg width={size} height={size} viewBox="0 0 18 18" fill="none">
       <Rect x={2.5} y={3.5} width={13} height={12} rx={2} stroke={color} strokeWidth={strokeWidth} />
@@ -67,6 +82,8 @@ export function IconCalendarBox({ size = 18, color = '#55554F', strokeWidth = 1.
   );
 }
 
+// White by default because it is only ever drawn on a filled accent or success
+// shape, both of which keep their colour in dark.
 export function IconCheckBig({ size = 18, color = '#fff', strokeWidth = 2 }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 18 18" fill="none">
@@ -75,7 +92,9 @@ export function IconCheckBig({ size = 18, color = '#fff', strokeWidth = 2 }: Ico
   );
 }
 
-export function IconChevronDown({ size = 12, color = '#8A8A82', strokeWidth = 1.6 }: IconProps) {
+export function IconChevronDown({ size = 12, color: colorProp, strokeWidth = 1.6 }: IconProps) {
+  const c = useColors();
+  const color = colorProp ?? c.textTertiary;
   return (
     <Svg width={size} height={size} viewBox="0 0 12 12" fill="none">
       <Path d="M3 5l3 3 3-3" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" />
@@ -83,19 +102,24 @@ export function IconChevronDown({ size = 12, color = '#8A8A82', strokeWidth = 1.
   );
 }
 
-export function IconCheckCircleFilled({ size = 20, bg = '#1E7A3C' }: { size?: number; bg?: string }) {
+export function IconCheckCircleFilled({ size = 20, bg }: { size?: number; bg?: string }) {
+  const c = useColors();
+  const fill = bg ?? c.success;
   const inner = size * 0.55;
   return (
     <Svg width={size} height={size} viewBox="0 0 20 20">
-      <Circle cx={10} cy={10} r={10} fill={bg} />
+      <Circle cx={10} cy={10} r={10} fill={fill} />
       <Svg width={inner} height={inner} viewBox="0 0 11 11" x={(20 - inner) / 2} y={(20 - inner) / 2}>
+        {/* White in both schemes: the disc under it is `success`, which stays green. */}
         <Path d="M2 6l2.5 2.5L9 3" stroke="#fff" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" fill="none" />
       </Svg>
     </Svg>
   );
 }
 
-export function IconInboxTray({ size = 20, color = '#8A8A82', strokeWidth = 1.7 }: IconProps) {
+export function IconInboxTray({ size = 20, color: colorProp, strokeWidth = 1.7 }: IconProps) {
+  const c = useColors();
+  const color = colorProp ?? c.textTertiary;
   return (
     <Svg width={size} height={size} viewBox="0 0 20 20" fill="none">
       <Path d="M3 10l2-6h10l2 6v6H3v-6z" stroke={color} strokeWidth={strokeWidth} strokeLinejoin="round" />
@@ -104,7 +128,9 @@ export function IconInboxTray({ size = 20, color = '#8A8A82', strokeWidth = 1.7 
   );
 }
 
-export function IconClock({ size = 20, color = '#8A8A82', strokeWidth = 1.7 }: IconProps) {
+export function IconClock({ size = 20, color: colorProp, strokeWidth = 1.7 }: IconProps) {
+  const c = useColors();
+  const color = colorProp ?? c.textTertiary;
   return (
     <Svg width={size} height={size} viewBox="0 0 20 20" fill="none">
       <Circle cx={10} cy={10} r={7} stroke={color} strokeWidth={strokeWidth} />
@@ -113,7 +139,9 @@ export function IconClock({ size = 20, color = '#8A8A82', strokeWidth = 1.7 }: I
   );
 }
 
-export function IconCalendar({ size = 20, color = '#8A8A82', strokeWidth = 1.7 }: IconProps) {
+export function IconCalendar({ size = 20, color: colorProp, strokeWidth = 1.7 }: IconProps) {
+  const c = useColors();
+  const color = colorProp ?? c.textTertiary;
   return (
     <Svg width={size} height={size} viewBox="0 0 20 20" fill="none">
       <Rect x={3} y={4} width={14} height={13} rx={2} stroke={color} strokeWidth={strokeWidth} />
@@ -122,7 +150,9 @@ export function IconCalendar({ size = 20, color = '#8A8A82', strokeWidth = 1.7 }
   );
 }
 
-export function IconFolder({ size = 20, color = '#8A8A82', strokeWidth = 1.7 }: IconProps) {
+export function IconFolder({ size = 20, color: colorProp, strokeWidth = 1.7 }: IconProps) {
+  const c = useColors();
+  const color = colorProp ?? c.textTertiary;
   return (
     <Svg width={size} height={size} viewBox="0 0 20 20" fill="none">
       <Path d="M3 5.5h6l1.5 2H17v8H3v-10z" stroke={color} strokeWidth={strokeWidth} strokeLinejoin="round" />
@@ -131,7 +161,9 @@ export function IconFolder({ size = 20, color = '#8A8A82', strokeWidth = 1.7 }: 
 }
 
 /** Stacked layers — the All view, everything at once. */
-export function IconStack({ size = 20, color = '#8A8A82', strokeWidth = 1.7 }: IconProps) {
+export function IconStack({ size = 20, color: colorProp, strokeWidth = 1.7 }: IconProps) {
+  const c = useColors();
+  const color = colorProp ?? c.textTertiary;
   return (
     <Svg width={size} height={size} viewBox="0 0 20 20" fill="none">
       <Path d="M10 3l7 3.5-7 3.5-7-3.5L10 3z" stroke={color} strokeWidth={strokeWidth} strokeLinejoin="round" />
@@ -141,7 +173,9 @@ export function IconStack({ size = 20, color = '#8A8A82', strokeWidth = 1.7 }: I
 }
 
 /** Two columns of dots — the drag handle for reordering. */
-export function IconGrip({ size = 16, color = '#B4B4AC' }: IconProps) {
+export function IconGrip({ size = 16, color: colorProp }: IconProps) {
+  const c = useColors();
+  const color = colorProp ?? c.textFaint;
   return (
     <Svg width={size} height={size} viewBox="0 0 16 16" fill="none">
       {[4, 8, 12].map((cy) => (
@@ -155,7 +189,9 @@ export function IconGrip({ size = 16, color = '#B4B4AC' }: IconProps) {
 }
 
 /** Two columns — the Plan view's list-beside-calendar layout. */
-export function IconColumns({ size = 20, color = '#8A8A82', strokeWidth = 1.7 }: IconProps) {
+export function IconColumns({ size = 20, color: colorProp, strokeWidth = 1.7 }: IconProps) {
+  const c = useColors();
+  const color = colorProp ?? c.textTertiary;
   return (
     <Svg width={size} height={size} viewBox="0 0 20 20" fill="none">
       <Rect x={3} y={4} width={5.5} height={12} rx={1.5} stroke={color} strokeWidth={strokeWidth} />
@@ -165,7 +201,9 @@ export function IconColumns({ size = 20, color = '#8A8A82', strokeWidth = 1.7 }:
 }
 
 /** Sliders — opens the group/sort sheet. */
-export function IconViewOptions({ size = 20, color = '#1A1A18', strokeWidth = 1.8 }: IconProps) {
+export function IconViewOptions({ size = 20, color: colorProp, strokeWidth = 1.8 }: IconProps) {
+  const c = useColors();
+  const color = colorProp ?? c.textPrimary;
   return (
     <Svg width={size} height={size} viewBox="0 0 20 20" fill="none">
       <Path d="M3 6h14M3 10h14M3 14h14" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" />
@@ -176,7 +214,9 @@ export function IconViewOptions({ size = 20, color = '#1A1A18', strokeWidth = 1.
   );
 }
 
-export function IconTrendUp({ size = 18, color = '#2E52E0', strokeWidth = 1.7 }: IconProps) {
+export function IconTrendUp({ size = 18, color: colorProp, strokeWidth = 1.7 }: IconProps) {
+  const accent = useAccent();
+  const color = colorProp ?? accent;
   return (
     <Svg width={size} height={size} viewBox="0 0 20 20" fill="none">
       <Path d="M4 13l4-4 3 3 5-6" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" />
@@ -184,7 +224,9 @@ export function IconTrendUp({ size = 18, color = '#2E52E0', strokeWidth = 1.7 }:
   );
 }
 
-export function IconDotsHorizontal({ size = 18, color = '#1A1A18' }: IconProps) {
+export function IconDotsHorizontal({ size = 18, color: colorProp }: IconProps) {
+  const c = useColors();
+  const color = colorProp ?? c.textPrimary;
   return (
     <Svg width={size} height={size} viewBox="0 0 18 18" fill="none">
       <Circle cx={4} cy={9} r={1.5} fill={color} />
@@ -194,7 +236,9 @@ export function IconDotsHorizontal({ size = 18, color = '#1A1A18' }: IconProps) 
   );
 }
 
-export function IconBell({ size = 18, color = '#55554F', strokeWidth = 1.6 }: IconProps) {
+export function IconBell({ size = 18, color: colorProp, strokeWidth = 1.6 }: IconProps) {
+  const c = useColors();
+  const color = colorProp ?? c.textSecondary;
   return (
     <Svg width={size} height={size} viewBox="0 0 18 18" fill="none">
       <Path
@@ -208,7 +252,9 @@ export function IconBell({ size = 18, color = '#55554F', strokeWidth = 1.6 }: Ic
   );
 }
 
-export function IconTag({ size = 18, color = '#55554F', strokeWidth = 1.6 }: IconProps) {
+export function IconTag({ size = 18, color: colorProp, strokeWidth = 1.6 }: IconProps) {
+  const c = useColors();
+  const color = colorProp ?? c.textSecondary;
   return (
     <Svg width={size} height={size} viewBox="0 0 18 18" fill="none">
       <Path d="M2.5 8V3.5H7L15.5 12 11 16.5 2.5 8z" stroke={color} strokeWidth={strokeWidth} strokeLinejoin="round" />
@@ -217,7 +263,9 @@ export function IconTag({ size = 18, color = '#55554F', strokeWidth = 1.6 }: Ico
   );
 }
 
-export function IconNote({ size = 18, color = '#55554F', strokeWidth = 1.6 }: IconProps) {
+export function IconNote({ size = 18, color: colorProp, strokeWidth = 1.6 }: IconProps) {
+  const c = useColors();
+  const color = colorProp ?? c.textSecondary;
   return (
     <Svg width={size} height={size} viewBox="0 0 18 18" fill="none">
       <Path
@@ -236,7 +284,9 @@ export function IconNote({ size = 18, color = '#55554F', strokeWidth = 1.6 }: Ic
  * the way the flag rows in the composer's priority menu do; unfilled is the
  * neutral "no priority" outline.
  */
-export function IconFlag({ size = 18, color = '#55554F', strokeWidth = 1.6, filled = false }: IconProps & { filled?: boolean }) {
+export function IconFlag({ size = 18, color: colorProp, strokeWidth = 1.6, filled = false }: IconProps & { filled?: boolean }) {
+  const c = useColors();
+  const color = colorProp ?? c.textSecondary;
   return (
     <Svg width={size} height={size} viewBox="0 0 18 18" fill="none">
       <Path
@@ -256,7 +306,9 @@ export function IconFlag({ size = 18, color = '#55554F', strokeWidth = 1.6, fill
   );
 }
 
-export function IconTrash({ size = 18, color = '#C22B23', strokeWidth = 1.6 }: IconProps) {
+export function IconTrash({ size = 18, color: colorProp, strokeWidth = 1.6 }: IconProps) {
+  const c = useColors();
+  const color = colorProp ?? c.priorityHigh;
   return (
     <Svg width={size} height={size} viewBox="0 0 18 18" fill="none">
       <Path
@@ -270,7 +322,9 @@ export function IconTrash({ size = 18, color = '#C22B23', strokeWidth = 1.6 }: I
   );
 }
 
-export function IconServer({ size = 16, color = '#8A8A82', strokeWidth = 1.5 }: IconProps) {
+export function IconServer({ size = 16, color: colorProp, strokeWidth = 1.5 }: IconProps) {
+  const c = useColors();
+  const color = colorProp ?? c.textTertiary;
   return (
     <Svg width={size} height={size} viewBox="0 0 16 16" fill="none">
       <Rect x={2} y={2} width={12} height={5} rx={1.5} stroke={color} strokeWidth={strokeWidth} />
@@ -281,7 +335,9 @@ export function IconServer({ size = 16, color = '#8A8A82', strokeWidth = 1.5 }: 
   );
 }
 
-export function IconLock({ size = 16, color = '#8A8A82', strokeWidth = 1.5 }: IconProps) {
+export function IconLock({ size = 16, color: colorProp, strokeWidth = 1.5 }: IconProps) {
+  const c = useColors();
+  const color = colorProp ?? c.textTertiary;
   return (
     <Svg width={size} height={size} viewBox="0 0 16 16" fill="none">
       <Rect x={3} y={7} width={10} height={7} rx={1.5} stroke={color} strokeWidth={strokeWidth} />
@@ -290,7 +346,9 @@ export function IconLock({ size = 16, color = '#8A8A82', strokeWidth = 1.5 }: Ic
   );
 }
 
-export function IconShield({ size = 14, color = '#1E7A3C', strokeWidth = 1.4 }: IconProps) {
+export function IconShield({ size = 14, color: colorProp, strokeWidth = 1.4 }: IconProps) {
+  const c = useColors();
+  const color = colorProp ?? c.success;
   return (
     <Svg width={size} height={size} viewBox="0 0 14 14" fill="none">
       <Path
@@ -303,7 +361,9 @@ export function IconShield({ size = 14, color = '#1E7A3C', strokeWidth = 1.4 }: 
   );
 }
 
-export function IconChevronLeft({ size = 14, color = '#8A8A82', strokeWidth = 1.7 }: IconProps) {
+export function IconChevronLeft({ size = 14, color: colorProp, strokeWidth = 1.7 }: IconProps) {
+  const c = useColors();
+  const color = colorProp ?? c.textTertiary;
   return (
     <Svg width={size} height={size} viewBox="0 0 14 14" fill="none">
       <Path d="M9 2.5L4 7l5 4.5" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" />
@@ -311,7 +371,9 @@ export function IconChevronLeft({ size = 14, color = '#8A8A82', strokeWidth = 1.
   );
 }
 
-export function IconChevronRight({ size = 14, color = '#8A8A82', strokeWidth = 1.7 }: IconProps) {
+export function IconChevronRight({ size = 14, color: colorProp, strokeWidth = 1.7 }: IconProps) {
+  const c = useColors();
+  const color = colorProp ?? c.textTertiary;
   return (
     <Svg width={size} height={size} viewBox="0 0 14 14" fill="none">
       <Path d="M5 2.5l5 4.5-5 4.5" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" />

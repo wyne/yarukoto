@@ -1,7 +1,7 @@
 import React from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { colors } from '../../theme/colors';
-import { hoverBg } from '../../theme/hover';
+import { Pressable, ScrollView, Text, View } from 'react-native';
+import { makeStyles } from '../../theme/styles';
+import { useHoverBg } from '../../theme/hover';
 import { fonts } from '../../theme/typography';
 import { useAccent } from '../../theme/ThemeContext';
 import { useTasks } from '../../data/TaskContext';
@@ -43,6 +43,7 @@ function toggle(values: string[], value: string): string[] {
  * Due and status close on choice — there is only ever one answer to those.
  */
 export default function FilterSheet({ kind, anchor, criteria, onChange, onClose }: Props) {
+  const styles = useStyles();
   const { state } = useTasks();
 
   return (
@@ -144,6 +145,7 @@ function TagChoices({
   criteria: TaskCriteria;
   onChange: (next: TaskCriteria) => void;
 }) {
+  const styles = useStyles();
   const { state } = useTasks();
   const tags = tagCounts(state.tasks);
   if (tags.length === 0) return <Text style={styles.empty}>No tags yet.</Text>;
@@ -179,6 +181,8 @@ function Choice({
   selected: boolean;
   onPress: () => void;
 }) {
+  const hoverBg = useHoverBg();
+  const styles = useStyles();
   const accent = useAccent();
   return (
     <Pressable style={hoverBg([styles.row, indent && styles.rowIndent])} onPress={onPress}>
@@ -196,7 +200,7 @@ function Choice({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((c) => ({
   /** Bounded so a long list of lists doesn't grow the sheet past the screen. */
   scroll: {
     maxHeight: 420,
@@ -208,7 +212,7 @@ const styles = StyleSheet.create({
     paddingVertical: 11,
     paddingHorizontal: 4,
     borderBottomWidth: 1,
-    borderBottomColor: colors.divider,
+    borderBottomColor: c.divider,
   },
   rowIndent: {
     paddingLeft: 18,
@@ -222,7 +226,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontFamily: fonts.sansRegular,
     fontSize: 16,
-    color: colors.textPrimary,
+    color: c.textPrimary,
   },
   labelFolder: {
     fontFamily: fonts.sansSemiBold,
@@ -230,22 +234,22 @@ const styles = StyleSheet.create({
   count: {
     fontFamily: fonts.monoRegular,
     fontSize: 12.5,
-    color: colors.textTertiary,
+    color: c.textTertiary,
   },
   check: {
     width: 20,
     height: 20,
     borderRadius: 6,
     borderWidth: 1,
-    borderColor: colors.ringNone,
+    borderColor: c.ringNone,
     alignItems: 'center',
     justifyContent: 'center',
   },
   empty: {
     fontFamily: fonts.sansRegular,
     fontSize: 15,
-    color: colors.textTertiary,
+    color: c.textTertiary,
     paddingVertical: 16,
     textAlign: 'center',
   },
-});
+}));

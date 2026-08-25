@@ -2,10 +2,11 @@ import React, { useEffect, useRef, useState } from 'react';
 import { InputAccessoryView, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, ScrollViewProps, StyleSheet, Text, TextInput, View } from 'react-native';
 import { BottomSheetScrollView, BottomSheetTextInput } from '@gorhom/bottom-sheet';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors, priorityColor } from '../theme/colors';
-import { hoverBg } from '../theme/hover';
+import { priorityColor } from '../theme/colors';
+import { makeStyles } from '../theme/styles';
+import { useHoverBg } from '../theme/hover';
 import { fonts } from '../theme/typography';
-import { useAccent } from '../theme/ThemeContext';
+import { useAccent, useColors } from '../theme/ThemeContext';
 import { FINE_POINTER } from '../data/platform';
 import { useTasks } from '../data/TaskContext';
 import { getListById, navGroups, tagCounts } from '../data/selectors';
@@ -54,6 +55,9 @@ const MENU_PANEL_HEIGHT = 222;
 const KEYBOARD_ACCESSORY_ID = 'task-detail-keyboard-accessory';
 
 export default function TaskDetailView({ taskId, onClose, variant }: Props) {
+  const hoverBg = useHoverBg();
+  const colors = useColors();
+  const styles = useStyles();
   const accent = useAccent();
   const insets = useSafeAreaInsets();
   const { state, updateTask, toggleComplete, deleteTasks, addSubtask, toggleSubtask } = useTasks();
@@ -329,7 +333,7 @@ export default function TaskDetailView({ taskId, onClose, variant }: Props) {
             <View style={styles.priorityRow}>
               {PRIORITIES.map((p) => {
                 const active = task.priority === p.key;
-                const pColor = p.key === 'none' ? colors.textTertiary : priorityColor(p.key);
+                const pColor = p.key === 'none' ? colors.textTertiary : priorityColor(p.key, colors);
                 return (
                   <Pressable
                     key={p.key}
@@ -582,15 +586,15 @@ export default function TaskDetailView({ taskId, onClose, variant }: Props) {
   return content;
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((c) => ({
   screen: {
     flex: 1,
-    backgroundColor: colors.screenBg,
+    backgroundColor: c.screenBg,
   },
   notFound: {
     textAlign: 'center',
     fontFamily: fonts.sansRegular,
-    color: colors.textTertiary,
+    color: c.textTertiary,
   },
   header: {
     flexDirection: 'row',
@@ -606,7 +610,7 @@ const styles = StyleSheet.create({
   headerCenter: {
     fontFamily: fonts.monoRegular,
     fontSize: 12.5,
-    color: colors.textTertiary,
+    color: c.textTertiary,
   },
   scroll: {
     paddingHorizontal: 12,
@@ -629,12 +633,12 @@ const styles = StyleSheet.create({
     fontFamily: fonts.sansSemiBold,
     fontSize: 19,
     lineHeight: 25,
-    color: colors.textPrimary,
+    color: c.textPrimary,
     padding: 0,
   },
   titleCompleted: {
     textDecorationLine: 'line-through',
-    color: colors.textSecondary,
+    color: c.textSecondary,
   },
   priorityRow: {
     flex: 1,
@@ -647,7 +651,7 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     borderRadius: 7,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: c.border,
   },
   priorityText: {
     fontFamily: fonts.sansMedium,
@@ -665,17 +669,17 @@ const styles = StyleSheet.create({
     flex: 1,
     fontFamily: fonts.sansRegular,
     fontSize: 16,
-    color: colors.textPrimary,
+    color: c.textPrimary,
   },
   metaLabelFixed: {
     fontFamily: fonts.sansRegular,
     fontSize: 16,
-    color: colors.textPrimary,
+    color: c.textPrimary,
   },
   metaValue: {
     fontFamily: fonts.monoRegular,
     fontSize: 14,
-    color: colors.textSecondary,
+    color: c.textSecondary,
   },
   metaValueMenu: {
     flex: 1,
@@ -703,7 +707,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   tagChip: {
-    backgroundColor: colors.chipBg,
+    backgroundColor: c.chipBg,
     borderRadius: 4,
     paddingHorizontal: 7,
     paddingVertical: 2,
@@ -711,14 +715,14 @@ const styles = StyleSheet.create({
   tagChipText: {
     fontFamily: fonts.monoRegular,
     fontSize: 12.5,
-    color: colors.textSecondary,
+    color: c.textSecondary,
   },
   sectionLabel: {
     fontFamily: fonts.monoRegular,
     fontSize: 11.5,
     letterSpacing: 1,
     textTransform: 'uppercase',
-    color: colors.textTertiary,
+    color: c.textTertiary,
   },
   notesInput: {
     fontFamily: fonts.sansRegular,
@@ -744,13 +748,13 @@ const styles = StyleSheet.create({
   subtaskCount: {
     fontFamily: fonts.monoRegular,
     fontSize: 11.5,
-    color: colors.textTertiary,
+    color: c.textTertiary,
   },
   progressTrack: {
     flex: 1,
     height: 3,
     borderRadius: 2,
-    backgroundColor: colors.chipBg,
+    backgroundColor: c.chipBg,
     overflow: 'hidden',
   },
   progressFill: {
@@ -777,17 +781,17 @@ const styles = StyleSheet.create({
   subtaskText: {
     fontFamily: fonts.sansRegular,
     fontSize: 15,
-    color: colors.textPrimary,
+    color: c.textPrimary,
   },
   subtaskDone: {
     textDecorationLine: 'line-through',
-    color: colors.textTertiary,
+    color: c.textTertiary,
   },
   subtaskInput: {
     flex: 1,
     fontFamily: fonts.sansRegular,
     fontSize: 15,
-    color: colors.textPrimary,
+    color: c.textPrimary,
     padding: 0,
   },
   subtaskActions: {
@@ -805,30 +809,30 @@ const styles = StyleSheet.create({
   addSubtaskText: {
     fontFamily: fonts.sansRegular,
     fontSize: 15,
-    color: colors.textTertiary,
+    color: c.textTertiary,
   },
   delete: {
     textAlign: 'center',
     paddingVertical: 14,
     fontFamily: fonts.sansMedium,
     fontSize: 15,
-    color: colors.priorityHigh,
+    color: c.priorityHigh,
   },
   dismissBar: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: colors.surface,
+    backgroundColor: c.surface,
     borderTopWidth: 1,
-    borderTopColor: colors.border,
+    borderTopColor: c.border,
     paddingVertical: 10,
     alignItems: 'center',
   },
   dismissText: {
     fontFamily: fonts.sansSemiBold,
     fontSize: 16,
-    color: colors.textPrimary,
+    color: c.textPrimary,
   },
   sheetKeyboardDismissLayer: {
     position: 'absolute',
@@ -853,9 +857,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderRadius: 19,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255, 255, 255, 0.72)',
-    backgroundColor: 'rgba(255, 255, 255, 0.68)',
-    shadowColor: '#000',
+    borderColor: c.glassBorder,
+    backgroundColor: c.glassFill,
+    shadowColor: c.shadow,
     shadowOpacity: 0.18,
     shadowRadius: 18,
     shadowOffset: { width: 0, height: 8 },
@@ -864,9 +868,9 @@ const styles = StyleSheet.create({
   menuPanel: {
     marginTop: 8,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: c.border,
     borderRadius: 12,
-    backgroundColor: colors.surface,
+    backgroundColor: c.surface,
     overflow: 'hidden',
     height: MENU_PANEL_HEIGHT,
   },
@@ -884,7 +888,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontFamily: fonts.sansMedium,
     fontSize: 16,
-    color: colors.textPrimary,
+    color: c.textPrimary,
   },
   menuSection: {
     paddingHorizontal: 14,
@@ -894,14 +898,14 @@ const styles = StyleSheet.create({
     fontSize: 11,
     letterSpacing: 1,
     textTransform: 'uppercase',
-    color: colors.textFaint,
+    color: c.textFaint,
   },
   menuEmpty: {
     paddingHorizontal: 14,
     paddingVertical: 4,
     fontFamily: fonts.sansRegular,
     fontSize: 14,
-    color: colors.textTertiary,
+    color: c.textTertiary,
   },
   listDot: {
     width: 10,
@@ -916,7 +920,7 @@ const styles = StyleSheet.create({
   },
   chip: {
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: c.border,
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 8,
@@ -924,7 +928,7 @@ const styles = StyleSheet.create({
   chipText: {
     fontFamily: fonts.sansMedium,
     fontSize: 14,
-    color: colors.textPrimary,
+    color: c.textPrimary,
   },
   addRow: {
     flexDirection: 'row',
@@ -936,13 +940,13 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: c.border,
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontFamily: fonts.sansRegular,
     fontSize: 15,
-    color: colors.textPrimary,
+    color: c.textPrimary,
   },
   addBtn: {
     borderWidth: 1,
@@ -958,7 +962,7 @@ const styles = StyleSheet.create({
     marginTop: 12,
     marginHorizontal: 14,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: c.border,
     borderRadius: 10,
     paddingVertical: 12,
     alignItems: 'center',
@@ -966,6 +970,6 @@ const styles = StyleSheet.create({
   doneText: {
     fontFamily: fonts.sansSemiBold,
     fontSize: 15,
-    color: colors.textPrimary,
+    color: c.textPrimary,
   },
-});
+}));

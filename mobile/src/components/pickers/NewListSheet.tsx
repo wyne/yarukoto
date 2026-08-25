@@ -1,8 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useColors } from '../../theme/ThemeContext';
+import { Pressable, Text, View } from 'react-native';
 import NativeSheet from '../NativeSheet';
 import SheetTextInput from '../SheetTextInput';
-import { colors } from '../../theme/colors';
+import { makeStyles } from '../../theme/styles';
 import { fonts } from '../../theme/typography';
 import { useTasks } from '../../data/TaskContext';
 import { FolderDef } from '../../data/types';
@@ -19,6 +20,8 @@ interface Props {
 }
 
 export default function NewListSheet({ visible, folder, onClose }: Props) {
+  const colors = useColors();
+  const styles = useStyles();
   const { addList } = useTasks();
   const [name, setName] = useState('');
   // BottomSheetTextInput rather than RN's: it registers the field with the sheet,
@@ -64,24 +67,24 @@ export default function NewListSheet({ visible, folder, onClose }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((c) => ({
   input: {
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: c.border,
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontFamily: fonts.sansRegular,
     fontSize: 15,
-    color: colors.textPrimary,
-    backgroundColor: colors.surface,
+    color: c.textPrimary,
+    backgroundColor: c.surface,
   },
   createBtn: {
     marginTop: 14,
     borderRadius: 10,
     paddingVertical: 14,
     alignItems: 'center',
-    backgroundColor: colors.textPrimary,
+    backgroundColor: c.inverseSurface,
   },
   createBtnDisabled: {
     opacity: 0.35,
@@ -89,6 +92,6 @@ const styles = StyleSheet.create({
   createText: {
     fontFamily: fonts.sansSemiBold,
     fontSize: 16,
-    color: '#fff',
+    color: c.inverseText,
   },
-});
+}));

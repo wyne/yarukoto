@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, Text, View } from 'react-native';
 import Animated, {
   useAnimatedRef,
   useAnimatedStyle,
@@ -13,10 +13,10 @@ import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import type { NativeBottomTabBarProps } from '@react-navigation/bottom-tabs/unstable';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useWindowDimensions } from 'react-native';
-import { colors } from '../theme/colors';
-import { hoverBg } from '../theme/hover';
+import { makeStyles } from '../theme/styles';
+import { useHoverBg } from '../theme/hover';
 import { fonts } from '../theme/typography';
-import { useAccent } from '../theme/ThemeContext';
+import { useAccent, useColors } from '../theme/ThemeContext';
 import { useTasks } from '../data/TaskContext';
 import {
   activeTasks,
@@ -106,6 +106,9 @@ type Props = SidebarNavigationProps & {
 };
 
 export default function Sidebar({ state, navigation, onNavigate }: Props) {
+  const hoverBg = useHoverBg();
+  const colors = useColors();
+  const styles = useStyles();
   const accent = useAccent();
   /**
    * A folder is being dragged, so every folder's lists are folded shut.
@@ -621,6 +624,7 @@ export default function Sidebar({ state, navigation, onNavigate }: Props) {
  * taking the whole style out of the array gives the height back.
  */
 function FoldAway({ folded, children }: { folded: boolean; children: React.ReactNode }) {
+  const styles = useStyles();
   const height = useSharedValue<number | null>(null);
   const progress = useSharedValue(0);
   /** Whether the height override is attached at all. See above. */
@@ -684,6 +688,9 @@ function FolderRow({
   onPress: () => void;
   onToggle: () => void;
 }) {
+  const hoverBg = useHoverBg();
+  const colors = useColors();
+  const styles = useStyles();
   if (rail) return null;
   return (
     <Pressable
@@ -758,6 +765,9 @@ function ListRow({
   accent: string;
   onPress: () => void;
 }) {
+  const hoverBg = useHoverBg();
+  const colors = useColors();
+  const styles = useStyles();
   return (
     <Pressable
       style={hoverBg(
@@ -804,16 +814,16 @@ function ListRow({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((c) => ({
   sidebar: {
     // Fixed width in the wide row layout, full height in the drawer panel.
     width: SIDEBAR_WIDTH,
     height: '100%',
     flexGrow: 0,
     flexShrink: 0,
-    backgroundColor: colors.canvasBg,
+    backgroundColor: c.canvasBg,
     borderRightWidth: 1,
-    borderRightColor: colors.border,
+    borderRightColor: c.border,
   },
   brandRow: {
     flexDirection: 'row',
@@ -837,7 +847,7 @@ const styles = StyleSheet.create({
     fontFamily: fonts.sansBold,
     fontSize: 17,
     flex: 1,
-    color: colors.textPrimary,
+    color: c.textPrimary,
     paddingHorizontal: 16,
   },
   scrollArea: {
@@ -866,7 +876,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontFamily: fonts.sansMedium,
     fontSize: 15,
-    color: colors.textPrimary,
+    color: c.textPrimary,
   },
   tagLabel: {
     fontFamily: fonts.monoRegular,
@@ -875,7 +885,7 @@ const styles = StyleSheet.create({
   rowCount: {
     fontFamily: fonts.monoRegular,
     fontSize: 12.5,
-    color: colors.textFaint,
+    color: c.textFaint,
   },
   /** The Tags caption. Folders used to share this and are now rows instead. */
   sectionLabel: {
@@ -883,14 +893,14 @@ const styles = StyleSheet.create({
     fontSize: 11,
     letterSpacing: 1,
     textTransform: 'uppercase',
-    color: colors.textFaint,
+    color: c.textFaint,
     paddingHorizontal: 10,
     paddingTop: 18,
     paddingBottom: 6,
   },
   treeSeparator: {
     height: 1,
-    backgroundColor: colors.border,
+    backgroundColor: c.border,
     // Inset to the row text rather than the full width, so it reads as a rule
     // between two groups of rows and not as an edge of the sidebar.
     marginHorizontal: 10,
@@ -915,7 +925,7 @@ const styles = StyleSheet.create({
   newLabel: {
     fontFamily: fonts.sansRegular,
     fontSize: 15,
-    color: colors.textTertiary,
+    color: c.textTertiary,
   },
   /** Reserves the chevron's column so every row's icon and label line up. */
   /** The disclosure column, at the trailing edge of a folder row. */
@@ -956,7 +966,7 @@ const styles = StyleSheet.create({
   letterBadgeText: {
     fontFamily: fonts.sansBold,
     fontSize: 12.5,
-    color: colors.surface,
+    color: c.surface,
   },
   footer: {
     flexDirection: 'row',
@@ -965,6 +975,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 10,
     borderTopWidth: 1,
-    borderTopColor: colors.border,
+    borderTopColor: c.border,
   },
-});
+}));

@@ -1,9 +1,9 @@
 import React, { useMemo, useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors } from '../theme/colors';
+import { makeStyles } from '../theme/styles';
 import { fonts } from '../theme/typography';
-import { useAccent } from '../theme/ThemeContext';
+import { useAccent, useColors } from '../theme/ThemeContext';
 import { useSidebar } from '../navigation/SidebarContext';
 import { NATIVE_TAB_CONTENT_PADDING } from '../navigation/nativeTabBarLayout';
 import { useDetail } from '../navigation/DetailContext';
@@ -37,6 +37,8 @@ type Mode = PlanMode;
  * there's no room for the schedule pane or the extra view modes.
  */
 export default function CalendarScreen() {
+  const colors = useColors();
+  const styles = useStyles();
   const accent = useAccent();
   const insets = useSafeAreaInsets();
   const refreshControl = useSyncRefresh();
@@ -302,8 +304,8 @@ export default function CalendarScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  row: { flex: 1, flexDirection: 'row', backgroundColor: colors.screenBg },
+const useStyles = makeStyles((c) => ({
+  row: { flex: 1, flexDirection: 'row', backgroundColor: c.screenBg },
   calendarCol: { flex: 1, minWidth: 0 },
   header: {
     flexDirection: 'row',
@@ -324,20 +326,20 @@ const styles = StyleSheet.create({
   navArrow: {
     fontFamily: fonts.sansRegular,
     fontSize: 28,
-    color: colors.textTertiary,
+    color: c.textTertiary,
   },
   title: {
     flexShrink: 1,
     fontFamily: fonts.sansBold,
     fontSize: 20,
-    color: colors.textPrimary,
+    color: c.textPrimary,
   },
   todayBtn: {
     borderWidth: 1,
     borderRadius: 6,
     paddingHorizontal: 8,
     paddingVertical: 4,
-    backgroundColor: colors.surface,
+    backgroundColor: c.surface,
   },
   todayBtnText: {
     fontFamily: fonts.monoRegular,
@@ -360,7 +362,7 @@ const styles = StyleSheet.create({
   modeToggle: {
     flexDirection: 'row',
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: c.border,
     borderRadius: 6,
     overflow: 'hidden',
   },
@@ -371,7 +373,7 @@ const styles = StyleSheet.create({
   modeText: {
     fontFamily: fonts.monoRegular,
     fontSize: 11.5,
-    color: colors.textSecondary,
+    color: c.textSecondary,
   },
   quickAdd: { paddingHorizontal: 12, paddingTop: 4 },
   // ScrollView must not paint its scrolled-off content out past its frame — a
@@ -392,6 +394,6 @@ const styles = StyleSheet.create({
     marginTop: 24,
     fontFamily: fonts.sansRegular,
     fontSize: 15,
-    color: colors.textTertiary,
+    color: c.textTertiary,
   },
-});
+}));

@@ -1,14 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { Platform, StyleSheet, View } from 'react-native';
+import { Platform, StyleSheet, TextInput, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StatusBar } from 'expo-status-bar';
-import { LinkingOptions, NavigationContainer } from '@react-navigation/native';
+import { DarkTheme, DefaultTheme, LinkingOptions, NavigationContainer } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { useFonts } from 'expo-font';
 import { fontMap } from './src/theme/typography';
-import { colors } from './src/theme/colors';
-import { ThemeProvider } from './src/theme/ThemeContext';
+import { lightPalette } from './src/theme/colors';
+import { ThemeProvider, useColors, useScheme } from './src/theme/ThemeContext';
 import { TaskProvider } from './src/data/TaskContext';
 import { initStorage } from './src/data/storage';
 import RootNavigator from './src/navigation/RootNavigator';
@@ -60,6 +60,35 @@ const linking: LinkingOptions<RootStackParamList> = {
   },
 };
 
+/**
+ * Everything that has to know the colour scheme, below the provider that knows it.
+ *
+ * `StatusBar` used to be pinned to dark glyphs and the navigator was given no
+ * theme at all, so React Navigation painted its own light grey wherever a
+ * screen did not paint first.
+ */
+function Chrome() {
+  const scheme = useScheme();
+  const colors = useColors();
+  (TextInput as any).defaultProps = { ...(TextInput as any).defaultProps, keyboardAppearance: scheme };
+  const navTheme = {
+    ...(scheme === 'dark' ? DarkTheme : DefaultTheme),
+    colors: {
+      ...(scheme === 'dark' ? DarkTheme : DefaultTheme).colors,
+      background: colors.screenBg,
+      card: colors.surface,
+      text: colors.textPrimary,
+      border: colors.border,
+    },
+  };
+  return (
+    <NavigationContainer ref={navigationRef} linking={linking} theme={navTheme}>
+      <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
+      <RootNavigator />
+    </NavigationContainer>
+  );
+}
+
 export default function App() {
   const [fontsLoaded] = useFonts(fontMap);
   const [storageReady, setStorageReady] = useState(false);
@@ -82,10 +111,7 @@ export default function App() {
           <TaskProvider>
             <DateTimePickerProvider>
               <BottomSheetModalProvider>
-                <NavigationContainer ref={navigationRef} linking={linking}>
-                  <StatusBar style="dark" />
-                  <RootNavigator />
-                </NavigationContainer>
+                <Chrome />
               </BottomSheetModalProvider>
             </DateTimePickerProvider>
           </TaskProvider>
@@ -101,6 +127,9 @@ const styles = StyleSheet.create({
   },
   loading: {
     flex: 1,
-    backgroundColor: colors.screenBg,
+    // The frame before fonts and storage are ready, so before there is a
+    // provider to ask. Light until the scheme can be read from the primed cache
+    // — see the stage that turns dark mode on.
+    backgroundColor: lightPalette.screenBg,
   },
 });

@@ -1,6 +1,6 @@
 import React from 'react';
 import { View } from 'react-native';
-import { colors } from '../theme/colors';
+import { useColors } from '../theme/ThemeContext';
 
 interface Props {
   /** Left inset. Zero squares off the edge of a tinted row above or below it. */
@@ -10,5 +10,6 @@ interface Props {
 }
 
 export default function Divider({ indent = 46, color }: Props) {
+  const colors = useColors();
   return <View style={{ height: 1, backgroundColor: color ?? colors.divider, marginLeft: indent }} />;
 }

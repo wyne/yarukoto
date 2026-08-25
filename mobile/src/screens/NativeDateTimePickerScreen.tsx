@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, Text, View } from 'react-native';
 import DateTimePicker from '@expo/ui/community/datetime-picker';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors } from '../theme/colors';
+import { makeStyles } from '../theme/styles';
 import { fonts } from '../theme/typography';
-import { useAccent } from '../theme/ThemeContext';
+import { useAccent, useColors } from '../theme/ThemeContext';
 import { fromISODate, toISODate } from '../data/dateUtils';
 import { IconCheckBig, IconPlus } from '../icons/Icons';
 import GlassIconButton from '../components/GlassIconButton';
@@ -27,6 +27,8 @@ function timeFromPicker(value: Date): string {
 }
 
 export default function NativeDateTimePickerScreen({ navigation, route }: Props) {
+  const colors = useColors();
+  const styles = useStyles();
   const accent = useAccent();
   const insets = useSafeAreaInsets();
   const { active, complete, cancel } = useDateTimePickerRequest();
@@ -115,11 +117,11 @@ export default function NativeDateTimePickerScreen({ navigation, route }: Props)
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((c) => ({
   screen: {
     flex: 1,
     paddingHorizontal: 16,
-    backgroundColor: colors.surface,
+    backgroundColor: c.surface,
   },
   header: {
     minHeight: 44,
@@ -130,7 +132,7 @@ const styles = StyleSheet.create({
   title: {
     fontFamily: fonts.sansSemiBold,
     fontSize: 16,
-    color: colors.textPrimary,
+    color: c.textPrimary,
   },
   closeIcon: {
     transform: [{ rotate: '45deg' }],
@@ -152,6 +154,6 @@ const styles = StyleSheet.create({
   clearText: {
     fontFamily: fonts.sansMedium,
     fontSize: 16,
-    color: colors.priorityHigh,
+    color: c.priorityHigh,
   },
-});
+}));

@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors } from '../theme/colors';
+import { makeStyles } from '../theme/styles';
 import { fonts } from '../theme/typography';
-import { useAccent } from '../theme/ThemeContext';
+import { useAccent, useColors } from '../theme/ThemeContext';
 import { ApiError, useTasks } from '../data/TaskContext';
 import { SavedServer, loadSavedServers } from '../data/storage';
 import { IconCheckBig, IconLock, IconServer, IconShield } from '../icons/Icons';
@@ -35,6 +35,8 @@ function useSameOriginServer(): string | null | undefined {
 }
 
 export default function FirstRunScreen() {
+  const colors = useColors();
+  const styles = useStyles();
   const accent = useAccent();
   const insets = useSafeAreaInsets();
   const { connect, useSampleData, removeSavedServer } = useTasks();
@@ -193,10 +195,10 @@ export default function FirstRunScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((c) => ({
   screen: {
     flex: 1,
-    backgroundColor: colors.screenBg,
+    backgroundColor: c.screenBg,
   },
   content: {
     flex: 1,
@@ -206,20 +208,20 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 14,
-    backgroundColor: colors.textPrimary,
+    backgroundColor: c.inverseSurface,
     alignItems: 'center',
     justifyContent: 'center',
   },
   appName: {
     fontFamily: fonts.sansBold,
     fontSize: 28,
-    color: colors.textPrimary,
+    color: c.textPrimary,
     marginTop: 18,
   },
   tagline: {
     fontFamily: fonts.sansRegular,
     fontSize: 16,
-    color: colors.textSecondary,
+    color: c.textSecondary,
     marginTop: 6,
     lineHeight: 21,
   },
@@ -231,9 +233,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    backgroundColor: colors.surface,
+    backgroundColor: c.surface,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: c.border,
     borderRadius: 10,
     paddingHorizontal: 14,
     paddingVertical: 13,
@@ -242,16 +244,16 @@ const styles = StyleSheet.create({
     flex: 1,
     fontFamily: fonts.monoRegular,
     fontSize: 15,
-    color: colors.textPrimary,
+    color: c.textPrimary,
     padding: 0,
   },
   error: {
     fontFamily: fonts.sansRegular,
     fontSize: 13,
-    color: colors.priorityHigh,
+    color: c.priorityHigh,
   },
   connectBtn: {
-    backgroundColor: colors.textPrimary,
+    backgroundColor: c.inverseSurface,
     borderRadius: 10,
     paddingVertical: 14,
     alignItems: 'center',
@@ -261,7 +263,7 @@ const styles = StyleSheet.create({
   connectText: {
     fontFamily: fonts.sansSemiBold,
     fontSize: 16,
-    color: '#fff',
+    color: c.inverseText,
   },
   trustRow: {
     flexDirection: 'row',
@@ -278,21 +280,21 @@ const styles = StyleSheet.create({
   orLine: {
     flex: 1,
     height: 1,
-    backgroundColor: colors.border,
+    backgroundColor: c.border,
   },
   orText: {
     fontFamily: fonts.monoRegular,
     fontSize: 11.5,
-    color: colors.textFaint,
+    color: c.textFaint,
   },
   sampleBtn: {
     marginTop: 14,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: c.border,
     borderRadius: 10,
     paddingVertical: 13,
     alignItems: 'center',
-    backgroundColor: colors.surface,
+    backgroundColor: c.surface,
   },
   sampleText: {
     fontFamily: fonts.sansSemiBold,
@@ -304,19 +306,19 @@ const styles = StyleSheet.create({
     fontFamily: fonts.sansRegular,
     fontSize: 13,
     lineHeight: 17,
-    color: colors.textTertiary,
+    color: c.textTertiary,
   },
   trustText: {
     fontFamily: fonts.monoRegular,
     fontSize: 12.5,
-    color: colors.textSecondary,
+    color: c.textSecondary,
   },
   savedLabel: {
     fontFamily: fonts.monoRegular,
     fontSize: 11.5,
     letterSpacing: 0.6,
     textTransform: 'uppercase',
-    color: colors.textFaint,
+    color: c.textFaint,
     marginTop: 14,
     marginBottom: 8,
   },
@@ -324,9 +326,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: c.border,
     borderRadius: 10,
-    backgroundColor: colors.surface,
+    backgroundColor: c.surface,
   },
   savedRowBtn: {
     flex: 1,
@@ -340,7 +342,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontFamily: fonts.monoRegular,
     fontSize: 14,
-    color: colors.textPrimary,
+    color: c.textPrimary,
   },
   forgetBtn: {
     paddingHorizontal: 14,
@@ -349,18 +351,18 @@ const styles = StyleSheet.create({
   forgetText: {
     fontFamily: fonts.sansMedium,
     fontSize: 18,
-    color: colors.textFaint,
+    color: c.textFaint,
   },
   footer: {
     textAlign: 'center',
     fontFamily: fonts.sansRegular,
     fontSize: 14,
-    color: colors.textTertiary,
+    color: c.textTertiary,
   },
   helpText: {
     fontFamily: fonts.sansRegular,
     fontSize: 15,
     lineHeight: 21,
-    color: colors.textSecondary,
+    color: c.textSecondary,
   },
-});
+}));

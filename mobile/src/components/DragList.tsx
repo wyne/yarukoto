@@ -1,11 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 import Animated, { useAnimatedStyle, useDerivedValue, useSharedValue, withTiming } from 'react-native-reanimated';
 import type { SharedValue } from 'react-native-reanimated';
 import type { AnimatedRef } from 'react-native-reanimated';
 import Sortable, { useItemContext } from 'react-native-sortables';
 import { FINE_POINTER } from '../data/platform';
-import { colors } from '../theme/colors';
+import { makeStyles } from '../theme/styles';
 import { fonts } from '../theme/typography';
 import { IconGrip } from '../icons/Icons';
 
@@ -286,6 +286,7 @@ function GlassRow({
   /** Rows this drag is carrying. Shown on the lifted row when above one. */
   count: number;
 }) {
+  const styles = useStyles();
   const { activationAnimationProgress } = useItemContext();
   const ref = useRef<View>(null);
   const [hovered, setHovered] = useState(false);
@@ -337,7 +338,7 @@ function GlassRow({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((c) => ({
   glass: {
     position: 'relative',
   },
@@ -353,7 +354,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 5,
     paddingVertical: 6,
     borderRadius: 6,
-    backgroundColor: colors.surface,
+    backgroundColor: c.surface,
     // Web-only. `touchAction: none` matters most: a gesture starting on the
     // handle only ever drags, so the browser must hand the whole thing over.
     ...({ cursor: 'grab', touchAction: 'none', userSelect: 'none' } as object),
@@ -373,8 +374,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 10,
-    backgroundColor: colors.textPrimary,
-    color: '#fff',
+    backgroundColor: c.inverseSurface,
+    color: c.inverseText,
     fontFamily: fonts.sansSemiBold,
     fontSize: 11.5,
   },
@@ -385,7 +386,7 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     borderWidth: 1,
-    borderColor: 'rgba(0, 0, 0, 0.07)',
-    boxShadow: '0 4px 18px rgba(0, 0, 0, 0.14)',
+    borderColor: c.liftBorder,
+    boxShadow: `0 4px 18px ${c.shadow}${c.shadowOpacity ? '24' : '00'}`,
   },
-});
+}));

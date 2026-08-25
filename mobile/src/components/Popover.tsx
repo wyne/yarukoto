@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { Modal, Platform, Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { GlassView } from 'expo-glass-effect';
 import { LIQUID_GLASS } from '../data/platform';
-import { colors } from '../theme/colors';
+import { makeStyles } from '../theme/styles';
 
 /** Where the control that opened the popover sits, in window coordinates. */
 export interface PopoverAnchor {
@@ -69,6 +69,7 @@ export default function Popover({
   bounds,
   children,
 }: Props) {
+  const styles = useStyles();
   const window = useWindowDimensions();
   const { width: winWidth, height: winHeight } = bounds ?? window;
   // Narrow windows get whatever is available rather than an overflowing card.
@@ -133,17 +134,17 @@ export default function Popover({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((c) => ({
   card: {
     position: 'absolute',
-    backgroundColor: colors.surface,
+    backgroundColor: c.surface,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: c.border,
     paddingHorizontal: 14,
     paddingTop: 14,
     paddingBottom: 6,
-    boxShadow: '0 12px 32px rgba(0, 0, 0, 0.18)',
+    boxShadow: `0 12px 32px ${c.shadow}${c.shadowOpacity ? '2E' : '00'}`,
   },
   /** Overrides the flat card's own surface. See the glass branch above. */
   glassCard: {
@@ -155,4 +156,4 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     overflow: 'hidden',
   },
-});
+}));

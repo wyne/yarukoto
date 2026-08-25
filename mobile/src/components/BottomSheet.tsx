@@ -1,9 +1,10 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { useColors } from '../theme/ThemeContext';
+import { Pressable, Text, View, useWindowDimensions } from 'react-native';
 import NativeSheet from './NativeSheet';
 import Popover, { POPOVER_MIN_WIDTH, PopoverAnchor } from './Popover';
 import { WEB_ENTRY } from '../data/platform';
-import { colors } from '../theme/colors';
+import { makeStyles } from '../theme/styles';
 import { fonts } from '../theme/typography';
 import { hoverable } from '../theme/hover';
 import { IconChevronLeft } from '../icons/Icons';
@@ -52,6 +53,8 @@ export default function BottomSheet({
   keyboard,
   children,
 }: Props) {
+  const colors = useColors();
+  const styles = useStyles();
   const { width } = useWindowDimensions();
 
   if (anchor && WEB_ENTRY && width >= POPOVER_MIN_WIDTH) {
@@ -83,13 +86,13 @@ export default function BottomSheet({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((c) => ({
   title: {
     fontFamily: fonts.monoRegular,
     fontSize: 11.5,
     letterSpacing: 1,
     textTransform: 'uppercase',
-    color: colors.textTertiary,
+    color: c.textTertiary,
   },
   titleAlone: {
     marginBottom: 10,
@@ -107,10 +110,10 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   backRowHovered: {
-    backgroundColor: colors.hoverBg,
+    backgroundColor: c.hoverBg,
   },
   /** The sheet's own padding comes from NativeSheet; the popover card has its own. */
   body: {
     marginBottom: 8,
   },
-});
+}));

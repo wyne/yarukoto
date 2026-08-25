@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Platform, Pressable, Text, TextInput, View } from 'react-native';
 import DateTimePicker from '@expo/ui/community/datetime-picker';
-import { colors } from '../../theme/colors';
+import { makeStyles } from '../../theme/styles';
 import { fonts } from '../../theme/typography';
-import { useAccent } from '../../theme/ThemeContext';
+import { useAccent, useColors } from '../../theme/ThemeContext';
 import { formatTime24to12, fromISODate, toISODate } from '../../data/dateUtils';
 
 interface Props {
@@ -52,6 +52,8 @@ export default function DueDateTimeControls({
   allowModeSwitch = true,
   onDone,
 }: Props) {
+  const colors = useColors();
+  const styles = useStyles();
   const accent = useAccent();
   const now = new Date();
   const pickerValue = valueForPicker(date, time);
@@ -202,7 +204,7 @@ export default function DueDateTimeControls({
   }
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((c) => ({
   wrap: {
     paddingHorizontal: 14,
     paddingVertical: 6,
@@ -219,7 +221,7 @@ const styles = StyleSheet.create({
     fontSize: 11.5,
     letterSpacing: 1,
     textTransform: 'uppercase',
-    color: colors.textTertiary,
+    color: c.textTertiary,
     marginBottom: 8,
   },
   modeButton: {
@@ -235,7 +237,7 @@ const styles = StyleSheet.create({
     minHeight: 44,
     marginTop: 8,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: c.border,
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 8,
@@ -247,7 +249,7 @@ const styles = StyleSheet.create({
   nativeRowLabel: {
     fontFamily: fonts.sansMedium,
     fontSize: 15,
-    color: colors.textPrimary,
+    color: c.textPrimary,
   },
   compactNativePicker: {
     minWidth: 116,
@@ -259,13 +261,13 @@ const styles = StyleSheet.create({
   },
   textInput: {
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: c.border,
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontFamily: fonts.sansRegular,
     fontSize: 16,
-    color: colors.textPrimary,
+    color: c.textPrimary,
   },
   clearRow: {
     marginTop: 8,
@@ -274,6 +276,6 @@ const styles = StyleSheet.create({
   clearText: {
     fontFamily: fonts.sansMedium,
     fontSize: 14,
-    color: colors.priorityHigh,
+    color: c.priorityHigh,
   },
-});
+}));

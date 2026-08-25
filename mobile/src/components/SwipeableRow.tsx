@@ -1,10 +1,11 @@
 import React, { useCallback, useEffect, useRef } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useColors } from '../theme/ThemeContext';
+import { Pressable, Text, View } from 'react-native';
 import ReanimatedSwipeable, {
   type SwipeableMethods,
 } from 'react-native-gesture-handler/ReanimatedSwipeable';
 import { makeMutable } from 'react-native-reanimated';
-import { colors } from '../theme/colors';
+import { makeStyles } from '../theme/styles';
 import { useDragActive } from '../drag/DragContext';
 import { hapticAction } from '../data/haptics';
 import { IconCalendarBox, IconCheckBig } from '../icons/Icons';
@@ -90,6 +91,8 @@ interface Props {
  * actions.
  */
 export default function SwipeableRow({ children, onLater, onDone, disabled }: Props) {
+  const colors = useColors();
+  const styles = useStyles();
   const rowRef = useRef<SwipeableMethods>(null);
   // A cross-pane drag is armed by holding the row, and moving off with it is
   // also sideways. The drag wins outright while it is in flight.
@@ -173,9 +176,9 @@ export default function SwipeableRow({ children, onLater, onDone, disabled }: Pr
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((c) => ({
   container: {
-    backgroundColor: colors.chipBg,
+    backgroundColor: c.chipBg,
   },
   actionsRow: {
     flexDirection: 'row',
@@ -192,6 +195,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   foreground: {
-    backgroundColor: colors.surface,
+    backgroundColor: c.surface,
   },
-});
+}));
