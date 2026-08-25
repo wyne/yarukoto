@@ -1,5 +1,6 @@
 import type { PressableStateCallbackType, StyleProp, ViewStyle } from 'react-native';
 import { colors } from './colors';
+import { useColors } from './ThemeContext';
 
 /**
  * react-native-web reports hover in the Pressable state callback; React Native's
@@ -26,6 +27,22 @@ export function hoverable(base: StyleProp<ViewStyle>, hover: StyleProp<ViewStyle
  *
  * `suppressed` is for surfaces that already carry a stronger state — a selected
  * row, an active chip — where a hover tint would only muddy what it is saying.
+ *
+ * A hook returning the function, rather than the function itself, because the
+ * tint has to come from the live palette and this is called from inside
+ * `style={…}` expressions — sometimes within a `.map()` — where a hook cannot
+ * go. Taking it once at the top of the component and calling it as before keeps
+ * all 43 call sites the same shape.
+ */
+export function useHoverBg() {
+  const colors = useColors();
+  return (base: StyleProp<ViewStyle>, suppressed = false) =>
+    hoverable(base, suppressed ? null : { backgroundColor: colors.hoverBg });
+}
+
+/**
+ * The light-mode-only version, for callers not yet converted. Goes away with
+ * the last of them.
  */
 export function hoverBg(base: StyleProp<ViewStyle>, suppressed = false) {
   return hoverable(base, suppressed ? null : { backgroundColor: colors.hoverBg });
