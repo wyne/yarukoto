@@ -3,7 +3,7 @@ import { Pressable, Text, View, type StyleProp, type ViewStyle } from 'react-nat
 import Popover, { type PopoverAnchor } from '../Popover';
 import { makeStyles } from '../../theme/styles';
 import { fonts } from '../../theme/typography';
-import { useAccent, useColors } from '../../theme/ThemeContext';
+import { useAccent, useColors, useScheme } from '../../theme/ThemeContext';
 import { formatTime24to12 } from '../../data/dateUtils';
 import { IconCheckBig, IconChevronLeft } from '../../icons/Icons';
 import { QUICK_DATES, QUICK_TIMES } from './dateTimeQuickOptions';
@@ -36,6 +36,7 @@ export default function WebDateTimeQuickMenu({
   const colors = useColors();
   const styles = useStyles();
   const accent = useAccent();
+  const scheme = useScheme();
   const triggerRef = useRef<View>(null);
   const [anchor, setAnchor] = useState<PopoverAnchor | null>(null);
   const [open, setOpen] = useState(false);
@@ -99,7 +100,7 @@ export default function WebDateTimeQuickMenu({
           color: colors.textPrimary,
           fontFamily: fonts.sansRegular,
           fontSize: 16,
-          colorScheme: 'light',
+          colorScheme: scheme,
         },
       })
     : null;

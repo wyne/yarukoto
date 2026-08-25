@@ -23,7 +23,7 @@ export type { Scheme, SchemePref };
  *
  * Lifting this is what turns dark mode on.
  */
-const DARK_MODE_READY = false;
+const DARK_MODE_READY = true;
 
 interface ThemeContextValue {
   accent: AccentColor;

@@ -10,6 +10,7 @@ import {
   BottomSheetView,
 } from '@gorhom/bottom-sheet';
 import { makeStyles } from '../theme/styles';
+import { useColors } from '../theme/ThemeContext';
 import { fonts } from '../theme/typography';
 
 interface Props {
@@ -61,6 +62,7 @@ export default function NativeSheet({
   children,
 }: Props) {
   const styles = useStyles();
+  const colors = useColors();
   const insets = useSafeAreaInsets();
   const ref = useRef<React.ElementRef<typeof BottomSheetModal>>(null);
   const onCloseRef = useRef(onClose);
@@ -100,7 +102,7 @@ export default function NativeSheet({
 
   const renderBackdrop = useCallback(
     (props: BottomSheetBackdropProps) => (
-      <BottomSheetBackdrop {...props} appearsOnIndex={0} disappearsOnIndex={-1} pressBehavior="close" opacity={0.4} />
+      <BottomSheetBackdrop {...props} appearsOnIndex={0} disappearsOnIndex={-1} pressBehavior="close" opacity={colors.scrimOpacity} />
     ),
     []
   );
