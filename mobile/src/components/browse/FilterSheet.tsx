@@ -221,7 +221,7 @@ const styles = StyleSheet.create({
   label: {
     flex: 1,
     fontFamily: fonts.sansRegular,
-    fontSize: 15,
+    fontSize: 16,
     color: colors.textPrimary,
   },
   labelFolder: {
@@ -229,7 +229,7 @@ const styles = StyleSheet.create({
   },
   count: {
     fontFamily: fonts.monoRegular,
-    fontSize: 12,
+    fontSize: 12.5,
     color: colors.textTertiary,
   },
   check: {
@@ -243,7 +243,7 @@ const styles = StyleSheet.create({
   },
   empty: {
     fontFamily: fonts.sansRegular,
-    fontSize: 14,
+    fontSize: 15,
     color: colors.textTertiary,
     paddingVertical: 16,
     textAlign: 'center',

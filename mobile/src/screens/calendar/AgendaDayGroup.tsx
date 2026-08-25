@@ -79,7 +79,7 @@ const styles = StyleSheet.create({
   },
   header: {
     fontFamily: fonts.monoRegular,
-    fontSize: 11,
+    fontSize: 11.5,
     letterSpacing: 1,
     textTransform: 'uppercase',
     color: colors.textTertiary,

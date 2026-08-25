@@ -216,7 +216,7 @@ const styles = StyleSheet.create({
   },
   label: {
     fontFamily: fonts.monoRegular,
-    fontSize: 11,
+    fontSize: 11.5,
     letterSpacing: 1,
     textTransform: 'uppercase',
     color: colors.textTertiary,
@@ -229,7 +229,7 @@ const styles = StyleSheet.create({
   },
   modeButtonText: {
     fontFamily: fonts.sansMedium,
-    fontSize: 13,
+    fontSize: 14,
   },
   nativeRow: {
     minHeight: 44,
@@ -246,7 +246,7 @@ const styles = StyleSheet.create({
   },
   nativeRowLabel: {
     fontFamily: fonts.sansMedium,
-    fontSize: 14,
+    fontSize: 15,
     color: colors.textPrimary,
   },
   compactNativePicker: {
@@ -264,7 +264,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontFamily: fonts.sansRegular,
-    fontSize: 15,
+    fontSize: 16,
     color: colors.textPrimary,
   },
   clearRow: {
@@ -273,7 +273,7 @@ const styles = StyleSheet.create({
   },
   clearText: {
     fontFamily: fonts.sansMedium,
-    fontSize: 13,
+    fontSize: 14,
     color: colors.priorityHigh,
   },
 });

@@ -243,12 +243,12 @@ const styles = StyleSheet.create({
   scopeLabel: {
     flex: 1,
     fontFamily: fonts.sansSemiBold,
-    fontSize: 15,
+    fontSize: 16,
     color: colors.textPrimary,
   },
   scopeCount: {
     fontFamily: fonts.monoRegular,
-    fontSize: 12,
+    fontSize: 12.5,
     color: colors.textTertiary,
   },
   scroll: {
@@ -259,7 +259,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 24,
     fontFamily: fonts.sansRegular,
-    fontSize: 13.5,
+    fontSize: 14.5,
     color: colors.textTertiary,
   },
   scopeRow: {
@@ -272,7 +272,7 @@ const styles = StyleSheet.create({
   },
   scopeRowText: {
     fontFamily: fonts.sansRegular,
-    fontSize: 15,
+    fontSize: 16,
     color: colors.textPrimary,
   },
   dot: {
@@ -282,7 +282,7 @@ const styles = StyleSheet.create({
   },
   sectionLabel: {
     fontFamily: fonts.monoRegular,
-    fontSize: 11,
+    fontSize: 11.5,
     letterSpacing: 1,
     textTransform: 'uppercase',
     color: colors.textTertiary,

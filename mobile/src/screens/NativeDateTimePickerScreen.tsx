@@ -151,7 +151,7 @@ const styles = StyleSheet.create({
   },
   clearText: {
     fontFamily: fonts.sansMedium,
-    fontSize: 15,
+    fontSize: 16,
     color: colors.priorityHigh,
   },
 });

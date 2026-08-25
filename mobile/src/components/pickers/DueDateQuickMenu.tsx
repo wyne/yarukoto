@@ -127,7 +127,7 @@ const styles = StyleSheet.create({
   },
   triggerText: {
     fontFamily: fonts.monoRegular,
-    fontSize: 13,
+    fontSize: 14,
     color: colors.textSecondary,
   },
 });

@@ -746,7 +746,7 @@ const styles = StyleSheet.create({
   },
   count: {
     fontFamily: fonts.monoRegular,
-    fontSize: 13,
+    fontSize: 13.5,
     color: colors.textTertiary,
   },
   searchInput: {
@@ -765,7 +765,7 @@ const styles = StyleSheet.create({
   },
   headerAction: {
     fontFamily: fonts.sansMedium,
-    fontSize: 15,
+    fontSize: 16,
   },
   selectedCount: {
     fontFamily: fonts.sansSemiBold,
@@ -812,7 +812,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 32,
     fontFamily: fonts.sansRegular,
-    fontSize: 14,
+    fontSize: 15,
     color: colors.textTertiary,
   },
 });

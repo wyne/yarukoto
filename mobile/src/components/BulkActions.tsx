@@ -246,7 +246,7 @@ const styles = StyleSheet.create({
   },
   paneCount: {
     fontFamily: fonts.sansRegular,
-    fontSize: 14,
+    fontSize: 15,
     color: colors.textSecondary,
   },
   paneCountNum: {
@@ -255,7 +255,7 @@ const styles = StyleSheet.create({
   },
   cancel: {
     fontFamily: fonts.sansMedium,
-    fontSize: 14,
+    fontSize: 15,
   },
   paneRow: {
     flexDirection: 'row',
@@ -267,7 +267,7 @@ const styles = StyleSheet.create({
   },
   paneRowText: {
     fontFamily: fonts.sansRegular,
-    fontSize: 14,
+    fontSize: 15,
     color: colors.textPrimary,
   },
   grid: {
@@ -290,7 +290,7 @@ const styles = StyleSheet.create({
   },
   tileText: {
     fontFamily: fonts.sansMedium,
-    fontSize: 12,
+    fontSize: 12.5,
     color: colors.textPrimary,
   },
 
@@ -328,7 +328,7 @@ const styles = StyleSheet.create({
   },
   barCancel: {
     fontFamily: fonts.sansRegular,
-    fontSize: 15,
+    fontSize: 16,
     color: colors.textTertiary,
   },
 });

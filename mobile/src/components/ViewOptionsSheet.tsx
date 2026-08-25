@@ -150,7 +150,7 @@ const styles = StyleSheet.create({
   },
   sectionLabel: {
     fontFamily: fonts.monoRegular,
-    fontSize: 11,
+    fontSize: 11.5,
     letterSpacing: 1,
     textTransform: 'uppercase',
     color: colors.textTertiary,
@@ -172,7 +172,7 @@ const styles = StyleSheet.create({
   },
   chipText: {
     fontFamily: fonts.sansMedium,
-    fontSize: 13,
+    fontSize: 14,
     color: colors.textPrimary,
   },
   chipTextActive: {
@@ -184,7 +184,7 @@ const styles = StyleSheet.create({
   },
   restoreText: {
     fontFamily: fonts.sansMedium,
-    fontSize: 13,
+    fontSize: 14,
     color: colors.textTertiary,
   },
   doneBtn: {
@@ -196,7 +196,7 @@ const styles = StyleSheet.create({
   },
   doneBtnText: {
     fontFamily: fonts.sansSemiBold,
-    fontSize: 15,
+    fontSize: 16,
     color: '#fff',
   },
 });

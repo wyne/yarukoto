@@ -154,7 +154,7 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     fontFamily: fonts.sansRegular,
-    fontSize: 14,
+    fontSize: 15,
     color: colors.textPrimary,
     padding: 0,
   },
@@ -183,12 +183,12 @@ const styles = StyleSheet.create({
   },
   suggestionValue: {
     fontFamily: fonts.monoRegular,
-    fontSize: 13.5,
+    fontSize: 14.5,
     color: colors.textPrimary,
   },
   suggestionHint: {
     fontFamily: fonts.sansRegular,
-    fontSize: 12,
+    fontSize: 12.5,
     color: colors.textFaint,
   },
   chipsRow: {
@@ -205,6 +205,6 @@ const styles = StyleSheet.create({
   },
   chipText: {
     fontFamily: fonts.monoRegular,
-    fontSize: 12.5,
+    fontSize: 13,
   },
 });

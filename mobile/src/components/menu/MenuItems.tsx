@@ -63,7 +63,7 @@ export const menuStyles = StyleSheet.create({
   },
   chipText: {
     fontFamily: fonts.sansMedium,
-    fontSize: 12,
+    fontSize: 12.5,
     color: colors.textPrimary,
   },
   chipTextActive: {
@@ -74,7 +74,7 @@ export const menuStyles = StyleSheet.create({
 const styles = StyleSheet.create({
   label: {
     fontFamily: fonts.monoRegular,
-    fontSize: 11,
+    fontSize: 11.5,
     letterSpacing: 1,
     textTransform: 'uppercase',
     color: colors.textTertiary,
@@ -108,7 +108,7 @@ const styles = StyleSheet.create({
   },
   rowText: {
     fontFamily: fonts.sansRegular,
-    fontSize: 14,
+    fontSize: 15,
     color: colors.textPrimary,
   },
 });

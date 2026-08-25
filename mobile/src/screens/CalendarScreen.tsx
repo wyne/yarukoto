@@ -340,7 +340,7 @@ const styles = StyleSheet.create({
   },
   todayBtnText: {
     fontFamily: fonts.monoRegular,
-    fontSize: 12,
+    fontSize: 12.5,
   },
   gridWrap: { paddingHorizontal: 12 },
   filterRow: {
@@ -369,7 +369,7 @@ const styles = StyleSheet.create({
   },
   modeText: {
     fontFamily: fonts.monoRegular,
-    fontSize: 11,
+    fontSize: 11.5,
     color: colors.textSecondary,
   },
   quickAdd: { paddingHorizontal: 12, paddingTop: 4 },
@@ -390,7 +390,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 24,
     fontFamily: fonts.sansRegular,
-    fontSize: 14,
+    fontSize: 15,
     color: colors.textTertiary,
   },
 });

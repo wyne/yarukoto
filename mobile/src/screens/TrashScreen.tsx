@@ -124,12 +124,12 @@ const styles = StyleSheet.create({
   count: {
     flex: 1,
     fontFamily: fonts.monoRegular,
-    fontSize: 13,
+    fontSize: 13.5,
     color: colors.textTertiary,
   },
   emptyAction: {
     fontFamily: fonts.sansMedium,
-    fontSize: 13,
+    fontSize: 14,
     color: colors.priorityHigh,
   },
   /** `flexGrow` reaches the bottom on a short list. See TaskListScreen's `scrollContent`. */
@@ -138,7 +138,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 32,
     fontFamily: fonts.sansRegular,
-    fontSize: 14,
+    fontSize: 15,
     color: colors.textTertiary,
   },
   row: {
@@ -152,18 +152,18 @@ const styles = StyleSheet.create({
   rowText: { flex: 1, minWidth: 0 },
   rowTitle: {
     fontFamily: fonts.sansMedium,
-    fontSize: 15,
+    fontSize: 16,
     color: colors.textSecondary,
   },
   rowMeta: {
     fontFamily: fonts.monoRegular,
-    fontSize: 11.5,
+    fontSize: 12,
     color: colors.textTertiary,
     marginTop: 2,
   },
   action: {
     fontFamily: fonts.sansMedium,
-    fontSize: 13,
+    fontSize: 14,
   },
   danger: { color: colors.priorityHigh },
 });

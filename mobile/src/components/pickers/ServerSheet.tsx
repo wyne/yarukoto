@@ -133,7 +133,7 @@ const styles = StyleSheet.create({
   sectionLabel: {
     marginBottom: 8,
     fontFamily: fonts.monoRegular,
-    fontSize: 11,
+    fontSize: 11.5,
     letterSpacing: 0.6,
     textTransform: 'uppercase',
     color: colors.textTertiary,
@@ -169,7 +169,7 @@ const styles = StyleSheet.create({
   },
   statusTime: {
     fontFamily: fonts.monoRegular,
-    fontSize: 11.5,
+    fontSize: 12,
     color: colors.textTertiary,
   },
   detailBlock: {
@@ -185,33 +185,33 @@ const styles = StyleSheet.create({
   },
   detailLabel: {
     fontFamily: fonts.sansRegular,
-    fontSize: 12.5,
+    fontSize: 13,
     color: colors.textTertiary,
   },
   detailValue: {
     flexShrink: 1,
     fontFamily: fonts.monoRegular,
-    fontSize: 12.5,
+    fontSize: 13,
     color: colors.textSecondary,
   },
   detailMeta: {
     marginTop: 2,
     fontFamily: fonts.sansRegular,
-    fontSize: 11.5,
+    fontSize: 12,
     color: colors.textFaint,
   },
   changeNote: {
     marginTop: 14,
     paddingHorizontal: 2,
     fontFamily: fonts.sansRegular,
-    fontSize: 12.5,
+    fontSize: 13,
     lineHeight: 17,
     color: colors.textFaint,
   },
 
   sampleNote: {
     fontFamily: fonts.sansRegular,
-    fontSize: 13,
+    fontSize: 14,
     lineHeight: 18,
     color: colors.textSecondary,
   },
@@ -222,7 +222,7 @@ const styles = StyleSheet.create({
   },
   disconnectText: {
     fontFamily: fonts.sansMedium,
-    fontSize: 14,
+    fontSize: 15,
     color: colors.priorityHigh,
   },
 });

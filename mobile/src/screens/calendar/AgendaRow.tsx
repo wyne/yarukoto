@@ -62,7 +62,7 @@ const styles = StyleSheet.create({
   time: {
     width: 62,
     fontFamily: fonts.monoRegular,
-    fontSize: 12,
+    fontSize: 12.5,
     color: colors.textTertiary,
   },
   draggable: {
