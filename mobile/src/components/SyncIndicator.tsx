@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
-import { Animated, Easing, StyleSheet, Text, View } from 'react-native';
-import { colors } from '../theme/colors';
+import { useColors } from '../theme/ThemeContext';
+import { Animated, Easing, Text, View } from 'react-native';
+import { makeStyles } from '../theme/styles';
 import { fonts } from '../theme/typography';
 import { AppMode } from '../data/storage';
 import { SyncStatus } from '../data/sync';
@@ -22,6 +23,7 @@ interface Props {
  * thing to see at a glance.
  */
 function describe(mode: AppMode, status: SyncStatus, serverUrl: string, now: Date): { color: string; label: string } {
+  const colors = useColors();
   const host = serverUrl.replace(/^https?:\/\//, '');
   const stale = status.lastSyncedAt ? elapsedShort(now, status.lastSyncedAt) : null;
 
@@ -55,6 +57,7 @@ function describe(mode: AppMode, status: SyncStatus, serverUrl: string, now: Dat
 }
 
 export default function SyncIndicator({ mode, status, serverUrl, compact }: Props) {
+  const styles = useStyles();
   // Recomputed on each render, which the 5s sync cycle already triggers — so the
   // elapsed time stays current without a timer of its own.
   const { color, label } = describe(mode, status, serverUrl, new Date());
@@ -91,7 +94,7 @@ export default function SyncIndicator({ mode, status, serverUrl, compact }: Prop
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((c) => ({
   dot: {
     width: 8,
     height: 8,
@@ -101,6 +104,6 @@ const styles = StyleSheet.create({
     flex: 1,
     fontFamily: fonts.monoRegular,
     fontSize: 12,
-    color: colors.textTertiary,
+    color: c.textTertiary,
   },
-});
+}));

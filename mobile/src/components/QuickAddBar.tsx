@@ -1,8 +1,8 @@
 import React, { useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { colors } from '../theme/colors';
+import { Pressable, Text, TextInput, View } from 'react-native';
+import { makeStyles } from '../theme/styles';
 import { fonts } from '../theme/typography';
-import { useAccent } from '../theme/ThemeContext';
+import { useAccent, useColors } from '../theme/ThemeContext';
 import { useTasks } from '../data/TaskContext';
 import { IconPlus } from '../icons/Icons';
 import { parseQuickAdd } from '../data/quickAdd';
@@ -18,6 +18,8 @@ interface Props {
 }
 
 export default function QuickAddBar({ onSubmit, contextLabel }: Props) {
+  const colors = useColors();
+  const styles = useStyles();
   const accent = useAccent();
   const { state } = useTasks();
   const [text, setText] = useState('');
@@ -135,13 +137,13 @@ export default function QuickAddBar({ onSubmit, contextLabel }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((c) => ({
   wrap: {
     marginHorizontal: 12,
     marginBottom: 10,
-    backgroundColor: colors.surface,
+    backgroundColor: c.surface,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: c.border,
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 10,
@@ -155,7 +157,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontFamily: fonts.sansRegular,
     fontSize: 15,
-    color: colors.textPrimary,
+    color: c.textPrimary,
     padding: 0,
   },
   caret: {
@@ -166,7 +168,7 @@ const styles = StyleSheet.create({
   suggestions: {
     marginTop: 8,
     borderTopWidth: 1,
-    borderTopColor: colors.divider,
+    borderTopColor: c.divider,
     paddingTop: 6,
     gap: 2,
   },
@@ -179,17 +181,17 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   suggestionRowSelected: {
-    backgroundColor: colors.accentTintBg,
+    backgroundColor: c.accentTintBg,
   },
   suggestionValue: {
     fontFamily: fonts.monoRegular,
     fontSize: 14.5,
-    color: colors.textPrimary,
+    color: c.textPrimary,
   },
   suggestionHint: {
     fontFamily: fonts.sansRegular,
     fontSize: 12.5,
-    color: colors.textFaint,
+    color: c.textFaint,
   },
   chipsRow: {
     flexDirection: 'row',
@@ -207,4 +209,4 @@ const styles = StyleSheet.create({
     fontFamily: fonts.monoRegular,
     fontSize: 13,
   },
-});
+}));

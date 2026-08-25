@@ -1,8 +1,9 @@
 import React from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { colors, priorityColor } from '../../theme/colors';
+import { Pressable, ScrollView, Text, View } from 'react-native';
+import { priorityColor } from '../../theme/colors';
+import { makeStyles } from '../../theme/styles';
 import { fonts } from '../../theme/typography';
-import { useAccent } from '../../theme/ThemeContext';
+import { useAccent, useColors } from '../../theme/ThemeContext';
 import { addDays, formatTime24to12, isSameDay, toISODate, weekdayShort } from '../../data/dateUtils';
 import { Task } from '../../data/types';
 import { dayTargetId } from '../../drag/hitTest';
@@ -38,6 +39,7 @@ export default function WeekGrid({
   onDropTask,
   onOpenTask,
 }: Props) {
+  const styles = useStyles();
   const days = Array.from({ length: dayCount }, (_, i) => addDays(startDate, i));
 
   return (
@@ -69,6 +71,8 @@ interface ColProps {
 }
 
 function DayColumn({ date, today, selectedDate, tasks, onSelectDate, onDropTask, onOpenTask }: ColProps) {
+  const colors = useColors();
+  const styles = useStyles();
   const accent = useAccent();
   const iso = toISODate(date);
   const isToday = isSameDay(date, today);
@@ -115,6 +119,8 @@ function DayColumn({ date, today, selectedDate, tasks, onSelectDate, onDropTask,
 
 /** Draggable so a task can be moved between days without leaving the week. */
 function TaskChip({ task, onPress }: { task: Task; onPress: () => void }) {
+  const colors = useColors();
+  const styles = useStyles();
   const accent = useAccent();
   const { onLongPress, ...handlers } = useDraggable({ taskId: task.id, title: task.title });
   const isSource = useDragSource(task.id);
@@ -130,7 +136,7 @@ function TaskChip({ task, onPress }: { task: Task; onPress: () => void }) {
         onPress={onPress}
         onLongPress={onLongPress}
       >
-        <View style={[styles.chipDot, { backgroundColor: priorityColor(task.priority) }]} />
+        <View style={[styles.chipDot, { backgroundColor: priorityColor(task.priority, colors) }]} />
         <View style={styles.chipText}>
           <Text style={[styles.chipTitle, task.completed && styles.chipDone]} numberOfLines={2}>
             {task.title}
@@ -142,7 +148,7 @@ function TaskChip({ task, onPress }: { task: Task; onPress: () => void }) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((c) => ({
   week: {
     flex: 1,
     flexDirection: 'row',
@@ -154,9 +160,9 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: c.border,
     borderRadius: 8,
-    backgroundColor: colors.surface,
+    backgroundColor: c.surface,
     overflow: 'hidden',
   },
   colHeader: {
@@ -164,13 +170,13 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     gap: 2,
     borderBottomWidth: 1,
-    borderBottomColor: colors.divider,
+    borderBottomColor: c.divider,
   },
   colWeekday: {
     fontFamily: fonts.monoRegular,
     fontSize: 9.5,
     letterSpacing: 0.5,
-    color: colors.textTertiary,
+    color: c.textTertiary,
   },
   colDayBadge: {
     minWidth: 22,
@@ -183,25 +189,26 @@ const styles = StyleSheet.create({
   colDay: {
     fontFamily: fonts.sansRegular,
     fontSize: 13,
-    color: colors.textPrimary,
+    color: c.textPrimary,
   },
   colBody: {
     padding: 4,
     gap: 4,
   },
   chipWrap: {
-    userSelect: 'none',
-    // @ts-expect-error web-only affordance; ignored on native
-    cursor: 'grab',
+    // Spread as a plain object rather than suppressed line by line: a
+    // `@ts-expect-error` inside the builder stops `makeStyles` inferring the
+    // sheet's shape at all, and every style name goes missing.
+    ...({ userSelect: 'none', cursor: 'grab' } as object),
   },
   chip: {
     flexDirection: 'row',
     gap: 6,
     padding: 6,
     borderRadius: 6,
-    backgroundColor: colors.surfaceMuted,
+    backgroundColor: c.surfaceMuted,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: c.border,
   },
   chipCompleted: {
     opacity: 0.55,
@@ -220,16 +227,16 @@ const styles = StyleSheet.create({
     fontFamily: fonts.sansMedium,
     fontSize: 12,
     lineHeight: 15,
-    color: colors.textPrimary,
+    color: c.textPrimary,
   },
   chipDone: {
     textDecorationLine: 'line-through',
-    color: colors.textTertiary,
+    color: c.textTertiary,
   },
   chipTime: {
     fontFamily: fonts.monoRegular,
     fontSize: 10,
-    color: colors.textTertiary,
+    color: c.textTertiary,
     marginTop: 2,
   },
-});
+}));

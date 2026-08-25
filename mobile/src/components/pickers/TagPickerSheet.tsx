@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, Text, TextInput, View } from 'react-native';
 import BottomSheet from '../BottomSheet';
 import type { PopoverAnchor } from '../Popover';
-import { colors } from '../../theme/colors';
-import { hoverBg } from '../../theme/hover';
+import { makeStyles } from '../../theme/styles';
+import { useHoverBg } from '../../theme/hover';
 import { fonts } from '../../theme/typography';
-import { useAccent } from '../../theme/ThemeContext';
+import { useAccent, useColors } from '../../theme/ThemeContext';
 import { useTasks } from '../../data/TaskContext';
 import { tagCounts } from '../../data/selectors';
 
@@ -21,6 +21,9 @@ interface Props {
 }
 
 export default function TagPickerSheet({ visible, onClose, initialTags, onApply, anchor, onBack }: Props) {
+  const hoverBg = useHoverBg();
+  const colors = useColors();
+  const styles = useStyles();
   const accent = useAccent();
   const { state } = useTasks();
   const [selected, setSelected] = useState<string[]>(initialTags);
@@ -81,7 +84,7 @@ export default function TagPickerSheet({ visible, onClose, initialTags, onApply,
         </Pressable>
       </View>
       <Pressable
-        style={[styles.applyBtn, { backgroundColor: colors.textPrimary }]}
+        style={[styles.applyBtn, { backgroundColor: colors.inverseSurface }]}
         onPress={() => {
           onApply(selected);
           onClose();
@@ -93,7 +96,7 @@ export default function TagPickerSheet({ visible, onClose, initialTags, onApply,
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((c) => ({
   chipsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -101,7 +104,7 @@ const styles = StyleSheet.create({
   },
   chip: {
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: c.border,
     borderRadius: 6,
     paddingHorizontal: 10,
     paddingVertical: 7,
@@ -109,7 +112,7 @@ const styles = StyleSheet.create({
   chipText: {
     fontFamily: fonts.monoRegular,
     fontSize: 14,
-    color: colors.textSecondary,
+    color: c.textSecondary,
   },
   addRow: {
     flexDirection: 'row',
@@ -120,13 +123,13 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: c.border,
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontFamily: fonts.sansRegular,
     fontSize: 15,
-    color: colors.textPrimary,
+    color: c.textPrimary,
   },
   addBtn: {
     borderWidth: 1,
@@ -143,6 +146,6 @@ const styles = StyleSheet.create({
   applyText: {
     fontFamily: fonts.sansSemiBold,
     fontSize: 16,
-    color: '#fff',
+    color: c.inverseText,
   },
-});
+}));

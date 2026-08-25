@@ -9,7 +9,7 @@ import {
   BottomSheetModal,
   BottomSheetView,
 } from '@gorhom/bottom-sheet';
-import { colors } from '../theme/colors';
+import { makeStyles } from '../theme/styles';
 import { fonts } from '../theme/typography';
 
 interface Props {
@@ -60,6 +60,7 @@ export default function NativeSheet({
   footerComponent,
   children,
 }: Props) {
+  const styles = useStyles();
   const insets = useSafeAreaInsets();
   const ref = useRef<React.ElementRef<typeof BottomSheetModal>>(null);
   const onCloseRef = useRef(onClose);
@@ -185,19 +186,19 @@ export default function NativeSheet({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((c) => ({
   sheet: {
     borderTopLeftRadius: 18,
     borderTopRightRadius: 18,
   },
   background: {
-    backgroundColor: colors.surface,
+    backgroundColor: c.surface,
   },
   indicator: {
     width: 36,
     height: 4,
     borderRadius: 2,
-    backgroundColor: colors.border,
+    backgroundColor: c.border,
   },
   content: {
     paddingHorizontal: 16,
@@ -205,7 +206,7 @@ const styles = StyleSheet.create({
   title: {
     fontFamily: fonts.sansSemiBold,
     fontSize: 16,
-    color: colors.textPrimary,
+    color: c.textPrimary,
     marginBottom: 12,
   },
-});
+}));

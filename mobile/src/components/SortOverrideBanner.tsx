@@ -1,6 +1,6 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { colors } from '../theme/colors';
+import { Pressable, Text, View } from 'react-native';
+import { makeStyles } from '../theme/styles';
 import { fonts } from '../theme/typography';
 import { useAccent } from '../theme/ThemeContext';
 import { SortBy, sortLabel } from '../data/viewOptions';
@@ -17,6 +17,7 @@ interface Props {
  * quietly look like a broken sort, and the way back is always one tap away.
  */
 export default function SortOverrideBanner({ sortBy, onRestore }: Props) {
+  const styles = useStyles();
   const accent = useAccent();
 
   return (
@@ -31,7 +32,7 @@ export default function SortOverrideBanner({ sortBy, onRestore }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((c) => ({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -46,10 +47,10 @@ const styles = StyleSheet.create({
     fontSize: 11.5,
     letterSpacing: 1,
     textTransform: 'uppercase',
-    color: colors.textTertiary,
+    color: c.textTertiary,
   },
   action: {
     fontFamily: fonts.sansMedium,
     fontSize: 14,
   },
-});
+}));

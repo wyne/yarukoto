@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import BottomSheet from '../BottomSheet';
 import SyncIndicator from '../SyncIndicator';
-import { ACCENT_OPTIONS, colors } from '../../theme/colors';
+import { ACCENT_OPTIONS } from '../../theme/colors';
+import { makeStyles } from '../../theme/styles';
 import { fonts } from '../../theme/typography';
-import { useTheme } from '../../theme/ThemeContext';
+import { useColors, useTheme } from '../../theme/ThemeContext';
 import { useTasks } from '../../data/TaskContext';
 import { ServerInfo, createApi } from '../../data/api';
 import { lastSyncedLabel } from '../../data/dateUtils';
@@ -33,6 +34,8 @@ interface Props {
  * token get entered.
  */
 export default function ServerSheet({ visible, onClose }: Props) {
+  const colors = useColors();
+  const styles = useStyles();
   const { state, disconnect, syncStatus } = useTasks();
   const { accent, setAccent } = useTheme();
   const [info, setInfo] = useState<ServerInfo | null | undefined>(undefined);
@@ -129,14 +132,14 @@ export default function ServerSheet({ visible, onClose }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((c) => ({
   sectionLabel: {
     marginBottom: 8,
     fontFamily: fonts.monoRegular,
     fontSize: 11.5,
     letterSpacing: 0.6,
     textTransform: 'uppercase',
-    color: colors.textTertiary,
+    color: c.textTertiary,
   },
   accentRow: {
     flexDirection: 'row',
@@ -162,15 +165,15 @@ const styles = StyleSheet.create({
     marginBottom: 14,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    backgroundColor: colors.surfaceMuted,
+    backgroundColor: c.surfaceMuted,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: c.border,
     borderRadius: 8,
   },
   statusTime: {
     fontFamily: fonts.monoRegular,
     fontSize: 12,
-    color: colors.textTertiary,
+    color: c.textTertiary,
   },
   detailBlock: {
     // The status row above it already carries the gap.
@@ -186,19 +189,19 @@ const styles = StyleSheet.create({
   detailLabel: {
     fontFamily: fonts.sansRegular,
     fontSize: 13,
-    color: colors.textTertiary,
+    color: c.textTertiary,
   },
   detailValue: {
     flexShrink: 1,
     fontFamily: fonts.monoRegular,
     fontSize: 13,
-    color: colors.textSecondary,
+    color: c.textSecondary,
   },
   detailMeta: {
     marginTop: 2,
     fontFamily: fonts.sansRegular,
     fontSize: 12,
-    color: colors.textFaint,
+    color: c.textFaint,
   },
   changeNote: {
     marginTop: 14,
@@ -206,14 +209,14 @@ const styles = StyleSheet.create({
     fontFamily: fonts.sansRegular,
     fontSize: 13,
     lineHeight: 17,
-    color: colors.textFaint,
+    color: c.textFaint,
   },
 
   sampleNote: {
     fontFamily: fonts.sansRegular,
     fontSize: 14,
     lineHeight: 18,
-    color: colors.textSecondary,
+    color: c.textSecondary,
   },
   disconnectBtn: {
     marginTop: 14,
@@ -223,6 +226,6 @@ const styles = StyleSheet.create({
   disconnectText: {
     fontFamily: fonts.sansMedium,
     fontSize: 15,
-    color: colors.priorityHigh,
+    color: c.priorityHigh,
   },
-});
+}));

@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { colors } from '../../theme/colors';
+import { Pressable, ScrollView, Text, View } from 'react-native';
+import { makeStyles } from '../../theme/styles';
 import { fonts } from '../../theme/typography';
 import { useAccent } from '../../theme/ThemeContext';
 import { useTasks } from '../../data/TaskContext';
@@ -45,6 +45,7 @@ function scopeLabel(scope: Scope): string {
 
 /** Left column of the Plan view: pick a slice of tasks, then drag them onto the calendar. */
 export default function SchedulePane() {
+  const styles = useStyles();
   const accent = useAccent();
   const { state } = useTasks();
   const { openTask } = useDetail();
@@ -160,6 +161,7 @@ function ScopeRow({
   active: boolean;
   onPress: () => void;
 }) {
+  const styles = useStyles();
   const accent = useAccent();
   return (
     <Pressable style={styles.scopeRow} onPress={onPress}>
@@ -188,6 +190,7 @@ function DraggableTask({
   hideTag?: string;
   onPress: () => void;
 }) {
+  const styles = useStyles();
   const { toggleComplete, snoozeTask } = useTasks();
   const { onLongPress, ...handlers } = useDraggable({ taskId: task.id, title: task.title });
   const isSource = useDragSource(task.id);
@@ -214,24 +217,25 @@ function DraggableTask({
 
 export const SCHEDULE_PANE_WIDTH = 320;
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((c) => ({
   /**
    * If the sweep selects text, the browser fires selectionchange (refusable) and
    * can then start a native text drag — dragstart, which terminates the responder
    * with no refusal hook. Making rows unselectable stops both at the source.
    */
   draggable: {
-    userSelect: 'none',
-    // @ts-expect-error web-only affordance; ignored on native
-    cursor: 'grab',
+    // Spread as a plain object rather than suppressed line by line: a
+    // `@ts-expect-error` inside the builder stops `makeStyles` inferring the
+    // sheet's shape at all, and every style name goes missing.
+    ...({ userSelect: 'none', cursor: 'grab' } as object),
   },
   pane: {
     width: SCHEDULE_PANE_WIDTH,
     flexGrow: 0,
     flexShrink: 0,
     borderRightWidth: 1,
-    borderRightColor: colors.border,
-    backgroundColor: colors.screenBg,
+    borderRightColor: c.border,
+    backgroundColor: c.screenBg,
   },
   scopeBtn: {
     flexDirection: 'row',
@@ -244,12 +248,12 @@ const styles = StyleSheet.create({
     flex: 1,
     fontFamily: fonts.sansSemiBold,
     fontSize: 16,
-    color: colors.textPrimary,
+    color: c.textPrimary,
   },
   scopeCount: {
     fontFamily: fonts.monoRegular,
     fontSize: 12.5,
-    color: colors.textTertiary,
+    color: c.textTertiary,
   },
   scroll: {
     paddingHorizontal: 8,
@@ -260,7 +264,7 @@ const styles = StyleSheet.create({
     marginTop: 24,
     fontFamily: fonts.sansRegular,
     fontSize: 14.5,
-    color: colors.textTertiary,
+    color: c.textTertiary,
   },
   scopeRow: {
     flexDirection: 'row',
@@ -268,12 +272,12 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingVertical: 11,
     borderBottomWidth: 1,
-    borderBottomColor: colors.divider,
+    borderBottomColor: c.divider,
   },
   scopeRowText: {
     fontFamily: fonts.sansRegular,
     fontSize: 16,
-    color: colors.textPrimary,
+    color: c.textPrimary,
   },
   dot: {
     width: 10,
@@ -285,8 +289,8 @@ const styles = StyleSheet.create({
     fontSize: 11.5,
     letterSpacing: 1,
     textTransform: 'uppercase',
-    color: colors.textTertiary,
+    color: c.textTertiary,
     marginTop: 12,
     marginBottom: 2,
   },
-});
+}));

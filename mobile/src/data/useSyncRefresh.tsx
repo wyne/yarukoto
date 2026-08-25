@@ -1,6 +1,6 @@
 import React, { useCallback, useState } from 'react';
 import { Platform, RefreshControl, RefreshControlProps } from 'react-native';
-import { colors } from '../theme/colors';
+import { useColors } from '../theme/ThemeContext';
 import { useTasks } from './TaskContext';
 import { hapticAction } from './haptics';
 
@@ -22,6 +22,7 @@ const MIN_SPIN_MS = 600;
  * gesture to speak of.
  */
 export function useSyncRefresh(): React.ReactElement<RefreshControlProps> | undefined {
+  const colors = useColors();
   const { syncNow } = useTasks();
   const [refreshing, setRefreshing] = useState(false);
 

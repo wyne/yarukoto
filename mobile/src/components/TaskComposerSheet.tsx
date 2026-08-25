@@ -1,15 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 import { BottomSheetTextInput } from '@gorhom/bottom-sheet';
-import { colors, priorityColor } from '../theme/colors';
+import { priorityColor } from '../theme/colors';
+import { makeStyles } from '../theme/styles';
 import { fonts } from '../theme/typography';
-import { useAccent } from '../theme/ThemeContext';
+import { useAccent, useColors } from '../theme/ThemeContext';
 import { QuickAddDefaults, useTasks } from '../data/TaskContext';
 import { Priority } from '../data/types';
 import { parseQuickAdd } from '../data/quickAdd';
@@ -61,6 +56,8 @@ interface Props {
  * the only movement while composing is the sheet growing by that one amount.
  */
 export default function TaskComposerSheet({ visible, onClose, defaults, contextLabel }: Props) {
+  const colors = useColors();
+  const styles = useStyles();
   const accent = useAccent();
   const { state, addTaskFromQuickAdd } = useTasks();
   const presentDateTimePicker = useNativeDateTimePicker();
@@ -284,7 +281,7 @@ export default function TaskComposerSheet({ visible, onClose, defaults, contextL
           ))}
           {effective.priority !== 'none' && (
             <View style={[styles.chip, { backgroundColor: colors.chipBg }]}>
-              <Text style={[styles.chipText, { color: priorityColor(effective.priority) }]}>
+              <Text style={[styles.chipText, { color: priorityColor(effective.priority, colors) }]}>
                 !{effective.priority}
               </Text>
             </View>
@@ -342,7 +339,7 @@ export default function TaskComposerSheet({ visible, onClose, defaults, contextL
                     closeMenu();
                   }}
                 >
-                  <IconFlag size={18} color={priorityColor(p.key)} filled={p.key !== 'none'} />
+                  <IconFlag size={18} color={priorityColor(p.key, colors)} filled={p.key !== 'none'} />
                   <Text style={styles.menuLabel}>{p.label}</Text>
                   {effective.priority === p.key && <IconCheckBig size={14} color={accent} strokeWidth={2.4} />}
                 </Pressable>
@@ -402,11 +399,11 @@ export default function TaskComposerSheet({ visible, onClose, defaults, contextL
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((c) => ({
   input: {
     fontFamily: fonts.sansRegular,
     fontSize: 16,
-    color: colors.textPrimary,
+    color: c.textPrimary,
     minHeight: 44,
     padding: 5,
     paddingVertical: 15,
@@ -415,7 +412,7 @@ const styles = StyleSheet.create({
   suggestions: {
     marginTop: 8,
     borderTopWidth: 1,
-    borderTopColor: colors.divider,
+    borderTopColor: c.divider,
     paddingTop: 6,
     gap: 2,
   },
@@ -430,12 +427,12 @@ const styles = StyleSheet.create({
   suggestionValue: {
     fontFamily: fonts.monoRegular,
     fontSize: 14.5,
-    color: colors.textPrimary,
+    color: c.textPrimary,
   },
   suggestionHint: {
     fontFamily: fonts.monoRegular,
     fontSize: 12,
-    color: colors.textFaint,
+    color: c.textFaint,
   },
   chips: {
     flexDirection: 'row',
@@ -469,7 +466,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   helperOpen: {
-    backgroundColor: colors.chipBg,
+    backgroundColor: c.chipBg,
   },
   submit: {
     width: 40,
@@ -485,9 +482,9 @@ const styles = StyleSheet.create({
   menuPanel: {
     marginVertical: 8,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: c.border,
     borderRadius: 12,
-    backgroundColor: colors.surface,
+    backgroundColor: c.surface,
     overflow: 'hidden',
     height: MENU_PANEL_HEIGHT,
   },
@@ -505,7 +502,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontFamily: fonts.sansMedium,
     fontSize: 16,
-    color: colors.textPrimary,
+    color: c.textPrimary,
   },
   menuSection: {
     paddingHorizontal: 14,
@@ -515,18 +512,18 @@ const styles = StyleSheet.create({
     fontSize: 11,
     letterSpacing: 1,
     textTransform: 'uppercase',
-    color: colors.textFaint,
+    color: c.textFaint,
   },
   menuEmpty: {
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontFamily: fonts.sansRegular,
     fontSize: 14,
-    color: colors.textTertiary,
+    color: c.textTertiary,
   },
   listDot: {
     width: 10,
     height: 10,
     borderRadius: 3,
   },
-});
+}));

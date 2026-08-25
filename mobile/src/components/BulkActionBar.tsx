@@ -1,9 +1,9 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors } from '../theme/colors';
+import { makeStyles } from '../theme/styles';
 import { fonts } from '../theme/typography';
-import { useAccent } from '../theme/ThemeContext';
+import { useAccent, useColors } from '../theme/ThemeContext';
 import { IconCalendarBox, IconFolder, IconTag, IconTrash } from '../icons/Icons';
 
 interface Props {
@@ -14,6 +14,8 @@ interface Props {
 }
 
 export default function BulkActionBar({ onSchedule, onMove, onTag, onDelete }: Props) {
+  const colors = useColors();
+  const styles = useStyles();
   const accent = useAccent();
   const insets = useSafeAreaInsets();
   const items = [
@@ -34,12 +36,12 @@ export default function BulkActionBar({ onSchedule, onMove, onTag, onDelete }: P
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((c) => ({
   bar: {
     flexDirection: 'row',
     borderTopWidth: 1,
-    borderTopColor: colors.border,
-    backgroundColor: colors.surfaceMuted,
+    borderTopColor: c.border,
+    backgroundColor: c.surfaceMuted,
     paddingTop: 10,
     paddingHorizontal: 8,
   },
@@ -54,4 +56,4 @@ const styles = StyleSheet.create({
     fontFamily: fonts.sansMedium,
     fontSize: 11,
   },
-});
+}));

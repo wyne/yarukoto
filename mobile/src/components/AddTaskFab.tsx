@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { makeStyles } from '../theme/styles';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { GlassView } from 'expo-glass-effect';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -26,6 +27,7 @@ interface Props {
  * type into without a tap first.
  */
 export default function AddTaskFab({ defaults, contextLabel, hidden }: Props) {
+  const styles = useStyles();
   const accent = useAccent();
   const insets = useSafeAreaInsets();
   const { wide } = useSidebar();
@@ -71,7 +73,7 @@ export default function AddTaskFab({ defaults, contextLabel, hidden }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((c) => ({
   anchor: {
     position: 'absolute',
     left: 0,
@@ -89,10 +91,10 @@ const styles = StyleSheet.create({
   },
   /** Glass lifts itself off the background; a flat disc needs the shadow to. */
   fabFlat: {
-    shadowColor: '#000',
+    shadowColor: c.shadow,
     shadowOpacity: 0.24,
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 5 },
     elevation: 8,
   },
-});
+}));

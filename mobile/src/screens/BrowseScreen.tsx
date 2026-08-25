@@ -1,7 +1,7 @@
 import React, { useCallback, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors } from '../theme/colors';
+import { makeStyles } from '../theme/styles';
 import { fonts } from '../theme/typography';
 import { PANE_MAX_WIDTH, useSidebar } from '../navigation/SidebarContext';
 import { TaskCriteria } from '../data/taskFilter';
@@ -20,6 +20,7 @@ import { IconMenu } from '../icons/Icons';
  * screen's furniture with it.
  */
 export default function BrowseScreen() {
+  const styles = useStyles();
   const insets = useSafeAreaInsets();
   const { wide, openDrawer } = useSidebar();
   /**
@@ -52,8 +53,8 @@ export default function BrowseScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.screenBg },
+const useStyles = makeStyles((c) => ({
+  screen: { flex: 1, backgroundColor: c.screenBg },
   paneWide: { width: '100%', maxWidth: PANE_MAX_WIDTH },
   header: {
     flexDirection: 'row',
@@ -66,6 +67,6 @@ const styles = StyleSheet.create({
     flex: 1,
     fontFamily: fonts.sansBold,
     fontSize: 22,
-    color: colors.textPrimary,
+    color: c.textPrimary,
   },
-});
+}));

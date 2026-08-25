@@ -1,6 +1,6 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
-import { colors } from '../../theme/colors';
+import { Text, View } from 'react-native';
+import { makeStyles } from '../../theme/styles';
 import { fonts } from '../../theme/typography';
 import { useTasks } from '../../data/TaskContext';
 import { getListById } from '../../data/selectors';
@@ -26,6 +26,7 @@ interface Props {
  * time takes its place on the left.
  */
 export default function AgendaRow({ task, now, onPress, draggable }: Props) {
+  const styles = useStyles();
   const { state, toggleComplete, snoozeTask } = useTasks();
   const { onLongPress, ...handlers } = useDraggable({ taskId: task.id, title: task.title });
   const isSource = useDragSource(task.id);
@@ -58,16 +59,17 @@ export default function AgendaRow({ task, now, onPress, draggable }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((c) => ({
   time: {
     width: 62,
     fontFamily: fonts.monoRegular,
     fontSize: 12.5,
-    color: colors.textTertiary,
+    color: c.textTertiary,
   },
   draggable: {
-    userSelect: 'none',
-    // @ts-expect-error web-only affordance; ignored on native
-    cursor: 'grab',
+    // Spread as a plain object rather than suppressed line by line: a
+    // `@ts-expect-error` inside the builder stops `makeStyles` inferring the
+    // sheet's shape at all, and every style name goes missing.
+    ...({ userSelect: 'none', cursor: 'grab' } as object),
   },
-});
+}));

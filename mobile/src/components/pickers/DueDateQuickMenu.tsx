@@ -1,7 +1,7 @@
 import React from 'react';
-import { Platform, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
+import { Platform, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import MenuView, { type MenuAction, type NativeActionEvent } from '@expo/ui/community/menu';
-import { colors } from '../../theme/colors';
+import { makeStyles } from '../../theme/styles';
 import { fonts } from '../../theme/typography';
 import { useAccent } from '../../theme/ThemeContext';
 import { formatDueFull, formatTime24to12 } from '../../data/dateUtils';
@@ -29,6 +29,7 @@ export default function DueDateQuickMenu({
   children,
   style,
 }: Props) {
+  const styles = useStyles();
   const accent = useAccent();
   const now = new Date();
   const quickValues = Object.fromEntries(QUICK_DATES.map((item) => [item.id, item.get(now)]));
@@ -115,7 +116,7 @@ export default function DueDateQuickMenu({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((c) => ({
   webFallback: {
     alignSelf: 'flex-end',
   },
@@ -128,6 +129,6 @@ const styles = StyleSheet.create({
   triggerText: {
     fontFamily: fonts.monoRegular,
     fontSize: 14,
-    color: colors.textSecondary,
+    color: c.textSecondary,
   },
-});
+}));

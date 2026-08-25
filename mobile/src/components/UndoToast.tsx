@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
-import { Animated, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Animated, Platform, Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors } from '../theme/colors';
+import { makeStyles } from '../theme/styles';
 import { fonts } from '../theme/typography';
 import { useAccent } from '../theme/ThemeContext';
 import { useTasks } from '../data/TaskContext';
@@ -13,6 +13,7 @@ import { WEB_ENTRY } from '../data/platform';
 const NATIVE_DRIVER = Platform.OS !== 'web';
 
 export default function UndoToast() {
+  const styles = useStyles();
   const { pendingUndo, undoComplete } = useTasks();
   const insets = useSafeAreaInsets();
   const accent = useAccent();
@@ -60,7 +61,7 @@ export default function UndoToast() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((c) => ({
   wrap: {
     position: 'absolute',
     left: 0,
@@ -77,8 +78,8 @@ const styles = StyleSheet.create({
     paddingRight: 14,
     paddingVertical: 10,
     borderRadius: 10,
-    backgroundColor: colors.textPrimary,
-    shadowColor: '#000',
+    backgroundColor: c.inverseSurface,
+    shadowColor: c.shadow,
     shadowOpacity: 0.22,
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 4 },
@@ -88,7 +89,7 @@ const styles = StyleSheet.create({
     width: 18,
     height: 18,
     borderRadius: 9,
-    backgroundColor: colors.success,
+    backgroundColor: c.success,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -96,10 +97,10 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     fontFamily: fonts.sansMedium,
     fontSize: 14.5,
-    color: '#fff',
+    color: c.inverseText,
   },
   undo: {
     fontFamily: fonts.sansSemiBold,
     fontSize: 14.5,
   },
-});
+}));

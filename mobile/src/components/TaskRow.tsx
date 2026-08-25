@@ -1,16 +1,8 @@
 import React from 'react';
-import {
-  GestureResponderEvent,
-  GestureResponderHandlers,
-  Platform,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
-import { colors } from '../theme/colors';
+import { GestureResponderEvent, GestureResponderHandlers, Platform, Pressable, Text, View } from 'react-native';
+import { makeStyles } from '../theme/styles';
 import { fonts } from '../theme/typography';
-import { useAccent } from '../theme/ThemeContext';
+import { useAccent, useColors } from '../theme/ThemeContext';
 import { hoverable } from '../theme/hover';
 import { Task, ListDef } from '../data/types';
 import { formatDueShort, isOverdue } from '../data/dateUtils';
@@ -91,6 +83,8 @@ export default function TaskRow({
   onLater,
   onDone,
 }: Props) {
+  const colors = useColors();
+  const styles = useStyles();
   const accent = useAccent();
   const dueLabel = hideDue ? null : formatDueShort(now, task.dueDate, task.dueTime);
   const overdue = isOverdue(now, task);
@@ -216,7 +210,7 @@ export default function TaskRow({
  */
 const noTextSelect = { userSelect: 'none' } as const;
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((c) => ({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -224,7 +218,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 11,
     minHeight: 44,
-    backgroundColor: colors.surface,
+    backgroundColor: c.surface,
     ...(noTextSelect as object),
   },
   /**
@@ -236,7 +230,7 @@ const styles = StyleSheet.create({
     paddingRight: 40,
   },
   rowHovered: {
-    backgroundColor: colors.hoverBg,
+    backgroundColor: c.hoverBg,
   },
   rowCompleted: {
     opacity: 0.55,
@@ -253,11 +247,11 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     fontFamily: fonts.sansMedium,
     fontSize: 16,
-    color: colors.textPrimary,
+    color: c.textPrimary,
   },
   titleCompleted: {
     textDecorationLine: 'line-through',
-    color: colors.textSecondary,
+    color: c.textSecondary,
   },
   tagCount: {
     flexDirection: 'row',
@@ -286,12 +280,12 @@ const styles = StyleSheet.create({
   metaOverdue: {
     fontFamily: fonts.monoRegular,
     fontSize: 12,
-    color: colors.priorityHigh,
+    color: c.priorityHigh,
   },
   metaMuted: {
     fontFamily: fonts.monoRegular,
     fontSize: 12,
-    color: colors.textTertiary,
+    color: c.textTertiary,
   },
   handle: {
     marginLeft: -2,
@@ -304,7 +298,7 @@ const styles = StyleSheet.create({
     ...({ cursor: 'grab', touchAction: 'none', userSelect: 'none' } as object),
   },
   badge: {
-    backgroundColor: colors.chipBg,
+    backgroundColor: c.chipBg,
     borderRadius: 4,
     paddingHorizontal: 6,
     paddingVertical: 2,
@@ -312,7 +306,7 @@ const styles = StyleSheet.create({
   badgeText: {
     fontFamily: fonts.monoRegular,
     fontSize: 11.5,
-    color: colors.textTertiary,
+    color: c.textTertiary,
   },
   selectCircle: {
     width: 20,
@@ -322,4 +316,4 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-});
+}));

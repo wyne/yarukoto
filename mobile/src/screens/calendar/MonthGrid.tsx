@@ -1,8 +1,9 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { colors, priorityColor } from '../../theme/colors';
+import { Pressable, Text, View } from 'react-native';
+import { priorityColor } from '../../theme/colors';
+import { makeStyles } from '../../theme/styles';
 import { fonts } from '../../theme/typography';
-import { useAccent } from '../../theme/ThemeContext';
+import { useAccent, useColors } from '../../theme/ThemeContext';
 import { buildMonthGrid, isSameDay, startOfDay, toISODate } from '../../data/dateUtils';
 import { Task } from '../../data/types';
 import Card from '../../components/Card';
@@ -40,6 +41,8 @@ export default function MonthGrid({
   rangeStart,
   rangeEnd,
 }: Props) {
+  const colors = useColors();
+  const styles = useStyles();
   const grid = React.useMemo(() => buildMonthGrid(monthAnchor), [monthAnchor]);
 
   // Compared as day numbers so a partial-day time never shifts the band.
@@ -55,7 +58,7 @@ export default function MonthGrid({
     const dayTasks = byDate.get(iso);
     if (!dayTasks || dayTasks.length === 0) return null;
     const top = dayTasks.reduce((best, t) => (priorityWeight(t.priority) > priorityWeight(best.priority) ? t : best));
-    return top.priority === 'none' ? colors.textTertiary : priorityColor(top.priority);
+    return top.priority === 'none' ? colors.textTertiary : priorityColor(top.priority, colors);
   };
 
   return (
@@ -114,6 +117,8 @@ function DayCell({
   isFirst,
   isLast,
 }: CellProps) {
+  const colors = useColors();
+  const styles = useStyles();
   const accent = useAccent();
   const iso = toISODate(date);
   const isToday = isSameDay(date, today);
@@ -169,7 +174,7 @@ function DayCell({
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((c) => ({
   gridCard: {
     padding: 8,
   },
@@ -181,7 +186,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontFamily: fonts.monoRegular,
     fontSize: 10,
-    color: colors.textTertiary,
+    color: c.textTertiary,
   },
   grid: {
     flexDirection: 'row',
@@ -193,7 +198,7 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   cellInRange: {
-    backgroundColor: colors.accentTintBg,
+    backgroundColor: c.accentTintBg,
   },
   cellRangeStart: {
     borderTopLeftRadius: 8,
@@ -213,7 +218,7 @@ const styles = StyleSheet.create({
   cellText: {
     fontFamily: fonts.sansRegular,
     fontSize: 14,
-    color: colors.textPrimary,
+    color: c.textPrimary,
   },
   dot: {
     position: 'absolute',
@@ -222,4 +227,4 @@ const styles = StyleSheet.create({
     height: 4,
     borderRadius: 2,
   },
-});
+}));

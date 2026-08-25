@@ -1,10 +1,10 @@
 import React, { useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors } from '../theme/colors';
+import { makeStyles } from '../theme/styles';
 import { fonts } from '../theme/typography';
-import { useAccent } from '../theme/ThemeContext';
-import { hoverBg } from '../theme/hover';
+import { useAccent, useColors } from '../theme/ThemeContext';
+import { useHoverBg } from '../theme/hover';
 import { useTasks } from '../data/TaskContext';
 import { useSelection } from '../navigation/SelectionContext';
 import { addDays, toISODate } from '../data/dateUtils';
@@ -42,6 +42,9 @@ interface Props {
  * never drift apart.
  */
 export default function BulkActions({ variant }: Props) {
+  const hoverBg = useHoverBg();
+  const colors = useColors();
+  const styles = useStyles();
   const accent = useAccent();
   const insets = useSafeAreaInsets();
   const { state, bulkUpdate, deleteTasks, toggleComplete } = useTasks();
@@ -231,7 +234,7 @@ export default function BulkActions({ variant }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((c) => ({
   // Pane
   pane: {
     flex: 1,
@@ -247,11 +250,11 @@ const styles = StyleSheet.create({
   paneCount: {
     fontFamily: fonts.sansRegular,
     fontSize: 15,
-    color: colors.textSecondary,
+    color: c.textSecondary,
   },
   paneCountNum: {
     fontFamily: fonts.sansSemiBold,
-    color: colors.textPrimary,
+    color: c.textPrimary,
   },
   cancel: {
     fontFamily: fonts.sansMedium,
@@ -268,7 +271,7 @@ const styles = StyleSheet.create({
   paneRowText: {
     fontFamily: fonts.sansRegular,
     fontSize: 15,
-    color: colors.textPrimary,
+    color: c.textPrimary,
   },
   grid: {
     flexDirection: 'row',
@@ -284,14 +287,14 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingVertical: 16,
     borderRadius: 10,
-    backgroundColor: colors.surface,
+    backgroundColor: c.surface,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: c.border,
   },
   tileText: {
     fontFamily: fonts.sansMedium,
     fontSize: 12.5,
-    color: colors.textPrimary,
+    color: c.textPrimary,
   },
 
   // Floating bar
@@ -308,10 +311,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 6,
     borderRadius: 12,
-    backgroundColor: colors.surface,
+    backgroundColor: c.surface,
     borderWidth: 1,
-    borderColor: colors.border,
-    boxShadow: '0 8px 28px rgba(0, 0, 0, 0.18)',
+    borderColor: c.border,
+    boxShadow: `0 8px 28px ${c.shadow}${c.shadowOpacity ? '2E' : '00'}`,
   },
   barBtn: {
     width: 34,
@@ -324,11 +327,11 @@ const styles = StyleSheet.create({
     width: 1,
     alignSelf: 'stretch',
     marginHorizontal: 4,
-    backgroundColor: colors.divider,
+    backgroundColor: c.divider,
   },
   barCancel: {
     fontFamily: fonts.sansRegular,
     fontSize: 16,
-    color: colors.textTertiary,
+    color: c.textTertiary,
   },
-});
+}));

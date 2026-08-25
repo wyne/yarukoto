@@ -1,6 +1,7 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { colors } from '../../theme/colors';
+import { makeStyles } from '../../theme/styles';
+import { useColors } from '../../theme/ThemeContext';
 import { fonts } from '../../theme/typography';
 import { hoverable } from '../../theme/hover';
 
@@ -15,15 +16,18 @@ import { hoverable } from '../../theme/hover';
 
 /** The small uppercase caption above a group of chips. */
 export function SectionLabel({ children }: { children: React.ReactNode }) {
+  const styles = useStyles();
   return <Text style={styles.label}>{children}</Text>;
 }
 
 /** Horizontal wrap of chips — the choices worth making without navigating. */
 export function ChipRow({ children }: { children: React.ReactNode }) {
+  const styles = useStyles();
   return <View style={styles.chips}>{children}</View>;
 }
 
 export function MenuDivider() {
+  const styles = useStyles();
   return <View style={styles.divider} />;
 }
 
@@ -39,6 +43,8 @@ export function MenuRow({
   onPress: () => void;
   destructive?: boolean;
 }) {
+  const colors = useColors();
+  const styles = useStyles();
   return (
     <Pressable onPress={onPress} style={hoverable(styles.row, styles.rowHovered)}>
       <View style={styles.rowIcon}>{icon}</View>
@@ -47,37 +53,37 @@ export function MenuRow({
   );
 }
 
-export const menuStyles = StyleSheet.create({
+export const useMenuStyles = makeStyles((c) => ({
   chip: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: c.border,
     borderRadius: 7,
     paddingHorizontal: 9,
     paddingVertical: 5,
   },
   chipHovered: {
-    backgroundColor: colors.hoverBg,
+    backgroundColor: c.hoverBg,
   },
   chipText: {
     fontFamily: fonts.sansMedium,
     fontSize: 12.5,
-    color: colors.textPrimary,
+    color: c.textPrimary,
   },
   chipTextActive: {
     color: '#fff',
   },
-});
+}));
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((c) => ({
   label: {
     fontFamily: fonts.monoRegular,
     fontSize: 11.5,
     letterSpacing: 1,
     textTransform: 'uppercase',
-    color: colors.textTertiary,
+    color: c.textTertiary,
     marginBottom: 8,
   },
   chips: {
@@ -88,7 +94,7 @@ const styles = StyleSheet.create({
   },
   divider: {
     height: 1,
-    backgroundColor: colors.divider,
+    backgroundColor: c.divider,
     marginBottom: 6,
   },
   row: {
@@ -100,7 +106,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   rowHovered: {
-    backgroundColor: colors.hoverBg,
+    backgroundColor: c.hoverBg,
   },
   rowIcon: {
     width: 18,
@@ -109,6 +115,6 @@ const styles = StyleSheet.create({
   rowText: {
     fontFamily: fonts.sansRegular,
     fontSize: 15,
-    color: colors.textPrimary,
+    color: c.textPrimary,
   },
-});
+}));

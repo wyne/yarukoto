@@ -1,7 +1,7 @@
 import React from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors } from '../theme/colors';
+import { makeStyles } from '../theme/styles';
 import { fonts } from '../theme/typography';
 import { useAccent } from '../theme/ThemeContext';
 import { PANE_MAX_WIDTH, useSidebar } from '../navigation/SidebarContext';
@@ -24,6 +24,7 @@ import { IconMenu } from '../icons/Icons';
  * and the two actions are explicit rather than gestural.
  */
 export default function TrashScreen() {
+  const styles = useStyles();
   const accent = useAccent();
   const insets = useSafeAreaInsets();
   const refreshControl = useSyncRefresh();
@@ -108,8 +109,8 @@ export default function TrashScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.screenBg },
+const useStyles = makeStyles((c) => ({
+  screen: { flex: 1, backgroundColor: c.screenBg },
   paneWide: { width: '100%', maxWidth: PANE_MAX_WIDTH },
   header: {
     flexDirection: 'row',
@@ -121,18 +122,18 @@ const styles = StyleSheet.create({
   title: {
     fontFamily: fonts.sansBold,
     fontSize: 22,
-    color: colors.textPrimary,
+    color: c.textPrimary,
   },
   count: {
     flex: 1,
     fontFamily: fonts.monoRegular,
     fontSize: 13.5,
-    color: colors.textTertiary,
+    color: c.textTertiary,
   },
   emptyAction: {
     fontFamily: fonts.sansMedium,
     fontSize: 14,
-    color: colors.priorityHigh,
+    color: c.priorityHigh,
   },
   /** `flexGrow` reaches the bottom on a short list. See TaskListScreen's `scrollContent`. */
   scroll: { flexGrow: 1, paddingBottom: 24 },
@@ -142,7 +143,7 @@ const styles = StyleSheet.create({
     marginTop: 32,
     fontFamily: fonts.sansRegular,
     fontSize: 15,
-    color: colors.textTertiary,
+    color: c.textTertiary,
   },
   row: {
     flexDirection: 'row',
@@ -156,17 +157,17 @@ const styles = StyleSheet.create({
   rowTitle: {
     fontFamily: fonts.sansMedium,
     fontSize: 16,
-    color: colors.textSecondary,
+    color: c.textSecondary,
   },
   rowMeta: {
     fontFamily: fonts.monoRegular,
     fontSize: 12,
-    color: colors.textTertiary,
+    color: c.textTertiary,
     marginTop: 2,
   },
   action: {
     fontFamily: fonts.sansMedium,
     fontSize: 14,
   },
-  danger: { color: colors.priorityHigh },
-});
+  danger: { color: c.priorityHigh },
+}));

@@ -1,6 +1,6 @@
 import React from 'react';
-import { Animated, StyleSheet, Text, View } from 'react-native';
-import { colors } from '../theme/colors';
+import { Animated, Text, View } from 'react-native';
+import { makeStyles } from '../theme/styles';
 import { fonts } from '../theme/typography';
 import { formatDueFull } from '../data/dateUtils';
 import { isoFromDayTarget } from './hitTest';
@@ -17,6 +17,7 @@ import { useDrag } from './DragContext';
  * the finger knows where the drop would land before it lifts.
  */
 export default function DragOverlay() {
+  const styles = useStyles();
   const { payload, pointer, overId } = useDrag();
   if (!payload) return null;
 
@@ -37,7 +38,7 @@ export default function DragOverlay() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((c) => ({
   // Zero-sized: its top-left sits on the pointer and the ghost is positioned
   // relative to that single point.
   positioner: {
@@ -58,10 +59,10 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     // Liquid glass: a translucent pane with a hairline edge and a soft shadow,
     // so the calendar keeps showing through behind the finger.
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    backgroundColor: c.glassFill,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.6)',
-    shadowColor: '#000',
+    borderColor: c.glassBorder,
+    shadowColor: c.shadow,
     shadowOpacity: 0.18,
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 4 },
@@ -70,10 +71,10 @@ const styles = StyleSheet.create({
   text: {
     fontFamily: fonts.sansMedium,
     fontSize: 14,
-    color: colors.textPrimary,
+    color: c.textPrimary,
   },
   date: {
     // The destination, dimmer than the title so the task itself stays the focus.
-    color: colors.textSecondary,
+    color: c.textSecondary,
   },
-});
+}));

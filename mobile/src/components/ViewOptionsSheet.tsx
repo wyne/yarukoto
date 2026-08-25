@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
-import { colors } from '../theme/colors';
-import { hoverBg } from '../theme/hover';
+import { Pressable, Text, View, useWindowDimensions } from 'react-native';
+import { makeStyles } from '../theme/styles';
+import { useHoverBg } from '../theme/hover';
 import { fonts } from '../theme/typography';
 import { useAccent } from '../theme/ThemeContext';
 import BottomSheet from './BottomSheet';
@@ -29,6 +29,8 @@ interface Props {
 }
 
 export default function ViewOptionsSheet({ visible, onClose, value, onChange, onRestore, anchor }: Props) {
+  const hoverBg = useHoverBg();
+  const styles = useStyles();
   const accent = useAccent();
   const { width } = useWindowDimensions();
   const [draft, setDraft] = useState(value);
@@ -144,7 +146,7 @@ export default function ViewOptionsSheet({ visible, onClose, value, onChange, on
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((c) => ({
   section: {
     marginBottom: 18,
   },
@@ -153,7 +155,7 @@ const styles = StyleSheet.create({
     fontSize: 11.5,
     letterSpacing: 1,
     textTransform: 'uppercase',
-    color: colors.textTertiary,
+    color: c.textTertiary,
     marginBottom: 10,
   },
   chips: {
@@ -163,7 +165,7 @@ const styles = StyleSheet.create({
   },
   chip: {
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: c.border,
     borderRadius: 8,
     paddingHorizontal: 13,
     paddingVertical: 8,
@@ -173,9 +175,11 @@ const styles = StyleSheet.create({
   chipText: {
     fontFamily: fonts.sansMedium,
     fontSize: 14,
-    color: colors.textPrimary,
+    color: c.textPrimary,
   },
   chipTextActive: {
+    // Stays white: this chip is filled with the accent, which keeps its colour
+    // in both schemes. `inverseText` would go dark on it.
     color: '#fff',
   },
   restore: {
@@ -185,18 +189,18 @@ const styles = StyleSheet.create({
   restoreText: {
     fontFamily: fonts.sansMedium,
     fontSize: 14,
-    color: colors.textTertiary,
+    color: c.textTertiary,
   },
   doneBtn: {
     marginTop: 2,
     borderRadius: 10,
     paddingVertical: 14,
     alignItems: 'center',
-    backgroundColor: colors.textPrimary,
+    backgroundColor: c.inverseSurface,
   },
   doneBtnText: {
     fontFamily: fonts.sansSemiBold,
     fontSize: 16,
-    color: '#fff',
+    color: c.inverseText,
   },
-});
+}));

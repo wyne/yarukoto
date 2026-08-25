@@ -1,7 +1,7 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import Animated, { useAnimatedStyle, withTiming } from 'react-native-reanimated';
-import { colors } from '../theme/colors';
+import { makeStyles } from '../theme/styles';
 import { fonts } from '../theme/typography';
 import { IconChevronDown } from '../icons/Icons';
 
@@ -16,6 +16,7 @@ interface Props {
 }
 
 export default function SectionHeader({ label, count, color, collapsed, onToggle }: Props) {
+  const styles = useStyles();
   const chevronStyle = useAnimatedStyle(
     () => ({
       transform: [{ rotate: withTiming(collapsed ? '-90deg' : '0deg', { duration: 160 }) }],
@@ -40,7 +41,7 @@ export default function SectionHeader({ label, count, color, collapsed, onToggle
   return <Pressable onPress={onToggle}>{content}</Pressable>;
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((c) => ({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -52,13 +53,13 @@ const styles = StyleSheet.create({
     fontFamily: fonts.monoRegular,
     fontSize: 11.5,
     letterSpacing: 1,
-    color: colors.textTertiary,
+    color: c.textTertiary,
     textTransform: 'uppercase',
   },
   count: {
     fontFamily: fonts.monoRegular,
     fontSize: 11.5,
-    color: colors.textFaint,
+    color: c.textFaint,
   },
   dot: {
     width: 8,
@@ -68,6 +69,6 @@ const styles = StyleSheet.create({
   line: {
     flex: 1,
     height: 1,
-    backgroundColor: colors.dividerStrong,
+    backgroundColor: c.dividerStrong,
   },
-});
+}));

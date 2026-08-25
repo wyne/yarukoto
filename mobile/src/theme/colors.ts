@@ -1,17 +1,17 @@
 // Yarukoto palette — dense & utilitarian, lifted 1:1 from the Claude Design handoff
 // (project/Docket Mobile.dc.html — the original design file name).
 
+/** What the user chose. `system` defers to the device. */
+export type SchemePref = 'system' | 'light' | 'dark';
+/** What that resolved to. Only ever one of two things. */
+export type Scheme = 'light' | 'dark';
+
 /**
  * An accent is stored as its own light-mode hex — that string *is* the saved
  * preference, validated against this tuple. Dark mode therefore adds a second
  * value beside each rather than replacing it, and an accent chosen before dark
  * mode existed keeps working untouched.
  */
-/** What the user chose. `system` defers to the device. */
-export type SchemePref = 'system' | 'light' | 'dark';
-/** What that resolved to. Only ever one of two things. */
-export type Scheme = 'light' | 'dark';
-
 export const ACCENT_OPTIONS = ['#2E52E0', '#1E7A3C', '#C2570A', '#6B21A8'] as const;
 export type AccentColor = (typeof ACCENT_OPTIONS)[number];
 
@@ -207,12 +207,6 @@ export const darkPalette: Palette = {
 };
 
 export const palettes = { light: lightPalette, dark: darkPalette } as const;
-
-/**
- * The light palette under its old name, for files not yet converted to
- * `useColors()`. Goes away with the last of them.
- */
-export const colors = lightPalette;
 
 export function priorityColor(
   priority: 'none' | 'low' | 'medium' | 'high',

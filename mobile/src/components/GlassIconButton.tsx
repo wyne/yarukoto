@@ -2,7 +2,7 @@ import { createContext, ReactNode, Ref, useContext } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { GlassContainer, GlassView } from 'expo-glass-effect';
 import { LIQUID_GLASS } from '../data/platform';
-import { hoverBg } from '../theme/hover';
+import { useHoverBg } from '../theme/hover';
 
 /** Diameter of the glass capsule. Apple's minimum comfortable target. */
 const SIZE = 36;
@@ -45,6 +45,7 @@ interface TextButtonProps {
  * while the flat path keeps the pointer hover tint that a mouse expects.
  */
 export default function GlassIconButton({ onPress, label, children, tintColor, ref }: Props) {
+  const hoverBg = useHoverBg();
   const joined = useContext(JoinedGlassGroupContext);
 
   if (!LIQUID_GLASS) {

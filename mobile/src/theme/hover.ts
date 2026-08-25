@@ -1,5 +1,4 @@
 import type { PressableStateCallbackType, StyleProp, ViewStyle } from 'react-native';
-import { colors } from './colors';
 import { useColors } from './ThemeContext';
 
 /**
@@ -38,12 +37,4 @@ export function useHoverBg() {
   const colors = useColors();
   return (base: StyleProp<ViewStyle>, suppressed = false) =>
     hoverable(base, suppressed ? null : { backgroundColor: colors.hoverBg });
-}
-
-/**
- * The light-mode-only version, for callers not yet converted. Goes away with
- * the last of them.
- */
-export function hoverBg(base: StyleProp<ViewStyle>, suppressed = false) {
-  return hoverable(base, suppressed ? null : { backgroundColor: colors.hoverBg });
 }

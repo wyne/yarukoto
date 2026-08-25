@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Keyboard, Platform, StyleSheet, View } from 'react-native';
 import { BottomSheetFooter, BottomSheetFooterProps } from '@gorhom/bottom-sheet';
 import { useDetail } from '../navigation/DetailContext';
-import { colors } from '../theme/colors';
+import { useColors } from '../theme/ThemeContext';
 import KeyboardDismissButton from './KeyboardDismissButton';
 import NativeSheet from './NativeSheet';
 import TaskDetailView from './TaskDetailView';
@@ -50,6 +50,7 @@ function KeyboardDismissFooter({ animatedFooterPosition }: BottomSheetFooterProp
 
 /** Narrow-layout presentation: the task detail as a pull-up sheet over the list. */
 export default function TaskDetailSheet() {
+  const colors = useColors();
   const { openTaskId, closeTask } = useDetail();
   // Held so the sheet still has content to render while it slides back out.
   const lastTaskId = useRef(openTaskId);

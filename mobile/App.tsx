@@ -7,7 +7,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { useFonts } from 'expo-font';
 import { fontMap } from './src/theme/typography';
-import { colors } from './src/theme/colors';
+import { lightPalette } from './src/theme/colors';
 import { ThemeProvider } from './src/theme/ThemeContext';
 import { TaskProvider } from './src/data/TaskContext';
 import { initStorage } from './src/data/storage';
@@ -101,6 +101,9 @@ const styles = StyleSheet.create({
   },
   loading: {
     flex: 1,
-    backgroundColor: colors.screenBg,
+    // The frame before fonts and storage are ready, so before there is a
+    // provider to ask. Light until the scheme can be read from the primed cache
+    // — see the stage that turns dark mode on.
+    backgroundColor: lightPalette.screenBg,
   },
 });

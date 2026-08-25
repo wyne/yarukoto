@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { colors } from '../theme/colors';
+import { makeStyles } from '../theme/styles';
 import { fonts } from '../theme/typography';
 import { FINE_POINTER } from '../data/platform';
 
@@ -30,6 +30,7 @@ const DELAY = 450;
  * that appears on tap would just be in the way of the thing it describes.
  */
 export default function Tooltip({ label, align = 'end', placement = 'below', children }: Props) {
+  const styles = useStyles();
   const ref = useRef<View>(null);
   const [shown, setShown] = useState(false);
 
@@ -90,7 +91,7 @@ const ALIGN = StyleSheet.create({
   end: { right: 0 },
 });
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((c) => ({
   wrap: {
     position: 'relative',
   },
@@ -99,8 +100,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 5,
     borderRadius: 6,
-    backgroundColor: colors.textPrimary,
-    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.18)',
+    backgroundColor: c.inverseSurface,
+    boxShadow: `0 4px 12px ${c.shadow}${Math.round(c.shadowOpacity * 255).toString(16).padStart(2, '0')}`,
     zIndex: 10,
   },
   below: {
@@ -114,6 +115,6 @@ const styles = StyleSheet.create({
   text: {
     fontFamily: fonts.sansMedium,
     fontSize: 12.5,
-    color: '#fff',
+    color: c.inverseText,
   },
-});
+}));

@@ -1,9 +1,9 @@
 import React, { useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { colors } from '../../theme/colors';
-import { hoverBg } from '../../theme/hover';
+import { Pressable, ScrollView, Text, View } from 'react-native';
+import { makeStyles } from '../../theme/styles';
+import { useHoverBg } from '../../theme/hover';
 import { fonts } from '../../theme/typography';
-import { useAccent } from '../../theme/ThemeContext';
+import { useAccent, useColors } from '../../theme/ThemeContext';
 import { useTasks } from '../../data/TaskContext';
 import { getListById } from '../../data/selectors';
 import {
@@ -30,6 +30,9 @@ interface Props {
  * filled; the rest name the dimension and stay quiet.
  */
 export default function FilterBar({ criteria, onChange }: Props) {
+  const hoverBg = useHoverBg();
+  const colors = useColors();
+  const styles = useStyles();
   const accent = useAccent();
   const { state } = useTasks();
   const [open, setOpen] = useState<FilterKind | null>(null);
@@ -139,7 +142,7 @@ export default function FilterBar({ criteria, onChange }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((c) => ({
   row: {
     flexDirection: 'row',
     gap: 8,
@@ -148,7 +151,7 @@ const styles = StyleSheet.create({
   },
   chip: {
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: c.border,
     borderRadius: 8,
     paddingHorizontal: 13,
     paddingVertical: 7,
@@ -158,7 +161,7 @@ const styles = StyleSheet.create({
   chipText: {
     fontFamily: fonts.sansMedium,
     fontSize: 14,
-    color: colors.textPrimary,
+    color: c.textPrimary,
   },
   chipTextActive: {
     color: '#fff',
@@ -166,4 +169,4 @@ const styles = StyleSheet.create({
   clear: {
     borderStyle: 'dashed',
   },
-});
+}));

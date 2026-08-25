@@ -1,6 +1,6 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
-import { colors } from '../../theme/colors';
+import { Text, View } from 'react-native';
+import { makeStyles } from '../../theme/styles';
 import { fonts } from '../../theme/typography';
 import { useAccent } from '../../theme/ThemeContext';
 import { monthShort, toISODate, weekdayShort } from '../../data/dateUtils';
@@ -32,6 +32,7 @@ interface Props {
  * having to hit a 30px cell in the month grid above.
  */
 export default function AgendaDayGroup({ date, tasks, now, onOpenTask, onDropTask, clipTo }: Props) {
+  const styles = useStyles();
   const accent = useAccent();
   const iso = toISODate(date);
   const droppable = !!onDropTask;
@@ -66,7 +67,7 @@ export default function AgendaDayGroup({ date, tasks, now, onOpenTask, onDropTas
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((c) => ({
   group: {
     // Transparent border reserved so hovering doesn't shift the layout.
     borderWidth: 1,
@@ -75,16 +76,16 @@ const styles = StyleSheet.create({
     padding: 2,
   },
   groupOver: {
-    backgroundColor: colors.accentTintBg,
+    backgroundColor: c.accentTintBg,
   },
   header: {
     fontFamily: fonts.monoRegular,
     fontSize: 11.5,
     letterSpacing: 1,
     textTransform: 'uppercase',
-    color: colors.textTertiary,
+    color: c.textTertiary,
     paddingHorizontal: 6,
     paddingBottom: 8,
     paddingTop: 6,
   },
-});
+}));

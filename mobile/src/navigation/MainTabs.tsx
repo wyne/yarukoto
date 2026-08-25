@@ -1,5 +1,5 @@
 import React from 'react';
-import { Platform, StyleSheet, View } from 'react-native';
+import { Platform, View } from 'react-native';
 import { useSharedValue, withTiming } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
@@ -9,7 +9,7 @@ import {
   NativeBottomTabBarProps,
 } from '@react-navigation/bottom-tabs/unstable';
 import { NavigatorScreenParams } from '@react-navigation/native';
-import { colors } from '../theme/colors';
+import { makeStyles } from '../theme/styles';
 import { useAccent } from '../theme/ThemeContext';
 import { MainTabParamList } from './types';
 import {
@@ -107,6 +107,7 @@ export default function MainTabs() {
  * than covering it. Narrow: the same detail rendered as a pull-up sheet.
  */
 function Layout() {
+  const styles = useStyles();
   const { wide, drawerOpen, openDrawer, drawerProgress, serverOpen, closeServer } = useSidebar();
   const { openTaskId, closeTask } = useDetail();
   const { selectedIds } = useSelection();
@@ -318,6 +319,7 @@ function NativeTabsLayout({
   state,
   navigation,
 }: Pick<NativeBottomTabBarProps, 'state' | 'navigation'> & { children: React.ReactNode }) {
+  const styles = useStyles();
   const { wide } = useSidebar();
 
   return (
@@ -331,7 +333,7 @@ function NativeTabsLayout({
 
 export const DETAIL_COLUMN_WIDTH = 380;
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((c) => ({
   row: {
     flex: 1,
     flexDirection: 'row',
@@ -349,7 +351,7 @@ const styles = StyleSheet.create({
     flexGrow: 0,
     flexShrink: 0,
     borderLeftWidth: 1,
-    borderLeftColor: colors.border,
-    backgroundColor: colors.screenBg,
+    borderLeftColor: c.border,
+    backgroundColor: c.screenBg,
   },
-});
+}));

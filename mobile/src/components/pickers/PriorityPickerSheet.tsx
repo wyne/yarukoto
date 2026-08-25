@@ -1,9 +1,11 @@
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useColors } from '../../theme/ThemeContext';
+import { Pressable, Text, View } from 'react-native';
 import BottomSheet from '../BottomSheet';
 import type { PopoverAnchor } from '../Popover';
-import { colors, priorityColor } from '../../theme/colors';
-import { hoverBg } from '../../theme/hover';
+import { priorityColor } from '../../theme/colors';
+import { makeStyles } from '../../theme/styles';
+import { useHoverBg } from '../../theme/hover';
 import { fonts } from '../../theme/typography';
 import { Priority } from '../../data/types';
 
@@ -23,6 +25,9 @@ const OPTIONS: { value: Priority; label: string }[] = [
 ];
 
 export default function PriorityPickerSheet({ visible, onClose, anchor, onApply }: Props) {
+  const hoverBg = useHoverBg();
+  const colors = useColors();
+  const styles = useStyles();
   const choose = (priority: Priority) => {
     onApply(priority);
     onClose();
@@ -35,7 +40,7 @@ export default function PriorityPickerSheet({ visible, onClose, anchor, onApply 
           <View
             style={[
               styles.dot,
-              { borderColor: o.value === 'none' ? colors.ringNone : priorityColor(o.value) },
+              { borderColor: o.value === 'none' ? colors.ringNone : priorityColor(o.value, colors) },
             ]}
           />
           <Text style={styles.rowText}>{o.label}</Text>
@@ -45,7 +50,7 @@ export default function PriorityPickerSheet({ visible, onClose, anchor, onApply 
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = makeStyles((c) => ({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -63,6 +68,6 @@ const styles = StyleSheet.create({
   rowText: {
     fontFamily: fonts.sansRegular,
     fontSize: 16,
-    color: colors.textPrimary,
+    color: c.textPrimary,
   },
-});
+}));

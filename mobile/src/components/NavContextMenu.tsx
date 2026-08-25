@@ -2,7 +2,8 @@ import React from 'react';
 import { Pressable } from 'react-native';
 import Popover, { PopoverAnchor } from './Popover';
 import { ChipRow, MenuDivider, MenuRow, SectionLabel } from './menu/MenuItems';
-import { LIST_COLORS, colors } from '../theme/colors';
+import { LIST_COLORS } from '../theme/colors';
+import { makeStyles } from '../theme/styles';
 import { useTasks } from '../data/TaskContext';
 import { confirmDestructive } from '../data/confirm';
 import { IconCheckBig, IconNote, IconPlus, IconTrash } from '../icons/Icons';
@@ -51,6 +52,7 @@ interface Props {
  * related reason that a Modal cannot nest inside one either.
  */
 export default function NavContextMenu({ target, at, onClose, onRename, onNewList, inline, bounds }: Props) {
+  const styles = useStyles();
   const { state, setListColor, deleteList, deleteFolder } = useTasks();
   if (!target) return null;
 
@@ -140,7 +142,7 @@ export default function NavContextMenu({ target, at, onClose, onRename, onNewLis
  * Swatches rather than chips: a colour needs no label, and at 26pt eight of them
  * fit two rows inside the drawer's width without the panel having to scroll.
  */
-const styles = {
+const useStyles = makeStyles((c) => ({
   swatch: {
     width: 26,
     height: 26,
@@ -150,6 +152,6 @@ const styles = {
   },
   swatchActive: {
     borderWidth: 2,
-    borderColor: colors.textPrimary,
+    borderColor: c.textPrimary,
   },
-};
+}));

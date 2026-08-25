@@ -27,8 +27,14 @@ type NamedStyles<T> = StyleSheet.NamedStyles<T>;
  * Only for colour. A style that varies on anything else — a measured width, an
  * inset — still belongs in the render body.
  */
-export function makeStyles<T extends NamedStyles<T> | NamedStyles<unknown>>(
-  build: (colors: Palette) => T & NamedStyles<unknown>
+// Deliberately the same shape as `StyleSheet.create`'s own signature, `any` and
+// all: a tighter constraint rejects the web-only properties the codebase passes
+// behind a `@ts-expect-error`, and moves the complaint to the call site where
+// the suppression cannot reach it.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function makeStyles<T extends NamedStyles<T> | NamedStyles<any>>(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  build: (colors: Palette) => T & NamedStyles<any>
 ): () => T {
   const sheets = {
     light: StyleSheet.create(build(palettes.light)),
