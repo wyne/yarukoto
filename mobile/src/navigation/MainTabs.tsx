@@ -4,7 +4,13 @@ import { useSharedValue, withTiming } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { BottomTabBarProps, createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import {
+  createNativeBottomTabNavigator,
+  NativeBottomTabBarProps,
+} from '@react-navigation/bottom-tabs/unstable';
+import { NavigatorScreenParams } from '@react-navigation/native';
 import { colors } from '../theme/colors';
+import { useAccent } from '../theme/ThemeContext';
 import { MainTabParamList } from './types';
 import {
   DRAWER_CLOSE_EASING,
@@ -35,13 +41,22 @@ import CalendarScreen from '../screens/CalendarScreen';
 import ActivityScreen from '../screens/ActivityScreen';
 import BrowseScreen from '../screens/BrowseScreen';
 import TrashScreen from '../screens/TrashScreen';
+import NativeInboxNavigator, { NativeInboxStackParamList } from './NativeInboxNavigator';
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
+type NativeMainTabParamList = {
+  InboxTab: NavigatorScreenParams<NativeInboxStackParamList> | undefined;
+  AllTab: undefined;
+  CalendarTab: undefined;
+  BrowseTab: undefined;
+};
+const NativeTab = Platform.OS === 'web'
+  ? null
+  : createNativeBottomTabNavigator<NativeMainTabParamList>();
 
 /**
- * The sidebar is the only navigation: pinned as a left column on wide layouts,
- * and mounted as a pull-out drawer on narrow ones. There is no bottom bar — it
- * only duplicated the drawer's contents.
+ * Web keeps the app's full sidebar navigation. Native uses UIKit/Android native
+ * tabs below and mounts the same sidebar separately as its secondary drawer.
  */
 function TabBar(props: BottomTabBarProps) {
   const { wide } = useSidebar();
@@ -187,6 +202,8 @@ function Layout() {
 function Tabs() {
   const { wide } = useSidebar();
 
+  if (Platform.OS !== 'web') return <NativeTabs />;
+
   // Labels and icons live in Sidebar, which is the only thing rendering the tab
   // list; `title` is kept because React Navigation uses it for the web page title.
   return (
@@ -220,6 +237,98 @@ function Tabs() {
   );
 }
 
+function NativeTabs() {
+  const { wide } = useSidebar();
+  const { selectedIds } = useSelection();
+  const accent = useAccent();
+  const Tabs = NativeTab;
+
+  if (!Tabs) return null;
+
+  return (
+    <Tabs.Navigator
+      initialRouteName="AllTab"
+      backBehavior="firstRoute"
+      layout={({ children, state, navigation }) => (
+        <NativeTabsLayout state={state} navigation={navigation}>
+          {children}
+        </NativeTabsLayout>
+      )}
+      screenOptions={{
+        headerShown: false,
+        tabBarActiveTintColor: accent,
+        tabBarControllerMode: 'tabBar',
+        tabBarMinimizeBehavior: 'none',
+        tabBarStyle: { display: wide || selectedIds.length > 0 ? 'none' : 'flex' },
+      }}
+    >
+      <Tabs.Screen
+        name="InboxTab"
+        component={NativeInboxNavigator}
+        options={{
+          title: 'Inbox',
+          tabBarLabel: Platform.OS === 'ios' ? '' : 'Inbox',
+          tabBarIcon: Platform.OS === 'ios'
+            ? ({ focused }) => ({ type: 'sfSymbol', name: focused ? 'tray.fill' : 'tray' })
+            : undefined,
+        }}
+      />
+      <Tabs.Screen
+        name="AllTab"
+        component={AllScreen}
+        options={{
+          title: 'All Tasks',
+          tabBarLabel: Platform.OS === 'ios' ? '' : 'All Tasks',
+          tabBarIcon: Platform.OS === 'ios'
+            ? ({ focused }) => ({
+                type: 'sfSymbol',
+                name: focused ? 'checkmark.square.fill' : 'checkmark.square',
+              })
+            : undefined,
+        }}
+      />
+      <Tabs.Screen
+        name="CalendarTab"
+        component={CalendarScreen}
+        options={{
+          title: 'Calendar',
+          tabBarLabel: Platform.OS === 'ios' ? '' : 'Calendar',
+          tabBarIcon: Platform.OS === 'ios'
+            ? { type: 'sfSymbol', name: 'calendar' }
+            : undefined,
+        }}
+      />
+      <Tabs.Screen
+        name="BrowseTab"
+        component={BrowseScreen}
+        options={{
+          title: 'Search',
+          tabBarLabel: Platform.OS === 'ios' ? '' : 'Search',
+          tabBarIcon: Platform.OS === 'ios'
+            ? { type: 'sfSymbol', name: 'magnifyingglass' }
+            : undefined,
+        }}
+      />
+    </Tabs.Navigator>
+  );
+}
+
+function NativeTabsLayout({
+  children,
+  state,
+  navigation,
+}: Pick<NativeBottomTabBarProps, 'state' | 'navigation'> & { children: React.ReactNode }) {
+  const { wide } = useSidebar();
+
+  return (
+    <View style={styles.nativeNavRow}>
+      {wide && <Sidebar state={state} navigation={navigation} />}
+      <View style={styles.flex}>{children}</View>
+      {!wide && <SidebarDrawer state={state} navigation={navigation} />}
+    </View>
+  );
+}
+
 export const DETAIL_COLUMN_WIDTH = 380;
 
 const styles = StyleSheet.create({
@@ -230,6 +339,10 @@ const styles = StyleSheet.create({
   flex: {
     flex: 1,
     minWidth: 0,
+  },
+  nativeNavRow: {
+    flex: 1,
+    flexDirection: 'row',
   },
   detailColumn: {
     width: DETAIL_COLUMN_WIDTH,

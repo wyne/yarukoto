@@ -6,6 +6,8 @@ import { useTasks } from '../../data/TaskContext';
 import { useSyncRefresh } from '../../data/useSyncRefresh';
 import { TaskCriteria, filterTasks } from '../../data/taskFilter';
 import { PANE_MAX_WIDTH, useSidebar } from '../../navigation/SidebarContext';
+import { NATIVE_TAB_CONTENT_PADDING } from '../../navigation/nativeTabBarLayout';
+import { WEB_ENTRY } from '../../data/platform';
 import { useDetail } from '../../navigation/DetailContext';
 import Card from '../Card';
 import Divider from '../Divider';
@@ -78,7 +80,11 @@ export default function BrowseView({ criteria, onCriteriaChange }: Props) {
       <ScrollView
         refreshControl={refreshControl}
         onScrollBeginDrag={closeOpenSwipeRow}
-        contentContainerStyle={[styles.scroll, wide && styles.paneWide]}
+        contentContainerStyle={[
+          styles.scroll,
+          !WEB_ENTRY && !wide && styles.scrollMobileTabs,
+          wide && styles.paneWide,
+        ]}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
       >
@@ -137,6 +143,9 @@ const styles = StyleSheet.create({
     // `scrollContent` for why the content and not the frame.
     flexGrow: 1,
     paddingBottom: 24,
+  },
+  scrollMobileTabs: {
+    paddingBottom: NATIVE_TAB_CONTENT_PADDING,
   },
   card: {
     marginHorizontal: 12,

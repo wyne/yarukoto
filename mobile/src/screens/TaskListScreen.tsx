@@ -30,6 +30,7 @@ import { useCollapsedSections } from '../data/uiPrefs';
 import { Task } from '../data/types';
 import { TaskListFilter } from '../navigation/types';
 import { PANE_MAX_WIDTH, useSidebar } from '../navigation/SidebarContext';
+import { NATIVE_TAB_CONTENT_PADDING } from '../navigation/nativeTabBarLayout';
 import { useDetail } from '../navigation/DetailContext';
 import { useSelection } from '../navigation/SelectionContext';
 import TaskRow from '../components/TaskRow';
@@ -558,6 +559,7 @@ export default function TaskListScreen({ mode, filter }: Props) {
         contentContainerStyle={[
           styles.scrollContent,
           !WEB_ENTRY && styles.scrollContentFab,
+          !WEB_ENTRY && !wide && styles.scrollContentMobileTabs,
           wide && styles.paneWide,
         ]}
         keyboardShouldPersistTaps="handled"
@@ -796,6 +798,9 @@ const styles = StyleSheet.create({
   /** Clears the floating button so it never covers the last row. */
   scrollContentFab: {
     paddingBottom: 96,
+  },
+  scrollContentMobileTabs: {
+    paddingBottom: NATIVE_TAB_CONTENT_PADDING,
   },
   quickAddBand: {
     paddingBottom: 2,

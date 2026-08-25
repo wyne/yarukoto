@@ -6,6 +6,9 @@ import { fonts } from '../theme/typography';
 import { useAccent } from '../theme/ThemeContext';
 import { useTasks } from '../data/TaskContext';
 import { IconCheckBig } from '../icons/Icons';
+import { useSidebar } from '../navigation/SidebarContext';
+import { nativeTabBarClearance } from '../navigation/nativeTabBarLayout';
+import { WEB_ENTRY } from '../data/platform';
 
 const NATIVE_DRIVER = Platform.OS !== 'web';
 
@@ -13,6 +16,7 @@ export default function UndoToast() {
   const { pendingUndo, undoComplete } = useTasks();
   const insets = useSafeAreaInsets();
   const accent = useAccent();
+  const { wide } = useSidebar();
 
   const anim = useRef(new Animated.Value(0)).current;
   const token = pendingUndo?.token ?? null;
@@ -26,7 +30,13 @@ export default function UndoToast() {
   if (!pendingUndo) return null;
 
   return (
-    <View style={[styles.wrap, { bottom: insets.bottom + 20 }]} pointerEvents="box-none">
+    <View
+      style={[
+        styles.wrap,
+        { bottom: wide || WEB_ENTRY ? insets.bottom + 20 : nativeTabBarClearance(insets.bottom) },
+      ]}
+      pointerEvents="box-none"
+    >
       <Animated.View
         style={[
           styles.toast,
