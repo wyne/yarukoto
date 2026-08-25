@@ -41,12 +41,12 @@ import CalendarScreen from '../screens/CalendarScreen';
 import ActivityScreen from '../screens/ActivityScreen';
 import BrowseScreen from '../screens/BrowseScreen';
 import TrashScreen from '../screens/TrashScreen';
-import NativeInboxNavigator, { NativeInboxStackParamList } from './NativeInboxNavigator';
+import NativeListNavigator, { NativeListStackParamList } from './NativeListNavigator';
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
 type NativeMainTabParamList = {
-  InboxTab: NavigatorScreenParams<NativeInboxStackParamList> | undefined;
-  AllTab: undefined;
+  ListsTab: NavigatorScreenParams<NativeListStackParamList> | undefined;
+  InboxTab: undefined;
   CalendarTab: undefined;
   BrowseTab: undefined;
 };
@@ -247,7 +247,7 @@ function NativeTabs() {
 
   return (
     <Tabs.Navigator
-      initialRouteName="AllTab"
+      initialRouteName="ListsTab"
       backBehavior="firstRoute"
       layout={({ children, state, navigation }) => (
         <NativeTabsLayout state={state} navigation={navigation}>
@@ -263,27 +263,27 @@ function NativeTabs() {
       }}
     >
       <Tabs.Screen
-        name="InboxTab"
-        component={NativeInboxNavigator}
+        name="ListsTab"
+        component={NativeListNavigator}
         options={{
-          title: 'Inbox',
-          tabBarLabel: Platform.OS === 'ios' ? '' : 'Inbox',
-          tabBarIcon: Platform.OS === 'ios'
-            ? ({ focused }) => ({ type: 'sfSymbol', name: focused ? 'tray.fill' : 'tray' })
-            : undefined,
-        }}
-      />
-      <Tabs.Screen
-        name="AllTab"
-        component={AllScreen}
-        options={{
-          title: 'All Tasks',
-          tabBarLabel: Platform.OS === 'ios' ? '' : 'All Tasks',
+          title: 'Lists',
+          tabBarLabel: Platform.OS === 'ios' ? '' : 'Lists',
           tabBarIcon: Platform.OS === 'ios'
             ? ({ focused }) => ({
                 type: 'sfSymbol',
                 name: focused ? 'checkmark.square.fill' : 'checkmark.square',
               })
+            : undefined,
+        }}
+      />
+      <Tabs.Screen
+        name="InboxTab"
+        component={InboxScreen}
+        options={{
+          title: 'Inbox',
+          tabBarLabel: Platform.OS === 'ios' ? '' : 'Inbox',
+          tabBarIcon: Platform.OS === 'ios'
+            ? ({ focused }) => ({ type: 'sfSymbol', name: focused ? 'tray.fill' : 'tray' })
             : undefined,
         }}
       />
