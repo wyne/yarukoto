@@ -1,11 +1,14 @@
 import React, { useMemo } from 'react';
-import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
-import { MainTabParamList, TaskListFilter } from '../navigation/types';
+import { InboxParams, TaskListFilter } from '../navigation/types';
 import { useTasks } from '../data/TaskContext';
 import { getListById } from '../data/selectors';
 import TaskListScreen from './TaskListScreen';
 
-export default function InboxScreen({ route }: BottomTabScreenProps<MainTabParamList, 'InboxTab'>) {
+interface Props {
+  route: { params?: InboxParams };
+}
+
+export default function InboxScreen({ route }: Props) {
   const { state } = useTasks();
   const { listId, folderId, tag } = route.params ?? {};
 

@@ -3,7 +3,8 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { GlassView } from 'expo-glass-effect';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAccent } from '../theme/ThemeContext';
-import { PANE_MAX_WIDTH } from '../navigation/SidebarContext';
+import { PANE_MAX_WIDTH, useSidebar } from '../navigation/SidebarContext';
+import { nativeTabBarClearance } from '../navigation/nativeTabBarLayout';
 import { LIQUID_GLASS } from '../data/platform';
 import { QuickAddDefaults } from '../data/TaskContext';
 import TaskComposerSheet from './TaskComposerSheet';
@@ -27,6 +28,7 @@ interface Props {
 export default function AddTaskFab({ defaults, contextLabel, hidden }: Props) {
   const accent = useAccent();
   const insets = useSafeAreaInsets();
+  const { wide } = useSidebar();
   const [open, setOpen] = useState(false);
 
   return (
@@ -36,7 +38,10 @@ export default function AddTaskFab({ defaults, contextLabel, hidden }: Props) {
         // window the button tracks the right edge of the list rather than drifting
         // out into the dead space beside it.
         <View
-          style={[styles.anchor, { bottom: insets.bottom + 20 }]}
+          style={[
+            styles.anchor,
+            { bottom: wide ? insets.bottom + 20 : nativeTabBarClearance(insets.bottom) },
+          ]}
           pointerEvents="box-none"
         >
           <Pressable onPress={() => setOpen(true)} accessibilityLabel="New task">

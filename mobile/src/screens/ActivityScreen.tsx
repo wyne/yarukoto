@@ -1,12 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../theme/colors';
 import { fonts } from '../theme/typography';
 import { useAccent } from '../theme/ThemeContext';
 import { PANE_MAX_WIDTH, useSidebar } from '../navigation/SidebarContext';
-import { MainTabParamList } from '../navigation/types';
+import { NATIVE_TAB_CONTENT_PADDING } from '../navigation/nativeTabBarLayout';
+import { WEB_ENTRY } from '../data/platform';
 import { ActivityRevision, createApi } from '../data/api';
 import { useTasks } from '../data/TaskContext';
 import { ListDef, Task } from '../data/types';
@@ -15,8 +15,6 @@ import Card from '../components/Card';
 import Divider from '../components/Divider';
 import GlassIconButton from '../components/GlassIconButton';
 import { IconBell, IconChevronRight, IconMenu } from '../icons/Icons';
-
-type Props = BottomTabScreenProps<MainTabParamList, 'ActivityTab'>;
 
 type ActivityKind = 'create' | 'edit' | 'complete' | 'delete' | 'restore' | 'reopen';
 
@@ -192,7 +190,7 @@ function summarize(revision: ActivityRevision, now: Date, lists: ListDef[]): Act
   return items;
 }
 
-export default function ActivityScreen({}: Props) {
+export default function ActivityScreen() {
   const accent = useAccent();
   const insets = useSafeAreaInsets();
   const { wide, openDrawer } = useSidebar();
@@ -264,7 +262,11 @@ export default function ActivityScreen({}: Props) {
 
       <ScrollView
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.textTertiary} />}
-        contentContainerStyle={[styles.scroll, wide && styles.paneWide]}
+        contentContainerStyle={[
+          styles.scroll,
+          !WEB_ENTRY && !wide && styles.scrollMobileTabs,
+          wide && styles.paneWide,
+        ]}
       >
         {groups.length === 0 ? (
           <Text style={styles.empty}>{empty}</Text>
@@ -342,6 +344,9 @@ const styles = StyleSheet.create({
   scroll: {
     flexGrow: 1,
     paddingBottom: 24,
+  },
+  scrollMobileTabs: {
+    paddingBottom: NATIVE_TAB_CONTENT_PADDING,
   },
   empty: {
     textAlign: 'center',

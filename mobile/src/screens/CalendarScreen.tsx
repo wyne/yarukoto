@@ -5,6 +5,7 @@ import { colors } from '../theme/colors';
 import { fonts } from '../theme/typography';
 import { useAccent } from '../theme/ThemeContext';
 import { useSidebar } from '../navigation/SidebarContext';
+import { NATIVE_TAB_CONTENT_PADDING } from '../navigation/nativeTabBarLayout';
 import { useDetail } from '../navigation/DetailContext';
 import { useTasks } from '../data/TaskContext';
 import { PlanMode, loadPlanPrefs, savePlanPrefs } from '../data/storage';
@@ -385,7 +386,7 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
     gap: 8,
   },
-  agendaFab: { paddingBottom: 96 },
+  agendaFab: { paddingBottom: NATIVE_TAB_CONTENT_PADDING },
   empty: {
     textAlign: 'center',
     marginTop: 24,

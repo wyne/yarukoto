@@ -1,12 +1,12 @@
 import React from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../theme/colors';
 import { fonts } from '../theme/typography';
 import { useAccent } from '../theme/ThemeContext';
-import { MainTabParamList } from '../navigation/types';
 import { PANE_MAX_WIDTH, useSidebar } from '../navigation/SidebarContext';
+import { NATIVE_TAB_CONTENT_PADDING } from '../navigation/nativeTabBarLayout';
+import { WEB_ENTRY } from '../data/platform';
 import { useTasks } from '../data/TaskContext';
 import { getListById, trashedTasks } from '../data/selectors';
 import { formatDueShort } from '../data/dateUtils';
@@ -17,15 +17,13 @@ import GlassIconButton from '../components/GlassIconButton';
 import Divider from '../components/Divider';
 import { IconMenu } from '../icons/Icons';
 
-type Props = BottomTabScreenProps<MainTabParamList, 'TrashTab'>;
-
 /**
  * Deleted tasks, restorable until the server's retention window purges them.
  *
  * Deliberately not TaskListScreen: nothing here should be completable or swipeable,
  * and the two actions are explicit rather than gestural.
  */
-export default function TrashScreen({}: Props) {
+export default function TrashScreen() {
   const accent = useAccent();
   const insets = useSafeAreaInsets();
   const refreshControl = useSyncRefresh();
@@ -65,7 +63,11 @@ export default function TrashScreen({}: Props) {
 
       <ScrollView
         refreshControl={refreshControl}
-        contentContainerStyle={[styles.scroll, wide && styles.paneWide]}
+        contentContainerStyle={[
+          styles.scroll,
+          !WEB_ENTRY && !wide && styles.scrollMobileTabs,
+          wide && styles.paneWide,
+        ]}
       >
         {tasks.length === 0 ? (
           <Text style={styles.empty}>Trash is empty.</Text>
@@ -134,6 +136,7 @@ const styles = StyleSheet.create({
   },
   /** `flexGrow` reaches the bottom on a short list. See TaskListScreen's `scrollContent`. */
   scroll: { flexGrow: 1, paddingBottom: 24 },
+  scrollMobileTabs: { paddingBottom: NATIVE_TAB_CONTENT_PADDING },
   empty: {
     textAlign: 'center',
     marginTop: 32,

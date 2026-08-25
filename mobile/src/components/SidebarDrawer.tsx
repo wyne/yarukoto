@@ -4,7 +4,6 @@ import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-na
 import { scheduleOnRN } from 'react-native-worklets';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import { FullWindowOverlay } from 'react-native-screens';
-import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import {
   DRAWER_CLOSE_EASING,
   DRAWER_CLOSE_MS,
@@ -12,7 +11,7 @@ import {
   DRAWER_OPEN_MS,
   useSidebar,
 } from '../navigation/SidebarContext';
-import Sidebar, { SIDEBAR_WIDTH } from './Sidebar';
+import Sidebar, { SIDEBAR_WIDTH, SidebarNavigationProps } from './Sidebar';
 
 /**
  * iOS hosts the drawer in a window-level overlay; everywhere else it is a Modal.
@@ -39,7 +38,7 @@ const BACKDROP_OPACITY = 0.35;
 const FLING_VELOCITY = -450;
 
 /** Narrow-layout wrapper: slides the sidebar in from the left over the current screen. */
-export default function SidebarDrawer(props: BottomTabBarProps) {
+export default function SidebarDrawer(props: SidebarNavigationProps) {
   // 0 shut, 1 fully open. Every visible part of the drawer is a reading of it,
   // and it is shared so the edge swipe out in the layout can drive it too.
   const { drawerOpen, closeDrawer, drawerProgress: progress } = useSidebar();

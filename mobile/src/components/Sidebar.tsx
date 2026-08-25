@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, {
   useAnimatedRef,
   useAnimatedStyle,
@@ -10,6 +10,7 @@ import Animated, {
 // the worklets package it now sits on. Already a direct dependency.
 import { scheduleOnRN } from 'react-native-worklets';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
+import type { NativeBottomTabBarProps } from '@react-navigation/bottom-tabs/unstable';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useWindowDimensions } from 'react-native';
 import { colors } from '../theme/colors';
@@ -88,10 +89,20 @@ function viewsFor() {
   ];
 }
 
-interface Props extends BottomTabBarProps {
+const NATIVE_SECONDARY_SCREENS = {
+  TodayTab: 'Today',
+  ActivityTab: 'Activity',
+  TrashTab: 'Trash',
+} as const;
+
+export type SidebarNavigationProps =
+  | Pick<BottomTabBarProps, 'state' | 'navigation'>
+  | Pick<NativeBottomTabBarProps, 'state' | 'navigation'>;
+
+type Props = SidebarNavigationProps & {
   /** Called after any navigation — the drawer uses it to close itself. */
   onNavigate?: () => void;
-}
+};
 
 export default function Sidebar({ state, navigation, onNavigate }: Props) {
   const accent = useAccent();
@@ -308,12 +319,37 @@ export default function Sidebar({ state, navigation, onNavigate }: Props) {
 
   const current = state.routes[state.index];
   const inboxRoute = state.routes.find((r) => r.name === 'InboxTab');
-  const inboxParams = inboxRoute?.params as InboxParams | undefined;
+  const native = Platform.OS !== 'web';
+  const inboxState = (inboxRoute as {
+    state?: { index: number; routes: Array<{ name: string; params?: InboxParams }> };
+  } | undefined)?.state;
+  const pendingInbox = native
+    ? inboxRoute?.params as { screen?: string; params?: InboxParams } | undefined
+    : undefined;
+  const nestedInboxRoute = inboxState?.routes[inboxState.index];
+  const nativeInboxScreen = native
+    ? nestedInboxRoute?.name ?? pendingInbox?.screen ?? 'InboxHome'
+    : undefined;
+  const inboxParams = native
+    ? nativeInboxScreen === 'InboxHome'
+      ? nestedInboxRoute?.params ?? pendingInbox?.params
+      : undefined
+    : inboxRoute?.params as InboxParams | undefined;
   const filtered = !!(inboxParams?.listId || inboxParams?.folderId || inboxParams?.tag);
   const onInbox = current.name === 'InboxTab';
 
   const go = (route: string, params?: object) => {
-    (navigation.navigate as (name: string, params?: object) => void)(route, params);
+    const nativeScreen = native
+      ? NATIVE_SECONDARY_SCREENS[route as keyof typeof NATIVE_SECONDARY_SCREENS]
+      : undefined;
+    if (native && (route === 'InboxTab' || nativeScreen)) {
+      (navigation.navigate as (name: string, params?: object) => void)('InboxTab', {
+        screen: nativeScreen ?? 'InboxHome',
+        params: nativeScreen ? undefined : params ?? {},
+      });
+    } else {
+      (navigation.navigate as (name: string, params?: object) => void)(route, params);
+    }
     onNavigate?.();
   };
 
@@ -328,7 +364,7 @@ export default function Sidebar({ state, navigation, onNavigate }: Props) {
   // Params replace rather than merge, so setting one filter clears the others.
   const openFilter = (filter: InboxParams) => go('InboxTab', filter);
   const filterActive = (type: 'list' | 'folder' | 'tag', value: string) => {
-    if (!onInbox) return false;
+    if (!onInbox || (native && nativeInboxScreen !== 'InboxHome')) return false;
     if (type === 'list') return inboxParams?.listId === value;
     if (type === 'folder') return inboxParams?.folderId === value;
     return inboxParams?.tag === value;
@@ -362,7 +398,14 @@ export default function Sidebar({ state, navigation, onNavigate }: Props) {
         showsVerticalScrollIndicator={false}
       >
         {viewsFor().map(({ route, label, Icon }) => {
-          const active = current.name === route && (route !== 'InboxTab' || !filtered);
+          const nativeScreen = native
+            ? NATIVE_SECONDARY_SCREENS[route as keyof typeof NATIVE_SECONDARY_SCREENS]
+            : undefined;
+          const active = nativeScreen
+            ? onInbox && nativeInboxScreen === nativeScreen
+            : current.name === route && (
+                route !== 'InboxTab' || (!filtered && (!native || nativeInboxScreen === 'InboxHome'))
+              );
           const count = viewCount(route);
           return (
             <Pressable
