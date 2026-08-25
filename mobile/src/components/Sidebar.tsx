@@ -309,7 +309,7 @@ export default function Sidebar({ state, navigation, onNavigate }: Props) {
   const current = state.routes[state.index];
   const inboxRoute = state.routes.find((r) => r.name === 'InboxTab');
   const inboxParams = inboxRoute?.params as InboxParams | undefined;
-  const filtered = !!(inboxParams?.listId || inboxParams?.tag);
+  const filtered = !!(inboxParams?.listId || inboxParams?.folderId || inboxParams?.tag);
   const onInbox = current.name === 'InboxTab';
 
   const go = (route: string, params?: object) => {
@@ -325,10 +325,14 @@ export default function Sidebar({ state, navigation, onNavigate }: Props) {
     return null;
   };
 
-  // Params replace rather than merge, so setting one of the two clears the other.
+  // Params replace rather than merge, so setting one filter clears the others.
   const openFilter = (filter: InboxParams) => go('InboxTab', filter);
-  const filterActive = (type: 'list' | 'tag', value: string) =>
-    onInbox && (type === 'list' ? inboxParams?.listId : inboxParams?.tag) === value;
+  const filterActive = (type: 'list' | 'folder' | 'tag', value: string) => {
+    if (!onInbox) return false;
+    if (type === 'list') return inboxParams?.listId === value;
+    if (type === 'folder') return inboxParams?.folderId === value;
+    return inboxParams?.tag === value;
+  };
 
   return (
     <View
@@ -436,6 +440,9 @@ export default function Sidebar({ state, navigation, onNavigate }: Props) {
                     rail={collapsed}
                     count={folderTotal(data.lists, counts, row.folder.id)}
                     folded={collapsedFolders.includes(row.folder.id)}
+                    active={filterActive('folder', row.folder.id)}
+                    accent={accent}
+                    onPress={() => openFilter({ folderId: row.folder.id })}
                     onToggle={() => toggleFolder(row.folder.id)}
                   />
                 ) : (
@@ -610,6 +617,9 @@ function FolderRow({
   rail,
   count,
   folded,
+  active,
+  accent,
+  onPress,
   onToggle,
   onPressIn,
   held,
@@ -622,32 +632,58 @@ function FolderRow({
   rail: boolean;
   count: number;
   folded: boolean;
+  active: boolean;
+  accent: string;
+  onPress: () => void;
   onToggle: () => void;
 }) {
   if (rail) return null;
   return (
     <Pressable
-      style={hoverBg([styles.row, held && { backgroundColor: colors.heldRowBg }], held)}
-      onPress={onToggle}
+      style={hoverBg(
+        [
+          styles.row,
+          active && { backgroundColor: colors.selectedRowBg },
+          held && { backgroundColor: colors.heldRowBg },
+        ],
+        active || held
+      )}
+      onPress={onPress}
       onPressIn={(e) => onPressIn({ x: e.nativeEvent.pageX, y: e.nativeEvent.pageY })}
       accessibilityLabel={folder.name}
+      accessibilityState={{ selected: active }}
     >
       <View style={styles.rowIcon}>
-        <IconFolder size={17} color={colors.textTertiary} />
+        <IconFolder size={17} color={active ? accent : colors.textTertiary} />
       </View>
-      <Text style={styles.rowLabel} numberOfLines={1}>
+      <Text
+        style={[styles.rowLabel, active && { color: accent, fontFamily: fonts.sansSemiBold }]}
+        numberOfLines={1}
+      >
         {folder.name}
       </Text>
-      {count > 0 && <Text style={styles.rowCount}>{count}</Text>}
       {/*
-        Trailing, so the leading icon column is the same one the fixed views
-        above use and every icon in the nav sits on one line. Lists get no
-        spacer opposite it: their counts then keep the trailing edge the views
-        above share, and only a folder's count steps in to make room.
+        Count and chevron are one disclosure target. They stop the event here so
+        the enclosing row selects the folder only when its main surface is tapped.
       */}
-      <View style={styles.chevron}>
-        {folded ? <IconChevronRight size={12} /> : <IconChevronDown size={12} />}
-      </View>
+      <Pressable
+        style={styles.folderDisclosure}
+        hitSlop={5}
+        onPress={(event) => {
+          event.stopPropagation();
+          onToggle();
+        }}
+        accessibilityLabel={`${folded ? 'Expand' : 'Collapse'} ${folder.name}`}
+      >
+        {count > 0 && <Text style={[styles.rowCount, active && { color: accent }]}>{count}</Text>}
+        <View style={styles.chevron}>
+          {folded ? (
+            <IconChevronRight size={12} color={active ? accent : colors.textTertiary} />
+          ) : (
+            <IconChevronDown size={12} color={active ? accent : colors.textTertiary} />
+          )}
+        </View>
+      </Pressable>
     </Pressable>
   );
 }
@@ -839,6 +875,14 @@ const styles = StyleSheet.create({
   chevron: {
     width: 12,
     alignItems: 'center',
+  },
+  folderDisclosure: {
+    alignSelf: 'stretch',
+    minWidth: 34,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: 10,
   },
   /**
    * One column for whatever marks a row — a folder's icon, a list's dot.

@@ -31,8 +31,8 @@ import { DateTimePickerProvider, navigationRef } from './src/navigation/DateTime
  * Every route is a *single* path segment on purpose. public/index.html links its
  * icons and manifest relatively so they resolve under either deployment, and those
  * are resolved against the current URL: a second segment would send them looking
- * one directory too deep. That's why a filtered Inbox carries its list or tag as a
- * query param rather than as `/list/<id>`.
+ * one directory too deep. That's why a filtered Inbox carries its list, folder or
+ * tag as a query param rather than as `/list/<id>`.
  */
 const baseUrl = process.env.EXPO_BASE_URL?.replace(/\/+$/, '');
 

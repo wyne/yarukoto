@@ -16,6 +16,7 @@ import {
   completedInboxTasks,
   completedTasksList,
   inboxTasks,
+  listsInFolder,
   tasksForToday,
 } from '../data/selectors';
 import { isSameDay, toISODate } from '../data/dateUtils';
@@ -188,9 +189,14 @@ export default function TaskListScreen({ mode, filter }: Props) {
     setPickerAt(null);
   };
 
-  // The Inbox tab doubles as the host for list/tag filtered views, so the untriaged
+  // The Inbox tab doubles as the host for list/folder/tag filtered views, so the untriaged
   // restriction only applies when it's showing the actual Inbox.
   const untriagedOnly = mode === 'inbox' && !filter;
+  const folderLists = useMemo(
+    () => (filter?.type === 'folder' ? listsInFolder(state.lists, filter.value) : []),
+    [filter, state.lists]
+  );
+  const folderListIds = useMemo(() => new Set(folderLists.map((list) => list.id)), [folderLists]);
 
   const { active, completed } = useMemo(() => {
     let a: Task[];
@@ -206,8 +212,11 @@ export default function TaskListScreen({ mode, filter }: Props) {
       c = completedTasksList(state.tasks);
     }
     if (filter) {
-      const matchFilter = (t: (typeof a)[number]) =>
-        filter.type === 'list' ? t.listId === filter.value : t.tags.includes(filter.value);
+      const matchFilter = (t: (typeof a)[number]) => {
+        if (filter.type === 'list') return t.listId === filter.value;
+        if (filter.type === 'folder') return !!t.listId && folderListIds.has(t.listId);
+        return t.tags.includes(filter.value);
+      };
       a = a.filter(matchFilter);
       c = c.filter(matchFilter);
     }
@@ -217,7 +226,7 @@ export default function TaskListScreen({ mode, filter }: Props) {
       c = c.filter(match);
     }
     return { active: a, completed: c };
-  }, [state.tasks, mode, query, filter, untriagedOnly]);
+  }, [state.tasks, mode, query, filter, untriagedOnly, folderListIds]);
 
   const groups = useMemo(
     () => groupTasks(active, options, { lists: state.lists, folders: state.folders, now }),
@@ -318,15 +327,19 @@ export default function TaskListScreen({ mode, filter }: Props) {
   const allSelected = selectedIds.length > 0 && selectedIds.length === active.length;
   const grouped = options.groupBy !== 'none';
 
-  // New tasks inherit whatever dimension this view is scoped to. All and Inbox
-  // are unscoped, so tasks created there stay untriaged.
+  // New tasks inherit whatever dimension this view is scoped to. A folder has
+  // no task id of its own, so its first list is the predictable destination and
+  // is named in the composer; explicit typed or picked lists still win.
   const quickAddDefaults = ((): QuickAddDefaults | undefined => {
     if (filter?.type === 'list') return { listId: filter.value };
+    if (filter?.type === 'folder' && folderLists[0]) return { listId: folderLists[0].id };
     if (filter?.type === 'tag') return { tags: [filter.value] };
     if (mode === 'today') return { dueDate: toISODate(now) };
     return undefined;
   })();
-  const quickAddLabel = filter ? filter.label : mode === 'today' ? 'Today' : undefined;
+  const canQuickAdd = filter?.type !== 'folder' || folderLists.length > 0;
+  const quickAddLabel =
+    filter?.type === 'folder' ? folderLists[0]?.name : filter ? filter.label : mode === 'today' ? 'Today' : undefined;
 
   // A filtered view implies its list/tag on every row; so does a group header when
   // grouping by the same dimension. The group wins, since it's the narrower scope.
@@ -528,7 +541,7 @@ export default function TaskListScreen({ mode, filter }: Props) {
       )}
 
       {/* Outside the ScrollView so it stays put instead of scrolling away. */}
-      {WEB_ENTRY && !selectionMode && (
+      {WEB_ENTRY && !selectionMode && canQuickAdd && (
         <View style={[styles.quickAddBand, wide && styles.paneWide]}>
           <QuickAddBar
             onSubmit={(text) => addTaskFromQuickAdd(text, quickAddDefaults)}
@@ -616,7 +629,7 @@ export default function TaskListScreen({ mode, filter }: Props) {
         )}
       </Animated.ScrollView>
 
-      {!WEB_ENTRY && (
+      {!WEB_ENTRY && canQuickAdd && (
         <AddTaskFab defaults={quickAddDefaults} contextLabel={quickAddLabel} hidden={selectionMode} />
       )}
 
