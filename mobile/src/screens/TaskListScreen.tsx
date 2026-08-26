@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, Text, TextInput, View, useWindowDimensions } from 'react-native';
+import { Pressable, Text, View, useWindowDimensions } from 'react-native';
+import { MenuView, type MenuAction } from '@expo/ui/community/menu';
 import Animated, {
   FadeIn,
   FadeOut,
@@ -20,7 +21,6 @@ import {
   tasksForToday,
 } from '../data/selectors';
 import { isSameDay, toISODate } from '../data/dateUtils';
-import { taskMatcher } from '../data/taskFilter';
 import { QuickAddDefaults } from '../data/TaskContext';
 import { hapticSelect } from '../data/haptics';
 import { useSyncRefresh } from '../data/useSyncRefresh';
@@ -44,15 +44,16 @@ import AddTaskFab from '../components/AddTaskFab';
 import ViewOptionsSheet from '../components/ViewOptionsSheet';
 import ContextMenuTarget from '../components/ContextMenuTarget';
 import TaskContextMenu from '../components/TaskContextMenu';
-import type { PopoverAnchor } from '../components/Popover';
+import Popover, { type PopoverAnchor } from '../components/Popover';
 import SortOverrideBanner from '../components/SortOverrideBanner';
 import Tooltip from '../components/Tooltip';
 import { closeOpenSwipeRow } from '../components/SwipeableRow';
-import GlassIconButton, { GlassIconButtonGroup, GlassTextButton } from '../components/GlassIconButton';
+import GlassIconButton, { GlassIconMenuLabel, GlassTextButton } from '../components/GlassIconButton';
+import { MenuRow } from '../components/menu/MenuItems';
 import DueDatePickerSheet from '../components/pickers/DueDatePickerSheet';
 import ListPickerSheet from '../components/pickers/ListPickerSheet';
 import TagPickerSheet from '../components/pickers/TagPickerSheet';
-import { IconMenu, IconSearch, IconSelectMode, IconViewOptions } from '../icons/Icons';
+import { IconDotsHorizontal, IconMenu, IconViewOptions } from '../icons/Icons';
 
 const TITLES = { all: 'All', inbox: 'Inbox', today: 'Today' } as const;
 const GROUP_LAYOUT = LinearTransition.duration(180);
@@ -100,7 +101,7 @@ export default function TaskListScreen({ mode, filter }: Props) {
   const key = viewKey(mode, filter);
   // getViewOptions normalises a stored preference into a new object. Keep that
   // identity stable until this view's preferences actually change, otherwise
-  // local UI state (opening search, a menu, selection, sync status) needlessly
+  // local UI state (opening a menu, selection, sync status) needlessly
   // invalidates the comparatively expensive group/sort pass below.
   const options = useMemo(() => getViewOptions(key), [getViewOptions, key]);
   const listsById = useMemo(
@@ -108,22 +109,24 @@ export default function TaskListScreen({ mode, filter }: Props) {
     [state.lists]
   );
 
-  const [searchOpen, setSearchOpen] = useState(false);
-  const [query, setQuery] = useState('');
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const sections = useCollapsedSections(key);
+  const [headerMenuOpen, setHeaderMenuOpen] = useState(false);
   const [optionsOpen, setOptionsOpen] = useState(false);
-  // Measured on press rather than on layout: the header shifts as search opens
-  // and the title's count changes width, so a stale rect would tether the popover
-  // to where the button used to be.
-  const optionsBtn = useRef<View>(null);
+  // Measured on press rather than on layout: the title's count can change width,
+  // so a stale rect would tether the popover to where the button used to be.
+  const headerMenuBtn = useRef<View>(null);
   const [optionsAnchor, setOptionsAnchor] = useState<PopoverAnchor | null>(null);
-  const openOptions = () => {
-    optionsBtn.current?.measureInWindow((x, y, width, height) => {
+  const openHeaderMenu = () => {
+    headerMenuBtn.current?.measureInWindow((x, y, width, height) => {
       setOptionsAnchor({ x, y, width, height });
-      setOptionsOpen(true);
+      setHeaderMenuOpen(true);
     });
+  };
+  const enterSelectionMode = () => {
+    closeOpenSwipeRow();
+    setSelectionMode(true);
   };
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const [moveOpen, setMoveOpen] = useState(false);
@@ -223,13 +226,8 @@ export default function TaskListScreen({ mode, filter }: Props) {
       a = a.filter(matchFilter);
       c = c.filter(matchFilter);
     }
-    if (query.trim()) {
-      const match = taskMatcher(query);
-      a = a.filter(match);
-      c = c.filter(match);
-    }
     return { active: a, completed: c };
-  }, [state.tasks, mode, query, filter, untriagedOnly, folderListIds]);
+  }, [state.tasks, mode, filter, untriagedOnly, folderListIds]);
 
   const groups = useMemo(
     () => groupTasks(active, options, { lists: state.lists, folders: state.folders, now }),
@@ -329,6 +327,15 @@ export default function TaskListScreen({ mode, filter }: Props) {
 
   const allSelected = selectedIds.length > 0 && selectedIds.length === active.length;
   const grouped = options.groupBy !== 'none';
+  const headerActions: MenuAction[] = [
+    {
+      id: 'options',
+      title: 'Group & sort',
+      image: 'line.3.horizontal.decrease',
+      imageColor: grouped || options.sortBy !== 'manual' ? accent : undefined,
+    },
+    { id: 'select', title: 'Select tasks', image: 'checkmark.circle' },
+  ];
 
   // New tasks inherit whatever dimension this view is scoped to. A folder has
   // no task id of its own, so its first list is the predictable destination and
@@ -359,9 +366,8 @@ export default function TaskListScreen({ mode, filter }: Props) {
   // Every view is draggable. Under a sort the drag wins rather than being undone
   // by the comparator: the view remembers that its order was customised and offers
   // to restore the sort, instead of the drop rewriting the task to match where it
-  // landed. Search is the one exception — its results are a transient slice, so an
-  // arrangement made inside them wouldn't mean anything once the query clears.
-  const canReorder = !selectionMode && !query.trim();
+  // landed.
+  const canReorder = !selectionMode;
 
   const handleReorder = (
     groupKey: string,
@@ -484,56 +490,29 @@ export default function TaskListScreen({ mode, filter }: Props) {
               <IconMenu />
             </GlassIconButton>
           )}
-          {searchOpen ? (
-            <TextInput
-              autoFocus
-              value={query}
-              onChangeText={setQuery}
-              placeholder="Search tasks and tags"
-              placeholderTextColor={colors.textFaint}
-              style={styles.searchInput}
-              onBlur={() => {
-                if (!query) setSearchOpen(false);
-              }}
-            />
+          <View style={styles.titleRow}>
+            <Text style={styles.title}>{filter ? filter.label : TITLES[mode]}</Text>
+            <Text style={styles.count}>{active.length}</Text>
+          </View>
+          {WEB_ENTRY ? (
+            <Tooltip label="More">
+              <GlassIconButton ref={headerMenuBtn} onPress={openHeaderMenu} label="More actions">
+                <IconDotsHorizontal size={22} />
+              </GlassIconButton>
+            </Tooltip>
           ) : (
-            <View style={styles.titleRow}>
-              <Text style={styles.title}>{filter ? filter.label : TITLES[mode]}</Text>
-              <Text style={styles.count}>{active.length}</Text>
-            </View>
+            <MenuView
+              actions={headerActions}
+              onPressAction={({ nativeEvent }) => {
+                if (nativeEvent.event === 'options') setOptionsOpen(true);
+                if (nativeEvent.event === 'select') enterSelectionMode();
+              }}
+            >
+              <GlassIconMenuLabel label="More actions">
+                <IconDotsHorizontal size={22} />
+              </GlassIconMenuLabel>
+            </MenuView>
           )}
-          <GlassIconButtonGroup joined>
-            <Tooltip label="Search">
-              <GlassIconButton
-                onPress={() => {
-                  setSearchOpen((v) => !v);
-                  setQuery('');
-                }}
-                label="Search"
-              >
-                <IconSearch />
-              </GlassIconButton>
-            </Tooltip>
-            <Tooltip label="Group & sort">
-              <GlassIconButton ref={optionsBtn} onPress={openOptions} label="Group & sort">
-                <IconViewOptions color={grouped || options.sortBy !== 'manual' ? accent : undefined} />
-              </GlassIconButton>
-            </Tooltip>
-            {/* Selecting on the web is shift-click, which needs no mode to enter,
-                so the button that entered one has nothing left to do. Touch keeps
-                it: there is no shift key to hold there. */}
-            {!WEB_ENTRY && (
-              <GlassIconButton
-                onPress={() => {
-                  closeOpenSwipeRow();
-                  setSelectionMode(true);
-                }}
-                label="Select tasks"
-              >
-                <IconSelectMode />
-              </GlassIconButton>
-            )}
-          </GlassIconButtonGroup>
         </View>
       )}
 
@@ -566,7 +545,7 @@ export default function TaskListScreen({ mode, filter }: Props) {
         ]}
         keyboardShouldPersistTaps="handled"
       >
-        {active.length === 0 && <Text style={styles.empty}>{query ? 'No matches.' : 'Nothing here. Nice work.'}</Text>}
+        {active.length === 0 && <Text style={styles.empty}>Nothing here. Nice work.</Text>}
 
         {active.length > 0 &&
           (grouped ? (
@@ -647,6 +626,25 @@ export default function TaskListScreen({ mode, filter }: Props) {
             exitSelection();
           }}
         />
+      )}
+
+      {WEB_ENTRY && (
+        <Popover
+          visible={headerMenuOpen}
+          onClose={() => setHeaderMenuOpen(false)}
+          anchor={optionsAnchor}
+          width={220}
+        >
+          <MenuRow
+            icon={<IconViewOptions size={16} color={grouped || options.sortBy !== 'manual' ? accent : undefined} />}
+            label="Group & sort"
+            onPress={() => {
+              setHeaderMenuOpen(false);
+              setOptionsOpen(true);
+            }}
+          />
+          {/* Selecting on the web is shift-click, so it needs no menu action. */}
+        </Popover>
       )}
 
       <ViewOptionsSheet
@@ -752,13 +750,6 @@ const useStyles = makeStyles((c) => ({
     fontFamily: fonts.monoRegular,
     fontSize: 13.5,
     color: c.textTertiary,
-  },
-  searchInput: {
-    flex: 1,
-    fontFamily: fonts.sansRegular,
-    fontSize: 16,
-    color: c.textPrimary,
-    padding: 0,
   },
   selectHeader: {
     flexDirection: 'row',

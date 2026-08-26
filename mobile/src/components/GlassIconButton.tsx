@@ -4,8 +4,8 @@ import { GlassContainer, GlassView } from 'expo-glass-effect';
 import { LIQUID_GLASS } from '../data/platform';
 import { useHoverBg } from '../theme/hover';
 
-/** Diameter of the glass capsule. Apple's minimum comfortable target. */
-const SIZE = 36;
+/** Diameter of the glass capsule and the standard iOS touch target. */
+const SIZE = 44;
 
 /**
  * Gap between capsules in a group, and the distance at which the glass in a
@@ -29,6 +29,11 @@ interface Props {
 
 interface TextButtonProps {
   onPress: () => void;
+  label: string;
+  children: ReactNode;
+}
+
+interface MenuLabelProps {
   label: string;
   children: ReactNode;
 }
@@ -93,6 +98,35 @@ export default function GlassIconButton({ onPress, label, children, tintColor, r
         {children}
       </GlassView>
     </Pressable>
+  );
+}
+
+/**
+ * The visual label for a system-owned menu trigger.
+ *
+ * The native menu supplies the gesture and accessibility action, so this stays
+ * deliberately non-pressable. That leaves SwiftUI or Compose in sole control of
+ * the touch sequence and gives their menu transition the trigger view to animate.
+ */
+export function GlassIconMenuLabel({ label, children }: MenuLabelProps) {
+  if (!LIQUID_GLASS) {
+    return (
+      <View
+        pointerEvents="none"
+        accessible
+        accessibilityRole="button"
+        accessibilityLabel={label}
+        style={styles.menuLabel}
+      >
+        {children}
+      </View>
+    );
+  }
+
+  return (
+    <View pointerEvents="none" accessible accessibilityRole="button" accessibilityLabel={label}>
+      <GlassView style={styles.glassButton}>{children}</GlassView>
+    </View>
   );
 }
 
@@ -207,6 +241,12 @@ const styles = StyleSheet.create({
   flatTextButton: {
     minWidth: 68,
     alignItems: 'center',
+  },
+  menuLabel: {
+    width: SIZE,
+    height: SIZE,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   flatGroup: {
     flexDirection: 'row',

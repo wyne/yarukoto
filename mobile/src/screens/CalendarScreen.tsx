@@ -22,7 +22,7 @@ import { closeOpenSwipeRow } from '../components/SwipeableRow';
 import { useSyncRefresh } from '../data/useSyncRefresh';
 import GlassIconButton, { GlassIconButtonGroup } from '../components/GlassIconButton';
 import { WEB_ENTRY } from '../data/platform';
-import { IconMenu } from '../icons/Icons';
+import { IconChevronLeft, IconChevronRight, IconMenu } from '../icons/Icons';
 import { useDrag } from '../drag/DragContext';
 import { Measurable } from '../drag/useDropTarget';
 
@@ -198,10 +198,10 @@ export default function CalendarScreen() {
           </View>
           <GlassIconButtonGroup>
             <GlassIconButton onPress={() => step(-1)} label="Previous">
-              <Text style={styles.navArrow}>‹</Text>
+              <IconChevronLeft size={18} />
             </GlassIconButton>
             <GlassIconButton onPress={() => step(1)} label="Next">
-              <Text style={styles.navArrow}>›</Text>
+              <IconChevronRight size={18} />
             </GlassIconButton>
           </GlassIconButtonGroup>
           {wide && (
@@ -322,11 +322,6 @@ const useStyles = makeStyles((c) => ({
   titleBtn: {
     minHeight: 36,
     justifyContent: 'center',
-  },
-  navArrow: {
-    fontFamily: fonts.sansRegular,
-    fontSize: 28,
-    color: c.textTertiary,
   },
   title: {
     flexShrink: 1,
