@@ -50,9 +50,7 @@ export type NavSheet =
 
 interface SidebarValue {
   wide: boolean;
-  drawerOpen: boolean;
   openDrawer: () => void;
-  closeDrawer: () => void;
   /**
    * How far the drawer is out: 0 shut, 1 fully open.
    *
@@ -87,7 +85,13 @@ interface SidebarValue {
   closeNavSheet: () => void;
 }
 
+interface DrawerStateValue {
+  drawerOpen: boolean;
+  closeDrawer: () => void;
+}
+
 const SidebarContext = createContext<SidebarValue | null>(null);
+const DrawerStateContext = createContext<DrawerStateValue | null>(null);
 
 export function SidebarProvider({ children }: { children: React.ReactNode }) {
   const { width } = useWindowDimensions();
@@ -106,13 +110,10 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
   /**
    * Both of these move the panel before telling React anything.
    *
-   * Waiting on the state was a visible pause. `drawerOpen` lives in this
-   * context, so setting it rebuilds the value and re-renders every consumer —
-   * the layout, the navigator, the nav itself, whichever screen is mounted —
-   * and none of that had to finish before the panel could start moving, but it
-   * did. Tapping the menu or the shade sat still for it; only the drag felt
-   * immediate, because a drag animates on the UI thread and tells React
-   * afterwards. These now do the same.
+   * Waiting on state used to be a visible pause. The progress value moves on the
+   * UI thread first, while the isolated drawer-state context catches React up
+   * without invalidating the mounted screens behind it. Tapping the menu and
+   * dragging the panel therefore begin through the same animation path.
    *
    * The drawer runs the same movement again when the state does land, which is
    * a frame or two later and from wherever this got to. Durations scale to the
@@ -144,15 +145,15 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
     setDrawerOpen(false);
   }, [startClosing]);
 
+  const openDrawer = useCallback(() => {
+    startOpening();
+    setDrawerOpen(true);
+  }, [startOpening]);
+
   const value = useMemo<SidebarValue>(
     () => ({
       wide,
-      drawerOpen,
-      openDrawer: () => {
-        startOpening();
-        setDrawerOpen(true);
-      },
-      closeDrawer: dismissDrawer,
+      openDrawer,
       drawerProgress,
       collapsed,
       toggleCollapsed: () => setCollapsed((v) => !v),
@@ -165,14 +166,30 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
       openNavSheet: (sheet: NavSheet) => { dismissDrawer(); setNavSheet(sheet); },
       closeNavSheet: () => setNavSheet(null),
     }),
-    [wide, drawerOpen, drawerProgress, startOpening, dismissDrawer, collapsed, serverOpen, navSheet]
+    [wide, openDrawer, drawerProgress, dismissDrawer, collapsed, serverOpen, navSheet]
   );
 
-  return <SidebarContext.Provider value={value}>{children}</SidebarContext.Provider>;
+  const drawerState = useMemo<DrawerStateValue>(
+    () => ({ drawerOpen, closeDrawer: dismissDrawer }),
+    [drawerOpen, dismissDrawer]
+  );
+
+  return (
+    <SidebarContext.Provider value={value}>
+      <DrawerStateContext.Provider value={drawerState}>{children}</DrawerStateContext.Provider>
+    </SidebarContext.Provider>
+  );
 }
 
 export function useSidebar(): SidebarValue {
   const ctx = useContext(SidebarContext);
   if (!ctx) throw new Error('useSidebar must be used within a SidebarProvider');
+  return ctx;
+}
+
+/** Drawer visibility is isolated so opening it does not invalidate every screen. */
+export function useDrawerState(): DrawerStateValue {
+  const ctx = useContext(DrawerStateContext);
+  if (!ctx) throw new Error('useDrawerState must be used within a SidebarProvider');
   return ctx;
 }

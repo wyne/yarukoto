@@ -27,7 +27,7 @@ import {
   tasksForToday,
   trashedTasks,
 } from '../data/selectors';
-import { InboxParams } from '../navigation/types';
+import { InboxParams, NativeTaskViewParams } from '../navigation/types';
 import { useSidebar } from '../navigation/SidebarContext';
 import NavContextMenu, { NavMenuTarget } from './NavContextMenu';
 import ContextMenuTarget from './ContextMenuTarget';
@@ -89,11 +89,11 @@ function viewsFor() {
   ];
 }
 
-const NATIVE_LIST_SCREENS = {
-  AllTab: 'All',
-  TodayTab: 'Today',
-  ActivityTab: 'Activity',
-  TrashTab: 'Trash',
+const NATIVE_LIST_DESTINATIONS = {
+  AllTab: { screen: 'Tasks', params: { view: 'all' } },
+  TodayTab: { screen: 'Tasks', params: { view: 'today' } },
+  ActivityTab: { screen: 'Activity', params: undefined },
+  TrashTab: { screen: 'Trash', params: undefined },
 } as const;
 
 export type SidebarNavigationProps =
@@ -326,33 +326,34 @@ export default function Sidebar({ state, navigation, onNavigate }: Props) {
   const listRoute = state.routes.find((r) => r.name === 'ListsTab');
   const native = Platform.OS !== 'web';
   const listState = (listRoute as {
-    state?: { index: number; routes: Array<{ name: string; params?: InboxParams }> };
+    state?: { index: number; routes: Array<{ name: string; params?: NativeTaskViewParams }> };
   } | undefined)?.state;
   const pendingList = native
-    ? listRoute?.params as { screen?: string; params?: InboxParams } | undefined
+    ? listRoute?.params as { screen?: string; params?: NativeTaskViewParams } | undefined
     : undefined;
   const nestedListRoute = listState?.routes[listState.index];
   const nativeListScreen = native
-    ? nestedListRoute?.name ?? pendingList?.screen ?? 'All'
+    ? nestedListRoute?.name ?? pendingList?.screen ?? 'Tasks'
+    : undefined;
+  const nativeListParams = nativeListScreen === 'Tasks'
+    ? nestedListRoute?.params ?? pendingList?.params
     : undefined;
   const inboxParams = native
-    ? nativeListScreen === 'FilteredList'
-      ? nestedListRoute?.params ?? pendingList?.params
-      : undefined
+    ? nativeListParams
     : inboxRoute?.params as InboxParams | undefined;
   const filtered = !!(inboxParams?.listId || inboxParams?.folderId || inboxParams?.tag);
   const onInbox = current.name === 'InboxTab';
   const onListTab = native && current.name === 'ListsTab';
 
   const go = (route: string, params?: object) => {
-    const nativeScreen = native
-      ? NATIVE_LIST_SCREENS[route as keyof typeof NATIVE_LIST_SCREENS]
+    const nativeDestination = native
+      ? NATIVE_LIST_DESTINATIONS[route as keyof typeof NATIVE_LIST_DESTINATIONS]
       : undefined;
     const filteredList = native && route === 'InboxTab' && !!params;
-    if (native && (nativeScreen || filteredList)) {
+    if (native && (nativeDestination || filteredList)) {
       (navigation.navigate as (name: string, params?: object) => void)('ListsTab', {
-        screen: nativeScreen ?? 'FilteredList',
-        params: nativeScreen ? undefined : params,
+        screen: nativeDestination?.screen ?? 'Tasks',
+        params: nativeDestination?.params ?? params,
       });
     } else {
       (navigation.navigate as (name: string, params?: object) => void)(route, params);
@@ -371,7 +372,7 @@ export default function Sidebar({ state, navigation, onNavigate }: Props) {
   // Params replace rather than merge, so setting one filter clears the others.
   const openFilter = (filter: InboxParams) => go('InboxTab', filter);
   const filterActive = (type: 'list' | 'folder' | 'tag', value: string) => {
-    if (native ? !onListTab || nativeListScreen !== 'FilteredList' : !onInbox) return false;
+    if (native ? !onListTab || nativeListScreen !== 'Tasks' : !onInbox) return false;
     if (type === 'list') return inboxParams?.listId === value;
     if (type === 'folder') return inboxParams?.folderId === value;
     return inboxParams?.tag === value;
@@ -405,11 +406,20 @@ export default function Sidebar({ state, navigation, onNavigate }: Props) {
         showsVerticalScrollIndicator={false}
       >
         {viewsFor().map(({ route, label, Icon }) => {
-          const nativeScreen = native
-            ? NATIVE_LIST_SCREENS[route as keyof typeof NATIVE_LIST_SCREENS]
+          const nativeDestination = native
+            ? NATIVE_LIST_DESTINATIONS[route as keyof typeof NATIVE_LIST_DESTINATIONS]
             : undefined;
-          const active = nativeScreen
-            ? onListTab && nativeListScreen === nativeScreen
+          const nativeDestinationActive = nativeDestination
+            ? onListTab
+              && nativeListScreen === nativeDestination.screen
+              && (route === 'AllTab'
+                ? !filtered && nativeListParams?.view !== 'today'
+                : route === 'TodayTab'
+                  ? nativeListParams?.view === 'today'
+                  : true)
+            : false;
+          const active = nativeDestination
+            ? nativeDestinationActive
             : route === 'InboxTab'
               ? native ? onInbox : onInbox && !filtered
               : current.name === route;
