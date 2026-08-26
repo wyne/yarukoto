@@ -3,7 +3,6 @@ import { Pressable, Text, View, useWindowDimensions } from 'react-native';
 import { MenuView, type MenuAction } from '@expo/ui/community/menu';
 import Animated, {
   FadeIn,
-  FadeOut,
   LinearTransition,
   useAnimatedRef,
 } from 'react-native-reanimated';
@@ -48,6 +47,7 @@ import Popover, { type PopoverAnchor } from '../components/Popover';
 import SortOverrideBanner from '../components/SortOverrideBanner';
 import Tooltip from '../components/Tooltip';
 import { closeOpenSwipeRow } from '../components/SwipeableRow';
+import { useLazyMount } from '../components/lazyMount';
 import GlassIconButton, { GlassIconMenuLabel, GlassTextButton } from '../components/GlassIconButton';
 import { MenuRow } from '../components/menu/MenuItems';
 import DueDatePickerSheet from '../components/pickers/DueDatePickerSheet';
@@ -58,7 +58,20 @@ import { IconDotsHorizontal, IconMenu, IconViewOptions } from '../icons/Icons';
 const TITLES = { all: 'All', inbox: 'Inbox', today: 'Today' } as const;
 const GROUP_LAYOUT = LinearTransition.duration(180);
 const GROUP_ENTER = FadeIn.duration(140);
-const GROUP_EXIT = FadeOut.duration(120);
+/**
+ * No exit to match the entrance.
+ *
+ * An exiting animation is the one that cannot be called off for a change of
+ * view: Reanimated reads it from the element being removed, and that element's
+ * last render was the one before anything knew a change was coming. So it fired
+ * on every switch, and it fires by holding the outgoing views on screen for its
+ * whole duration — which put both lists' rows in the tree at once, in the frames
+ * the new one was being built.
+ *
+ * What it cost within a view was a group fading rather than closing when it is
+ * folded shut. The rows around it still slide, since they animate their own
+ * layout, so the fold still reads as one movement.
+ */
 
 interface Props {
   mode: 'all' | 'inbox' | 'today';
@@ -154,6 +167,19 @@ export default function TaskListScreen({ mode, filter }: Props) {
   // menu did, rather than sliding up from the bottom of the window.
   const [pickerAt, setPickerAt] = useState<PopoverAnchor | null>(null);
   const previousViewKey = useRef(key);
+  /**
+   * This render is the one where a different view's content first appears.
+   *
+   * Read during the render rather than from the effect below, because what it
+   * gates has to be decided before the elements are built: the groups carry
+   * layout and entering animations, and a change of view is the one case where
+   * every one of them fires at once, over content nobody is comparing to what
+   * was there a moment ago. It is motion that costs frames to say nothing.
+   *
+   * Within a view they stay: a group growing as a task lands in it, or folding
+   * shut, is a change worth being able to follow.
+   */
+  const switchingView = previousViewKey.current !== key;
 
   // Native task destinations share one screen so changing lists does not mount
   // another complete drag/swipe/sheet tree. Reset the transient view state that
@@ -429,6 +455,18 @@ export default function TaskListScreen({ mode, filter }: Props) {
     }
   };
 
+  /**
+   * Nothing below the list is built until something has asked for it. See
+   * `useLazyMount`: these are all overlays, and a screen that has just opened
+   * has none of them up.
+   */
+  const optionsMounted = useLazyMount(optionsOpen);
+  const contextMenuMounted = useLazyMount(!!menuAt);
+  const scheduleMounted = useLazyMount(scheduleOpen);
+  const moveMounted = useLazyMount(moveOpen);
+  const tagMounted = useLazyMount(tagOpen);
+  const headerMenuMounted = useLazyMount(headerMenuOpen);
+
   const arranged = hasArrangement(options.arrangements, options.sortBy);
   const restoreSort = () => clearArrangement(key, options.sortBy);
 
@@ -441,6 +479,7 @@ export default function TaskListScreen({ mode, filter }: Props) {
         items={tasks}
         keyExtractor={(task) => task.id}
         enabled={canReorder}
+        immediateChanges
         scrollableRef={scrollRef}
         onReorder={(ids, moved) => handleReorder(group.key, ids, moved)}
         dragCount={(id) => (isSelected(id) ? webSelection.length : 1)}
@@ -575,7 +614,11 @@ export default function TaskListScreen({ mode, filter }: Props) {
             groups.map((group) => {
               const collapsed = sections.isGroupCollapsed(group.key);
               return (
-                <Animated.View key={group.key} layout={GROUP_LAYOUT} style={styles.group}>
+                <Animated.View
+                  key={group.key}
+                  layout={switchingView ? undefined : GROUP_LAYOUT}
+                  style={styles.group}
+                >
                   <View style={{ marginHorizontal: 6 }}>
                     <SectionHeader
                       label={group.label}
@@ -586,7 +629,10 @@ export default function TaskListScreen({ mode, filter }: Props) {
                     />
                   </View>
                   {!collapsed && (
-                    <Animated.View entering={GROUP_ENTER} exiting={GROUP_EXIT} layout={GROUP_LAYOUT}>
+                    <Animated.View
+                      entering={switchingView ? undefined : GROUP_ENTER}
+                      layout={switchingView ? undefined : GROUP_LAYOUT}
+                    >
                       {renderTaskCard(group)}
                     </Animated.View>
                   )}
@@ -598,7 +644,7 @@ export default function TaskListScreen({ mode, filter }: Props) {
           ))}
 
         {completed.length > 0 && (
-          <Animated.View layout={GROUP_LAYOUT}>
+          <Animated.View layout={switchingView ? undefined : GROUP_LAYOUT}>
             <View style={{ marginHorizontal: 6 }}>
               <SectionHeader
                 label={`Completed · ${completed.length}`}
@@ -607,7 +653,10 @@ export default function TaskListScreen({ mode, filter }: Props) {
               />
             </View>
             {!sections.completedCollapsed && (
-              <Animated.View entering={GROUP_ENTER} exiting={GROUP_EXIT} layout={GROUP_LAYOUT}>
+              <Animated.View
+                entering={switchingView ? undefined : GROUP_ENTER}
+                layout={switchingView ? undefined : GROUP_LAYOUT}
+              >
                 <Card style={{ marginHorizontal: 12 }}>
                   {completed.map((task, i) => (
                     <View key={task.id}>
@@ -651,7 +700,7 @@ export default function TaskListScreen({ mode, filter }: Props) {
         />
       )}
 
-      {WEB_ENTRY && (
+      {WEB_ENTRY && headerMenuMounted && (
         <Popover
           visible={headerMenuOpen}
           onClose={() => setHeaderMenuOpen(false)}
@@ -670,6 +719,7 @@ export default function TaskListScreen({ mode, filter }: Props) {
         </Popover>
       )}
 
+      {optionsMounted && (
       <ViewOptionsSheet
         visible={optionsOpen}
         onClose={() => setOptionsOpen(false)}
@@ -690,7 +740,9 @@ export default function TaskListScreen({ mode, filter }: Props) {
         onRestore={restoreSort}
         anchor={optionsAnchor}
       />
+      )}
 
+      {contextMenuMounted && (
       <TaskContextMenu
         task={contextTask}
         at={menuAt}
@@ -702,7 +754,9 @@ export default function TaskListScreen({ mode, filter }: Props) {
         onToggleComplete={() => contextTask && toggleComplete(contextTask.id)}
         onDelete={() => contextTask && deleteTasks([contextTask.id])}
       />
+      )}
 
+      {scheduleMounted && (
       <DueDatePickerSheet
         visible={scheduleOpen}
         onClose={closePicker(setScheduleOpen)}
@@ -713,6 +767,8 @@ export default function TaskListScreen({ mode, filter }: Props) {
           finishPickers();
         }}
       />
+      )}
+      {moveMounted && (
       <ListPickerSheet
         visible={moveOpen}
         onClose={closePicker(setMoveOpen)}
@@ -724,6 +780,8 @@ export default function TaskListScreen({ mode, filter }: Props) {
           finishPickers();
         }}
       />
+      )}
+      {tagMounted && (
       <TagPickerSheet
         visible={tagOpen}
         onClose={closePicker(setTagOpen)}
@@ -738,6 +796,7 @@ export default function TaskListScreen({ mode, filter }: Props) {
           finishPickers();
         }}
       />
+      )}
     </View>
   );
 }

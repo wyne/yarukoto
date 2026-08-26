@@ -26,6 +26,8 @@ interface Props<T> {
   onReorder: (keys: string[], moved: { id: string; prevId: string | null; nextId: string | null }) => void;
   /** When false the list is not draggable and behaves like a plain column. */
   enabled: boolean;
+  /** Replace added and removed rows immediately while retaining drag motion. */
+  immediateChanges?: boolean;
   /**
    * How many rows this drag is carrying, given the one being held. Above one it
    * is shown on the lifted row: the library drags a single item, so the rest of
@@ -96,6 +98,7 @@ export default function DragList<T>({
   renderItem,
   onReorder,
   enabled,
+  immediateChanges = false,
   dragCount,
   scrollableRef,
   onDragStart,
@@ -168,6 +171,12 @@ export default function DragList<T>({
         // pass the value through — stretch every row to the full card width.
         alignItems={'stretch' as never}
         sortEnabled={enabled}
+        // A sortable normally animates every row entering, exiting, or moving.
+        // Large data replacements can opt out while retaining the motion that
+        // explains an active reorder.
+        itemEntering={immediateChanges ? null : undefined}
+        itemExiting={immediateChanges ? null : undefined}
+        itemsLayoutTransitionMode={immediateChanges ? 'reorder' : 'all'}
         // Locks the lifted row to the vertical axis. Rows are stretched to the
         // container's width, so clamping x to `containerWidth - itemWidth`
         // clamps it to zero — the row cannot drift sideways at all.

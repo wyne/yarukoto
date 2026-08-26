@@ -19,8 +19,8 @@ import { fonts } from '../theme/typography';
 import { useAccent, useColors } from '../theme/ThemeContext';
 import { useTasks } from '../data/TaskContext';
 import {
+  activeLists,
   activeTasks,
-  folderTotal,
   inboxCount,
   listCounts,
   tagCounts,
@@ -77,17 +77,17 @@ export const SIDEBAR_WIDTH = 260;
 /** Icon-only rail when the pinned sidebar is collapsed. */
 export const SIDEBAR_COLLAPSED_WIDTH = 56;
 
-function viewsFor() {
-  return [
-    { route: 'AllTab', label: 'All', Icon: IconStack },
-    { route: 'InboxTab', label: 'Inbox', Icon: IconInboxTray },
-    { route: 'TodayTab', label: 'Today', Icon: IconClock },
-    { route: 'CalendarTab', label: 'Calendar', Icon: IconCalendar },
-    { route: 'ActivityTab', label: 'Activity', Icon: IconBell },
-    { route: 'BrowseTab', label: 'Browse', Icon: IconFolder },
-    { route: 'TrashTab', label: 'Trash', Icon: IconTrash },
-  ];
-}
+/** Fixed at module scope: the set never varies, and a fresh array per render
+ *  would rebuild seven rows for nothing. */
+const VIEWS = [
+  { route: 'AllTab', label: 'All', Icon: IconStack },
+  { route: 'InboxTab', label: 'Inbox', Icon: IconInboxTray },
+  { route: 'TodayTab', label: 'Today', Icon: IconClock },
+  { route: 'CalendarTab', label: 'Calendar', Icon: IconCalendar },
+  { route: 'ActivityTab', label: 'Activity', Icon: IconBell },
+  { route: 'BrowseTab', label: 'Browse', Icon: IconFolder },
+  { route: 'TrashTab', label: 'Trash', Icon: IconTrash },
+] as const;
 
 const NATIVE_LIST_DESTINATIONS = {
   AllTab: { screen: 'Tasks', params: { view: 'all' } },
@@ -100,12 +100,22 @@ export type SidebarNavigationProps =
   | Pick<BottomTabBarProps, 'state' | 'navigation'>
   | Pick<NativeBottomTabBarProps, 'state' | 'navigation'>;
 
+/** What a press asked for, in the same terms the selection is decided in. */
+type PendingRow = { kind: 'route' | 'list' | 'folder' | 'tag'; value: string };
+
 type Props = SidebarNavigationProps & {
-  /** Called after any navigation — the drawer uses it to close itself. */
-  onNavigate?: () => void;
+  /** Runs a navigation after the drawer has finished closing. */
+  onNavigate?: (navigate: () => void) => void;
 };
 
-export default function Sidebar({ state, navigation, onNavigate }: Props) {
+/**
+ * Memoised because the two places that render it re-render for reasons it has
+ * nothing to do with: the drawer toggling its own liveness, the layout above
+ * re-rendering for a tab change it already reflects. Its props are the
+ * navigation state and one stable callback, so a bail-out here is exact — the
+ * tree is rebuilt when the navigation moves, and on no other frame.
+ */
+const Sidebar = React.memo(function Sidebar({ state, navigation, onNavigate }: Props) {
   const hoverBg = useHoverBg();
   const colors = useColors();
   const styles = useStyles();
@@ -135,6 +145,18 @@ export default function Sidebar({ state, navigation, onNavigate }: Props) {
   const [foldEpoch, setFoldEpoch] = useState(0);
   /** Folders folded shut. Restored from the device and saved on every toggle. */
   const [collapsedFolders, setCollapsedFolders] = useState<string[]>(loadCollapsedFolders);
+  /**
+   * The row that was just pressed, shown as selected before the navigation it
+   * asked for has landed.
+   *
+   * The nav's selection is read out of navigation state, and navigation state
+   * does not move until the destination has rendered — which for a list is long
+   * enough that the press sat unacknowledged for the whole of it, and the drawer
+   * appeared to have ignored it. Answering from the press instead puts the
+   * highlight on the very next frame; the derived answer takes over the moment
+   * it agrees. See `settled` below.
+   */
+  const [pending, setPending] = useState<PendingRow | null>(null);
   const [menuTarget, setMenuTarget] = useState<NavMenuTarget | null>(null);
   const [menuAt, setMenuAt] = useState<PopoverAnchor | null>(null);
   /**
@@ -158,7 +180,6 @@ export default function Sidebar({ state, navigation, onNavigate }: Props) {
   const insets = useSafeAreaInsets();
   const { height: winHeight } = useWindowDimensions();
   const { state: data, syncStatus, reorderList, reorderFolder } = useTasks();
-  const now = new Date();
   const rows = useMemo(
     () => flattenTree(data.folders, data.lists, { collapsed: collapsedFolders }),
     [data.folders, data.lists, collapsedFolders]
@@ -316,10 +337,42 @@ export default function Sidebar({ state, navigation, onNavigate }: Props) {
     [rows, reorderList, reorderFolder]
   );
 
-  const counts = listCounts(data.tasks);
-  const tags = tagCounts(data.tasks);
-  // Via the selector, so trashed rows are excluded the same way every view excludes them.
-  const activeCount = activeTasks(data.tasks).length;
+  /**
+   * Every number the nav shows, derived once per change to the tasks.
+   *
+   * These used to be computed inline, which meant a full pass over the task
+   * collection — five of them, plus a sort each — on every render of the
+   * sidebar. The sidebar renders on things that have nothing to do with the
+   * counts: a navigation, the drawer settling, a sync tick. Deriving them off
+   * `data.tasks` alone means those renders cost nothing.
+   */
+  const counts = useMemo(() => listCounts(data.tasks), [data.tasks]);
+  const tags = useMemo(() => tagCounts(data.tasks), [data.tasks]);
+  const viewCounts = useMemo<Record<string, number | null>>(() => {
+    const now = new Date();
+    return {
+      // Via the selector, so trashed rows are excluded the same way every view
+      // excludes them.
+      AllTab: activeTasks(data.tasks).length,
+      InboxTab: inboxCount(data.tasks),
+      TodayTab: tasksForToday(data.tasks, now).length,
+      TrashTab: trashedTasks(data.tasks).length || null,
+    };
+  }, [data.tasks]);
+  /**
+   * A folder's total, for every folder at once.
+   *
+   * `folderTotal` re-sorts every active list to find one folder's, so calling it
+   * per row made the tree quadratic in the number of lists.
+   */
+  const folderTotals = useMemo(() => {
+    const out: Record<string, number> = {};
+    for (const list of activeLists(data.lists)) {
+      if (!list.folderId) continue;
+      out[list.folderId] = (out[list.folderId] ?? 0) + (counts[list.id] ?? 0);
+    }
+    return out;
+  }, [data.lists, counts]);
 
   const current = state.routes[state.index];
   const inboxRoute = state.routes.find((r) => r.name === 'InboxTab');
@@ -345,38 +398,108 @@ export default function Sidebar({ state, navigation, onNavigate }: Props) {
   const onInbox = current.name === 'InboxTab';
   const onListTab = native && current.name === 'ListsTab';
 
-  const go = (route: string, params?: object) => {
-    const nativeDestination = native
-      ? NATIVE_LIST_DESTINATIONS[route as keyof typeof NATIVE_LIST_DESTINATIONS]
-      : undefined;
-    const filteredList = native && route === 'InboxTab' && !!params;
-    if (native && (nativeDestination || filteredList)) {
-      (navigation.navigate as (name: string, params?: object) => void)('ListsTab', {
-        screen: nativeDestination?.screen ?? 'Tasks',
-        params: nativeDestination?.params ?? params,
-      });
-    } else {
-      (navigation.navigate as (name: string, params?: object) => void)(route, params);
-    }
-    onNavigate?.();
-  };
+  const go = useCallback(
+    (route: string, params?: object) => {
+      // Recorded here rather than at the eight call sites: this is the funnel
+      // every destination already passes through, and the params it is handed
+      // are the same ones the selection is later read back out of.
+      const asked = params as InboxParams | undefined;
+      setPending(
+        asked?.listId
+          ? { kind: 'list', value: asked.listId }
+          : asked?.folderId
+            ? { kind: 'folder', value: asked.folderId }
+            : asked?.tag
+              ? { kind: 'tag', value: asked.tag }
+              : { kind: 'route', value: route }
+      );
 
-  const viewCount = (route: string): number | null => {
-    if (route === 'AllTab') return activeCount;
-    if (route === 'InboxTab') return inboxCount(data.tasks);
-    if (route === 'TodayTab') return tasksForToday(data.tasks, now).length;
-    if (route === 'TrashTab') return trashedTasks(data.tasks).length || null;
-    return null;
-  };
+      const navigate = () => {
+        const nativeDestination = native
+          ? NATIVE_LIST_DESTINATIONS[route as keyof typeof NATIVE_LIST_DESTINATIONS]
+          : undefined;
+        const filteredList = native && route === 'InboxTab' && !!params;
+        if (native && (nativeDestination || filteredList)) {
+          (navigation.navigate as (name: string, params?: object) => void)('ListsTab', {
+            screen: nativeDestination?.screen ?? 'Tasks',
+            params: nativeDestination?.params ?? params,
+          });
+        } else {
+          (navigation.navigate as (name: string, params?: object) => void)(route, params);
+        }
+      };
+
+      if (onNavigate) onNavigate(navigate);
+      else navigate();
+    },
+    [native, navigation, onNavigate]
+  );
 
   // Params replace rather than merge, so setting one filter clears the others.
-  const openFilter = (filter: InboxParams) => go('InboxTab', filter);
+  const openFilter = useCallback((filter: InboxParams) => go('InboxTab', filter), [go]);
+  /**
+   * Taken by id rather than as a closure per row.
+   *
+   * The tree rebuilds its row elements on every render — the sortable calls
+   * `renderItem` again — so a fresh `() => openFilter({ listId })` would give
+   * every row a new prop and defeat the memo on `ListRow` below. One stable
+   * handler per row kind keeps the props identical, and a navigation then
+   * re-renders only the two rows whose selected state actually moved.
+   */
+  const openList = useCallback((id: string) => openFilter({ listId: id }), [openFilter]);
+  const openFolder = useCallback((id: string) => openFilter({ folderId: id }), [openFilter]);
+  const openTag = useCallback((tag: string) => openFilter({ tag }), [openFilter]);
   const filterActive = (type: 'list' | 'folder' | 'tag', value: string) => {
     if (native ? !onListTab || nativeListScreen !== 'Tasks' : !onInbox) return false;
     if (type === 'list') return inboxParams?.listId === value;
     if (type === 'folder') return inboxParams?.folderId === value;
     return inboxParams?.tag === value;
   };
+
+  /** The same question for the fixed views, which reach their screens by route. */
+  const routeActive = (route: string): boolean => {
+    const destination = native
+      ? NATIVE_LIST_DESTINATIONS[route as keyof typeof NATIVE_LIST_DESTINATIONS]
+      : undefined;
+    if (destination) {
+      return (
+        onListTab
+        && nativeListScreen === destination.screen
+        && (route === 'AllTab'
+          ? !filtered && nativeListParams?.view !== 'today'
+          : route === 'TodayTab'
+            ? nativeListParams?.view === 'today'
+            : true)
+      );
+    }
+    if (route === 'InboxTab') return native ? onInbox : onInbox && !filtered;
+    return current.name === route;
+  };
+
+  /** What the nav draws as selected: the press, while one is still in flight. */
+  const showActive = (kind: PendingRow['kind'], value: string): boolean =>
+    pending
+      ? pending.kind === kind && pending.value === value
+      : kind === 'route'
+        ? routeActive(value)
+        : filterActive(kind, value);
+
+  /**
+   * The navigation has caught up, so the press has nothing left to say.
+   *
+   * Cleared on agreement rather than on the first change to navigation state: a
+   * nested destination arrives in two commits, and letting go on the first of
+   * them would drop the highlight back on the old row for a frame before it
+   * moved to the new one — the flicker this exists to remove, moved later.
+   */
+  const settled =
+    pending !== null
+    && (pending.kind === 'route'
+      ? routeActive(pending.value)
+      : filterActive(pending.kind, pending.value));
+  useEffect(() => {
+    if (settled) setPending(null);
+  }, [settled]);
 
   return (
     <View
@@ -405,25 +528,9 @@ export default function Sidebar({ state, navigation, onNavigate }: Props) {
         contentContainerStyle={styles.scroll}
         showsVerticalScrollIndicator={false}
       >
-        {viewsFor().map(({ route, label, Icon }) => {
-          const nativeDestination = native
-            ? NATIVE_LIST_DESTINATIONS[route as keyof typeof NATIVE_LIST_DESTINATIONS]
-            : undefined;
-          const nativeDestinationActive = nativeDestination
-            ? onListTab
-              && nativeListScreen === nativeDestination.screen
-              && (route === 'AllTab'
-                ? !filtered && nativeListParams?.view !== 'today'
-                : route === 'TodayTab'
-                  ? nativeListParams?.view === 'today'
-                  : true)
-            : false;
-          const active = nativeDestination
-            ? nativeDestinationActive
-            : route === 'InboxTab'
-              ? native ? onInbox : onInbox && !filtered
-              : current.name === route;
-          const count = viewCount(route);
+        {VIEWS.map(({ route, label, Icon }) => {
+          const active = showActive('route', route);
+          const count = viewCounts[route] ?? null;
           return (
             <Pressable
               key={route}
@@ -494,28 +601,30 @@ export default function Sidebar({ state, navigation, onNavigate }: Props) {
               >
                 {row.kind === 'folder' ? (
                   <FolderRow
-                    onPressIn={(point) => arm(row.key, point)}
+                    rowKey={row.key}
+                    onPressIn={arm}
                     held={menuTarget?.id === row.folder.id}
                     folder={row.folder}
                     rail={collapsed}
-                    count={folderTotal(data.lists, counts, row.folder.id)}
+                    count={folderTotals[row.folder.id] ?? 0}
                     folded={collapsedFolders.includes(row.folder.id)}
-                    active={filterActive('folder', row.folder.id)}
+                    active={showActive('folder', row.folder.id)}
                     accent={accent}
-                    onPress={() => openFilter({ folderId: row.folder.id })}
-                    onToggle={() => toggleFolder(row.folder.id)}
+                    onPress={openFolder}
+                    onToggle={toggleFolder}
                   />
                 ) : (
                   <ListRow
-                    onPressIn={(point) => arm(row.key, point)}
+                    rowKey={row.key}
+                    onPressIn={arm}
                     held={menuTarget?.id === row.list.id}
                     list={row.list}
                     rail={collapsed}
                     depth={row.depth}
                     count={counts[row.list.id] ?? 0}
-                    active={filterActive('list', row.list.id)}
+                    active={showActive('list', row.list.id)}
                     accent={accent}
-                    onPress={() => openFilter({ listId: row.list.id })}
+                    onPress={openList}
                   />
                 )}
               </ContextMenuTarget>
@@ -548,12 +657,12 @@ export default function Sidebar({ state, navigation, onNavigate }: Props) {
           <View>
             <Text style={styles.sectionLabel}>Tags</Text>
             {tags.map(({ tag, count }) => {
-              const active = filterActive('tag', tag);
+              const active = showActive('tag', tag);
               return (
                 <Pressable
                   key={tag}
                   style={hoverBg([styles.row, active && { backgroundColor: colors.selectedRowBg }], active)}
-                  onPress={() => openFilter({ tag })}
+                  onPress={() => openTag(tag)}
                 >
                   <IconTag size={16} color={active ? accent : colors.textTertiary} />
                   <Text
@@ -608,7 +717,9 @@ export default function Sidebar({ state, navigation, onNavigate }: Props) {
       />
     </View>
   );
-}
+});
+
+export default Sidebar;
 
 /**
  * Folds a row shut in place, without taking it out of the tree.
@@ -673,7 +784,8 @@ function FoldAway({ folded, children }: { folded: boolean; children: React.React
  * list, a folder looks like the peer it now is, and its chevron has somewhere
  * obvious to live.
  */
-function FolderRow({
+const FolderRow = React.memo(function FolderRow({
+  rowKey,
   folder,
   rail,
   count,
@@ -685,8 +797,10 @@ function FolderRow({
   onPressIn,
   held,
 }: {
+  /** This row's key in the flattened tree, handed back to the id-taking handlers. */
+  rowKey: string;
   folder: FolderDef;
-  onPressIn: (point: { x: number; y: number }) => void;
+  onPressIn: (key: string, point: { x: number; y: number }) => void;
   /** Its menu is open. See `heldRowBg`. */
   held: boolean;
   /** The collapsed icon-only sidebar, not a folded folder. */
@@ -695,8 +809,8 @@ function FolderRow({
   folded: boolean;
   active: boolean;
   accent: string;
-  onPress: () => void;
-  onToggle: () => void;
+  onPress: (id: string) => void;
+  onToggle: (id: string) => void;
 }) {
   const hoverBg = useHoverBg();
   const colors = useColors();
@@ -712,8 +826,8 @@ function FolderRow({
         ],
         active || held
       )}
-      onPress={onPress}
-      onPressIn={(e) => onPressIn({ x: e.nativeEvent.pageX, y: e.nativeEvent.pageY })}
+      onPress={() => onPress(folder.id)}
+      onPressIn={(e) => onPressIn(rowKey, { x: e.nativeEvent.pageX, y: e.nativeEvent.pageY })}
       accessibilityLabel={folder.name}
       accessibilityState={{ selected: active }}
     >
@@ -735,7 +849,7 @@ function FolderRow({
         hitSlop={5}
         onPress={(event) => {
           event.stopPropagation();
-          onToggle();
+          onToggle(folder.id);
         }}
         accessibilityLabel={`${folded ? 'Expand' : 'Collapse'} ${folder.name}`}
       >
@@ -750,9 +864,10 @@ function FolderRow({
       </Pressable>
     </Pressable>
   );
-}
+});
 
-function ListRow({
+const ListRow = React.memo(function ListRow({
+  rowKey,
   list,
   rail,
   depth,
@@ -763,8 +878,10 @@ function ListRow({
   onPressIn,
   held,
 }: {
+  /** This row's key in the flattened tree, handed back to the id-taking handlers. */
+  rowKey: string;
   list: ListDef;
-  onPressIn: (point: { x: number; y: number }) => void;
+  onPressIn: (key: string, point: { x: number; y: number }) => void;
   /** Its menu is open. See `heldRowBg`. */
   held: boolean;
   rail: boolean;
@@ -773,7 +890,7 @@ function ListRow({
   count: number;
   active: boolean;
   accent: string;
-  onPress: () => void;
+  onPress: (id: string) => void;
 }) {
   const hoverBg = useHoverBg();
   const colors = useColors();
@@ -794,8 +911,8 @@ function ListRow({
         ],
         active || held
       )}
-      onPress={onPress}
-      onPressIn={(e) => onPressIn({ x: e.nativeEvent.pageX, y: e.nativeEvent.pageY })}
+      onPress={() => onPress(list.id)}
+      onPressIn={(e) => onPressIn(rowKey, { x: e.nativeEvent.pageX, y: e.nativeEvent.pageY })}
       accessibilityLabel={list.name}
     >
       {rail ? (
@@ -822,7 +939,7 @@ function ListRow({
       )}
     </Pressable>
   );
-}
+});
 
 const useStyles = makeStyles((c) => ({
   sidebar: {

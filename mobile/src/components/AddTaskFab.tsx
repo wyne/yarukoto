@@ -9,6 +9,7 @@ import { nativeTabBarClearance } from '../navigation/nativeTabBarLayout';
 import { LIQUID_GLASS } from '../data/platform';
 import { QuickAddDefaults } from '../data/TaskContext';
 import TaskComposerSheet from './TaskComposerSheet';
+import { useLazyMount } from './lazyMount';
 import { IconPlusBig } from '../icons/Icons';
 
 interface Props {
@@ -32,6 +33,9 @@ export default function AddTaskFab({ defaults, contextLabel, hidden }: Props) {
   const insets = useSafeAreaInsets();
   const { wide } = useSidebar();
   const [open, setOpen] = useState(false);
+  // Built on the first tap of the button rather than with every screen. See
+  // `useLazyMount`.
+  const composerMounted = useLazyMount(open);
 
   return (
     <>
@@ -63,12 +67,14 @@ export default function AddTaskFab({ defaults, contextLabel, hidden }: Props) {
         </View>
       )}
 
-      <TaskComposerSheet
-        visible={open}
-        onClose={() => setOpen(false)}
-        defaults={defaults}
-        contextLabel={contextLabel}
-      />
+      {composerMounted && (
+        <TaskComposerSheet
+          visible={open}
+          onClose={() => setOpen(false)}
+          defaults={defaults}
+          contextLabel={contextLabel}
+        />
+      )}
     </>
   );
 }
