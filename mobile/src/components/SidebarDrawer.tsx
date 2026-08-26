@@ -35,6 +35,15 @@ import Sidebar, { SIDEBAR_WIDTH, SidebarNavigationProps } from './Sidebar';
 const IOS = Platform.OS === 'ios';
 
 const BACKDROP_OPACITY = 0.35;
+/**
+ * Frames between the destination's render and the panel starting to leave.
+ *
+ * The render itself is over by the first of them — a frame callback cannot run
+ * until the JS thread is free again — so these are for the mount that follows
+ * it, which lands on the main thread and is the only thing that can stutter the
+ * close. Raise it if the panel hitches; lower it if the drawer feels held open.
+ */
+const CLOSE_AFTER_FRAMES = 2;
 /** Points per second leftwards that close the drawer regardless of how far it is open. */
 const FLING_VELOCITY = -450;
 
@@ -64,7 +73,6 @@ export default function SidebarDrawer(props: SidebarNavigationProps) {
    * rather than wait for a callback that will not come again.
    */
   const presented = useRef(IOS);
-  const pendingNavigation = useRef<(() => void) | null>(null);
 
   /**
    * Both of these time the distance still to travel, not the whole span.
@@ -137,32 +145,39 @@ export default function SidebarDrawer(props: SidebarNavigationProps) {
     );
   }, [progress, closeDrawer]);
 
-  const finishNavigation = useCallback(() => {
-    closeDrawer();
-    const navigate = pendingNavigation.current;
-    pendingNavigation.current = null;
-    // Let the closed drawer state commit separately from the destination. The
-    // panel is already off screen, but this keeps its teardown out of the same
-    // React commit as the expensive task-tree replacement.
-    requestAnimationFrame(() => navigate?.());
-  }, [closeDrawer]);
-
   /**
-   * A list destination is substantially more expensive than closing the panel.
-   * Keep that work off the UI thread until the drawer has reached zero instead
-   * of asking both operations to share the closing frames.
+   * Everything the destination costs happens while the panel is still open and
+   * still. Only then does it leave.
+   *
+   * Three orderings were tried. Closing and then navigating put a screen refresh
+   * front and centre, after the panel had gone: two steps, and the second one
+   * announced itself. Closing and navigating together made the panel stutter —
+   * the render cannot stall a Reanimated transform, but the native mount that
+   * follows it lands on the main thread, which is the thread the close is drawn
+   * on. What is left is to do the work first: the panel is stationary, so there
+   * is no animation for the mount to interfere with, and by the time it moves
+   * both threads are idle and what it uncovers is already the destination.
+   *
+   * This only reads as immediate because the tap is answered before any of it.
+   * The nav marks the row selected on the frame it was pressed (see `pending` in
+   * `Sidebar`), so the pause between the tap and the panel leaving is a pause
+   * with the answer already visible in it, rather than one that looks like a
+   * tap that missed.
    */
-  const closeBeforeNavigation = useCallback((navigate: () => void) => {
-    pendingNavigation.current = navigate;
-    progress.value = withTiming(
-      0,
-      { duration: DRAWER_CLOSE_MS * progress.value, easing: DRAWER_CLOSE_EASING },
-      (finished) => {
-        'worklet';
-        if (finished) scheduleOnRN(finishNavigation);
-      }
-    );
-  }, [progress, finishNavigation]);
+  const navigateThenClose = useCallback(
+    (navigate: () => void) => {
+      // One frame, so the row the user pressed has painted as selected before
+      // the destination takes the JS thread for the length of its render.
+      requestAnimationFrame(() => {
+        navigate();
+        // Counts down through `step` itself, so zero would mean the same tick.
+        let frames = CLOSE_AFTER_FRAMES;
+        const step = () => (frames-- > 0 ? requestAnimationFrame(step) : closeDrawer());
+        step();
+      });
+    },
+    [closeDrawer]
+  );
 
   /**
    * Drag the backdrop to close, and let go early to have it finish the job.
@@ -214,8 +229,18 @@ export default function SidebarDrawer(props: SidebarNavigationProps) {
       <GestureDetector gesture={Gesture.Exclusive(drag, tap)}>
         <Animated.View style={[styles.backdrop, backdrop]} />
       </GestureDetector>
+      {/*
+        Rendered plainly, and kept cheap by the memo on `Sidebar` itself rather
+        than by holding it still here.
+
+        Holding it was tried, and it moved the cost rather than removing it: a
+        nav that had changed while the panel was shut then had its whole tree to
+        rebuild on the one frame the open animation starts, which is the frame
+        least able to afford it. Letting each change land where it happens
+        spreads the same work over moments that are already still.
+      */}
       <Animated.View style={[styles.panel, panel]}>
-        <Sidebar {...props} onNavigate={closeBeforeNavigation} />
+        <Sidebar {...props} onNavigate={navigateThenClose} />
       </Animated.View>
     </GestureHandlerRootView>
   );
