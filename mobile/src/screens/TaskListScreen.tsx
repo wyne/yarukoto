@@ -153,6 +153,29 @@ export default function TaskListScreen({ mode, filter }: Props) {
   // Kept alongside it so the picker can open as a popover at the same point the
   // menu did, rather than sliding up from the bottom of the window.
   const [pickerAt, setPickerAt] = useState<PopoverAnchor | null>(null);
+  const previousViewKey = useRef(key);
+
+  // Native task destinations share one screen so changing lists does not mount
+  // another complete drag/swipe/sheet tree. Reset the transient view state that
+  // the old route change used to discard, without throwing that tree away.
+  useEffect(() => {
+    if (previousViewKey.current === key) return;
+    previousViewKey.current = key;
+    closeOpenSwipeRow();
+    scrollRef.current?.scrollTo({ y: 0, animated: false });
+    setSelectionMode(false);
+    setSelectedIds((current) => current.length > 0 ? [] : current);
+    setHeaderMenuOpen(false);
+    setOptionsOpen(false);
+    setOptionsAnchor(null);
+    setScheduleOpen(false);
+    setMoveOpen(false);
+    setTagOpen(false);
+    setMenuTask(null);
+    setMenuAt(null);
+    setPickerTask(null);
+    setPickerAt(null);
+  }, [key, scrollRef]);
 
   /**
    * The row the context-menu flow is currently acting on, whether that is the

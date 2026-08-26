@@ -8,15 +8,15 @@ interface Props {
   route: { params?: InboxParams };
 }
 
-export default function InboxScreen({ route }: Props) {
+export function useInboxFilter(params?: InboxParams) {
   const { state } = useTasks();
-  const { listId, folderId, tag } = route.params ?? {};
+  const { listId, folderId, tag } = params ?? {};
 
   // Resolved rather than carried in the params: these arrive from the URL on web,
   // where nothing but the id survives a reload. An id that no longer names a live
   // container — a deleted one, a stale link — falls back to the unfiltered Inbox rather
   // than to a view that is empty for reasons it can't explain.
-  const filter = useMemo<TaskListFilter | undefined>(() => {
+  return useMemo<TaskListFilter | undefined>(() => {
     if (listId) {
       const list = getListById(state.lists, listId);
       return list ? { type: 'list', value: list.id, label: list.name } : undefined;
@@ -28,6 +28,10 @@ export default function InboxScreen({ route }: Props) {
     if (tag) return { type: 'tag', value: tag, label: `#${tag}` };
     return undefined;
   }, [listId, folderId, tag, state.lists, state.folders]);
+}
+
+export default function InboxScreen({ route }: Props) {
+  const filter = useInboxFilter(route.params);
 
   return <TaskListScreen mode="inbox" filter={filter} />;
 }

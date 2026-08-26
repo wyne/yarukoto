@@ -9,6 +9,7 @@ import {
   DRAWER_CLOSE_MS,
   DRAWER_OPEN_EASING,
   DRAWER_OPEN_MS,
+  useDrawerState,
   useSidebar,
 } from '../navigation/SidebarContext';
 import Sidebar, { SIDEBAR_WIDTH, SidebarNavigationProps } from './Sidebar';
@@ -41,7 +42,8 @@ const FLING_VELOCITY = -450;
 export default function SidebarDrawer(props: SidebarNavigationProps) {
   // 0 shut, 1 fully open. Every visible part of the drawer is a reading of it,
   // and it is shared so the edge swipe out in the layout can drive it too.
-  const { drawerOpen, closeDrawer, drawerProgress: progress } = useSidebar();
+  const { drawerOpen, closeDrawer } = useDrawerState();
+  const { drawerProgress: progress } = useSidebar();
 
   /** Where `progress` was when the current drag took hold. */
   const grabbed = useSharedValue(0);

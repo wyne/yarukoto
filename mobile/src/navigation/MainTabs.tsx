@@ -108,7 +108,7 @@ export default function MainTabs() {
  */
 function Layout() {
   const styles = useStyles();
-  const { wide, drawerOpen, openDrawer, drawerProgress, serverOpen, closeServer } = useSidebar();
+  const { wide, openDrawer, drawerProgress, serverOpen, closeServer } = useSidebar();
   const { openTaskId, closeTask } = useDetail();
   const { selectedIds } = useSelection();
 
@@ -136,7 +136,10 @@ function Layout() {
    * which is what leaves scrolling and tapping alone.
    */
   const swipeOpen = Gesture.Pan()
-    .enabled(SWIPE_TO_OPEN && !wide && !drawerOpen)
+    // While open, the window overlay owns touches before they can reach this
+    // detector, so React does not need to subscribe the whole layout to the
+    // drawer's visibility merely to disable it.
+    .enabled(SWIPE_TO_OPEN && !wide)
     // Rightward only, so a row's own leftward swipe is never in the running.
     .activeOffsetX(SWIPE_ACTIVATE_X)
     .failOffsetY([-SWIPE_FAIL_Y, SWIPE_FAIL_Y])

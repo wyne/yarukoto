@@ -21,6 +21,11 @@ export interface InboxParams {
   tag?: string;
 }
 
+/** The task view shown by the stateful first native tab. */
+export interface NativeTaskViewParams extends InboxParams {
+  view?: 'all' | 'today';
+}
+
 export type MainTabParamList = {
   AllTab: undefined;
   InboxTab: InboxParams | undefined;
