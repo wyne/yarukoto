@@ -45,6 +45,7 @@ const SERVER_SNAPSHOT_KEY = 'yarukoto.serverSnapshot';
 const DIRTY_IDS_KEY = 'yarukoto.dirtyIds';
 const BROWSE_KEY = 'yarukoto.browseCriteria';
 const SCHEME_KEY = 'yarukoto.scheme';
+const FIRST_TAB_VIEW_KEY = 'yarukoto.firstTabViews';
 
 const ALL_KEYS = [
   URL_KEY,
@@ -59,9 +60,11 @@ const ALL_KEYS = [
   DIRTY_IDS_KEY,
   BROWSE_KEY,
   SCHEME_KEY,
+  FIRST_TAB_VIEW_KEY,
 ];
 
 const SERVER_SNAPSHOT_SCHEMA = 1;
+const FIRST_TAB_VIEW_SCHEMA = 1;
 
 let cache: Record<string, string | null> = {};
 let primed = false;
@@ -226,10 +229,10 @@ export interface CollapsedSections {
   completed: boolean;
 }
 
-export const NO_COLLAPSED_SECTIONS: CollapsedSections = { groups: [], completed: false };
+export const DEFAULT_COLLAPSED_SECTIONS: CollapsedSections = { groups: [], completed: true };
 
 function isDefaultCollapse(value: CollapsedSections): boolean {
-  return value.groups.length === 0 && !value.completed;
+  return value.groups.length === 0 && value.completed;
 }
 
 /**
@@ -243,7 +246,7 @@ function collapsedMap(): Record<string, CollapsedSections> {
 
 export function loadCollapsedSections(viewKey: string): CollapsedSections {
   const stored = collapsedMap()[viewKey];
-  if (!stored) return NO_COLLAPSED_SECTIONS;
+  if (!stored) return DEFAULT_COLLAPSED_SECTIONS;
   return {
     groups: Array.isArray(stored.groups) ? stored.groups.filter((g) => typeof g === 'string') : [],
     completed: stored.completed === true,
@@ -353,6 +356,87 @@ export function saveBrowseCriteria(criteria: TaskCriteria): void {
   // key is what a fresh install looks like.
   if (isEmptyCriteria(criteria)) remove(BROWSE_KEY);
   else writeJson(BROWSE_KEY, criteria);
+}
+
+/** A destination hosted by the stateful first native tab. */
+export type SavedFirstTabView =
+  | { kind: 'all' }
+  | { kind: 'today' }
+  | { kind: 'list'; id: string }
+  | { kind: 'folder'; id: string }
+  | { kind: 'tag'; value: string }
+  | { kind: 'activity' }
+  | { kind: 'trash' };
+
+interface SavedFirstTabViews {
+  schemaVersion: typeof FIRST_TAB_VIEW_SCHEMA;
+  workspaces: Record<string, SavedFirstTabView>;
+}
+
+/**
+ * Device-local navigation is scoped to the data set it names. Tokens are
+ * deliberately absent: rotating a credential must not make the same server
+ * look like a new workspace.
+ */
+export function firstTabWorkspace(mode: AppMode, serverUrl: string): string {
+  return mode === 'server' ? `server:${serverUrl.replace(/\/+$/, '')}` : mode;
+}
+
+function parseFirstTabView(value: unknown): SavedFirstTabView | null {
+  if (!value || typeof value !== 'object') return null;
+  const candidate = value as { kind?: unknown; id?: unknown; value?: unknown };
+  if (
+    candidate.kind === 'all' ||
+    candidate.kind === 'today' ||
+    candidate.kind === 'activity' ||
+    candidate.kind === 'trash'
+  ) {
+    return { kind: candidate.kind };
+  }
+  if (
+    (candidate.kind === 'list' || candidate.kind === 'folder') &&
+    typeof candidate.id === 'string'
+  ) {
+    return { kind: candidate.kind, id: candidate.id };
+  }
+  if (candidate.kind === 'tag' && typeof candidate.value === 'string') {
+    return { kind: 'tag', value: candidate.value };
+  }
+  return null;
+}
+
+function firstTabViews(): SavedFirstTabViews {
+  const stored = readJson<Partial<SavedFirstTabViews>>(FIRST_TAB_VIEW_KEY);
+  if (
+    stored?.schemaVersion !== FIRST_TAB_VIEW_SCHEMA ||
+    !stored.workspaces ||
+    typeof stored.workspaces !== 'object' ||
+    Array.isArray(stored.workspaces)
+  ) {
+    return { schemaVersion: FIRST_TAB_VIEW_SCHEMA, workspaces: {} };
+  }
+  return {
+    schemaVersion: FIRST_TAB_VIEW_SCHEMA,
+    workspaces: stored.workspaces as Record<string, SavedFirstTabView>,
+  };
+}
+
+export function loadSavedFirstTabView(workspace: string): SavedFirstTabView | null {
+  return parseFirstTabView(firstTabViews().workspaces[workspace]);
+}
+
+export function saveFirstTabView(workspace: string, view: SavedFirstTabView): void {
+  const stored = firstTabViews();
+  stored.workspaces[workspace] = view;
+  writeJson(FIRST_TAB_VIEW_KEY, stored);
+}
+
+export function clearSavedFirstTabView(workspace: string): void {
+  const stored = firstTabViews();
+  if (!(workspace in stored.workspaces)) return;
+  delete stored.workspaces[workspace];
+  if (Object.keys(stored.workspaces).length === 0) remove(FIRST_TAB_VIEW_KEY);
+  else writeJson(FIRST_TAB_VIEW_KEY, stored);
 }
 
 export interface ServerSnapshot {
