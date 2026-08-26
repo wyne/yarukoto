@@ -441,6 +441,7 @@ export default function TaskListScreen({ mode, filter }: Props) {
         items={tasks}
         keyExtractor={(task) => task.id}
         enabled={canReorder}
+        immediateChanges
         scrollableRef={scrollRef}
         onReorder={(ids, moved) => handleReorder(group.key, ids, moved)}
         dragCount={(id) => (isSelected(id) ? webSelection.length : 1)}

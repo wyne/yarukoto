@@ -64,6 +64,7 @@ export default function SidebarDrawer(props: SidebarNavigationProps) {
    * rather than wait for a callback that will not come again.
    */
   const presented = useRef(IOS);
+  const pendingNavigation = useRef<(() => void) | null>(null);
 
   /**
    * Both of these time the distance still to travel, not the whole span.
@@ -136,6 +137,33 @@ export default function SidebarDrawer(props: SidebarNavigationProps) {
     );
   }, [progress, closeDrawer]);
 
+  const finishNavigation = useCallback(() => {
+    closeDrawer();
+    const navigate = pendingNavigation.current;
+    pendingNavigation.current = null;
+    // Let the closed drawer state commit separately from the destination. The
+    // panel is already off screen, but this keeps its teardown out of the same
+    // React commit as the expensive task-tree replacement.
+    requestAnimationFrame(() => navigate?.());
+  }, [closeDrawer]);
+
+  /**
+   * A list destination is substantially more expensive than closing the panel.
+   * Keep that work off the UI thread until the drawer has reached zero instead
+   * of asking both operations to share the closing frames.
+   */
+  const closeBeforeNavigation = useCallback((navigate: () => void) => {
+    pendingNavigation.current = navigate;
+    progress.value = withTiming(
+      0,
+      { duration: DRAWER_CLOSE_MS * progress.value, easing: DRAWER_CLOSE_EASING },
+      (finished) => {
+        'worklet';
+        if (finished) scheduleOnRN(finishNavigation);
+      }
+    );
+  }, [progress, finishNavigation]);
+
   /**
    * Drag the backdrop to close, and let go early to have it finish the job.
    *
@@ -187,7 +215,7 @@ export default function SidebarDrawer(props: SidebarNavigationProps) {
         <Animated.View style={[styles.backdrop, backdrop]} />
       </GestureDetector>
       <Animated.View style={[styles.panel, panel]}>
-        <Sidebar {...props} onNavigate={closeDrawer} />
+        <Sidebar {...props} onNavigate={closeBeforeNavigation} />
       </Animated.View>
     </GestureHandlerRootView>
   );

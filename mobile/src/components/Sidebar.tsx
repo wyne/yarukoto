@@ -101,8 +101,8 @@ export type SidebarNavigationProps =
   | Pick<NativeBottomTabBarProps, 'state' | 'navigation'>;
 
 type Props = SidebarNavigationProps & {
-  /** Called after any navigation — the drawer uses it to close itself. */
-  onNavigate?: () => void;
+  /** Runs a navigation after the drawer has finished closing. */
+  onNavigate?: (navigate: () => void) => void;
 };
 
 export default function Sidebar({ state, navigation, onNavigate }: Props) {
@@ -346,19 +346,23 @@ export default function Sidebar({ state, navigation, onNavigate }: Props) {
   const onListTab = native && current.name === 'ListsTab';
 
   const go = (route: string, params?: object) => {
-    const nativeDestination = native
-      ? NATIVE_LIST_DESTINATIONS[route as keyof typeof NATIVE_LIST_DESTINATIONS]
-      : undefined;
-    const filteredList = native && route === 'InboxTab' && !!params;
-    if (native && (nativeDestination || filteredList)) {
-      (navigation.navigate as (name: string, params?: object) => void)('ListsTab', {
-        screen: nativeDestination?.screen ?? 'Tasks',
-        params: nativeDestination?.params ?? params,
-      });
-    } else {
-      (navigation.navigate as (name: string, params?: object) => void)(route, params);
-    }
-    onNavigate?.();
+    const navigate = () => {
+      const nativeDestination = native
+        ? NATIVE_LIST_DESTINATIONS[route as keyof typeof NATIVE_LIST_DESTINATIONS]
+        : undefined;
+      const filteredList = native && route === 'InboxTab' && !!params;
+      if (native && (nativeDestination || filteredList)) {
+        (navigation.navigate as (name: string, params?: object) => void)('ListsTab', {
+          screen: nativeDestination?.screen ?? 'Tasks',
+          params: nativeDestination?.params ?? params,
+        });
+      } else {
+        (navigation.navigate as (name: string, params?: object) => void)(route, params);
+      }
+    };
+
+    if (onNavigate) onNavigate(navigate);
+    else navigate();
   };
 
   const viewCount = (route: string): number | null => {
