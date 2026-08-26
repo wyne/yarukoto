@@ -24,10 +24,8 @@
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#F1F5EF",
-        "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
+        "backgroundColor": "#EFF2EC",
+        "foregroundImage": "./assets/android-icon-foreground.png"
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.wyne.yarukoto"
