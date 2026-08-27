@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, Text, View, useWindowDimensions } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import { MenuView, type MenuAction } from '@expo/ui/community/menu';
 import Animated, {
   FadeIn,
@@ -33,6 +33,7 @@ import { NATIVE_TAB_CONTENT_PADDING } from '../navigation/nativeTabBarLayout';
 import { useDetail } from '../navigation/DetailContext';
 import { useSelection } from '../navigation/SelectionContext';
 import TaskRow from '../components/TaskRow';
+import { useRowContext } from '../components/useRowContext';
 import Card from '../components/Card';
 import Divider from '../components/Divider';
 import DragList from '../components/DragList';
@@ -85,12 +86,7 @@ export default function TaskListScreen({ mode, filter }: Props) {
   const insets = useSafeAreaInsets();
   const refreshControl = useSyncRefresh();
   const { wide, openDrawer } = useSidebar();
-  const { width: windowWidth } = useWindowDimensions();
-  /**
-   * A narrow window still has room for tags once the list name is dropped; a
-   * phone-sized one has room for neither, so it gets the count instead.
-   */
-  const rowContext = wide ? true : windowWidth >= 600 ? ('tags' as const) : ('count' as const);
+  const rowContext = useRowContext();
   const { openTask, openTaskId } = useDetail();
   const {
     state,
