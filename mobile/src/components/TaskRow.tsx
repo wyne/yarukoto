@@ -147,7 +147,7 @@ export default function TaskRow({
         )}
       </View>
       {(dueLabel || showRest || tagCount > 0) && !task.completed && (
-        <View style={styles.metaRow}>
+        <View style={[styles.metaRow, leading ? styles.metaRowLeading : null]}>
           {showRest && (
             <Text style={[styles.metaMuted, styles.metaRest]} numberOfLines={1}>
               {restParts.join(' · ')}
@@ -268,6 +268,14 @@ const useStyles = makeStyles((c) => ({
     flexShrink: 1,
     // Keeps the row title-first when a task carries a list and several tags.
     maxWidth: '52%',
+  },
+  /**
+   * A leading column — the calendar's due time — is spent before the title gets
+   * anything, so the metadata's half of the row is measured against a width that
+   * no longer exists. It gives up the difference rather than the title doing it.
+   */
+  metaRowLeading: {
+    maxWidth: '34%',
   },
   /** List and tags give up space before the due date does. */
   metaRest: {

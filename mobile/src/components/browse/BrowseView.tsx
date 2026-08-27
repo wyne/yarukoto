@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { useColors } from '../../theme/ThemeContext';
-import { ScrollView, Text, TextInput, View, useWindowDimensions } from 'react-native';
+import { ScrollView, Text, TextInput, View } from 'react-native';
 import { makeStyles } from '../../theme/styles';
 import { fonts } from '../../theme/typography';
 import { useTasks } from '../../data/TaskContext';
@@ -13,6 +13,7 @@ import { useDetail } from '../../navigation/DetailContext';
 import Card from '../Card';
 import Divider from '../Divider';
 import TaskRow from '../TaskRow';
+import { useRowContext } from '../useRowContext';
 import { closeOpenSwipeRow } from '../SwipeableRow';
 import FilterBar from './FilterBar';
 
@@ -37,7 +38,6 @@ export default function BrowseView({ criteria, onCriteriaChange }: Props) {
   const colors = useColors();
   const styles = useStyles();
   const { wide } = useSidebar();
-  const { width } = useWindowDimensions();
   const refreshControl = useSyncRefresh();
   const { openTask } = useDetail();
   const { state, toggleComplete, snoozeTask } = useTasks();
@@ -59,7 +59,7 @@ export default function BrowseView({ criteria, onCriteriaChange }: Props) {
   // Results span every list, so a row has to say which one it came from — that
   // is the whole point of a cross-cutting search. Only the narrowest layout
   // trades the names away for the tag count.
-  const rowContext = wide ? true : width >= 600 ? ('tags' as const) : ('count' as const);
+  const rowContext = useRowContext();
 
   return (
     <View style={styles.root}>
