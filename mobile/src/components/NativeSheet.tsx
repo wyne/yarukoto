@@ -21,8 +21,6 @@ interface Props {
   title?: string;
   /** Raise the sheet behind the keyboard instead of letting it cover the field. */
   keyboard?: boolean;
-  /** How a keyboard sheet makes room; content-sized sheets default to interactive. */
-  keyboardBehavior?: 'interactive' | 'extend' | 'fillParent';
   /** Show the drag grabber; composers hide it so the input row sits at the top edge. */
   grabber?: boolean;
   /** Called once the sheet has been presented — the moment to focus an input. */
@@ -55,7 +53,6 @@ export default function NativeSheet({
   onDismissed,
   title,
   keyboard,
-  keyboardBehavior = 'interactive',
   grabber = true,
   onShow,
   snapPoints,
@@ -139,7 +136,7 @@ export default function NativeSheet({
       // 'interactive', not 'extend': extend keeps the sheet at its content-height
       // detent and lets the keyboard cover it, while interactive subtracts the
       // keyboard height from that detent so the sheet rides above it.
-      keyboardBehavior={keyboard ? keyboardBehavior : undefined}
+      keyboardBehavior={keyboard ? 'interactive' : undefined}
       // Interactive parks the sheet in a temporary raised position while the
       // keyboard is up; without restore it stays there once the keyboard goes,
       // stranding it mid-screen over a gap if the field is ever blurred without
@@ -175,10 +172,6 @@ export default function NativeSheet({
         style={StyleSheet.flatten([
           styles.content,
           contentStyle,
-          // A fixed-detent sheet needs its body tied to Gorhom's animated
-          // content viewport. That viewport shrinks for the keyboard; without
-          // this, descendants keep the original sheet height underneath it.
-          snapPoints ? { height: '100%' } : null,
           {
             paddingTop: title ? 0 : 24,
             // A keyboard sheet rides above the keyboard, which is itself covering
