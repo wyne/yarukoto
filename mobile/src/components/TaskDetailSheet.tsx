@@ -66,6 +66,9 @@ export default function TaskDetailSheet() {
       visible={!!openTaskId}
       onClose={closeTask}
       keyboard
+      // This sheet already occupies nearly the full screen. Resize its content
+      // viewport for the keyboard instead of trying to translate it farther up.
+      keyboardBehavior="extend"
       // Leaves the top of the list peeking through, so the sheet reads as a layer.
       snapPoints={['92%']}
       background={colors.screenBg}

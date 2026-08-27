@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { InputAccessoryView, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, ScrollViewProps, StyleSheet, Text, TextInput, View } from 'react-native';
 import { BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -57,6 +57,11 @@ const PRIORITIES: { key: Priority; label: string }[] = [
  */
 const MENU_PANEL_HEIGHT = 222;
 const KEYBOARD_ACCESSORY_ID = 'task-detail-keyboard-accessory';
+const SUBTASK_KEYBOARD_SETTLE_MS = 320;
+
+interface DetailScrollMethods {
+  scrollToEnd: (options?: { animated: boolean }) => void;
+}
 
 export default function TaskDetailView({ taskId, onClose, variant, active = true }: Props) {
   const hoverBg = useHoverBg();
@@ -91,8 +96,10 @@ export default function TaskDetailView({ taskId, onClose, variant, active = true
   // coordinates with it: drag down at the top closes the sheet, otherwise the
   // content scrolls. Outside a sheet (the wide-layout pane) it throws, so the
   // plain ScrollView stays for that variant.
-  const Scroll: React.ComponentType<ScrollViewProps> =
-    variant === 'sheet' ? (BottomSheetScrollView as React.ComponentType<ScrollViewProps>) : ScrollView;
+  const Scroll = (variant === 'sheet' ? BottomSheetScrollView : ScrollView) as React.ComponentType<
+    ScrollViewProps & React.RefAttributes<DetailScrollMethods>
+  >;
+  const scrollRef = useRef<DetailScrollMethods>(null);
 
   const [menu, setMenu] = useState<'list' | 'tags' | null>(null);
   const [addingSubtask, setAddingSubtask] = useState(false);
@@ -133,6 +140,10 @@ export default function TaskDetailView({ taskId, onClose, variant, active = true
   const [keyboardUp, setKeyboardUp] = useState(false);
   const [keyboardInputFocused, setKeyboardInputFocused] = useState(false);
 
+  const revealSubtaskInput = useCallback((animated: boolean) => {
+    requestAnimationFrame(() => scrollRef.current?.scrollToEnd({ animated }));
+  }, []);
+
   useEffect(() => {
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
     const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
@@ -143,6 +154,17 @@ export default function TaskDetailView({ taskId, onClose, variant, active = true
     });
     return () => { show.remove(); hide.remove(); };
   }, []);
+
+  // Auto-focus happens before the sheet has finished making room for the
+  // keyboard. Scroll once for the newly mounted row, then again after that
+  // resize settles so the last subtask remains inside the visible viewport.
+  useEffect(() => {
+    if (!addingSubtask) return;
+    revealSubtaskInput(true);
+    if (!keyboardUp) return;
+    const timer = setTimeout(() => revealSubtaskInput(true), SUBTASK_KEYBOARD_SETTLE_MS);
+    return () => clearTimeout(timer);
+  }, [addingSubtask, keyboardUp, task?.subtasks.length, revealSubtaskInput]);
 
   if (!task) {
     return (
@@ -245,8 +267,10 @@ export default function TaskDetailView({ taskId, onClose, variant, active = true
       )}
 
       <Scroll
+        ref={scrollRef}
         contentContainerStyle={[styles.scroll, keyboardUp && styles.scrollKeyboard]}
         keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'none'}
+        keyboardShouldPersistTaps="handled"
       >
         <Card style={styles.pad14}>
           <View style={styles.titleRow}>
@@ -495,9 +519,9 @@ export default function TaskDetailView({ taskId, onClose, variant, active = true
             onChangeText={textDraft.setNotes}
             placeholder="Add notes…"
             placeholderTextColor={colors.textFaint}
-            style={[styles.notesInput, keyboardUp && styles.notesInputKeyboard]}
+            style={styles.notesInput}
             multiline
-            scrollEnabled
+            scrollEnabled={false}
             {...keyboardTargetProps}
             {...accessoryProps}
             onBlur={() => {
@@ -561,7 +585,11 @@ export default function TaskDetailView({ taskId, onClose, variant, active = true
                 placeholder="Subtask title"
                 placeholderTextColor={colors.textFaint}
                 style={styles.subtaskInput}
-                {...keyboardTargetProps}
+                onFocus={() => {
+                  setKeyboardInputFocused(true);
+                  revealSubtaskInput(true);
+                }}
+                onBlur={() => setKeyboardInputFocused(false)}
                 {...accessoryProps}
                 onSubmitEditing={() => {
                   if (newSubtask.trim()) addSubtask(task.id, newSubtask.trim());
@@ -771,14 +799,10 @@ const useStyles = makeStyles((c) => ({
     fontFamily: fonts.sansRegular,
     fontSize: 15,
     lineHeight: 21,
-    color: '#35352F',
+    color: c.textPrimary,
     marginTop: 6,
     padding: 0,
     minHeight: 40,
-    maxHeight: 148,
-  },
-  notesInputKeyboard: {
-    maxHeight: 104,
   },
   subtasksHeader: {
     flexDirection: 'row',
