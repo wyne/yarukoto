@@ -191,7 +191,7 @@ function Layout() {
           {bulk || !openTaskId ? (
             <BulkActions variant="pane" />
           ) : (
-            <TaskDetailView taskId={openTaskId} onClose={closeTask} variant="pane" />
+            <TaskDetailView key={openTaskId} taskId={openTaskId} onClose={closeTask} variant="pane" />
           )}
         </View>
       )}

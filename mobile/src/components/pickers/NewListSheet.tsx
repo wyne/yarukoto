@@ -1,8 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useColors } from '../../theme/ThemeContext';
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, Text, TextInput, View } from 'react-native';
 import NativeSheet from '../NativeSheet';
-import SheetTextInput from '../SheetTextInput';
+import NativeOwnedTextInput from '../NativeOwnedTextInput';
 import { makeStyles } from '../../theme/styles';
 import { fonts } from '../../theme/typography';
 import { useTasks } from '../../data/TaskContext';
@@ -24,11 +24,7 @@ export default function NewListSheet({ visible, folder, onClose }: Props) {
   const styles = useStyles();
   const { addList } = useTasks();
   const [name, setName] = useState('');
-  // BottomSheetTextInput rather than RN's: it registers the field with the sheet,
-// which is how keyboardBehavior knows an input is focused and sizes around it.
-// With a plain one the sheet stays at its content height and the keyboard simply
-// covers it.
-  const inputRef = useRef<React.ComponentRef<typeof SheetTextInput>>(null);
+  const inputRef = useRef<TextInput>(null);
 
   useEffect(() => {
     if (visible) setName('');
@@ -51,8 +47,10 @@ export default function NewListSheet({ visible, folder, onClose }: Props) {
       // hidden), so the keyboard rises with the sheet.
       onShow={() => inputRef.current?.focus()}
     >
-      <SheetTextInput
+      <NativeOwnedTextInput
         ref={inputRef}
+        sheet
+        syncKey={visible}
         value={name}
         onChangeText={setName}
         placeholder="List name"

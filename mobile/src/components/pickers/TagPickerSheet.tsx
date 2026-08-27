@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { Pressable, Text, TextInput, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import BottomSheet from '../BottomSheet';
 import type { PopoverAnchor } from '../Popover';
 import { makeStyles } from '../../theme/styles';
 import { useHoverBg } from '../../theme/hover';
 import { fonts } from '../../theme/typography';
+import NativeOwnedTextInput from '../NativeOwnedTextInput';
 import { useAccent, useColors } from '../../theme/ThemeContext';
 import { useTasks } from '../../data/TaskContext';
 import { tagCounts } from '../../data/selectors';
@@ -51,6 +52,7 @@ export default function TagPickerSheet({ visible, onClose, initialTags, onApply,
       visible={visible}
       onClose={onClose}
       title="Tags"
+      keyboard
       anchor={anchor}
       popoverWidth={300}
       onBack={onBack}
@@ -70,7 +72,8 @@ export default function TagPickerSheet({ visible, onClose, initialTags, onApply,
         })}
       </View>
       <View style={styles.addRow}>
-        <TextInput
+        <NativeOwnedTextInput
+          sheet
           value={newTag}
           onChangeText={setNewTag}
           placeholder="New tag"

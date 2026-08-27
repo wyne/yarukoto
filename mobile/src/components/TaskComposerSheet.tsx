@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
-import { BottomSheetTextInput } from '@gorhom/bottom-sheet';
+import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { priorityColor } from '../theme/colors';
 import { makeStyles } from '../theme/styles';
 import { fonts } from '../theme/typography';
@@ -13,6 +12,7 @@ import { getListById, navGroups } from '../data/selectors';
 import { applySuggestion, useQuickAddSuggestions } from '../data/quickAddSuggestions';
 import DueDateQuickMenu from './pickers/DueDateQuickMenu';
 import NativeSheet from './NativeSheet';
+import NativeOwnedTextInput from './NativeOwnedTextInput';
 import { IconCalendarBox, IconCheckBig, IconFlag, IconFolder, IconPlus, IconTag } from '../icons/Icons';
 import { useNativeDateTimePicker } from '../navigation/DateTimePickerContext';
 
@@ -61,9 +61,7 @@ export default function TaskComposerSheet({ visible, onClose, defaults, contextL
   const accent = useAccent();
   const { state, addTaskFromQuickAdd } = useTasks();
   const presentDateTimePicker = useNativeDateTimePicker();
-  // BottomSheetTextInput rather than RN's: it registers the field with the sheet,
-  // which is how keyboardBehavior knows an input is focused and sizes around it.
-  const inputRef = useRef<React.ComponentRef<typeof BottomSheetTextInput>>(null);
+  const inputRef = useRef<TextInput>(null);
 
   const [text, setText] = useState('');
   const [dueDate, setDueDate] = useState<string | undefined>(undefined);
@@ -72,6 +70,7 @@ export default function TaskComposerSheet({ visible, onClose, defaults, contextL
   const [tags, setTags] = useState<string[]>([]);
   const [listId, setListId] = useState<string | null>(null);
   const [menu, setMenu] = useState<Menu | null>(null);
+  const submitAndContinueRef = useRef<() => void>(() => {});
 
   // Read through a ref so the reseed below can use the current scope without
   // taking `defaults` as a dependency: the screens build it inline, so it is a
@@ -83,6 +82,7 @@ export default function TaskComposerSheet({ visible, onClose, defaults, contextL
   // sheet and by adding a task without closing it — both want the same start.
   const resetDraft = useCallback(() => {
     const d = defaultsRef.current;
+    inputRef.current?.clear();
     setText('');
     setDueDate(d?.dueDate);
     setDueTime(d?.dueTime);
@@ -161,9 +161,12 @@ export default function TaskComposerSheet({ visible, onClose, defaults, contextL
     resetDraft();
     inputRef.current?.focus();
   };
+  submitAndContinueRef.current = submitAndContinue;
+  const handleSubmitEditing = useCallback(() => submitAndContinueRef.current(), []);
 
   const chooseSuggestion = (value: string) => {
-    setText(applySuggestion(text, value));
+    const next = applySuggestion(text, value);
+    setText(next);
     inputRef.current?.focus();
   };
 
@@ -228,8 +231,9 @@ export default function TaskComposerSheet({ visible, onClose, defaults, contextL
       // than open-then-keyboard.
       onShow={() => inputRef.current?.focus()}
     >
-      <BottomSheetTextInput
+      <NativeOwnedTextInput
         ref={inputRef}
+        sheet
         value={text}
         onChangeText={setText}
         placeholder={contextLabel ? `Add to ${contextLabel}…` : 'What would you like to do?'}
@@ -247,7 +251,7 @@ export default function TaskComposerSheet({ visible, onClose, defaults, contextL
         // sheet stay open for the next task.
         multiline
         submitBehavior="submit"
-        onSubmitEditing={submitAndContinue}
+        onSubmitEditing={handleSubmitEditing}
         returnKeyType="next"
       />
 
