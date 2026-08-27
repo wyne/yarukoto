@@ -1,6 +1,7 @@
 import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useRef } from 'react';
 import { Platform, TextInput, TextInputProps } from 'react-native';
 import { BottomSheetTextInput } from '@gorhom/bottom-sheet';
+import { useScheme } from '../theme/ThemeContext';
 
 interface Props extends Omit<TextInputProps, 'defaultValue' | 'onChangeText' | 'value'> {
   value: string;
@@ -24,6 +25,7 @@ const NativeOwnedTextInput = forwardRef<TextInput, Props>(function NativeOwnedTe
   { value, onChangeText, sheet = false, syncKey, ...props },
   forwardedRef
 ) {
+  const scheme = useScheme();
   const inputRef = useRef<TextInput>(null);
   const initialValueRef = useRef(value);
   const nativeValueRef = useRef(value);
@@ -48,6 +50,7 @@ const NativeOwnedTextInput = forwardRef<TextInput, Props>(function NativeOwnedTe
   return (
     <Input
       ref={inputRef as never}
+      keyboardAppearance={scheme}
       {...props}
       {...(Platform.OS === 'web' ? { value } : { defaultValue: initialValueRef.current })}
       onChangeText={handleChangeText}

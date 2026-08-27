@@ -1,49 +1,40 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Keyboard, Platform, StyleSheet, View } from 'react-native';
+import { Keyboard, Platform, StyleSheet } from 'react-native';
 import { BottomSheetFooter, BottomSheetFooterProps } from '@gorhom/bottom-sheet';
+import Animated, { Extrapolation, interpolate, useAnimatedKeyboard, useAnimatedStyle } from 'react-native-reanimated';
 import { useDetail } from '../navigation/DetailContext';
 import { useColors } from '../theme/ThemeContext';
 import KeyboardDismissButton from './KeyboardDismissButton';
 import NativeSheet from './NativeSheet';
 import TaskDetailView from './TaskDetailView';
 
-function useKeyboardVisible() {
+function KeyboardDismissFooter({ animatedFooterPosition }: BottomSheetFooterProps) {
+  const keyboard = useAnimatedKeyboard();
   const [visible, setVisible] = useState(false);
+  const keyboardStyle = useAnimatedStyle(() => {
+    const exitOffset = interpolate(keyboard.height.value, [0, 48], [80, 0], Extrapolation.CLAMP);
+    return {
+      transform: [{ translateY: -keyboard.height.value + exitOffset }],
+    };
+  });
+
   useEffect(() => {
-    // 'will' on iOS so the button arrives with the keyboard rather than after it.
-    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
-    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
-    const show = Keyboard.addListener(showEvent, () => setVisible(true));
-    const hide = Keyboard.addListener(hideEvent, () => setVisible(false));
+    const show = Keyboard.addListener('keyboardWillShow', () => setVisible(true));
+    const hide = Keyboard.addListener('keyboardDidHide', () => setVisible(false));
     return () => {
       show.remove();
       hide.remove();
     };
   }, []);
-  return visible;
-}
 
-/**
- * The keyboard-dismiss button, parked just above the keyboard.
- *
- * A sheet footer rather than an InputAccessoryView: the accessory view binds to a
- * single input — RCTInputAccessoryComponentView takes the first matching view on
- * didMoveToWindow and never re-binds — so on a form of five fields only one would
- * ever get a button. The footer is input-agnostic, and gorhom already offsets it by
- * the keyboard height.
- *
- * The gate matters: a footer renders unconditionally, so without it the button just
- * parks at the sheet's bottom edge whenever the keyboard is down.
- */
-function KeyboardDismissFooter({ animatedFooterPosition }: BottomSheetFooterProps) {
-  const keyboardVisible = useKeyboardVisible();
   return (
     <BottomSheetFooter animatedFooterPosition={animatedFooterPosition} bottomInset={0} style={styles.keyboardFooter}>
-      {keyboardVisible ? (
-        <View style={styles.keyboardFooterInner}>
-          <KeyboardDismissButton />
-        </View>
-      ) : null}
+      <Animated.View
+        pointerEvents="box-none"
+        style={[styles.keyboardFooterInner, keyboardStyle]}
+      >
+        {visible ? <KeyboardDismissButton /> : null}
+      </Animated.View>
     </BottomSheetFooter>
   );
 }
@@ -69,7 +60,7 @@ export default function TaskDetailSheet() {
       // Leaves the top of the list peeking through, so the sheet reads as a layer.
       snapPoints={['92%']}
       background={colors.screenBg}
-      footerComponent={KeyboardDismissFooter}
+      footerComponent={Platform.OS === 'ios' ? KeyboardDismissFooter : undefined}
       // TaskDetailView owns its horizontal layout; the sheet body must not pad again.
       contentStyle={styles.body}
     >
@@ -86,6 +77,7 @@ export default function TaskDetailSheet() {
 
 const styles = StyleSheet.create({
   body: {
+    flex: 1,
     paddingHorizontal: 0,
     paddingTop: 0,
   },
@@ -93,8 +85,9 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   keyboardFooterInner: {
+    height: 56,
     alignItems: 'flex-end',
+    justifyContent: 'center',
     paddingRight: 8,
-    paddingBottom: 6,
   },
 });
