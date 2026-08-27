@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { InputAccessoryView, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, ScrollViewProps, StyleSheet, Text, TextInput, View } from 'react-native';
-import { BottomSheetScrollView, BottomSheetTextInput } from '@gorhom/bottom-sheet';
+import { BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { priorityColor } from '../theme/colors';
 import { makeStyles } from '../theme/styles';
@@ -31,12 +31,16 @@ import {
 import DueDateQuickMenu from './pickers/DueDateQuickMenu';
 import DueTimeQuickMenu from './pickers/DueTimeQuickMenu';
 import { useNativeDateTimePicker } from '../navigation/DateTimePickerContext';
+import { useTaskTextDraft } from './useTaskTextDraft';
+import NativeOwnedTextInput from './NativeOwnedTextInput';
 
 interface Props {
   taskId: string;
   onClose: () => void;
   /** 'pane' is the wide-layout third column; 'sheet' is the narrow pull-up. */
   variant: 'pane' | 'sheet';
+  /** False while a dismissed sheet remains mounted for its closing animation. */
+  active?: boolean;
 }
 
 const PRIORITIES: { key: Priority; label: string }[] = [
@@ -54,15 +58,32 @@ const PRIORITIES: { key: Priority; label: string }[] = [
 const MENU_PANEL_HEIGHT = 222;
 const KEYBOARD_ACCESSORY_ID = 'task-detail-keyboard-accessory';
 
-export default function TaskDetailView({ taskId, onClose, variant }: Props) {
+export default function TaskDetailView({ taskId, onClose, variant, active = true }: Props) {
   const hoverBg = useHoverBg();
   const colors = useColors();
   const styles = useStyles();
   const accent = useAccent();
   const insets = useSafeAreaInsets();
-  const { state, updateTask, toggleComplete, deleteTasks, addSubtask, toggleSubtask } = useTasks();
+  const {
+    state,
+    updateTask,
+    beginTaskEdit,
+    endTaskEdit,
+    toggleComplete,
+    deleteTasks,
+    addSubtask,
+    toggleSubtask,
+  } = useTasks();
   const presentDateTimePicker = useNativeDateTimePicker();
   const task = state.tasks.find((t) => t.id === taskId);
+  const textDraft = useTaskTextDraft({
+    taskId,
+    task,
+    active: active && !!task,
+    updateTask,
+    beginTaskEdit,
+    endTaskEdit,
+  });
   // The sheet supplies its own top chrome and safe-area padding.
   const topPad = variant === 'pane' ? insets.top + 6 : 6;
 
@@ -150,7 +171,8 @@ export default function TaskDetailView({ taskId, onClose, variant }: Props) {
   };
 
   const confirmDelete = () => {
-    confirmDestructive('Delete task?', task.title, () => {
+    confirmDestructive('Delete task?', textDraft.title, () => {
+      textDraft.flush();
       deleteTasks([task.id]);
       onClose();
     });
@@ -178,11 +200,20 @@ export default function TaskDetailView({ taskId, onClose, variant }: Props) {
     // The caret lands where the field last left it; push it past any existing
     // notes once focus has actually landed.
     requestAnimationFrame(() => {
-      notes.setNativeProps({ selection: { start: task.notes.length, end: task.notes.length } });
+      notes.setNativeProps({ selection: { start: textDraft.notes.length, end: textDraft.notes.length } });
     });
   };
 
-  const DetailTextInput = variant === 'sheet' ? BottomSheetTextInput : TextInput;
+  const submitTitle = () => {
+    textDraft.flush();
+    jumpToNotes();
+  };
+
+  const closeDetail = () => {
+    textDraft.flush();
+    onClose();
+  };
+
   /** See the title field below: the web deliberately does not wrap. */
   const titleWraps = Platform.OS !== 'web';
   /**
@@ -205,7 +236,7 @@ export default function TaskDetailView({ taskId, onClose, variant }: Props) {
     <View style={[styles.screen, { paddingTop: topPad }]}>
       {variant === 'pane' && (
         <View style={styles.header}>
-          <Pressable onPress={onClose} hitSlop={8}>
+          <Pressable onPress={closeDetail} hitSlop={8}>
             <Text style={[styles.close, { color: accent }]}>Close</Text>
           </Pressable>
           <Text style={styles.headerCenter}>{list ? list.name : 'Inbox'}</Text>
@@ -234,16 +265,21 @@ export default function TaskDetailView({ taskId, onClose, variant }: Props) {
               Return goes to the notes either way. Only the multiline case needs
               telling — left alone it would put a newline into a title.
             */}
-            <DetailTextInput
-              value={task.title}
-              onChangeText={(v) => updateTask(task.id, { title: v })}
+            <NativeOwnedTextInput
+              sheet={variant === 'sheet'}
+              value={textDraft.title}
+              onChangeText={textDraft.setTitle}
               style={[styles.titleInput, task.completed && styles.titleCompleted]}
               multiline={titleWraps}
               returnKeyType="next"
-              onSubmitEditing={jumpToNotes}
+              onSubmitEditing={submitTitle}
               {...(titleWraps ? ({ submitBehavior: 'submit' } as const) : {})}
               {...keyboardTargetProps}
               {...accessoryProps}
+              onBlur={() => {
+                setKeyboardInputFocused(false);
+                textDraft.flush();
+              }}
             />
           </View>
         </Card>
@@ -425,7 +461,8 @@ export default function TaskDetailView({ taskId, onClose, variant }: Props) {
                     })}
                   </View>
                   <View style={styles.addRow}>
-                    <DetailTextInput
+                    <NativeOwnedTextInput
+                      sheet={variant === 'sheet'}
                       value={newTag}
                       onChangeText={setNewTag}
                       placeholder="New tag"
@@ -451,10 +488,11 @@ export default function TaskDetailView({ taskId, onClose, variant }: Props) {
 
         <Card style={[styles.pad14, { marginTop: 12 }]}>
           <Text style={styles.sectionLabel}>Notes</Text>
-          <DetailTextInput
+          <NativeOwnedTextInput
             ref={notesRef as never}
-            value={task.notes}
-            onChangeText={(v) => updateTask(task.id, { notes: v })}
+            sheet={variant === 'sheet'}
+            value={textDraft.notes}
+            onChangeText={textDraft.setNotes}
             placeholder="Add notes…"
             placeholderTextColor={colors.textFaint}
             style={[styles.notesInput, keyboardUp && styles.notesInputKeyboard]}
@@ -462,6 +500,10 @@ export default function TaskDetailView({ taskId, onClose, variant }: Props) {
             scrollEnabled
             {...keyboardTargetProps}
             {...accessoryProps}
+            onBlur={() => {
+              setKeyboardInputFocused(false);
+              textDraft.flush();
+            }}
           />
         </Card>
 
@@ -511,7 +553,8 @@ export default function TaskDetailView({ taskId, onClose, variant }: Props) {
           />
           {addingSubtask ? (
             <View style={styles.subtaskRow}>
-              <DetailTextInput
+              <NativeOwnedTextInput
+                sheet={variant === 'sheet'}
                 autoFocus
                 value={newSubtask}
                 onChangeText={setNewSubtask}

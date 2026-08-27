@@ -73,7 +73,13 @@ export default function TaskDetailSheet() {
       // TaskDetailView owns its horizontal layout; the sheet body must not pad again.
       contentStyle={styles.body}
     >
-      <TaskDetailView taskId={taskId} onClose={closeTask} variant="sheet" />
+      <TaskDetailView
+        key={taskId}
+        taskId={taskId}
+        onClose={closeTask}
+        variant="sheet"
+        active={openTaskId === taskId}
+      />
     </NativeSheet>
   );
 }

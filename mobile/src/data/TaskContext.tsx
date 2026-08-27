@@ -473,6 +473,10 @@ interface TaskContextValue {
   undoComplete: () => void;
   dismissUndo: () => void;
   updateTask: (id: string, patch: Partial<Task>) => void;
+  /** Prevent this task from being pushed while its detail editor is active. */
+  beginTaskEdit: (id: string) => void;
+  /** Release one editor hold and schedule the final dirty snapshot to sync. */
+  endTaskEdit: (id: string) => void;
   deleteTasks: (ids: string[]) => void;
   restoreTasks: (ids: string[]) => void;
   purgeTasks: (ids: string[]) => void;
@@ -529,6 +533,9 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
   // Ids changed locally since the last successful push. A ref, not state: it's
   // mutated on every edit, and none of that should trigger a re-render.
   const outboxRef = useRef(new Outbox(loadDirtyIds()));
+  // Reference-counted because changing layouts can briefly hand one task from
+  // the sheet to the wide pane before the old editor has cleaned itself up.
+  const taskEditCountsRef = useRef(new Map<string, number>());
 
   // The sync loop below runs on its own timer, outside React's render cycle, so
   // it reads state through a ref to always see the latest values.
@@ -547,6 +554,25 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
   // anything outside it asks for a cycle. Null whenever there is no loop —
   // sample mode, or between teardown and setup.
   const cycleRef = useRef<(() => Promise<void>) | null>(null);
+
+  const beginTaskEdit = useCallback((id: string) => {
+    const counts = taskEditCountsRef.current;
+    counts.set(id, (counts.get(id) ?? 0) + 1);
+  }, []);
+
+  const endTaskEdit = useCallback((id: string) => {
+    const counts = taskEditCountsRef.current;
+    const next = (counts.get(id) ?? 0) - 1;
+    if (next > 0) {
+      counts.set(id, next);
+      return;
+    }
+    counts.delete(id);
+    if (!outboxRef.current.has(id)) return;
+    // Draft flushing dispatches just before releasing the hold. Let that React
+    // update reach stateRef before asking the sync loop for its final snapshot.
+    setTimeout(() => cycleRef.current?.(), 0);
+  }, []);
 
   // Marking dirty updates the indicator immediately, so an edit reads as pending
   // the moment it's made rather than up to a cycle later.
@@ -915,16 +941,23 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       setSyncStatus((s) => ({ ...s, state: 'syncing' }));
       try {
         if (outboxRef.current.size > 0) {
-          const pushed = await pushDirty(api, outboxRef.current, stateRef.current);
+          const pushed = await pushDirty(
+            api,
+            outboxRef.current,
+            stateRef.current,
+            new Set(taskEditCountsRef.current.keys())
+          );
           saveDirtyIds(outboxRef.current.toArray());
           setMergeDirtyIds(outboxRef.current.snapshot());
-          dispatch({
-            type: 'MERGE',
-            tasks: pushed.tasks,
-            lists: pushed.lists,
-            folders: pushed.folders,
-            viewPrefs: pushed.viewPrefs,
-          });
+          if (pushed) {
+            dispatch({
+              type: 'MERGE',
+              tasks: pushed.tasks,
+              lists: pushed.lists,
+              folders: pushed.folders,
+              viewPrefs: pushed.viewPrefs,
+            });
+          }
         }
         const pulled = await pullSince(api, cursorRef.current);
         cursorRef.current = pulled.now;
@@ -1024,6 +1057,8 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       undoComplete,
       dismissUndo,
       updateTask,
+      beginTaskEdit,
+      endTaskEdit,
       deleteTasks,
       restoreTasks,
       purgeTasks,
@@ -1060,6 +1095,8 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       undoComplete,
       dismissUndo,
       updateTask,
+      beginTaskEdit,
+      endTaskEdit,
       deleteTasks,
       restoreTasks,
       purgeTasks,

@@ -70,12 +70,23 @@ interface Collections {
   viewPrefs: ViewPref[];
 }
 
-/** Sends every dirty record. Returns the server's (possibly corrected) versions. */
-export async function pushDirty(api: Api, outbox: Outbox, state: Collections): Promise<SyncBatch> {
-  const tasks = state.tasks.filter((t) => outbox.has(t.id));
+/**
+ * Sends every dirty record except tasks whose detail editor is still open.
+ * Held tasks remain in the outbox, so pulls cannot overwrite them and the next
+ * push sends their latest snapshot once the edit session ends.
+ */
+export async function pushDirty(
+  api: Api,
+  outbox: Outbox,
+  state: Collections,
+  heldTaskIds: ReadonlySet<string> = new Set()
+): Promise<SyncBatch | null> {
+  const tasks = state.tasks.filter((t) => outbox.has(t.id) && !heldTaskIds.has(t.id));
   const lists = state.lists.filter((l) => outbox.has(l.id));
   const folders = state.folders.filter((f) => outbox.has(f.id));
   const viewPrefs = state.viewPrefs.filter((v) => outbox.has(v.id));
+
+  if (tasks.length + lists.length + folders.length + viewPrefs.length === 0) return null;
 
   const result = await api.push({ tasks, lists, folders, viewPrefs });
   outbox.clear([
