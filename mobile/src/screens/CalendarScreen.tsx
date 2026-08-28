@@ -5,7 +5,7 @@ import { makeStyles } from '../theme/styles';
 import { fonts } from '../theme/typography';
 import { useAccent, useColors } from '../theme/ThemeContext';
 import { useSidebar } from '../navigation/SidebarContext';
-import { NATIVE_TAB_CONTENT_PADDING } from '../navigation/nativeTabBarLayout';
+import { NATIVE_FAB_CLEARANCE, nativeTabBarClearance } from '../navigation/nativeTabBarLayout';
 import { useDetail } from '../navigation/DetailContext';
 import { useTasks } from '../data/TaskContext';
 import { PlanMode, loadPlanPrefs, savePlanPrefs } from '../data/storage';
@@ -134,6 +134,13 @@ export default function CalendarScreen() {
 
   const selectedDateLabel = `${monthShort(selectedDate)} ${selectedDate.getDate()}`;
 
+  // Both day views run to the bottom of the screen, under a tab bar and a FAB.
+  // Both are zero where neither exists: a wide layout has no tab bar, and web
+  // pins the QuickAddBar in place of the button.
+  const nativeChrome = !wide && !WEB_ENTRY;
+  const tabBarInset = nativeChrome ? nativeTabBarClearance(insets.bottom) : 0;
+  const fabClearance = nativeChrome ? NATIVE_FAB_CLEARANCE : 0;
+
   // Rendered below the month grid in both modes: a filter belongs with the days it
   // filters, not crowded in among the range controls. On narrow, the Daily/3-day
   // selector lives on the same line, left-aligned, opposite the filter.
@@ -246,6 +253,11 @@ export default function CalendarScreen() {
               onSelectDate={pickDate}
               onDropTask={scheduleTask}
               onOpenTask={openTask}
+              // The columns are boxes, not a list: their frames have to stop
+              // above the tab bar rather than run under it, which then leaves
+              // only the button for the chips inside to clear.
+              bottomInset={tabBarInset}
+              bottomClearance={fabClearance}
             />
           </>
         ) : (
@@ -277,7 +289,12 @@ export default function CalendarScreen() {
               refreshControl={refreshControl}
               onScrollBeginDrag={closeOpenSwipeRow}
               style={styles.agendaFrame}
-              contentContainerStyle={[styles.agenda, !wide && !WEB_ENTRY && styles.agendaFab]}
+              // The agenda does scroll to the screen edge, so its last group has
+              // both the bar and the button to get out from under.
+              contentContainerStyle={[
+                styles.agenda,
+                nativeChrome && { paddingBottom: tabBarInset + fabClearance },
+              ]}
               scrollEnabled={!payload}
             >
               {agendaDays.length === 0 && <Text style={styles.empty}>Nothing scheduled from here on.</Text>}
@@ -383,7 +400,6 @@ const useStyles = makeStyles((c) => ({
     paddingBottom: 24,
     gap: 8,
   },
-  agendaFab: { paddingBottom: NATIVE_TAB_CONTENT_PADDING },
   empty: {
     textAlign: 'center',
     marginTop: 24,

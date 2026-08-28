@@ -22,6 +22,17 @@ interface Props {
   onSelectDate: (date: Date) => void;
   onDropTask: (taskId: string, iso: string) => void;
   onOpenTask: (taskId: string) => void;
+  /**
+   * How far the grid holds off the bottom of the screen. A column is a bordered
+   * box with a header, so unlike a list it can't run under the system tab bar
+   * and be read as scrolling beneath it — it just looks cut off.
+   */
+  bottomInset?: number;
+  /**
+   * Room under the last chip in a column, for what floats over the grid inside
+   * that inset — the task FAB, which otherwise covers the end of a full day.
+   */
+  bottomClearance?: number;
 }
 
 /**
@@ -38,12 +49,14 @@ export default function WeekGrid({
   onSelectDate,
   onDropTask,
   onOpenTask,
+  bottomInset = 0,
+  bottomClearance = 0,
 }: Props) {
   const styles = useStyles();
   const days = Array.from({ length: dayCount }, (_, i) => addDays(startDate, i));
 
   return (
-    <View style={styles.week}>
+    <View style={[styles.week, !!bottomInset && { paddingBottom: bottomInset }]}>
       {days.map((date) => (
         <DayColumn
           key={toISODate(date)}
@@ -54,6 +67,7 @@ export default function WeekGrid({
           onSelectDate={onSelectDate}
           onDropTask={onDropTask}
           onOpenTask={onOpenTask}
+          bottomClearance={bottomClearance}
         />
       ))}
     </View>
@@ -68,9 +82,19 @@ interface ColProps {
   onSelectDate: (d: Date) => void;
   onDropTask: (taskId: string, iso: string) => void;
   onOpenTask: (taskId: string) => void;
+  bottomClearance: number;
 }
 
-function DayColumn({ date, today, selectedDate, tasks, onSelectDate, onDropTask, onOpenTask }: ColProps) {
+function DayColumn({
+  date,
+  today,
+  selectedDate,
+  tasks,
+  onSelectDate,
+  onDropTask,
+  onOpenTask,
+  bottomClearance,
+}: ColProps) {
   const colors = useColors();
   const styles = useStyles();
   const accent = useAccent();
@@ -105,7 +129,7 @@ function DayColumn({ date, today, selectedDate, tasks, onSelectDate, onDropTask,
       </Pressable>
 
       <ScrollView
-        contentContainerStyle={styles.colBody}
+        contentContainerStyle={[styles.colBody, !!bottomClearance && { paddingBottom: bottomClearance }]}
         showsVerticalScrollIndicator={false}
         scrollEnabled={!payload}
       >
