@@ -92,7 +92,6 @@ export default function AddExistingTaskSheet({ visible, onClose }: SheetProps) {
     if (!presented.current) {
       presented.current = true;
       ref.current?.present();
-      requestAnimationFrame(() => ref.current?.snapToIndex(1));
       return;
     }
     ref.current?.snapToIndex(1);
@@ -133,7 +132,7 @@ export default function AddExistingTaskSheet({ visible, onClose }: SheetProps) {
   return (
     <BottomSheetModal
       ref={ref}
-      index={0}
+      index={1}
       snapPoints={snapPoints}
       enableDismissOnClose={false}
       enableDynamicSizing={false}
