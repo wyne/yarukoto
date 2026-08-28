@@ -16,7 +16,10 @@ interface Props {
   /** What the view contributes to a new task — list, tag or date scope. */
   defaults?: QuickAddDefaults;
   contextLabel?: string;
-  /** Selection mode puts its own bar at the bottom; the button would sit on top of it. */
+  /**
+   * Take the button off the screen. Selection mode puts its own bar at the
+   * bottom, and a calendar drag wants the corner clear.
+   */
   hidden?: boolean;
 }
 

@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Keyboard, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import Animated, { useAnimatedStyle, withTiming } from 'react-native-reanimated';
 import {
   BottomSheetBackdrop,
   BottomSheetBackdropProps,
@@ -41,6 +42,8 @@ interface SheetProps {
 
 const COLLAPSED_HEIGHT = 1;
 const EXPANDED_HEIGHT = 430;
+/** How far the cancel pill swells while a dragged task sits over it. */
+const CANCEL_OVER_SCALE = 1.14;
 
 export function AddExistingTaskButton({ onPress }: ButtonProps) {
   const styles = useStyles();
@@ -49,37 +52,53 @@ export function AddExistingTaskButton({ onPress }: ButtonProps) {
   const insets = useSafeAreaInsets();
   const dragging = useDragActive();
   const { ref, onLayout, isOver } = useDropTarget('calendar/cancel-add-existing', () => undefined);
-  const tint = dragging ? colors.priorityHigh : accent;
+  // Grey, not red: dropping here only calls the drag off, it destroys nothing.
+  const tint = dragging ? colors.swipeLater : accent;
+  // The pill swells under the dragged task. Scaling the inner pill rather than
+  // the anchor leaves the measured drop rect where it was, so the target does
+  // not chase the finger as it grows.
+  const overStyle = useAnimatedStyle(
+    () => ({ transform: [{ scale: withTiming(isOver ? CANCEL_OVER_SCALE : 1, { duration: 140 }) }] }),
+    [isOver]
+  );
 
   return (
     <View
-      ref={ref}
-      onLayout={onLayout}
       pointerEvents="box-none"
-      style={[styles.buttonAnchor, { bottom: nativeTabBarClearance(insets.bottom) }]}
+      style={[
+        styles.buttonAnchor,
+        { bottom: nativeTabBarClearance(insets.bottom) },
+        dragging && styles.buttonAnchorDragging,
+      ]}
     >
-      <Pressable
-        onPress={onPress}
-        disabled={dragging}
-        accessibilityRole="button"
-        accessibilityLabel={dragging ? 'Cancel task drag' : 'Add existing task'}
-      >
-        {LIQUID_GLASS ? (
-          <GlassView
-            style={[styles.glassButton, isOver && styles.cancelOver]}
-            tintColor={tint}
-            isInteractive={!dragging}
-          >
-            {!dragging && <IconPlus size={16} color="#fff" strokeWidth={2} />}
-            <Text style={styles.glassButtonText}>{dragging ? 'Cancel' : 'Add existing'}</Text>
-          </GlassView>
-        ) : (
-          <View style={[styles.flatButton, { backgroundColor: tint }, isOver && styles.cancelOver]}>
-            {!dragging && <IconPlus size={16} color="#fff" strokeWidth={2} />}
-            <Text style={styles.glassButtonText}>{dragging ? 'Cancel' : 'Add existing'}</Text>
-          </View>
-        )}
-      </Pressable>
+      {/* The rect is measured here rather than on the full-width anchor above,
+          so the drop zone is the pill itself and not the strip it sits in. */}
+      <View ref={ref} onLayout={onLayout}>
+        <Pressable
+          onPress={onPress}
+          disabled={dragging}
+          accessibilityRole="button"
+          accessibilityLabel={dragging ? 'Cancel task drag' : 'Add existing task'}
+        >
+          <Animated.View style={overStyle}>
+            {LIQUID_GLASS ? (
+              <GlassView style={styles.glassButton} tintColor={tint} isInteractive={!dragging}>
+                {!dragging && <IconPlus size={16} color="#fff" strokeWidth={2} />}
+                <Text style={styles.glassButtonText}>
+                  {dragging ? 'Drag here to cancel' : 'Add existing'}
+                </Text>
+              </GlassView>
+            ) : (
+              <View style={[styles.flatButton, { backgroundColor: tint }]}>
+                {!dragging && <IconPlus size={16} color="#fff" strokeWidth={2} />}
+                <Text style={styles.glassButtonText}>
+                  {dragging ? 'Drag here to cancel' : 'Add existing'}
+                </Text>
+              </View>
+            )}
+          </Animated.View>
+        </Pressable>
+      </View>
     </View>
   );
 }
@@ -91,6 +110,7 @@ export default function AddExistingTaskSheet({ visible, onClose }: SheetProps) {
   const { state } = useTasks();
   const now = new Date();
   const dragging = useDragActive();
+  const scrimOpacity = colors.scrimOpacity;
   const [criteria, setCriteria] = useState<TaskCriteria>(EMPTY_CRITERIA);
   const ref = useRef<React.ElementRef<typeof BottomSheetModal>>(null);
   const presented = useRef(false);
@@ -130,6 +150,13 @@ export default function AddExistingTaskSheet({ visible, onClose }: SheetProps) {
     ref.current?.snapToIndex(0);
   }, [onClose]);
 
+  // The sheet renders a new backdrop *element type* whenever this callback
+  // changes identity, and React answers a changed type by remounting: the scrim
+  // is torn down and rebuilt mid-fade, which is the flicker on open and close.
+  // So the press handler goes through a ref instead of into the dependencies,
+  // leaving only the scheme's scrim opacity — which only a theme switch moves.
+  const closeRef = useRef(close);
+  closeRef.current = close;
   const renderBackdrop = useCallback(
     (props: BottomSheetBackdropProps) => (
       <BottomSheetBackdrop
@@ -138,11 +165,11 @@ export default function AddExistingTaskSheet({ visible, onClose }: SheetProps) {
         disappearsOnIndex={0}
         enableTouchThrough
         pressBehavior="none"
-        onPress={close}
-        opacity={colors.scrimOpacity}
+        onPress={() => closeRef.current()}
+        opacity={scrimOpacity}
       />
     ),
-    [close, colors.scrimOpacity]
+    [scrimOpacity]
   );
 
   return (
@@ -254,8 +281,19 @@ function DraggableTask({ task, now, onPickup }: { task: Task; now: Date; onPicku
 const useStyles = makeStyles((c) => ({
   buttonAnchor: {
     position: 'absolute',
-    left: 16,
+    left: 0,
+    right: 0,
+    paddingLeft: 16,
+    alignItems: 'flex-start',
     zIndex: 20,
+  },
+  /**
+   * Centred while dragging: the FAB is gone by then, and a cancel target the
+   * finger has to carry a task into the corner for is one the thumb can miss.
+   */
+  buttonAnchorDragging: {
+    paddingLeft: 0,
+    alignItems: 'center',
   },
   glassButton: {
     height: 50,
@@ -279,9 +317,6 @@ const useStyles = makeStyles((c) => ({
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 5 },
     elevation: 8,
-  },
-  cancelOver: {
-    transform: [{ scale: 1.06 }],
   },
   glassButtonText: {
     fontFamily: fonts.sansSemiBold,
