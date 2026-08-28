@@ -73,7 +73,7 @@ export function AddExistingTaskButton({ onPress }: ButtonProps) {
     >
       {/* The rect is measured here rather than on the full-width anchor above,
           so the drop zone is the pill itself and not the strip it sits in. */}
-      <View ref={ref} onLayout={onLayout}>
+      <View ref={ref} onLayout={onLayout} collapsable={false}>
         <Pressable
           onPress={onPress}
           disabled={dragging}
