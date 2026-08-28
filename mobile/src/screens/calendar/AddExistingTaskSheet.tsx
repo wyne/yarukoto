@@ -283,6 +283,9 @@ export default function AddExistingTaskSheet({ visible, onClose }: SheetProps) {
           sortBy={sortBy}
           onSortChange={setSortBy}
         />
+        <Text style={styles.hint}>
+          Long press a task to pick it up and place it on the calendar.
+        </Text>
         <BottomSheetScrollView
           style={styles.resultsFrame}
           showsVerticalScrollIndicator
@@ -446,6 +449,13 @@ const useStyles = makeStyles((c) => ({
   results: {
     paddingHorizontal: 12,
     paddingBottom: 16,
+  },
+  hint: {
+    marginHorizontal: 16,
+    marginBottom: 10,
+    fontFamily: fonts.sansRegular,
+    fontSize: 13.5,
+    color: c.textTertiary,
   },
   resultsFrame: {
     flex: 1,
