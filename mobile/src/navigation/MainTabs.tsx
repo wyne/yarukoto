@@ -31,7 +31,6 @@ import TaskDetailSheet from '../components/TaskDetailSheet';
 import BulkActions from '../components/BulkActions';
 import { WEB_ENTRY } from '../data/platform';
 import UndoToast from '../components/UndoToast';
-import { DragProvider } from '../drag/DragContext';
 import DragOverlay from '../drag/DragOverlay';
 import ServerSheet from '../components/pickers/ServerSheet';
 import NavSheets from '../components/sidebar/NavSheets';
@@ -94,9 +93,7 @@ export default function MainTabs() {
     <SidebarProvider>
       <DetailProvider>
         <SelectionProvider>
-          <DragProvider>
-            <Layout />
-          </DragProvider>
+          <Layout />
         </SelectionProvider>
       </DetailProvider>
     </SidebarProvider>

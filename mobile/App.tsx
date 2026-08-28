@@ -14,6 +14,7 @@ import { initStorage } from './src/data/storage';
 import RootNavigator from './src/navigation/RootNavigator';
 import { RootStackParamList } from './src/navigation/types';
 import { DateTimePickerProvider, navigationRef } from './src/navigation/DateTimePickerContext';
+import { DragProvider } from './src/drag/DragContext';
 
 /**
  * Web URLs. Without this the address bar never moves off `/`, so a reload — or a
@@ -110,9 +111,11 @@ export default function App() {
         <ThemeProvider>
           <TaskProvider>
             <DateTimePickerProvider>
-              <BottomSheetModalProvider>
-                <Chrome />
-              </BottomSheetModalProvider>
+              <DragProvider>
+                <BottomSheetModalProvider>
+                  <Chrome />
+                </BottomSheetModalProvider>
+              </DragProvider>
             </DateTimePickerProvider>
           </TaskProvider>
         </ThemeProvider>
