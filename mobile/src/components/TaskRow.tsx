@@ -1,9 +1,16 @@
 import React from 'react';
-import { GestureResponderEvent, GestureResponderHandlers, Platform, Pressable, Text, View } from 'react-native';
+import {
+  GestureResponderEvent,
+  GestureResponderHandlers,
+  Platform,
+  Pressable,
+  type PressableStateCallbackType,
+  Text,
+  View,
+} from 'react-native';
 import { makeStyles } from '../theme/styles';
 import { fonts } from '../theme/typography';
 import { useAccent, useColors } from '../theme/ThemeContext';
-import { hoverable } from '../theme/hover';
 import { Task, ListDef } from '../data/types';
 import { formatDueShort, isOverdue } from '../data/dateUtils';
 import TaskCheckbox from './TaskCheckbox';
@@ -49,9 +56,10 @@ interface Props {
    */
   handleGutter?: boolean;
   /**
-   * Held in the hover state while this is the row being acted on — a context
+   * Held in the active tint while this is the row being acted on — a context
    * menu, a picker one opened, or the task shown in the detail pane. Moving the
-   * pointer away shouldn't lose track of which task the surrounding UI is about.
+   * pointer away or opening a sheet shouldn't lose track of which task the
+   * surrounding UI is about.
    */
   active?: boolean;
   onPress: () => void;
@@ -107,19 +115,22 @@ export default function TaskRow({
       onPress={onPress}
       onLongPress={onLongPress}
       delayLongPress={350}
-      // Hover last so it can't paint over selection or the drag source tint,
-      // which say more about the row than the pointer's position does.
-      style={hoverable(
-        [
+      // Pressed and active share the same mark: touch-down gives immediate
+      // feedback, then the open-task state keeps it after the tap resolves.
+      style={(state) => {
+        const { pressed } = state;
+        const { hovered } = state as PressState;
+        const rowActive = (active || pressed) && !selected && !dragSource;
+        return [
           styles.row,
           selected && { backgroundColor: colors.selectedRowBg },
           dragSource && { backgroundColor: colors.accentTintBg },
           task.completed && styles.rowCompleted,
           handleGutter && styles.rowHandleGutter,
-          active && !selected && !dragSource && styles.rowHovered,
-        ],
-        !selected && !dragSource ? styles.rowHovered : null
-      )}
+          rowActive && [styles.rowActive, { borderLeftColor: accent }],
+          hovered && !selected && !dragSource && !rowActive ? styles.rowHovered : null,
+        ];
+      }}
     >
       {selectionMode ? (
         <Pressable onPress={onPress} hitSlop={10}>
@@ -209,6 +220,7 @@ export default function TaskRow({
  * public/index.html — it has no style-prop equivalent.)
  */
 const noTextSelect = { userSelect: 'none' } as const;
+type PressState = PressableStateCallbackType & { hovered?: boolean };
 
 const useStyles = makeStyles((c) => ({
   row: {
@@ -231,6 +243,11 @@ const useStyles = makeStyles((c) => ({
   },
   rowHovered: {
     backgroundColor: c.hoverBg,
+  },
+  rowActive: {
+    paddingLeft: 11,
+    borderLeftWidth: 3,
+    backgroundColor: c.selectedRowBg,
   },
   rowCompleted: {
     opacity: 0.55,

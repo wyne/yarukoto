@@ -11,6 +11,7 @@ import { useRowContext } from '../../components/useRowContext';
 import { FINE_POINTER } from '../../data/platform';
 import { useDraggable } from '../../drag/useDraggable';
 import { useDragSource } from '../../drag/dragSource';
+import { useDetail } from '../../navigation/DetailContext';
 
 interface Props {
   task: Task;
@@ -37,6 +38,7 @@ const TIME_COL_GAP = 12;
 export default function AgendaRow({ task, now, onPress, draggable }: Props) {
   const styles = useStyles();
   const { state, toggleComplete, snoozeTask } = useTasks();
+  const { openTaskId } = useDetail();
   const showContext = useRowContext(TIME_COL_WIDTH + TIME_COL_GAP);
   const { onLongPress, ...handlers } = useDraggable({ taskId: task.id, title: task.title });
   const isSource = useDragSource(task.id);
@@ -53,6 +55,7 @@ export default function AgendaRow({ task, now, onPress, draggable }: Props) {
       // at, and one per row is a lot of furniture to say nothing with.
       showHandle={draggable && FINE_POINTER}
       dragSource={isSource}
+      active={openTaskId === task.id}
       leading={
         <Text style={styles.time}>{task.dueTime ? formatTime24to12(task.dueTime) : 'All day'}</Text>
       }
