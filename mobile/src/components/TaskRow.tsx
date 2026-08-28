@@ -49,9 +49,10 @@ interface Props {
    */
   handleGutter?: boolean;
   /**
-   * Held in the hover state while this is the row being acted on — a context
+   * Held in the active tint while this is the row being acted on — a context
    * menu, a picker one opened, or the task shown in the detail pane. Moving the
-   * pointer away shouldn't lose track of which task the surrounding UI is about.
+   * pointer away or opening a sheet shouldn't lose track of which task the
+   * surrounding UI is about.
    */
   active?: boolean;
   onPress: () => void;
@@ -116,9 +117,9 @@ export default function TaskRow({
           dragSource && { backgroundColor: colors.accentTintBg },
           task.completed && styles.rowCompleted,
           handleGutter && styles.rowHandleGutter,
-          active && !selected && !dragSource && styles.rowHovered,
+          active && !selected && !dragSource && [styles.rowActive, { borderLeftColor: accent }],
         ],
-        !selected && !dragSource ? styles.rowHovered : null
+        !selected && !dragSource && !active ? styles.rowHovered : null
       )}
     >
       {selectionMode ? (
@@ -231,6 +232,11 @@ const useStyles = makeStyles((c) => ({
   },
   rowHovered: {
     backgroundColor: c.hoverBg,
+  },
+  rowActive: {
+    paddingLeft: 11,
+    borderLeftWidth: 3,
+    backgroundColor: c.selectedRowBg,
   },
   rowCompleted: {
     opacity: 0.55,

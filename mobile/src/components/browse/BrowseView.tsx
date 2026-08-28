@@ -39,7 +39,7 @@ export default function BrowseView({ criteria, onCriteriaChange }: Props) {
   const styles = useStyles();
   const { wide } = useSidebar();
   const refreshControl = useSyncRefresh();
-  const { openTask } = useDetail();
+  const { openTask, openTaskId } = useDetail();
   const { state, toggleComplete, snoozeTask } = useTasks();
   const now = new Date();
 
@@ -104,6 +104,7 @@ export default function BrowseView({ criteria, onCriteriaChange }: Props) {
                   list={task.listId ? listsById.get(task.listId) : undefined}
                   now={now}
                   showContext={rowContext}
+                  active={openTaskId === task.id}
                   onPress={() => openTask(task.id)}
                   onToggleComplete={() => toggleComplete(task.id)}
                   onLater={() => snoozeTask(task.id)}

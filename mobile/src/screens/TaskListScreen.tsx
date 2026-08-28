@@ -321,14 +321,14 @@ export default function TaskListScreen({ mode, filter }: Props) {
    *
    * The anchor keeps its tint after the detail closes, because it is where the
    * next shift-click measures from and there would otherwise be nothing saying
-   * so. Gated on the pointer rather than the layout: a narrow desktop window
-   * still has a shift key, and a phone has none, so on a touchscreen the tint
-   * would be pointing at a gesture that cannot be made.
+   * so. Only that anchor state is gated on the pointer: a narrow desktop window
+   * still has a shift key, and a phone has none, so on a touchscreen an anchor
+   * tint would be pointing at a gesture that cannot be made.
    */
   const highlighted = (id: string) =>
     isSelected(id) ||
     contextTaskId === id ||
-    (WEB_ENTRY && openTaskId === id) ||
+    openTaskId === id ||
     (FINE_POINTER && anchorId === id);
 
   /** Every visible task in display order — the sequence a shift range spans. */
@@ -667,6 +667,7 @@ export default function TaskListScreen({ mode, filter }: Props) {
                         list={task.listId ? listsById.get(task.listId) : undefined}
                         now={now}
                         selectionMode={selectionMode}
+                        active={openTaskId === task.id && !selectedIds.includes(task.id)}
                         showContext={rowContext}
                         selected={selectedIds.includes(task.id)}
                         onPress={() =>

@@ -48,7 +48,7 @@ export default function SchedulePane() {
   const styles = useStyles();
   const accent = useAccent();
   const { state } = useTasks();
-  const { openTask } = useDetail();
+  const { openTask, openTaskId } = useDetail();
   // A drag is heading for the calendar, not the list — lock the list's scroll so
   // the finger can carry the ghost out without the ScrollView stealing the pan.
   const dragging = useDragActive();
@@ -98,6 +98,7 @@ export default function SchedulePane() {
                   listName={getListById(state.lists, task.listId)}
                   hideListId={scope.kind === 'list' ? scope.value : undefined}
                   hideTag={scope.kind === 'tag' ? scope.value : undefined}
+                  active={openTaskId === task.id}
                   onPress={() => openTask(task.id)}
                 />
                 {i < tasks.length - 1 && <Divider />}
@@ -181,6 +182,7 @@ function DraggableTask({
   listName,
   hideListId,
   hideTag,
+  active,
   onPress,
 }: {
   task: Task;
@@ -188,6 +190,7 @@ function DraggableTask({
   listName: ReturnType<typeof getListById>;
   hideListId?: string;
   hideTag?: string;
+  active?: boolean;
   onPress: () => void;
 }) {
   const styles = useStyles();
@@ -203,6 +206,7 @@ function DraggableTask({
         now={now}
         showContext
         dragSource={isSource}
+        active={active}
         hideListId={hideListId}
         hideTag={hideTag}
         onPress={onPress}
