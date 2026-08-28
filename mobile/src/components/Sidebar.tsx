@@ -27,7 +27,7 @@ import {
   tasksForToday,
   trashedTasks,
 } from '../data/selectors';
-import { InboxParams, NativeTaskViewParams } from '../navigation/types';
+import { InboxParams, NativeTaskViewParams, taskViewParams } from '../navigation/types';
 import { useSidebar } from '../navigation/SidebarContext';
 import NavContextMenu, { NavMenuTarget } from './NavContextMenu';
 import ContextMenuTarget from './ContextMenuTarget';
@@ -420,9 +420,13 @@ const Sidebar = React.memo(function Sidebar({ state, navigation, onNavigate }: P
           : undefined;
         const filteredList = native && route === 'InboxTab' && !!params;
         if (native && (nativeDestination || filteredList)) {
+          const screen = nativeDestination?.screen ?? 'Tasks';
+          const next = nativeDestination?.params ?? params;
           (navigation.navigate as (name: string, params?: object) => void)('ListsTab', {
-            screen: nativeDestination?.screen ?? 'Tasks',
-            params: nativeDestination?.params ?? params,
+            screen,
+            // Every destination on this screen is a whole view, never a change to
+            // part of one — see `taskViewParams`.
+            params: screen === 'Tasks' ? taskViewParams(next as NativeTaskViewParams) : next,
           });
         } else {
           (navigation.navigate as (name: string, params?: object) => void)(route, params);

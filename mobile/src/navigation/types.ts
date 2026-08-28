@@ -26,6 +26,23 @@ export interface NativeTaskViewParams extends InboxParams {
   view?: 'all' | 'today';
 }
 
+/**
+ * The same view, with every key spelled out — blank ones included.
+ *
+ * React Navigation merges a screen's `initialParams` into the params of every
+ * navigation to it, not just the first (`createParamsFromAction`), and the first
+ * native tab's initial params are the view it restores on launch. So a partial
+ * `{ folderId }` arrives still carrying the list those restored params name, and
+ * `useInboxFilter` reads `listId` before `folderId` — the folder never shows and
+ * the screen sits where it was.
+ *
+ * Naming every key is what makes a navigation say the whole view rather than an
+ * amendment to whichever one came before it.
+ */
+export function taskViewParams(view: NativeTaskViewParams): NativeTaskViewParams {
+  return { listId: undefined, folderId: undefined, tag: undefined, view: undefined, ...view };
+}
+
 export type MainTabParamList = {
   AllTab: undefined;
   InboxTab: InboxParams | undefined;
