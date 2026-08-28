@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { makeStyles } from '../theme/styles';
@@ -61,6 +61,10 @@ export default function CalendarScreen() {
   const [monthAnchor, setMonthAnchor] = useState(new Date(today.getFullYear(), today.getMonth(), 1));
   const [selectedDate, setSelectedDate] = useState(today);
   const [addExistingOpen, setAddExistingOpen] = useState(false);
+  // Stable handlers: a fresh `onClose` each render reaches the sheet's backdrop
+  // as a fresh component type, and the scrim it remounts is one that flickers.
+  const openAddExisting = useCallback(() => setAddExistingOpen(true), []);
+  const closeAddExisting = useCallback(() => setAddExistingOpen(false), []);
 
   // The agenda clips its drop targets to this frame (see AgendaDayGroup clipTo):
   // scrolled-off days must never keep swallowing drops meant for the calendar.
@@ -328,12 +332,15 @@ export default function CalendarScreen() {
 
         {!wide && !WEB_ENTRY && (
           <>
-            <AddExistingTaskButton onPress={() => setAddExistingOpen(true)} />
-            <AddTaskFab defaults={{ dueDate: toISODate(selectedDate) }} contextLabel={selectedDateLabel} />
-            <AddExistingTaskSheet
-              visible={addExistingOpen}
-              onClose={() => setAddExistingOpen(false)}
+            <AddExistingTaskButton onPress={openAddExisting} />
+            {/* A drag turns the button beside it into the cancel target; the FAB
+                is one more thing to drop onto that means nothing. */}
+            <AddTaskFab
+              defaults={{ dueDate: toISODate(selectedDate) }}
+              contextLabel={selectedDateLabel}
+              hidden={dragging}
             />
+            <AddExistingTaskSheet visible={addExistingOpen} onClose={closeAddExisting} />
           </>
         )}
       </View>
