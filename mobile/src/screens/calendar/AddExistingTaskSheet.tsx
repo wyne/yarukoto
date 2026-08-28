@@ -1,5 +1,13 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { Keyboard, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import {
+  BottomSheetBackdrop,
+  BottomSheetBackdropProps,
+  BottomSheetHandle,
+  BottomSheetModal,
+  BottomSheetScrollView,
+  BottomSheetView,
+} from '@gorhom/bottom-sheet';
 import { GlassView } from 'expo-glass-effect';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { makeStyles } from '../../theme/styles';
@@ -30,7 +38,8 @@ interface SheetProps {
   onClose: () => void;
 }
 
-const SHEET_HEIGHT = 430;
+const COLLAPSED_HEIGHT = 1;
+const EXPANDED_HEIGHT = 430;
 
 export function AddExistingTaskButton({ onPress }: ButtonProps) {
   const styles = useStyles();
@@ -67,18 +76,31 @@ export default function AddExistingTaskSheet({ visible, onClose }: SheetProps) {
   const now = new Date();
   const dragging = useDragActive();
   const [criteria, setCriteria] = useState<TaskCriteria>(EMPTY_CRITERIA);
-  const progress = useRef(new Animated.Value(0)).current;
-  const mounted = visible || dragging;
+  const ref = useRef<React.ElementRef<typeof BottomSheetModal>>(null);
+  const presented = useRef(false);
+  const expanding = useRef(false);
+
+  const snapPoints = useMemo(
+    () => [COLLAPSED_HEIGHT, EXPANDED_HEIGHT + Math.max(14, insets.bottom)],
+    [insets.bottom]
+  );
+
+  useLayoutEffect(() => {
+    if (!visible) return;
+    Keyboard.dismiss();
+    expanding.current = true;
+    if (!presented.current) {
+      presented.current = true;
+      ref.current?.present();
+      requestAnimationFrame(() => ref.current?.snapToIndex(1));
+      return;
+    }
+    ref.current?.snapToIndex(1);
+  }, [visible]);
 
   useEffect(() => {
-    Animated.spring(progress, {
-      toValue: visible && !dragging ? 1 : 0,
-      damping: 24,
-      stiffness: 260,
-      mass: 0.9,
-      useNativeDriver: true,
-    }).start();
-  }, [dragging, progress, visible]);
+    if (dragging && presented.current) ref.current?.snapToIndex(0);
+  }, [dragging]);
 
   const tasks = useMemo(
     () => filterTasks(state.tasks, criteria, { lists: state.lists, now }),
@@ -87,67 +109,100 @@ export default function AddExistingTaskSheet({ visible, onClose }: SheetProps) {
     [criteria, state.lists, state.tasks]
   );
 
-  const translateY = progress.interpolate({
-    inputRange: [0, 1],
-    outputRange: [SHEET_HEIGHT + insets.bottom + 24, 0],
-  });
+  const close = useCallback(() => {
+    expanding.current = false;
+    onClose();
+    ref.current?.snapToIndex(0);
+  }, [onClose]);
 
-  if (!mounted) return null;
+  const renderBackdrop = useCallback(
+    (props: BottomSheetBackdropProps) => (
+      <BottomSheetBackdrop
+        {...props}
+        appearsOnIndex={1}
+        disappearsOnIndex={0}
+        enableTouchThrough
+        pressBehavior="none"
+        onPress={close}
+        opacity={colors.scrimOpacity}
+      />
+    ),
+    [close, colors.scrimOpacity]
+  );
 
   return (
-    <Animated.View
-      pointerEvents={visible && !dragging ? 'auto' : 'box-none'}
-      style={[
-        styles.sheet,
-        {
-          height: SHEET_HEIGHT + insets.bottom,
-          paddingBottom: Math.max(14, insets.bottom),
-          transform: [{ translateY }],
-        },
-      ]}
+    <BottomSheetModal
+      ref={ref}
+      index={0}
+      snapPoints={snapPoints}
+      enableDismissOnClose={false}
+      enableDynamicSizing={false}
+      enablePanDownToClose={false}
+      enableOverDrag={false}
+      backdropComponent={renderBackdrop}
+      handleComponent={BottomSheetHandle}
+      handleIndicatorStyle={styles.indicator}
+      backgroundStyle={styles.background}
+      style={styles.sheet}
+      onChange={(index) => {
+        if (index === 1) expanding.current = false;
+        if (index === 0 && !expanding.current) onClose();
+      }}
+      onDismiss={() => {
+        presented.current = false;
+        onClose();
+      }}
     >
-      <View style={styles.handle} />
-      <View style={styles.header}>
-        <View style={styles.headerTitle}>
-          <IconCalendarBox size={18} color={colors.textSecondary} />
-          <Text style={styles.title}>Add existing</Text>
-        </View>
-        <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel="Close add existing">
-          <Text style={[styles.done, { color: colors.textTertiary }]}>Done</Text>
-        </Pressable>
-      </View>
-      <TextInput
-        value={criteria.query}
-        onChangeText={(query) => setCriteria({ ...criteria, query })}
-        placeholder="Search tasks and tags"
-        placeholderTextColor={colors.textFaint}
-        style={styles.searchInput}
-        autoCorrect={false}
-        returnKeyType="search"
-        clearButtonMode="while-editing"
-      />
-      <FilterBar criteria={criteria} onChange={setCriteria} />
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        onScrollBeginDrag={closeOpenSwipeRow}
-        contentContainerStyle={styles.results}
-        keyboardShouldPersistTaps="handled"
-        scrollEnabled={!dragging}
+      <BottomSheetView
+        style={StyleSheet.flatten([
+          styles.content,
+          {
+            paddingBottom: Math.max(14, insets.bottom),
+          },
+        ])}
       >
-        {tasks.length === 0 ? (
-          <Text style={styles.empty}>{criteria.query.trim() ? 'No matches.' : 'Nothing to show.'}</Text>
-        ) : (
-          <Card>
-            {tasks.map((task, i) => (
-              <View key={task.id}>
-                <DraggableTask task={task} now={now} onPickup={onClose} />
-                {i < tasks.length - 1 && <Divider />}
-              </View>
-            ))}
-          </Card>
-        )}
-      </ScrollView>
-    </Animated.View>
+        <View style={styles.header}>
+          <View style={styles.headerTitle}>
+            <IconCalendarBox size={18} color={colors.textSecondary} />
+            <Text style={styles.title}>Add existing</Text>
+          </View>
+          <Pressable onPress={close} accessibilityRole="button" accessibilityLabel="Close add existing">
+            <Text style={[styles.done, { color: colors.textTertiary }]}>Done</Text>
+          </Pressable>
+        </View>
+        <TextInput
+          value={criteria.query}
+          onChangeText={(query) => setCriteria({ ...criteria, query })}
+          placeholder="Search tasks and tags"
+          placeholderTextColor={colors.textFaint}
+          style={styles.searchInput}
+          autoCorrect={false}
+          returnKeyType="search"
+          clearButtonMode="while-editing"
+        />
+        <FilterBar criteria={criteria} onChange={setCriteria} />
+        <BottomSheetScrollView
+          showsVerticalScrollIndicator={false}
+          onScrollBeginDrag={closeOpenSwipeRow}
+          contentContainerStyle={styles.results}
+          keyboardShouldPersistTaps="handled"
+          scrollEnabled={!dragging}
+        >
+          {tasks.length === 0 ? (
+            <Text style={styles.empty}>{criteria.query.trim() ? 'No matches.' : 'Nothing to show.'}</Text>
+          ) : (
+            <Card>
+              {tasks.map((task, i) => (
+                <View key={task.id}>
+                  <DraggableTask task={task} now={now} onPickup={close} />
+                  {i < tasks.length - 1 && <Divider />}
+                </View>
+              ))}
+            </Card>
+          )}
+        </BottomSheetScrollView>
+      </BottomSheetView>
+    </BottomSheetModal>
   );
 }
 
@@ -201,6 +256,7 @@ const useStyles = makeStyles((c) => ({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 7,
+    shadowColor: c.shadow,
     shadowOpacity: 0.24,
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 5 },
@@ -212,30 +268,21 @@ const useStyles = makeStyles((c) => ({
     color: '#fff',
   },
   sheet: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    zIndex: 30,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    backgroundColor: c.surface,
-    borderTopWidth: 1,
-    borderColor: c.liftBorder,
-    shadowColor: c.shadow,
-    shadowOpacity: c.shadowOpacity,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: -6 },
-    elevation: 12,
+    borderTopLeftRadius: 18,
+    borderTopRightRadius: 18,
   },
-  handle: {
-    alignSelf: 'center',
+  background: {
+    backgroundColor: c.surface,
+  },
+  indicator: {
     width: 36,
     height: 4,
     borderRadius: 2,
-    marginTop: 8,
-    marginBottom: 8,
     backgroundColor: c.border,
+  },
+  content: {
+    flex: 1,
+    paddingTop: 0,
   },
   header: {
     flexDirection: 'row',
