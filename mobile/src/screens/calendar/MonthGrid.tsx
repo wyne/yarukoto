@@ -3,7 +3,7 @@ import { Pressable, Text, View } from 'react-native';
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import { priorityColor } from '../../theme/colors';
+import { alpha, priorityColor } from '../../theme/colors';
 import { makeStyles } from '../../theme/styles';
 import { fonts } from '../../theme/typography';
 import { useAccent, useColors } from '../../theme/ThemeContext';
@@ -433,6 +433,7 @@ function DayCell({
   const colors = useColors();
   const styles = useStyles();
   const accent = useAccent();
+  const selectedBg = alpha(accent, 0.16);
   const iso = toISODate(date);
   const isToday = isSameDay(date, today);
   const isSelected = isSameDay(date, selectedDate) && !isToday;
@@ -448,7 +449,7 @@ function DayCell({
       style={[
         styles.cell,
         // Banded on the outer cell, not the day badge, so consecutive days join up.
-        inRange && styles.cellInRange,
+        inRange && { backgroundColor: selectedBg },
         inRange && isFirst && styles.cellRangeStart,
         inRange && isLast && styles.cellRangeEnd,
       ]}
@@ -467,7 +468,7 @@ function DayCell({
           style={[
             styles.cellInner,
             isToday && { backgroundColor: accent },
-            isSelected && { backgroundColor: colors.chipBg },
+            isSelected && { backgroundColor: selectedBg },
             !!onDropTask && isOver && { borderWidth: 2, borderColor: accent, backgroundColor: colors.accentTintBg },
           ]}
         >
@@ -526,9 +527,6 @@ const useStyles = makeStyles((c) => ({
     width: `${100 / 7}%`,
     alignItems: 'center',
     paddingVertical: 2,
-  },
-  cellInRange: {
-    backgroundColor: c.accentTintBg,
   },
   cellRangeStart: {
     borderTopLeftRadius: 8,

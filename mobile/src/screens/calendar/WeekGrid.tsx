@@ -1,6 +1,6 @@
 import React from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
-import { priorityColor } from '../../theme/colors';
+import { alpha, priorityColor } from '../../theme/colors';
 import { makeStyles } from '../../theme/styles';
 import { fonts } from '../../theme/typography';
 import { useAccent, useColors } from '../../theme/ThemeContext';
@@ -98,6 +98,7 @@ function DayColumn({
   const colors = useColors();
   const styles = useStyles();
   const accent = useAccent();
+  const selectedBg = alpha(accent, 0.16);
   const iso = toISODate(date);
   const isToday = isSameDay(date, today);
   const isSelected = isSameDay(date, selectedDate) && !isToday;
@@ -119,7 +120,7 @@ function DayColumn({
           style={[
             styles.colDayBadge,
             isToday && { backgroundColor: accent },
-            isSelected && { backgroundColor: colors.chipBg },
+            isSelected && { backgroundColor: selectedBg },
           ]}
         >
           <Text style={[styles.colDay, isToday && { color: '#fff', fontFamily: fonts.sansSemiBold }]}>
