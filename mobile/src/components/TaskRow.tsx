@@ -115,12 +115,11 @@ export default function TaskRow({
       onPress={onPress}
       onLongPress={onLongPress}
       delayLongPress={350}
-      // Pressed and active share the same mark: touch-down gives immediate
-      // feedback, then the open-task state keeps it after the tap resolves.
+      // Active is set only after a tap resolves; using pressed here marks rows
+      // during scroll gestures that began on top of them.
       style={(state) => {
-        const { pressed } = state;
         const { hovered } = state as PressState;
-        const rowActive = (active || pressed) && !selected && !dragSource;
+        const rowActive = active && !selected && !dragSource;
         return [
           styles.row,
           selected && { backgroundColor: colors.selectedRowBg },
