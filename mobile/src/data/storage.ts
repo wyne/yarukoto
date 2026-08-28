@@ -204,9 +204,11 @@ const PLAN_MODES: PlanMode[] = ['day', 'multi', 'week'];
 export interface PlanPrefs {
   mode: PlanMode;
   showCompleted: boolean;
+  /** The calendar collapsed to the selected day's week rather than the month. */
+  weekView: boolean;
 }
 
-export const DEFAULT_PLAN_PREFS: PlanPrefs = { mode: 'day', showCompleted: false };
+export const DEFAULT_PLAN_PREFS: PlanPrefs = { mode: 'day', showCompleted: false, weekView: false };
 
 export function loadPlanPrefs(): PlanPrefs {
   const stored = readJson<Partial<PlanPrefs>>(PLAN_KEY);
@@ -214,6 +216,7 @@ export function loadPlanPrefs(): PlanPrefs {
   return {
     mode: PLAN_MODES.includes(stored.mode as PlanMode) ? (stored.mode as PlanMode) : DEFAULT_PLAN_PREFS.mode,
     showCompleted: typeof stored.showCompleted === 'boolean' ? stored.showCompleted : DEFAULT_PLAN_PREFS.showCompleted,
+    weekView: typeof stored.weekView === 'boolean' ? stored.weekView : DEFAULT_PLAN_PREFS.weekView,
   };
 }
 
