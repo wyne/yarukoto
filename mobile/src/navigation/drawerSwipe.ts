@@ -23,6 +23,11 @@ export const drawerSwipeClaimed = makeMutable(false);
  *
  * Focus, not mount: tab screens stay mounted behind whichever one is showing, so
  * a screen that only gave the gesture back on unmount would hold it forever.
+ *
+ * This stands the drawer's *response* down — the gesture may still recognize the
+ * swipe and take the touch with it, which is fatal to a drag rather than merely
+ * wrong. What keeps a drag safe is `DrawerSwipeArea` disabling the recognizer
+ * outright for as long as one is in flight.
  */
 export function useClaimDrawerSwipe() {
   useFocusEffect(

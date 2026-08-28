@@ -32,6 +32,7 @@ import BulkActions from '../components/BulkActions';
 import { WEB_ENTRY } from '../data/platform';
 import UndoToast from '../components/UndoToast';
 import DragOverlay from '../drag/DragOverlay';
+import { useDragActive } from '../drag/DragContext';
 import ServerSheet from '../components/pickers/ServerSheet';
 import NavSheets from '../components/sidebar/NavSheets';
 import AllScreen from '../screens/AllScreen';
@@ -116,6 +117,52 @@ function Layout() {
   const bulk = WEB_ENTRY && selectedIds.length > 0;
   const showPane = wide && (bulk || !!openTaskId);
 
+  return (
+    <View style={styles.row}>
+      <DrawerSwipeArea>
+        <View style={styles.flex}>
+          <Tabs />
+          <UndoToast />
+          {/* No column to give them, so the actions float over the list instead. */}
+          {bulk && !wide && <BulkActions variant="bar" />}
+        </View>
+      </DrawerSwipeArea>
+      {showPane && (
+        <View style={styles.detailColumn}>
+          {bulk || !openTaskId ? (
+            <BulkActions variant="pane" />
+          ) : (
+            <TaskDetailView key={openTaskId} taskId={openTaskId} onClose={closeTask} variant="pane" />
+          )}
+        </View>
+      )}
+      {!wide && <TaskDetailSheet />}
+      <ServerSheet visible={serverOpen} onClose={closeServer} />
+      <NavSheets />
+      <DragOverlay />
+    </View>
+  );
+}
+
+/**
+ * Holds the swipe-to-open-drawer gesture, and nothing else.
+ *
+ * Its own component so that standing the gesture down costs one render of a
+ * wrapper rather than one of the whole layout: `children` arrives as an element
+ * that has not changed, so the tab tree under it is not re-rendered when a drag
+ * starts.
+ */
+function DrawerSwipeArea({ children }: { children: React.ReactNode }) {
+  const { wide, openDrawer, drawerProgress } = useSidebar();
+  // A task being carried across the screen is the same rightward motion this
+  // gesture is looking for, and gesture-handler cancels the touches under a
+  // recognizer it activates (cancelsTouchesInView, on by default) — which
+  // reaches the drag's pan responder as a termination and drops the task.
+  // Blocking the *effect* in the callbacks below is not enough for that: the
+  // recognizer still won the touch. So while a drag is in flight there is no
+  // recognizer to win it.
+  const dragging = useDragActive();
+
   /** Set for the length of a swipe something nearer the finger has a claim on. */
   const blocked = useSharedValue(false);
 
@@ -141,7 +188,7 @@ function Layout() {
     // While open, the window overlay owns touches before they can reach this
     // detector, so React does not need to subscribe the whole layout to the
     // drawer's visibility merely to disable it.
-    .enabled(SWIPE_TO_OPEN && !wide)
+    .enabled(SWIPE_TO_OPEN && !wide && !dragging)
     // Rightward only, so a row's own leftward swipe is never in the running.
     .activeOffsetX(SWIPE_ACTIVATE_X)
     .failOffsetY([-SWIPE_FAIL_Y, SWIPE_FAIL_Y])
@@ -178,31 +225,7 @@ function Layout() {
       });
     });
 
-  return (
-    <View style={styles.row}>
-      <GestureDetector gesture={swipeOpen}>
-        <View style={styles.flex}>
-          <Tabs />
-          <UndoToast />
-          {/* No column to give them, so the actions float over the list instead. */}
-          {bulk && !wide && <BulkActions variant="bar" />}
-        </View>
-      </GestureDetector>
-      {showPane && (
-        <View style={styles.detailColumn}>
-          {bulk || !openTaskId ? (
-            <BulkActions variant="pane" />
-          ) : (
-            <TaskDetailView key={openTaskId} taskId={openTaskId} onClose={closeTask} variant="pane" />
-          )}
-        </View>
-      )}
-      {!wide && <TaskDetailSheet />}
-      <ServerSheet visible={serverOpen} onClose={closeServer} />
-      <NavSheets />
-      <DragOverlay />
-    </View>
-  );
+  return <GestureDetector gesture={swipeOpen}>{children}</GestureDetector>;
 }
 
 function Tabs() {
