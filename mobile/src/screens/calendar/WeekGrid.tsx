@@ -1,6 +1,6 @@
 import React from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
-import { priorityColor } from '../../theme/colors';
+import { alpha, priorityColor } from '../../theme/colors';
 import { makeStyles } from '../../theme/styles';
 import { fonts } from '../../theme/typography';
 import { useAccent, useColors } from '../../theme/ThemeContext';
@@ -68,6 +68,7 @@ export default function WeekGrid({
           onDropTask={onDropTask}
           onOpenTask={onOpenTask}
           bottomClearance={bottomClearance}
+          showSelectedBadge={dayCount === 1}
         />
       ))}
     </View>
@@ -83,6 +84,7 @@ interface ColProps {
   onDropTask: (taskId: string, iso: string) => void;
   onOpenTask: (taskId: string) => void;
   bottomClearance: number;
+  showSelectedBadge: boolean;
 }
 
 function DayColumn({
@@ -94,13 +96,15 @@ function DayColumn({
   onDropTask,
   onOpenTask,
   bottomClearance,
+  showSelectedBadge,
 }: ColProps) {
   const colors = useColors();
   const styles = useStyles();
   const accent = useAccent();
+  const selectedBg = alpha(accent, 0.16);
   const iso = toISODate(date);
   const isToday = isSameDay(date, today);
-  const isSelected = isSameDay(date, selectedDate) && !isToday;
+  const isSelected = showSelectedBadge && isSameDay(date, selectedDate) && !isToday;
   // A task being dragged between columns must not scroll the column it left.
   const dragging = useDragActive();
 
@@ -119,7 +123,7 @@ function DayColumn({
           style={[
             styles.colDayBadge,
             isToday && { backgroundColor: accent },
-            isSelected && { backgroundColor: colors.chipBg },
+            isSelected && { backgroundColor: selectedBg },
           ]}
         >
           <Text style={[styles.colDay, isToday && { color: '#fff', fontFamily: fonts.sansSemiBold }]}>

@@ -223,3 +223,13 @@ export function priorityColor(
       return palette.ringNone;
   }
 }
+
+/** Fades a six-digit hex colour into an rgba() string for runtime accent tints. */
+export function alpha(hex: string, opacity: number): string {
+  const clean = hex.replace('#', '');
+  if (clean.length !== 6) return hex;
+  const r = Number.parseInt(clean.slice(0, 2), 16);
+  const g = Number.parseInt(clean.slice(2, 4), 16);
+  const b = Number.parseInt(clean.slice(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${opacity})`;
+}
