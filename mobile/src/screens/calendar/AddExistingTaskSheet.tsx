@@ -10,6 +10,7 @@ import {
 import { GlassView } from 'expo-glass-effect';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { makeStyles } from '../../theme/styles';
+import { priorityColor } from '../../theme/colors';
 import { fonts } from '../../theme/typography';
 import { useAccent, useColors } from '../../theme/ThemeContext';
 import { useTasks } from '../../data/TaskContext';
@@ -366,6 +367,7 @@ function DraggableTask({
   onPickup: () => void;
 }) {
   const styles = useStyles();
+  const colors = useColors();
   const { state, toggleComplete, snoozeTask } = useTasks();
   const { onLongPress, ...handlers } = useDraggable({
     taskId: task.id,
@@ -383,6 +385,7 @@ function DraggableTask({
         showContext="tags"
         selectionMode
         selected={selected}
+        selectionColor={priorityColor(task.priority, colors)}
         dragSource={isSource}
         onPress={onToggleSelected}
         onLongPress={(event) => {
