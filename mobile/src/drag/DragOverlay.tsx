@@ -6,6 +6,13 @@ import { formatDueFull } from '../data/dateUtils';
 import { isoFromDayTarget } from './hitTest';
 import { useDrag, useDragOverId, useDragPayload } from './DragContext';
 
+/** As wide as the pill may grow, and the box it is measured in. */
+const GHOST_WIDTH = 240;
+/** Clearance between the bottom of the pill and the pointer itself. */
+const GHOST_LIFT = 32;
+/** One line of the pill, which is all `numberOfLines={1}` ever gives it. */
+const GHOST_HEIGHT = 44;
+
 /**
  * The ghost that follows the pointer during a drag. Mounted once, app-level.
  *
@@ -41,21 +48,34 @@ export default function DragOverlay() {
 }
 
 const useStyles = makeStyles((c) => ({
-  // Zero-sized: its top-left sits on the pointer and the ghost is positioned
-  // relative to that single point.
+  /**
+   * A box of known size, hung above and to the left of the pointer so that the
+   * pill inside it comes out centred on the finger with GHOST_LIFT of clearance.
+   *
+   * The size is what matters. This used to be a zero-sized point with the pill
+   * absolutely positioned off it at `left: '50%'`, which reads well and lays out
+   * badly: an absolutely positioned view with no width of its own passes that
+   * width down as a constraint, so the pill measured against zero and collapsed
+   * to its own padding. Nothing to see, at any pointer position, on any screen.
+   */
   positioner: {
     position: 'absolute',
     top: 0,
     left: 0,
+    width: GHOST_WIDTH,
+    marginLeft: -GHOST_WIDTH / 2,
+    height: GHOST_HEIGHT,
+    marginTop: -(GHOST_HEIGHT + GHOST_LIFT),
+    // Centred across the box, and sitting on its floor, which is the line
+    // GHOST_LIFT above the pointer.
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    zIndex: 1000,
   },
   ghost: {
-    position: 'absolute',
-    // Half of a zero-width parent is zero, so the pill's left edge starts at the
-    // pointer; translating back by its own width centres it on the point.
-    left: '50%',
-    bottom: 32,
-    transform: [{ translateX: '-50%' }],
-    maxWidth: 240,
+    // In flow, so it takes the width of its own text up to the box's, rather
+    // than being placed against a width it has to be told about.
+    maxWidth: GHOST_WIDTH,
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 10,
@@ -68,7 +88,6 @@ const useStyles = makeStyles((c) => ({
     shadowOpacity: 0.18,
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 4 },
-    zIndex: 1000,
   },
   text: {
     fontFamily: fonts.sansMedium,
