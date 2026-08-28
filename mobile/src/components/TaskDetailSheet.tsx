@@ -50,7 +50,6 @@ export default function TaskDetailSheet() {
   }, [openTaskId]);
 
   const taskId = openTaskId ?? lastTaskId.current;
-  if (!taskId) return null;
 
   return (
     <NativeSheet
@@ -64,13 +63,15 @@ export default function TaskDetailSheet() {
       // TaskDetailView owns its horizontal layout; the sheet body must not pad again.
       contentStyle={styles.body}
     >
-      <TaskDetailView
-        key={taskId}
-        taskId={taskId}
-        onClose={closeTask}
-        variant="sheet"
-        active={openTaskId === taskId}
-      />
+      {taskId ? (
+        <TaskDetailView
+          key={taskId}
+          taskId={taskId}
+          onClose={closeTask}
+          variant="sheet"
+          active={openTaskId === taskId}
+        />
+      ) : null}
     </NativeSheet>
   );
 }
