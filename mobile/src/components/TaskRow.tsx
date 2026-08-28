@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   GestureResponderEvent,
   GestureResponderHandlers,
@@ -94,6 +94,7 @@ export default function TaskRow({
   const colors = useColors();
   const styles = useStyles();
   const accent = useAccent();
+  const [releasedActive, setReleasedActive] = useState(false);
   const dueLabel = hideDue ? null : formatDueShort(now, task.dueDate, task.dueTime);
   const overdue = isOverdue(now, task);
   // Whatever the current view is already scoped to is dropped: repeating "Home" on
@@ -109,17 +110,31 @@ export default function TaskRow({
   const showStar = overdue && task.priority === 'high' && !task.completed;
   const subtaskDone = task.subtasks.filter((s) => s.done).length;
   const showBadge = !showStar && task.subtasks.length > 0 && !task.completed;
+  const canReleaseActivate = !selectionMode && !selected && !dragSource;
+
+  useEffect(() => {
+    setReleasedActive(false);
+  }, [active, dragSource, selected, task.id]);
+
+  const press = () => {
+    if (!canReleaseActivate) {
+      onPress();
+      return;
+    }
+    setReleasedActive(true);
+    requestAnimationFrame(onPress);
+  };
 
   const row = (
     <Pressable
-      onPress={onPress}
+      onPress={press}
       onLongPress={onLongPress}
       delayLongPress={350}
-      // Active is set only after a tap resolves; using pressed here marks rows
-      // during scroll gestures that began on top of them.
+      // Released-active is set from onPress, so it waits until the tap resolves
+      // but does not wait for the detail context and sheet render to catch up.
       style={(state) => {
         const { hovered } = state as PressState;
-        const rowActive = active && !selected && !dragSource;
+        const rowActive = (active || releasedActive) && !selected && !dragSource;
         return [
           styles.row,
           selected && { backgroundColor: colors.selectedRowBg },
@@ -132,7 +147,7 @@ export default function TaskRow({
       }}
     >
       {selectionMode ? (
-        <Pressable onPress={onPress} hitSlop={10}>
+        <Pressable onPress={press} hitSlop={10}>
           <View
             style={[
               styles.selectCircle,
