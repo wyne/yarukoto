@@ -9,7 +9,7 @@ import { Task } from '../../data/types';
 import { dayTargetId } from '../../drag/hitTest';
 import { useDropTarget } from '../../drag/useDropTarget';
 import { useDraggable } from '../../drag/useDraggable';
-import { useDrag } from '../../drag/DragContext';
+import { useDragActive } from '../../drag/DragContext';
 import { useDragSource } from '../../drag/dragSource';
 
 interface Props {
@@ -102,7 +102,7 @@ function DayColumn({
   const isToday = isSameDay(date, today);
   const isSelected = isSameDay(date, selectedDate) && !isToday;
   // A task being dragged between columns must not scroll the column it left.
-  const { payload } = useDrag();
+  const dragging = useDragActive();
 
   const { ref, onLayout, isOver } = useDropTarget(dayTargetId(iso, 'cols'), (payload) => onDropTask(payload.taskId, iso));
 
@@ -131,7 +131,7 @@ function DayColumn({
       <ScrollView
         contentContainerStyle={[styles.colBody, !!bottomClearance && { paddingBottom: bottomClearance }]}
         showsVerticalScrollIndicator={false}
-        scrollEnabled={!payload}
+        scrollEnabled={!dragging}
       >
         {tasks.map((task) => (
           <TaskChip key={task.id} task={task} onPress={() => onOpenTask(task.id)} />

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { View } from 'react-native';
-import { DragPayload, useDrag } from './DragContext';
+import { DragPayload, useDrag, useDragSelector } from './DragContext';
 
 interface DropTargetBinding {
   /** Attach to the target View, along with onLayout. */
@@ -39,7 +39,10 @@ export function useDropTarget(
   enabled = true,
   clipTo?: React.RefObject<Measurable | null> | null
 ): DropTargetBinding {
-  const { registerTarget, setTargetRect, overId } = useDrag();
+  const { registerTarget, setTargetRect } = useDrag();
+  // Asks only about itself, so a drag crossing the grid re-renders the cell it
+  // left and the cell it entered rather than all forty-two.
+  const isOver = useDragSelector((state) => state.overId === id);
   const ref = useRef<View | null>(null);
   const clipRef = clipTo ?? null;
 
@@ -81,5 +84,5 @@ export function useDropTarget(
     });
   }, [id, registerTarget, measure, enabled]);
 
-  return { ref, onLayout: measure, isOver: overId === id };
+  return { ref, onLayout: measure, isOver };
 }

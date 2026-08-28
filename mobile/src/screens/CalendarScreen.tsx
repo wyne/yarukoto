@@ -5,6 +5,7 @@ import { makeStyles } from '../theme/styles';
 import { fonts } from '../theme/typography';
 import { useAccent, useColors } from '../theme/ThemeContext';
 import { useSidebar } from '../navigation/SidebarContext';
+import { useClaimDrawerSwipe } from '../navigation/drawerSwipe';
 import { NATIVE_FAB_CLEARANCE, nativeTabBarClearance } from '../navigation/nativeTabBarLayout';
 import { useDetail } from '../navigation/DetailContext';
 import { useTasks } from '../data/TaskContext';
@@ -23,7 +24,7 @@ import { useSyncRefresh } from '../data/useSyncRefresh';
 import GlassIconButton, { GlassIconButtonGroup } from '../components/GlassIconButton';
 import { WEB_ENTRY } from '../data/platform';
 import { IconChevronLeft, IconChevronRight, IconMenu } from '../icons/Icons';
-import { useDrag } from '../drag/DragContext';
+import { useDragActive } from '../drag/DragContext';
 import { Measurable } from '../drag/useDropTarget';
 
 const AGENDA_WINDOW_DAYS = 45;
@@ -46,8 +47,14 @@ export default function CalendarScreen() {
   const { openTask } = useDetail();
   const { state, updateTask, addTaskFromQuickAdd } = useTasks();
   // While a drag is in flight, the agenda must not scroll under the finger — the
-  // whole point is carrying the task up out of the list onto the calendar.
-  const { payload } = useDrag();
+  // whole point is carrying the task up out of the list onto the calendar. The
+  // boolean, not the payload: this is the root of the screen, and it should wake
+  // for a drag starting and ending, not for every day cell the finger crosses.
+  const dragging = useDragActive();
+  // Every calendar surface is a drop target and a task is carried between them
+  // rightward as often as any other way, so the drawer's own rightward swipe
+  // stands down here. The menu button in the header still opens it.
+  useClaimDrawerSwipe();
   const today = new Date();
 
   const [monthAnchor, setMonthAnchor] = useState(new Date(today.getFullYear(), today.getMonth(), 1));
@@ -295,7 +302,7 @@ export default function CalendarScreen() {
                 styles.agenda,
                 nativeChrome && { paddingBottom: tabBarInset + fabClearance },
               ]}
-              scrollEnabled={!payload}
+              scrollEnabled={!dragging}
             >
               {agendaDays.length === 0 && <Text style={styles.empty}>Nothing scheduled from here on.</Text>}
               {agendaDays.map(({ date, tasks }) => (

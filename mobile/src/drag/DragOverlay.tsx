@@ -4,7 +4,7 @@ import { makeStyles } from '../theme/styles';
 import { fonts } from '../theme/typography';
 import { formatDueFull } from '../data/dateUtils';
 import { isoFromDayTarget } from './hitTest';
-import { useDrag } from './DragContext';
+import { useDrag, useDragOverId, useDragPayload } from './DragContext';
 
 /**
  * The ghost that follows the pointer during a drag. Mounted once, app-level.
@@ -18,7 +18,9 @@ import { useDrag } from './DragContext';
  */
 export default function DragOverlay() {
   const styles = useStyles();
-  const { payload, pointer, overId } = useDrag();
+  const { pointer } = useDrag();
+  const payload = useDragPayload();
+  const overId = useDragOverId();
   if (!payload) return null;
 
   const targetIso = overId ? isoFromDayTarget(overId) : null;
