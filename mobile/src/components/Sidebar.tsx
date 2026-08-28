@@ -990,6 +990,9 @@ const useStyles = makeStyles((c) => ({
   scroll: {
     paddingHorizontal: 8,
     paddingBottom: 12,
+    // The scroller is already flex:1; this is the content filling it, so the
+    // space under the last tag belongs to the list and can be dragged on.
+    flexGrow: 1,
   },
   row: {
     flexDirection: 'row',

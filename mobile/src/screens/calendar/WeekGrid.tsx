@@ -129,6 +129,7 @@ function DayColumn({
       </Pressable>
 
       <ScrollView
+        style={styles.colScroll}
         contentContainerStyle={[styles.colBody, !!bottomClearance && { paddingBottom: bottomClearance }]}
         showsVerticalScrollIndicator={false}
         scrollEnabled={!dragging}
@@ -215,9 +216,20 @@ const useStyles = makeStyles((c) => ({
     fontSize: 13,
     color: c.textPrimary,
   },
+  /**
+   * Without this the scroller takes its height from the chips in it, so on a
+   * light day the column is mostly a plain View and a drag started in the empty
+   * part of it — which is most of it — scrolls nothing.
+   */
+  colScroll: {
+    flex: 1,
+  },
   colBody: {
     padding: 4,
     gap: 4,
+    // Fills the column even when the chips don't, so the whole of it is content
+    // the finger can pull on rather than the top few rows of it.
+    flexGrow: 1,
   },
   chipWrap: {
     // Spread as a plain object rather than suppressed line by line: a
