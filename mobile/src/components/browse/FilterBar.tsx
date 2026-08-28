@@ -107,6 +107,7 @@ export default function FilterBar({ criteria, onChange }: Props) {
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
+        style={styles.bar}
         contentContainerStyle={styles.row}
         keyboardShouldPersistTaps="handled"
       >
@@ -143,6 +144,14 @@ export default function FilterBar({ criteria, onChange }: Props) {
 }
 
 const useStyles = makeStyles((c) => ({
+  /**
+   * A row of chips is as tall as a chip. React Native gives every ScrollView
+   * `flexGrow: 1`, so in a column with room to spare this one takes all of it and
+   * pushes whatever follows to the bottom of the screen.
+   */
+  bar: {
+    flexGrow: 0,
+  },
   row: {
     flexDirection: 'row',
     gap: 8,

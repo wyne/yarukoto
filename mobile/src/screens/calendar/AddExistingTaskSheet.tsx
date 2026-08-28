@@ -1,13 +1,11 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { Keyboard, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Keyboard, Pressable, Text, TextInput, View } from 'react-native';
 import Animated, { useAnimatedStyle, withTiming } from 'react-native-reanimated';
 import {
   BottomSheetBackdrop,
   BottomSheetBackdropProps,
-  BottomSheetHandle,
   BottomSheetModal,
   BottomSheetScrollView,
-  BottomSheetView,
 } from '@gorhom/bottom-sheet';
 import { GlassView } from 'expo-glass-effect';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -42,6 +40,13 @@ interface SheetProps {
 
 const COLLAPSED_HEIGHT = 1;
 const EXPANDED_HEIGHT = 430;
+/** How far the handle can pull the sheet up, for a long list of tasks. */
+const TALL_HEIGHT = '90%';
+/**
+ * A threshold the sheet's content gesture gives up at, standing it down for the
+ * length of a task drag. One pixel of travel in any direction is enough.
+ */
+const FAIL_ON_ANY_MOVE: [number, number] = [-1, 1];
 /** How far the cancel pill swells while a dragged task sits over it. */
 const CANCEL_OVER_SCALE = 1.14;
 
@@ -111,13 +116,17 @@ export default function AddExistingTaskSheet({ visible, onClose }: SheetProps) {
   const now = new Date();
   const dragging = useDragActive();
   const scrimOpacity = colors.scrimOpacity;
+  const titleIconColor = colors.textSecondary;
   const [criteria, setCriteria] = useState<TaskCriteria>(EMPTY_CRITERIA);
   const ref = useRef<React.ElementRef<typeof BottomSheetModal>>(null);
   const presented = useRef(false);
   const expanding = useRef(false);
 
+  // Three: shut, the height it opens at, and as far as it goes. The last is what
+  // the handle has to pull against — with nothing above the opening height there
+  // was nowhere for the drag to take it.
   const snapPoints = useMemo(
-    () => [COLLAPSED_HEIGHT, EXPANDED_HEIGHT + Math.max(14, insets.bottom)],
+    () => [COLLAPSED_HEIGHT, EXPANDED_HEIGHT + Math.max(14, insets.bottom), TALL_HEIGHT],
     [insets.bottom]
   );
 
@@ -163,13 +172,46 @@ export default function AddExistingTaskSheet({ visible, onClose }: SheetProps) {
         {...props}
         appearsOnIndex={1}
         disappearsOnIndex={0}
+        // Still touch-through while shut, which is what lets a task be dragged out
+        // of the sheet and onto the calendar underneath — the backdrop only takes
+        // touches at all once the sheet is open (see its `pointerEvents`).
         enableTouchThrough
-        pressBehavior="none"
+        pressBehavior="collapse"
         onPress={() => closeRef.current()}
         opacity={scrimOpacity}
       />
     ),
     [scrimOpacity]
+  );
+
+  /**
+   * The title travels with the grabber rather than sitting in the content below
+   * it, so the whole strip is a handle: everything here is inside the sheet's
+   * pan gesture, and dragging the words resizes the sheet.
+   *
+   * Stable, for the reason the backdrop above is: a changed component identity
+   * remounts what it draws.
+   */
+  const renderHandle = useCallback(
+    () => (
+      <View style={styles.handle}>
+        <View style={styles.indicator} />
+        <View style={styles.header}>
+          <View style={styles.headerTitle}>
+            <IconCalendarBox size={18} color={titleIconColor} />
+            <Text style={styles.title}>Add existing</Text>
+          </View>
+          <Pressable
+            onPress={() => closeRef.current()}
+            accessibilityRole="button"
+            accessibilityLabel="Close add existing"
+          >
+            <Text style={styles.done}>Done</Text>
+          </Pressable>
+        </View>
+      </View>
+    ),
+    [styles, titleIconColor]
   );
 
   return (
@@ -179,16 +221,29 @@ export default function AddExistingTaskSheet({ visible, onClose }: SheetProps) {
       snapPoints={snapPoints}
       enableDismissOnClose={false}
       enableDynamicSizing={false}
-      enableContentPanningGesture={false}
+      /*
+        Pulling the list moves the sheet once the list has no more to scroll —
+        which puts this gesture after the same movement that carries a task out
+        of the sheet, and gesture-handler cancels the touches under a recognizer
+        it activates.
+
+        It cannot simply be switched off for the length of a drag:
+        `enableContentPanningGesture` decides which component the content is
+        drawn in, so changing it would remount the list under the finger and take
+        the drag with it. A threshold it fails at does the same job from outside
+        — the first pixel of movement puts it out of the running, and the task
+        keeps the touch.
+      */
+      failOffsetX={dragging ? FAIL_ON_ANY_MOVE : undefined}
+      failOffsetY={dragging ? FAIL_ON_ANY_MOVE : undefined}
       enablePanDownToClose={false}
       enableOverDrag={false}
       backdropComponent={renderBackdrop}
-      handleComponent={BottomSheetHandle}
-      handleIndicatorStyle={styles.indicator}
+      handleComponent={renderHandle}
       backgroundStyle={styles.background}
       style={styles.sheet}
       onChange={(index) => {
-        if (index === 1) expanding.current = false;
+        if (index > 0) expanding.current = false;
         if (index === 0 && !expanding.current) onClose();
       }}
       onDismiss={() => {
@@ -196,23 +251,15 @@ export default function AddExistingTaskSheet({ visible, onClose }: SheetProps) {
         onClose();
       }}
     >
-      <BottomSheetView
-        style={StyleSheet.flatten([
-          styles.content,
-          {
-            paddingBottom: Math.max(14, insets.bottom),
-          },
-        ])}
-      >
-        <View style={styles.header}>
-          <View style={styles.headerTitle}>
-            <IconCalendarBox size={18} color={colors.textSecondary} />
-            <Text style={styles.title}>Add existing</Text>
-          </View>
-          <Pressable onPress={close} accessibilityRole="button" accessibilityLabel="Close add existing">
-            <Text style={[styles.done, { color: colors.textTertiary }]}>Done</Text>
-          </Pressable>
-        </View>
+      {/*
+        A plain View, not BottomSheetView: that one positions itself absolutely
+        with no bottom and no height, so it takes the height of what is in it and
+        `flex: 1` inside means nothing. The list below it was then given a frame
+        as tall as its own contents, hanging past the bottom of the sheet with
+        nothing left to scroll. The sheet's content container has a real height,
+        so filling it is all this needs to do.
+      */}
+      <View style={styles.content}>
         <TextInput
           value={criteria.query}
           onChangeText={(query) => setCriteria({ ...criteria, query })}
@@ -229,7 +276,9 @@ export default function AddExistingTaskSheet({ visible, onClose }: SheetProps) {
           showsVerticalScrollIndicator
           indicatorStyle="default"
           onScrollBeginDrag={closeOpenSwipeRow}
-          contentContainerStyle={styles.results}
+          // The inset rides on the content rather than the frame, so the last row
+          // can be scrolled clear of the home indicator instead of stopping under it.
+          contentContainerStyle={[styles.results, { paddingBottom: Math.max(14, insets.bottom) + 16 }]}
           keyboardShouldPersistTaps="handled"
           scrollEnabled={!dragging}
         >
@@ -246,7 +295,7 @@ export default function AddExistingTaskSheet({ visible, onClose }: SheetProps) {
             </Card>
           )}
         </BottomSheetScrollView>
-      </BottomSheetView>
+      </View>
     </BottomSheetModal>
   );
 }
@@ -330,7 +379,12 @@ const useStyles = makeStyles((c) => ({
   background: {
     backgroundColor: c.surface,
   },
+  /** The grabber and the title, which together are what the sheet is dragged by. */
+  handle: {
+    paddingTop: 10,
+  },
   indicator: {
+    alignSelf: 'center',
     width: 36,
     height: 4,
     borderRadius: 2,
@@ -346,6 +400,7 @@ const useStyles = makeStyles((c) => ({
     justifyContent: 'space-between',
     gap: 12,
     paddingHorizontal: 16,
+    paddingTop: 10,
     paddingBottom: 10,
   },
   headerTitle: {
@@ -363,6 +418,7 @@ const useStyles = makeStyles((c) => ({
   done: {
     fontFamily: fonts.sansMedium,
     fontSize: 15,
+    color: c.textTertiary,
   },
   searchInput: {
     marginHorizontal: 16,
