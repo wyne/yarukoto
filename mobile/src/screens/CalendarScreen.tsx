@@ -14,6 +14,7 @@ import { tasksByDate } from '../data/selectors';
 import { addDays, addMonths, addWeeks, monthShort, startOfWeek, toISODate } from '../data/dateUtils';
 import { Task } from '../data/types';
 import AgendaDayGroup from './calendar/AgendaDayGroup';
+import AddExistingTaskSheet, { AddExistingTaskButton } from './calendar/AddExistingTaskSheet';
 import MonthGrid from './calendar/MonthGrid';
 import SchedulePane from './calendar/SchedulePane';
 import WeekGrid from './calendar/WeekGrid';
@@ -59,6 +60,7 @@ export default function CalendarScreen() {
 
   const [monthAnchor, setMonthAnchor] = useState(new Date(today.getFullYear(), today.getMonth(), 1));
   const [selectedDate, setSelectedDate] = useState(today);
+  const [addExistingOpen, setAddExistingOpen] = useState(false);
 
   // The agenda clips its drop targets to this frame (see AgendaDayGroup clipTo):
   // scrolled-off days must never keep swallowing drops meant for the calendar.
@@ -325,7 +327,14 @@ export default function CalendarScreen() {
         )}
 
         {!wide && !WEB_ENTRY && (
-          <AddTaskFab defaults={{ dueDate: toISODate(selectedDate) }} contextLabel={selectedDateLabel} />
+          <>
+            <AddExistingTaskButton onPress={() => setAddExistingOpen(true)} />
+            <AddTaskFab defaults={{ dueDate: toISODate(selectedDate) }} contextLabel={selectedDateLabel} />
+            <AddExistingTaskSheet
+              visible={addExistingOpen}
+              onClose={() => setAddExistingOpen(false)}
+            />
+          </>
         )}
       </View>
     </View>
