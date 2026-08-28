@@ -136,6 +136,7 @@ export default function AddExistingTaskSheet({ visible, onClose }: SheetProps) {
       snapPoints={snapPoints}
       enableDismissOnClose={false}
       enableDynamicSizing={false}
+      enableContentPanningGesture={false}
       enablePanDownToClose={false}
       enableOverDrag={false}
       backdropComponent={renderBackdrop}
