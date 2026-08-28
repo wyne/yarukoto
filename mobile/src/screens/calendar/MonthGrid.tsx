@@ -72,17 +72,26 @@ interface Props {
  * single week once collapsed: sideways then steps a week at a time, and takes
  * the selected day with it so the list below follows.
  *
- * Two swaps have to be invisible, and both work the same way — by arranging for
- * the state either side of them to draw the same picture, and only then letting
- * React through.
+ * Pages are placed by an absolute page number that only ever counts up or down,
+ * never by their position in the rendered window. That is what makes committing
+ * a page free: the slide leaves the track on page n+1 and stays there, and when
+ * React catches up the window becomes {n, n+1, n+2} — the two pages that were
+ * already on screen keep the coordinates they had, one off-screen page unmounts
+ * and another mounts. Nothing moves, so there is nothing to catch mid-move.
  *
- * - Paging commits at the far end of the slide and the track is put back to
- *   centre by the layout effect, once the new pages exist. Parked one page over
- *   with the old dates is pixel-for-pixel centred with the new ones.
- * - Collapsing keeps the month drawn until the shrink has finished, because a
- *   month clipped to the selected week's row is the same thing as that week.
- *   Opening runs it backwards: the month is put back the moment the finger
- *   starts pulling down, while there is still only one row showing to see it in.
+ * Recentring the track after each commit is the obvious alternative and it is
+ * the one that flickers: the reset is a write to the UI thread while the new
+ * pages arrive through the renderer, and on the frames where the renderer wins
+ * you see the page past the one you asked for.
+ *
+ * A month changed from outside — the arrows, Today, collapsing to a week — moves
+ * no page either. The window is derived from the anchor, so the same coordinates
+ * simply hold different dates.
+ *
+ * Collapsing keeps the month drawn until the shrink has finished, because a
+ * month clipped to the selected week's row is the same thing as that week.
+ * Opening runs it backwards: the month is put back the moment the finger starts
+ * pulling down, while there is still only one row showing to see it in.
  */
 export default function MonthGrid({
   monthAnchor,
@@ -98,8 +107,19 @@ export default function MonthGrid({
   onWeekViewChange,
 }: Props) {
   const styles = useStyles();
-  const width = useSharedValue(0);
-  const offset = useSharedValue(0);
+  /** A page's width in pixels, which is what places them. Zero until first layout. */
+  const [width, setWidth] = useState(0);
+  /**
+   * Which page the track is parked on, counting from wherever it started. It has
+   * no meaning beyond spacing the pages out — only that it moves by exactly the
+   * one page the slide moved by.
+   */
+  const [page, setPage] = useState(0);
+
+  const pageWidth = useSharedValue(0);
+  const scrollX = useSharedValue(0);
+  /** Where the track was when the current sideways drag took hold. */
+  const grabbedX = useSharedValue(0);
   /** 1 is the whole month, 0 is the single week. */
   const expand = useSharedValue(weekView ? 0 : 1);
   /** Where `expand` was when the current vertical drag took hold. */
@@ -131,19 +151,25 @@ export default function MonthGrid({
     return at < 0 ? 0 : Math.floor(at / 7);
   }, [weeks, monthAnchor, selectedDate]);
 
-  /**
-   * Both page kinds in one key. A week step often lands inside the month it
-   * started in, so keying the reset on the month alone would leave the track
-   * parked off centre and the pager wedged shut.
-   */
-  const pageKey = weeks ? toISODate(startOfWeek(selectedDate)) : toISODate(monthAnchor);
+  // Only when the page width itself changes, which means a rotation or a resize.
+  // `page` is deliberately not a dependency: the swipe path keeps the track and
+  // the page number in step by moving both by exactly one page, and writing the
+  // track's position from here on every commit is the flicker this design exists
+  // to avoid.
   useLayoutEffect(() => {
-    offset.value = 0;
+    pageWidth.value = width;
+    scrollX.value = -page * width;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [width]);
+
+  // The commit has landed, so a fresh swipe can be taken.
+  useLayoutEffect(() => {
     paging.value = false;
-  }, [pageKey, offset, paging]);
+  }, [page, paging]);
 
   const commitPage = useCallback(
     (delta: number) => {
+      setPage((n) => n + delta);
       if (!weeks) {
         onChangeMonth(addMonths(monthAnchor, delta));
         return;
@@ -175,16 +201,17 @@ export default function MonthGrid({
     .failOffsetY([-SWIPE_FAIL_Y, SWIPE_FAIL_Y])
     .onBegin(() => {
       swiping.value = !paging.value;
+      grabbedX.value = scrollX.value;
     })
     .onUpdate((e) => {
-      if (swiping.value) offset.value = e.translationX;
+      if (swiping.value) scrollX.value = grabbedX.value + e.translationX;
     })
     .onEnd((e) => {
       if (!swiping.value) return;
-      const w = width.value;
+      const w = pageWidth.value;
       // No layout yet, so there is no page width to commit against.
       if (w <= 0) {
-        offset.value = 0;
+        scrollX.value = grabbedX.value;
         return;
       }
       const far = Math.abs(e.translationX) > w * SWIPE_COMMIT;
@@ -192,9 +219,15 @@ export default function MonthGrid({
       // Dragging left pulls the following page in from the right, and back again.
       const delta = far || flung ? Math.sign(-e.translationX) : 0;
       if (delta !== 0) paging.value = true;
-      offset.value = withTiming(-delta * w, { duration: PAGE_MS, easing: PAGE_EASING }, (done) => {
-        if (done && delta !== 0) scheduleOnRN(commitPage, delta);
-      });
+      // Settles on the page's own coordinate and is left there. See the note on
+      // the component: nothing puts the track back afterwards.
+      scrollX.value = withTiming(
+        grabbedX.value - delta * w,
+        { duration: PAGE_MS, easing: PAGE_EASING },
+        (done) => {
+          if (done && delta !== 0) scheduleOnRN(commitPage, delta);
+        }
+      );
     });
 
   const collapse = Gesture.Pan()
@@ -228,18 +261,11 @@ export default function MonthGrid({
     height: CELL_HEIGHT + COLLAPSE_TRAVEL * expand.value,
   }));
 
-  // The centring step is a percentage of the track's own width — one page of
-  // three — rather than the measured width, so the middle page is already the
-  // one on screen for the first frame, before onLayout has reported anything.
   // The vertical step is what keeps the selected week in the one visible row as
   // the rest of the month closes over it.
   const rowOffset = selectedRow * CELL_HEIGHT;
   const track = useAnimatedStyle(() => ({
-    transform: [
-      { translateX: `${-100 / 3}%` },
-      { translateX: offset.value },
-      { translateY: -rowOffset * (1 - expand.value) },
-    ],
+    transform: [{ translateX: scrollX.value }, { translateY: -rowOffset * (1 - expand.value) }],
   }));
 
   return (
@@ -254,31 +280,47 @@ export default function MonthGrid({
       <GestureDetector gesture={gesture}>
         <Animated.View
           style={[styles.viewport, viewport]}
-          onLayout={(e) => {
-            width.value = e.nativeEvent.layout.width;
-          }}
+          onLayout={(e) => setWidth(e.nativeEvent.layout.width)}
         >
           <Animated.View style={[styles.track, track]}>
-            {pages.map((page, i) => (
-              <View key={toISODate(page)} style={styles.page}>
+            {pages.map((start, i) => {
+              // Only the page on screen registers drop targets. Neighbouring pages
+              // overlap at the edges — the 1st of a month appears in two month
+              // grids — and ids are registry keys, so all three registering would
+              // leave a day owned by a page that is off screen.
+              const body = (
                 <CalendarPage
-                  start={page}
+                  start={start}
                   weeks={weeks}
                   selectedDate={selectedDate}
                   today={today}
                   byDate={byDate}
                   onSelectDate={onSelectDate}
                   onChangeMonth={onChangeMonth}
-                  // Only the page on screen registers drop targets. Neighbouring
-                  // pages overlap at the edges — the 1st of a month appears in two
-                  // month grids — and ids are registry keys, so all three
-                  // registering would leave a day owned by a page that is off screen.
                   onDropTask={i === 1 ? onDropTask : undefined}
                   rangeStart={rangeStart}
                   rangeEnd={rangeEnd}
                 />
-              </View>
-            ))}
+              );
+              // Nothing has been measured yet, so there is nowhere to put the
+              // neighbours. The one being looked at fills the viewport, which is
+              // where absolute placement puts it on the next frame anyway.
+              if (width === 0) {
+                return i === 1 ? (
+                  <View key={toISODate(start)} style={styles.solePage}>
+                    {body}
+                  </View>
+                ) : null;
+              }
+              return (
+                <View
+                  key={toISODate(start)}
+                  style={[styles.page, { left: (page + i - 1) * width, width }]}
+                >
+                  {body}
+                </View>
+              );
+            })}
           </Animated.View>
         </Animated.View>
       </GestureDetector>
@@ -464,12 +506,17 @@ const useStyles = makeStyles((c) => ({
     overflow: 'hidden',
   },
   track: {
-    flexDirection: 'row',
-    width: '300%',
+    flex: 1,
+  },
+  /** Placed by page number, so a commit never has to move one. */
+  page: {
+    position: 'absolute',
+    top: 0,
     height: GRID_HEIGHT,
   },
-  page: {
-    width: `${100 / 3}%`,
+  solePage: {
+    width: '100%',
+    height: GRID_HEIGHT,
   },
   grid: {
     flexDirection: 'row',
