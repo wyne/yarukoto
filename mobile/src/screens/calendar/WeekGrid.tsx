@@ -68,6 +68,7 @@ export default function WeekGrid({
           onDropTask={onDropTask}
           onOpenTask={onOpenTask}
           bottomClearance={bottomClearance}
+          showSelectedBadge={dayCount === 1}
         />
       ))}
     </View>
@@ -83,6 +84,7 @@ interface ColProps {
   onDropTask: (taskId: string, iso: string) => void;
   onOpenTask: (taskId: string) => void;
   bottomClearance: number;
+  showSelectedBadge: boolean;
 }
 
 function DayColumn({
@@ -94,6 +96,7 @@ function DayColumn({
   onDropTask,
   onOpenTask,
   bottomClearance,
+  showSelectedBadge,
 }: ColProps) {
   const colors = useColors();
   const styles = useStyles();
@@ -101,7 +104,7 @@ function DayColumn({
   const selectedBg = alpha(accent, 0.16);
   const iso = toISODate(date);
   const isToday = isSameDay(date, today);
-  const isSelected = isSameDay(date, selectedDate) && !isToday;
+  const isSelected = showSelectedBadge && isSameDay(date, selectedDate) && !isToday;
   // A task being dragged between columns must not scroll the column it left.
   const dragging = useDragActive();
 

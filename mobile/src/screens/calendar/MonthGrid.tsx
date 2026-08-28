@@ -436,7 +436,7 @@ function DayCell({
   const selectedBg = alpha(accent, 0.16);
   const iso = toISODate(date);
   const isToday = isSameDay(date, today);
-  const isSelected = isSameDay(date, selectedDate) && !isToday;
+  const isSelected = isSameDay(date, selectedDate) && !isToday && !inRange;
 
   const { ref, onLayout, isOver } = useDropTarget(
     dayTargetId(iso, 'month'),
