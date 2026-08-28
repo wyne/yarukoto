@@ -99,6 +99,11 @@ export default function NativeListNavigator() {
       initialRouteName={initial.screen}
       screenOptions={{ headerShown: false }}
     >
+      {/*
+        These are merged into the params of every later navigation here, not just
+        the first — so a caller that names only part of a view inherits the rest
+        of this one. `taskViewParams` is how callers say the whole thing.
+      */}
       <Stack.Screen
         name="Tasks"
         component={NativeTasksScreen}
