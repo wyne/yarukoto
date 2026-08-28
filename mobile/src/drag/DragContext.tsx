@@ -4,8 +4,16 @@ import { Point, Rect, resolveDropTarget } from './hitTest';
 import { hapticPickup, hapticTargetChange } from '../data/haptics';
 
 export interface DragPayload {
+  /** Primary task, retained for every existing single-task drag source. */
   taskId: string;
+  /** Present when one pickup carries a task selection. */
+  taskIds?: string[];
   title: string;
+}
+
+/** Normalizes old single-task sources and selection-aware sources for drop targets. */
+export function taskIdsFromDrag(payload: DragPayload): string[] {
+  return payload.taskIds?.length ? payload.taskIds : [payload.taskId];
 }
 
 interface TargetEntry {

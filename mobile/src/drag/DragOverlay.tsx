@@ -4,7 +4,7 @@ import { makeStyles } from '../theme/styles';
 import { fonts } from '../theme/typography';
 import { formatDueFull } from '../data/dateUtils';
 import { isoFromDayTarget } from './hitTest';
-import { useDrag, useDragOverId, useDragPayload } from './DragContext';
+import { taskIdsFromDrag, useDrag, useDragOverId, useDragPayload } from './DragContext';
 
 /** As wide as the pill may grow, and the box it is measured in. */
 const GHOST_WIDTH = 240;
@@ -31,6 +31,7 @@ export default function DragOverlay() {
   if (!payload) return null;
 
   const targetIso = overId ? isoFromDayTarget(overId) : null;
+  const taskCount = taskIdsFromDrag(payload).length;
 
   return (
     <Animated.View
@@ -40,7 +41,7 @@ export default function DragOverlay() {
       <View style={styles.ghost}>
         <Text style={styles.text} numberOfLines={1}>
           {targetIso && <Text style={styles.date}>{formatDueFull(targetIso)}: </Text>}
-          {payload.title}
+          {taskCount === 1 ? payload.title : `${taskCount} tasks`}
         </Text>
       </View>
     </Animated.View>

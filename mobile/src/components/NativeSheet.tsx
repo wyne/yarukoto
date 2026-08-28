@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef } from 'react';
-import { Keyboard, StyleProp, StyleSheet, Text, ViewStyle } from 'react-native';
+import { Keyboard, Pressable, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   BottomSheetBackdrop,
@@ -10,7 +10,7 @@ import {
   BottomSheetView,
 } from '@gorhom/bottom-sheet';
 import { makeStyles } from '../theme/styles';
-import { useColors } from '../theme/ThemeContext';
+import { useAccent, useColors } from '../theme/ThemeContext';
 import { fonts } from '../theme/typography';
 
 interface Props {
@@ -36,6 +36,11 @@ interface Props {
   background?: string;
   /** Optional bottom-sheet footer, useful for keyboard-adjacent floating controls. */
   footerComponent?: React.FC<BottomSheetFooterProps>;
+  /** How this sheet should be presented when another modal sheet is already open. */
+  stackBehavior?: 'push' | 'switch' | 'replace';
+  /** Optional action at the trailing edge of the title row. */
+  onDone?: () => void;
+  doneLabel?: string;
   children: React.ReactNode;
 }
 
@@ -59,10 +64,14 @@ export default function NativeSheet({
   contentStyle,
   background,
   footerComponent,
+  stackBehavior,
+  onDone,
+  doneLabel = 'Done',
   children,
 }: Props) {
   const styles = useStyles();
   const colors = useColors();
+  const accent = useAccent();
   const insets = useSafeAreaInsets();
   const ref = useRef<React.ElementRef<typeof BottomSheetModal>>(null);
   const onCloseRef = useRef(onClose);
@@ -130,6 +139,7 @@ export default function NativeSheet({
     <BottomSheetModal
       ref={ref}
       snapPoints={snapPoints}
+      stackBehavior={stackBehavior}
       enableDynamicSizing={!snapPoints}
       enablePanDownToClose
       enableOverDrag={false}
@@ -181,7 +191,21 @@ export default function NativeSheet({
           },
         ])}
       >
-        {!!title && <Text style={styles.title}>{title}</Text>}
+        {!!title && (
+          <View style={styles.header}>
+            <Text style={styles.title}>{title}</Text>
+            {!!onDone && (
+              <Pressable
+                onPress={onDone}
+                hitSlop={10}
+                accessibilityRole="button"
+                accessibilityLabel={doneLabel}
+              >
+                <Text style={[styles.done, { color: accent }]}>{doneLabel}</Text>
+              </Pressable>
+            )}
+          </View>
+        )}
         {children}
       </BottomSheetView>
     </BottomSheetModal>
@@ -205,10 +229,22 @@ const useStyles = makeStyles((c) => ({
   content: {
     paddingHorizontal: 16,
   },
+  header: {
+    minHeight: 24,
+    marginBottom: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
   title: {
+    flex: 1,
     fontFamily: fonts.sansSemiBold,
     fontSize: 16,
     color: c.textPrimary,
-    marginBottom: 12,
+  },
+  done: {
+    fontFamily: fonts.sansSemiBold,
+    fontSize: 15,
   },
 }));

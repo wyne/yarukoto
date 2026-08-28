@@ -9,6 +9,7 @@ import Card from '../../components/Card';
 import Divider from '../../components/Divider';
 import AgendaRow from './AgendaRow';
 import { dayTargetId } from '../../drag/hitTest';
+import { taskIdsFromDrag } from '../../drag/DragContext';
 import { Measurable, useDropTarget } from '../../drag/useDropTarget';
 
 interface Props {
@@ -17,7 +18,7 @@ interface Props {
   now: Date;
   onOpenTask: (taskId: string) => void;
   /** Plan only. Makes the whole group a drop target and its rows draggable. */
-  onDropTask?: (taskId: string, iso: string) => void;
+  onDropTask?: (taskIds: string[], iso: string) => void;
   /**
    * Only the part of the group inside this frame accepts drops. The agenda
    * scrolls under the month grid, so without a clip scrolled-off groups would
@@ -39,7 +40,7 @@ export default function AgendaDayGroup({ date, tasks, now, onOpenTask, onDropTas
 
   const { ref, onLayout, isOver } = useDropTarget(
     dayTargetId(iso, 'agenda'),
-    (payload) => onDropTask?.(payload.taskId, iso),
+    (payload) => onDropTask?.(taskIdsFromDrag(payload), iso),
     droppable,
     clipTo
   );

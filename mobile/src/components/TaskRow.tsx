@@ -11,6 +11,7 @@ import {
 import { makeStyles } from '../theme/styles';
 import { fonts } from '../theme/typography';
 import { useAccent, useColors } from '../theme/ThemeContext';
+import { selectionCheckColor } from '../theme/colors';
 import { Task, ListDef } from '../data/types';
 import { formatDueShort, isOverdue } from '../data/dateUtils';
 import TaskCheckbox from './TaskCheckbox';
@@ -23,6 +24,8 @@ interface Props {
   now: Date;
   selectionMode?: boolean;
   selected?: boolean;
+  /** Optional semantic tint for the selection ring, fill, and contrasting check. */
+  selectionColor?: string;
   /**
    * How much room there is beside the title.
    *
@@ -75,6 +78,7 @@ export default function TaskRow({
   now,
   selectionMode,
   selected,
+  selectionColor,
   showContext = true,
   hideListId,
   hideTag,
@@ -94,6 +98,7 @@ export default function TaskRow({
   const colors = useColors();
   const styles = useStyles();
   const accent = useAccent();
+  const selectedControlColor = selectionColor ?? accent;
   const [releasedActive, setReleasedActive] = useState(false);
   const dueLabel = hideDue ? null : formatDueShort(now, task.dueDate, task.dueTime);
   const overdue = isOverdue(now, task);
@@ -151,10 +156,18 @@ export default function TaskRow({
           <View
             style={[
               styles.selectCircle,
-              selected ? { backgroundColor: accent, borderColor: accent } : { borderColor: colors.ringNone },
+              selected
+                ? { backgroundColor: selectedControlColor, borderColor: selectedControlColor }
+                : { borderColor: selectionColor ?? colors.ringNone },
             ]}
           >
-            {selected && <IconCheckBig size={11} color="#fff" strokeWidth={1.8} />}
+            {selected && (
+              <IconCheckBig
+                size={11}
+                color={selectionColor ? selectionCheckColor(selectionColor) : '#fff'}
+                strokeWidth={1.8}
+              />
+            )}
           </View>
         </Pressable>
       ) : (

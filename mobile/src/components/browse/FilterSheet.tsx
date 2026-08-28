@@ -10,16 +10,18 @@ import { INBOX_LIST_ID, TaskCriteria } from '../../data/taskFilter';
 import BottomSheet from '../BottomSheet';
 import type { PopoverAnchor } from '../Popover';
 import { IconCheckBig } from '../../icons/Icons';
+import { SORT_BY_OPTIONS, SortBy } from '../../data/viewOptions';
 import { DUE_OPTIONS, STATUS_OPTIONS } from './filterOptions';
 
 /** Which chip was pressed, and so which set of choices the sheet is showing. */
-export type FilterKind = 'lists' | 'tags' | 'due' | 'status';
+export type FilterKind = 'lists' | 'tags' | 'due' | 'status' | 'sort';
 
 const TITLES: Record<FilterKind, string> = {
   lists: 'Lists',
   tags: 'Tags',
   due: 'Due',
   status: 'Status',
+  sort: 'Sort by',
 };
 
 interface Props {
@@ -27,6 +29,8 @@ interface Props {
   anchor: PopoverAnchor | null;
   criteria: TaskCriteria;
   onChange: (next: TaskCriteria) => void;
+  sortBy?: SortBy;
+  onSortChange?: (sortBy: SortBy) => void;
   onClose: () => void;
 }
 
@@ -40,9 +44,17 @@ function toggle(values: string[], value: string): string[] {
  *
  * Lists and tags stay open as you pick, because picking two is the ordinary
  * case and a sheet that shut on the first would make the second a second trip.
- * Due and status close on choice — there is only ever one answer to those.
+ * Due, status, and sort close on choice — there is only ever one answer to those.
  */
-export default function FilterSheet({ kind, anchor, criteria, onChange, onClose }: Props) {
+export default function FilterSheet({
+  kind,
+  anchor,
+  criteria,
+  onChange,
+  sortBy,
+  onSortChange,
+  onClose,
+}: Props) {
   const styles = useStyles();
   const { state } = useTasks();
 
@@ -54,6 +66,8 @@ export default function FilterSheet({ kind, anchor, criteria, onChange, onClose 
       onClose={onClose}
       title={kind ? TITLES[kind] : ''}
       anchor={anchor}
+      stackBehavior="push"
+      onDone={onClose}
     >
       <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
         {kind === 'lists' && (
@@ -80,6 +94,18 @@ export default function FilterSheet({ kind, anchor, criteria, onChange, onClose 
               selected={criteria.status === opt.value}
               onPress={() => {
                 onChange({ ...criteria, status: opt.value });
+                onClose();
+              }}
+            />
+          ))}
+        {kind === 'sort' &&
+          SORT_BY_OPTIONS.map((opt) => (
+            <Choice
+              key={opt.value}
+              label={opt.label}
+              selected={sortBy === opt.value}
+              onPress={() => {
+                onSortChange?.(opt.value);
                 onClose();
               }}
             />

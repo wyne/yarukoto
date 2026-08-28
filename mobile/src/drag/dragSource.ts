@@ -9,5 +9,9 @@ import { useDragSelector } from './DragContext';
  * dense lists clip them, while a background tint sits inside the item's own box.
  */
 export function useDragSource(taskId: string): boolean {
-  return useDragSelector((state) => state.payload?.taskId === taskId);
+  return useDragSelector((state) => {
+    const payload = state.payload;
+    if (!payload) return false;
+    return payload.taskIds?.includes(taskId) ?? payload.taskId === taskId;
+  });
 }

@@ -11,6 +11,7 @@ import { addDays, addMonths, buildMonthGrid, isSameDay, startOfDay, startOfWeek,
 import { Task } from '../../data/types';
 import Card from '../../components/Card';
 import { dayTargetId } from '../../drag/hitTest';
+import { taskIdsFromDrag } from '../../drag/DragContext';
 import { useDropTarget } from '../../drag/useDropTarget';
 
 const WEEKDAY_LETTERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
@@ -53,7 +54,7 @@ interface Props {
   onSelectDate: (date: Date) => void;
   onChangeMonth: (date: Date) => void;
   /** Plan view only: makes every day cell a drop target for scheduling. */
-  onDropTask?: (taskId: string, iso: string) => void;
+  onDropTask?: (taskIds: string[], iso: string) => void;
   /** Shades the span the day-column views are showing, so the grid doubles as a locator. */
   rangeStart?: Date;
   rangeEnd?: Date;
@@ -411,7 +412,7 @@ interface CellProps {
   dot: string | null;
   onSelectDate: (d: Date) => void;
   onChangeMonth: (d: Date) => void;
-  onDropTask?: (taskId: string, iso: string) => void;
+  onDropTask?: (taskIds: string[], iso: string) => void;
   inRange: boolean;
   isFirst: boolean;
   isLast: boolean;
@@ -440,7 +441,7 @@ function DayCell({
 
   const { ref, onLayout, isOver } = useDropTarget(
     dayTargetId(iso, 'month'),
-    (payload) => onDropTask?.(payload.taskId, iso),
+    (payload) => onDropTask?.(taskIdsFromDrag(payload), iso),
     !!onDropTask
   );
 

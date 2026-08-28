@@ -9,7 +9,7 @@ import { Task } from '../../data/types';
 import { dayTargetId } from '../../drag/hitTest';
 import { useDropTarget } from '../../drag/useDropTarget';
 import { useDraggable } from '../../drag/useDraggable';
-import { useDragActive } from '../../drag/DragContext';
+import { taskIdsFromDrag, useDragActive } from '../../drag/DragContext';
 import { useDragSource } from '../../drag/dragSource';
 
 interface Props {
@@ -20,7 +20,7 @@ interface Props {
   /** How many day columns to show. Defaults to a full week. */
   dayCount?: number;
   onSelectDate: (date: Date) => void;
-  onDropTask: (taskId: string, iso: string) => void;
+  onDropTask: (taskIds: string[], iso: string) => void;
   onOpenTask: (taskId: string) => void;
   /**
    * How far the grid holds off the bottom of the screen. A column is a bordered
@@ -81,7 +81,7 @@ interface ColProps {
   selectedDate: Date;
   tasks: Task[];
   onSelectDate: (d: Date) => void;
-  onDropTask: (taskId: string, iso: string) => void;
+  onDropTask: (taskIds: string[], iso: string) => void;
   onOpenTask: (taskId: string) => void;
   bottomClearance: number;
   showSelectedBadge: boolean;
@@ -108,7 +108,9 @@ function DayColumn({
   // A task being dragged between columns must not scroll the column it left.
   const dragging = useDragActive();
 
-  const { ref, onLayout, isOver } = useDropTarget(dayTargetId(iso, 'cols'), (payload) => onDropTask(payload.taskId, iso));
+  const { ref, onLayout, isOver } = useDropTarget(dayTargetId(iso, 'cols'), (payload) =>
+    onDropTask(taskIdsFromDrag(payload), iso)
+  );
 
   return (
     <View

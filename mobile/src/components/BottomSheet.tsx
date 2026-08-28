@@ -35,6 +35,11 @@ interface Props {
    * where there is no keyboard to be covered by.
    */
   keyboard?: boolean;
+  /** How a native modal should join an existing sheet stack. */
+  stackBehavior?: 'push' | 'switch' | 'replace';
+  /** Optional trailing action in the native sheet title row. */
+  onDone?: () => void;
+  doneLabel?: string;
   children: React.ReactNode;
 }
 
@@ -51,6 +56,9 @@ export default function BottomSheet({
   popoverWidth,
   onBack,
   keyboard,
+  stackBehavior,
+  onDone,
+  doneLabel,
   children,
 }: Props) {
   const colors = useColors();
@@ -80,6 +88,9 @@ export default function BottomSheet({
       onDismissed={onDismissed}
       title={title}
       keyboard={keyboard}
+      stackBehavior={stackBehavior}
+      onDone={onDone}
+      doneLabel={doneLabel}
     >
       {children}
     </NativeSheet>

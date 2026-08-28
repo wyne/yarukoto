@@ -224,6 +224,20 @@ export function priorityColor(
   }
 }
 
+/** Chooses the higher-contrast task-selection check for a solid hex fill. */
+export function selectionCheckColor(background: string): '#FFFFFF' | '#1A1A18' {
+  const hex = background.replace('#', '');
+  if (!/^[0-9a-f]{6}$/i.test(hex)) return '#FFFFFF';
+  const channels = [0, 2, 4].map((offset) => {
+    const value = parseInt(hex.slice(offset, offset + 2), 16) / 255;
+    return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+  });
+  const luminance = 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2];
+  const lightContrast = 1.05 / (luminance + 0.05);
+  const darkContrast = (luminance + 0.05) / 0.06;
+  return lightContrast >= darkContrast ? '#FFFFFF' : '#1A1A18';
+}
+
 /** Fades a six-digit hex colour into an rgba() string for runtime accent tints. */
 export function alpha(hex: string, opacity: number): string {
   const clean = hex.replace('#', '');
