@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useRef } from 'react';
 import { Keyboard, StyleProp, StyleSheet, Text, ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -88,7 +88,7 @@ export default function NativeSheet({
    */
   const presentedRef = useRef(false);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (visible) {
       shownRef.current = false;
       presentedRef.current = true;
