@@ -13,23 +13,27 @@ import {
   isEmptyCriteria,
 } from '../../data/taskFilter';
 import type { PopoverAnchor } from '../Popover';
+import { SortBy, sortLabel } from '../../data/viewOptions';
 import FilterSheet, { FilterKind } from './FilterSheet';
 import { dueLabel, statusLabel } from './filterOptions';
 
 interface Props {
   criteria: TaskCriteria;
   onChange: (next: TaskCriteria) => void;
+  sortBy?: SortBy;
+  onSortChange?: (sortBy: SortBy) => void;
 }
 
 /**
- * The four filters, as chips that say what they are currently set to.
+ * The filters, plus an optional sort control, as chips that say what they are
+ * currently set to.
  *
  * A chip reads as its own answer rather than its name — "Overdue", "2 lists" —
  * so the row states the whole question at a glance and there is nothing to open
  * to find out what is being applied. Only a chip that narrows something is
  * filled; the rest name the dimension and stay quiet.
  */
-export default function FilterBar({ criteria, onChange }: Props) {
+export default function FilterBar({ criteria, onChange, sortBy, onSortChange }: Props) {
   const hoverBg = useHoverBg();
   const colors = useColors();
   const styles = useStyles();
@@ -119,6 +123,9 @@ export default function FilterBar({ criteria, onChange }: Props) {
           criteria.status === EMPTY_CRITERIA.status ? 'Status' : statusLabel(criteria.status),
           criteria.status !== EMPTY_CRITERIA.status
         )}
+        {sortBy !== undefined &&
+          onSortChange &&
+          chip('sort', sortBy === 'manual' ? 'Sort by' : `Sort: ${sortLabel(sortBy)}`, sortBy !== 'manual')}
         {/* Only worth offering once there is something to undo, and it takes the
             query with it — the field is part of the question being cleared. */}
         {!isEmptyCriteria(criteria) && (
@@ -137,6 +144,8 @@ export default function FilterBar({ criteria, onChange }: Props) {
         anchor={anchor}
         criteria={criteria}
         onChange={onChange}
+        sortBy={sortBy}
+        onSortChange={onSortChange}
         onClose={() => setOpen(null)}
       />
     </>

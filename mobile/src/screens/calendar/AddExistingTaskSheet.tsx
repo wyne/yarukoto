@@ -15,6 +15,7 @@ import { useAccent, useColors } from '../../theme/ThemeContext';
 import { useTasks } from '../../data/TaskContext';
 import { getListById } from '../../data/selectors';
 import { EMPTY_CRITERIA, TaskCriteria, filterTasks } from '../../data/taskFilter';
+import { SortBy, sortTasks } from '../../data/viewOptions';
 import { LIQUID_GLASS } from '../../data/platform';
 import { nativeTabBarClearance } from '../../navigation/nativeTabBarLayout';
 import { closeOpenSwipeRow } from '../../components/SwipeableRow';
@@ -118,6 +119,7 @@ export default function AddExistingTaskSheet({ visible, onClose }: SheetProps) {
   const scrimOpacity = colors.scrimOpacity;
   const titleIconColor = colors.textSecondary;
   const [criteria, setCriteria] = useState<TaskCriteria>(EMPTY_CRITERIA);
+  const [sortBy, setSortBy] = useState<SortBy>('manual');
   const ref = useRef<React.ElementRef<typeof BottomSheetModal>>(null);
   const presented = useRef(false);
   const expanding = useRef(false);
@@ -147,10 +149,15 @@ export default function AddExistingTaskSheet({ visible, onClose }: SheetProps) {
   }, [dragging]);
 
   const tasks = useMemo(
-    () => filterTasks(state.tasks, criteria, { lists: state.lists, now }),
+    () =>
+      sortTasks(filterTasks(state.tasks, criteria, { lists: state.lists, now }), {
+        groupBy: 'none',
+        sortBy,
+        arrangements: {},
+      }),
     // `now` only affects date buckets; reopening/re-rendering catches changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [criteria, state.lists, state.tasks]
+    [criteria, sortBy, state.lists, state.tasks]
   );
 
   const close = useCallback(() => {
@@ -270,7 +277,12 @@ export default function AddExistingTaskSheet({ visible, onClose }: SheetProps) {
           returnKeyType="search"
           clearButtonMode="while-editing"
         />
-        <FilterBar criteria={criteria} onChange={setCriteria} />
+        <FilterBar
+          criteria={criteria}
+          onChange={setCriteria}
+          sortBy={sortBy}
+          onSortChange={setSortBy}
+        />
         <BottomSheetScrollView
           style={styles.resultsFrame}
           showsVerticalScrollIndicator
