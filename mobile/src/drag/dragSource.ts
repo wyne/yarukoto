@@ -1,4 +1,4 @@
-import { useDrag } from './DragContext';
+import { useDragSelector } from './DragContext';
 
 /**
  * True while `taskId` is the task currently being dragged — the row to mark as
@@ -9,6 +9,5 @@ import { useDrag } from './DragContext';
  * dense lists clip them, while a background tint sits inside the item's own box.
  */
 export function useDragSource(taskId: string): boolean {
-  const { payload } = useDrag();
-  return payload?.taskId === taskId;
+  return useDragSelector((state) => state.payload?.taskId === taskId);
 }

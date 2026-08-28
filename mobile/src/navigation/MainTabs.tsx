@@ -24,6 +24,7 @@ import { DetailProvider, useDetail } from './DetailContext';
 import { SelectionProvider, useSelection } from './SelectionContext';
 import Sidebar, { SIDEBAR_WIDTH } from '../components/Sidebar';
 import { closeOpenSwipeRow, swipeRowOpen } from '../components/SwipeableRow';
+import { drawerSwipeClaimed } from './drawerSwipe';
 import SidebarDrawer from '../components/SidebarDrawer';
 import TaskDetailView from '../components/TaskDetailView';
 import TaskDetailSheet from '../components/TaskDetailSheet';
@@ -118,8 +119,8 @@ function Layout() {
   const bulk = WEB_ENTRY && selectedIds.length > 0;
   const showPane = wide && (bulk || !!openTaskId);
 
-  /** Set for the length of a swipe that turned out to be shutting a row. */
-  const blockedByRow = useSharedValue(false);
+  /** Set for the length of a swipe something nearer the finger has a claim on. */
+  const blocked = useSharedValue(false);
 
   /**
    * Swipe right anywhere in the app to pull the drawer out.
@@ -128,6 +129,10 @@ function Layout() {
    * left to reveal its actions and nothing swipes right, so the whole list is an
    * unclaimed surface for it. An edge strip was the cautious version of this and
    * it was hard to hit — a gesture you have to aim for is one you stop using.
+   *
+   * A screen whose own content is dragged rightward takes it back for as long as
+   * it is in front — see `useClaimDrawerSwipe`. Being the whole screen is what
+   * makes the gesture findable and also what makes it collide.
    *
    * The detector has to be out here rather than on the drawer. The drawer is in
    * a window of its own, and a separate window cannot pass a touch it does not
@@ -147,16 +152,16 @@ function Layout() {
       // A rightward drag is also how an open row is shut, and that reading wins
       // — it is the nearer thing to the finger. Do it here rather than leave the
       // two gestures to fight over the touch, since this one may well have taken
-      // it already.
-      blockedByRow.value = swipeRowOpen.value;
-      if (blockedByRow.value) scheduleOnRN(closeOpenSwipeRow);
+      // it already. The screen in front gets the same right of way.
+      blocked.value = swipeRowOpen.value || drawerSwipeClaimed.value;
+      if (swipeRowOpen.value) scheduleOnRN(closeOpenSwipeRow);
     })
     .onUpdate((e) => {
-      if (blockedByRow.value) return;
+      if (blocked.value) return;
       drawerProgress.value = Math.min(1, Math.max(0, e.translationX / SIDEBAR_WIDTH));
     })
     .onEnd((e) => {
-      if (blockedByRow.value) return;
+      if (blocked.value) return;
       // A flick opens it from anywhere; otherwise it goes wherever it is nearer.
       const opening = e.velocityX > SWIPE_FLING || (e.velocityX >= 0 && drawerProgress.value > 0.5);
       if (opening) {

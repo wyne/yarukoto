@@ -20,7 +20,7 @@ import { closeOpenSwipeRow } from '../../components/SwipeableRow';
 import Divider from '../../components/Divider';
 import BottomSheet from '../../components/BottomSheet';
 import { useDraggable } from '../../drag/useDraggable';
-import { useDrag } from '../../drag/DragContext';
+import { useDragActive } from '../../drag/DragContext';
 import { useDragSource } from '../../drag/dragSource';
 import { IconChevronDown } from '../../icons/Icons';
 
@@ -51,7 +51,7 @@ export default function SchedulePane() {
   const { openTask } = useDetail();
   // A drag is heading for the calendar, not the list — lock the list's scroll so
   // the finger can carry the ghost out without the ScrollView stealing the pan.
-  const { payload } = useDrag();
+  const dragging = useDragActive();
   const now = new Date();
 
   const [scope, setScope] = useState<Scope>(UNSCHEDULED);
@@ -84,7 +84,7 @@ export default function SchedulePane() {
         contentContainerStyle={styles.scroll}
         showsVerticalScrollIndicator={false}
         onScrollBeginDrag={closeOpenSwipeRow}
-        scrollEnabled={!payload}
+        scrollEnabled={!dragging}
       >
         {tasks.length === 0 ? (
           <Text style={styles.empty}>Nothing here.</Text>
