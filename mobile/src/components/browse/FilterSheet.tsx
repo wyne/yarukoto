@@ -54,6 +54,8 @@ export default function FilterSheet({ kind, anchor, criteria, onChange, onClose 
       onClose={onClose}
       title={kind ? TITLES[kind] : ''}
       anchor={anchor}
+      stackBehavior="push"
+      onDone={onClose}
     >
       <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
         {kind === 'lists' && (
