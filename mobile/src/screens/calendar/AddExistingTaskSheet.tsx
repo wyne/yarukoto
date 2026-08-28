@@ -27,6 +27,7 @@ import { useDraggable } from '../../drag/useDraggable';
 import { useDragActive } from '../../drag/DragContext';
 import { useDragSource } from '../../drag/dragSource';
 import { useDropTarget } from '../../drag/useDropTarget';
+import { hapticSelect } from '../../data/haptics';
 import { IconCalendarBox, IconPlus } from '../../icons/Icons';
 import { Task } from '../../data/types';
 
@@ -120,6 +121,7 @@ export default function AddExistingTaskSheet({ visible, onClose }: SheetProps) {
   const titleIconColor = colors.textSecondary;
   const [criteria, setCriteria] = useState<TaskCriteria>(EMPTY_CRITERIA);
   const [sortBy, setSortBy] = useState<SortBy>('manual');
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const ref = useRef<React.ElementRef<typeof BottomSheetModal>>(null);
   const presented = useRef(false);
   const expanding = useRef(false);
@@ -159,12 +161,34 @@ export default function AddExistingTaskSheet({ visible, onClose }: SheetProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [criteria, sortBy, state.lists, state.tasks]
   );
+  const selectedIdSet = useMemo(() => new Set(selectedIds), [selectedIds]);
 
   const close = useCallback(() => {
     expanding.current = false;
     onClose();
     ref.current?.snapToIndex(0);
   }, [onClose]);
+
+  const updateCriteria = useCallback((next: TaskCriteria) => {
+    setSelectedIds([]);
+    setCriteria(next);
+  }, []);
+  const updateSort = useCallback((next: SortBy) => {
+    setSelectedIds([]);
+    setSortBy(next);
+  }, []);
+  const toggleSelected = useCallback((taskId: string) => {
+    hapticSelect();
+    setSelectedIds((current) =>
+      current.includes(taskId) ? current.filter((id) => id !== taskId) : [...current, taskId]
+    );
+  }, []);
+  // The payload has captured the ids by this point. Clearing here means the next
+  // time the preserved sheet opens it starts ready for another assignment.
+  const finishPickup = useCallback(() => {
+    close();
+    setSelectedIds([]);
+  }, [close]);
 
   // The sheet renders a new backdrop *element type* whenever this callback
   // changes identity, and React answers a changed type by remounting: the scrim
@@ -269,7 +293,7 @@ export default function AddExistingTaskSheet({ visible, onClose }: SheetProps) {
       <View style={styles.content}>
         <TextInput
           value={criteria.query}
-          onChangeText={(query) => setCriteria({ ...criteria, query })}
+          onChangeText={(query) => updateCriteria({ ...criteria, query })}
           placeholder="Search tasks and tags"
           placeholderTextColor={colors.textFaint}
           style={styles.searchInput}
@@ -279,12 +303,16 @@ export default function AddExistingTaskSheet({ visible, onClose }: SheetProps) {
         />
         <FilterBar
           criteria={criteria}
-          onChange={setCriteria}
+          onChange={updateCriteria}
           sortBy={sortBy}
-          onSortChange={setSortBy}
+          onSortChange={updateSort}
         />
         <Text style={styles.hint}>
-          Long press a task to pick it up and place it on the calendar.
+          {selectedIds.length > 0
+            ? `${selectedIds.length} selected. Long press a selected task to place ${
+                selectedIds.length === 1 ? 'it' : 'them'
+              } on the calendar.`
+            : 'Long press a task to place it on the calendar. Tap tasks to select multiple.'}
         </Text>
         <BottomSheetScrollView
           style={styles.resultsFrame}
@@ -303,7 +331,14 @@ export default function AddExistingTaskSheet({ visible, onClose }: SheetProps) {
             <Card>
               {tasks.map((task, i) => (
                 <View key={task.id}>
-                  <DraggableTask task={task} now={now} onPickup={close} />
+                  <DraggableTask
+                    task={task}
+                    now={now}
+                    selectedIds={selectedIds}
+                    selected={selectedIdSet.has(task.id)}
+                    onToggleSelected={() => toggleSelected(task.id)}
+                    onPickup={finishPickup}
+                  />
                   {i < tasks.length - 1 && <Divider />}
                 </View>
               ))}
@@ -315,10 +350,28 @@ export default function AddExistingTaskSheet({ visible, onClose }: SheetProps) {
   );
 }
 
-function DraggableTask({ task, now, onPickup }: { task: Task; now: Date; onPickup: () => void }) {
+function DraggableTask({
+  task,
+  now,
+  selectedIds,
+  selected,
+  onToggleSelected,
+  onPickup,
+}: {
+  task: Task;
+  now: Date;
+  selectedIds: string[];
+  selected: boolean;
+  onToggleSelected: () => void;
+  onPickup: () => void;
+}) {
   const styles = useStyles();
   const { state, toggleComplete, snoozeTask } = useTasks();
-  const { onLongPress, ...handlers } = useDraggable({ taskId: task.id, title: task.title });
+  const { onLongPress, ...handlers } = useDraggable({
+    taskId: task.id,
+    taskIds: selected ? selectedIds : [task.id],
+    title: task.title,
+  });
   const isSource = useDragSource(task.id);
 
   return (
@@ -328,8 +381,10 @@ function DraggableTask({ task, now, onPickup }: { task: Task; now: Date; onPicku
         list={getListById(state.lists, task.listId)}
         now={now}
         showContext="tags"
+        selectionMode
+        selected={selected}
         dragSource={isSource}
-        onPress={() => undefined}
+        onPress={onToggleSelected}
         onLongPress={(event) => {
           onLongPress(event);
           requestAnimationFrame(onPickup);

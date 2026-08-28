@@ -46,7 +46,7 @@ export default function CalendarScreen() {
   const refreshControl = useSyncRefresh();
   const { wide, openDrawer } = useSidebar();
   const { openTask } = useDetail();
-  const { state, updateTask, addTaskFromQuickAdd } = useTasks();
+  const { state, bulkUpdate, addTaskFromQuickAdd } = useTasks();
   // While a drag is in flight, the agenda must not scroll under the finger — the
   // whole point is carrying the task up out of the list onto the calendar. The
   // boolean, not the payload: this is the root of the screen, and it should wake
@@ -106,8 +106,8 @@ export default function CalendarScreen() {
 
   // Scheduling only sets the date — an existing time of day is left alone, and the
   // day you're looking at stays put rather than following the drop.
-  const scheduleTask = (taskId: string, iso: string) => {
-    updateTask(taskId, { dueDate: iso });
+  const scheduleTasks = (taskIds: string[], iso: string) => {
+    bulkUpdate(taskIds, { dueDate: iso });
   };
 
   // Switching views re-anchors the day range to the date you were looking at, so
@@ -251,7 +251,7 @@ export default function CalendarScreen() {
                 byDate={byDate}
                 onSelectDate={pickDate}
                 onChangeMonth={setMonthAnchor}
-                onDropTask={scheduleTask}
+                onDropTask={scheduleTasks}
                 rangeStart={rangeStart}
                 rangeEnd={rangeEnd}
                 weekView={weekView}
@@ -266,7 +266,7 @@ export default function CalendarScreen() {
               today={today}
               byDate={byDate}
               onSelectDate={pickDate}
-              onDropTask={scheduleTask}
+              onDropTask={scheduleTasks}
               onOpenTask={openTask}
               // The columns are boxes, not a list: their frames have to stop
               // above the tab bar rather than run under it, which then leaves
@@ -285,7 +285,7 @@ export default function CalendarScreen() {
                 byDate={byDate}
                 onSelectDate={setSelectedDate}
                 onChangeMonth={setMonthAnchor}
-                onDropTask={scheduleTask}
+                onDropTask={scheduleTasks}
                 weekView={weekView}
                 onWeekViewChange={(next) => updatePrefs({ weekView: next })}
               />
@@ -322,7 +322,7 @@ export default function CalendarScreen() {
                   tasks={tasks}
                   now={today}
                   onOpenTask={openTask}
-                  onDropTask={scheduleTask}
+                  onDropTask={scheduleTasks}
                   clipTo={agendaRef as unknown as React.RefObject<Measurable | null>}
                 />
               ))}
