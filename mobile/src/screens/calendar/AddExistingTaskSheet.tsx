@@ -26,6 +26,7 @@ import TaskRow from '../../components/TaskRow';
 import { useDraggable } from '../../drag/useDraggable';
 import { useDragActive } from '../../drag/DragContext';
 import { useDragSource } from '../../drag/dragSource';
+import { useDropTarget } from '../../drag/useDropTarget';
 import { IconCalendarBox, IconPlus } from '../../icons/Icons';
 import { Task } from '../../data/types';
 
@@ -43,24 +44,39 @@ const EXPANDED_HEIGHT = 430;
 
 export function AddExistingTaskButton({ onPress }: ButtonProps) {
   const styles = useStyles();
+  const colors = useColors();
   const accent = useAccent();
   const insets = useSafeAreaInsets();
+  const dragging = useDragActive();
+  const { ref, onLayout, isOver } = useDropTarget('calendar/cancel-add-existing', () => undefined);
+  const tint = dragging ? colors.priorityHigh : accent;
 
   return (
     <View
+      ref={ref}
+      onLayout={onLayout}
       pointerEvents="box-none"
       style={[styles.buttonAnchor, { bottom: nativeTabBarClearance(insets.bottom) }]}
     >
-      <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel="Add existing task">
+      <Pressable
+        onPress={onPress}
+        disabled={dragging}
+        accessibilityRole="button"
+        accessibilityLabel={dragging ? 'Cancel task drag' : 'Add existing task'}
+      >
         {LIQUID_GLASS ? (
-          <GlassView style={styles.glassButton} tintColor={accent} isInteractive>
-            <IconPlus size={16} color="#fff" strokeWidth={2} />
-            <Text style={styles.glassButtonText}>Add existing</Text>
+          <GlassView
+            style={[styles.glassButton, isOver && styles.cancelOver]}
+            tintColor={tint}
+            isInteractive={!dragging}
+          >
+            {!dragging && <IconPlus size={16} color="#fff" strokeWidth={2} />}
+            <Text style={styles.glassButtonText}>{dragging ? 'Cancel' : 'Add existing'}</Text>
           </GlassView>
         ) : (
-          <View style={[styles.flatButton, { backgroundColor: accent }]}>
-            <IconPlus size={16} color="#fff" strokeWidth={2} />
-            <Text style={styles.glassButtonText}>Add existing</Text>
+          <View style={[styles.flatButton, { backgroundColor: tint }, isOver && styles.cancelOver]}>
+            {!dragging && <IconPlus size={16} color="#fff" strokeWidth={2} />}
+            <Text style={styles.glassButtonText}>{dragging ? 'Cancel' : 'Add existing'}</Text>
           </View>
         )}
       </Pressable>
@@ -182,7 +198,9 @@ export default function AddExistingTaskSheet({ visible, onClose }: SheetProps) {
         />
         <FilterBar criteria={criteria} onChange={setCriteria} />
         <BottomSheetScrollView
-          showsVerticalScrollIndicator={false}
+          style={styles.resultsFrame}
+          showsVerticalScrollIndicator
+          indicatorStyle="default"
           onScrollBeginDrag={closeOpenSwipeRow}
           contentContainerStyle={styles.results}
           keyboardShouldPersistTaps="handled"
@@ -262,6 +280,9 @@ const useStyles = makeStyles((c) => ({
     shadowOffset: { width: 0, height: 5 },
     elevation: 8,
   },
+  cancelOver: {
+    transform: [{ scale: 1.06 }],
+  },
   glassButtonText: {
     fontFamily: fonts.sansSemiBold,
     fontSize: 15,
@@ -322,6 +343,9 @@ const useStyles = makeStyles((c) => ({
   results: {
     paddingHorizontal: 12,
     paddingBottom: 16,
+  },
+  resultsFrame: {
+    flex: 1,
   },
   empty: {
     textAlign: 'center',
