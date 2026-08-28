@@ -29,7 +29,7 @@ import { useCollapsedSections } from '../data/uiPrefs';
 import { Task } from '../data/types';
 import { TaskListFilter } from '../navigation/types';
 import { PANE_MAX_WIDTH, useSidebar } from '../navigation/SidebarContext';
-import { NATIVE_TAB_CONTENT_PADDING } from '../navigation/nativeTabBarLayout';
+import { NATIVE_FAB_CLEARANCE, nativeTabBarClearance } from '../navigation/nativeTabBarLayout';
 import { useDetail } from '../navigation/DetailContext';
 import { useSelection } from '../navigation/SelectionContext';
 import TaskRow from '../components/TaskRow';
@@ -393,6 +393,12 @@ export default function TaskListScreen({ mode, filter }: Props) {
     return undefined;
   })();
   const canQuickAdd = filter?.type !== 'folder' || folderLists.length > 0;
+
+  // The list scrolls to the screen edge with both the tab bar and the FAB
+  // standing on it, so the last row has to come out from under the pair. Applied
+  // whether or not the button is up, so entering selection mode — which hides it
+  // — doesn't shift the rows underneath the finger that started it.
+  const bottomChrome = nativeTabBarClearance(insets.bottom) + NATIVE_FAB_CLEARANCE;
   const quickAddLabel =
     filter?.type === 'folder' ? folderLists[0]?.name : filter ? filter.label : mode === 'today' ? 'Today' : undefined;
 
@@ -598,7 +604,7 @@ export default function TaskListScreen({ mode, filter }: Props) {
         contentContainerStyle={[
           styles.scrollContent,
           !WEB_ENTRY && styles.scrollContentFab,
-          !WEB_ENTRY && !wide && styles.scrollContentMobileTabs,
+          !WEB_ENTRY && !wide && { paddingBottom: bottomChrome },
           wide && styles.paneWide,
         ]}
         keyboardShouldPersistTaps="handled"
@@ -869,9 +875,6 @@ const useStyles = makeStyles((c) => ({
   /** Clears the floating button so it never covers the last row. */
   scrollContentFab: {
     paddingBottom: 96,
-  },
-  scrollContentMobileTabs: {
-    paddingBottom: NATIVE_TAB_CONTENT_PADDING,
   },
   quickAddBand: {
     paddingBottom: 2,
