@@ -67,7 +67,7 @@ export default function CalendarScreen() {
   // Layout and the completed filter are how this screen is set up, not where you
   // are in it — so they're restored, while the date always opens on today.
   const [prefs, setPrefs] = useState(loadPlanPrefs);
-  const { mode, showCompleted } = prefs;
+  const { mode, showCompleted, weekView } = prefs;
   const updatePrefs = (patch: Partial<typeof prefs>) => {
     const next = { ...prefs, ...patch };
     setPrefs(next);
@@ -248,6 +248,8 @@ export default function CalendarScreen() {
                 onDropTask={scheduleTask}
                 rangeStart={rangeStart}
                 rangeEnd={rangeEnd}
+                weekView={weekView}
+                onWeekViewChange={(next) => updatePrefs({ weekView: next })}
               />
             </View>
             {completedToggle}
@@ -278,6 +280,8 @@ export default function CalendarScreen() {
                 onSelectDate={setSelectedDate}
                 onChangeMonth={setMonthAnchor}
                 onDropTask={scheduleTask}
+                weekView={weekView}
+                onWeekViewChange={(next) => updatePrefs({ weekView: next })}
               />
             </View>
             {completedToggle}
@@ -397,8 +401,9 @@ const useStyles = makeStyles((c) => ({
   quickAdd: { paddingHorizontal: 12, paddingTop: 4 },
   // ScrollView must not paint its scrolled-off content out past its frame — a
   // day group peeking above the viewport is exactly the "under the calendar"
-  // artefact the clip is there to prevent.
-  agendaFrame: { overflow: 'hidden' },
+  // artefact the clip is there to prevent. The flex is what lets it take the
+  // height the calendar hands back when the month is collapsed to a week.
+  agendaFrame: { flex: 1, overflow: 'hidden' },
   agenda: {
     /** Reaches the bottom on a light day. See TaskListScreen's `scrollContent`. */
     flexGrow: 1,

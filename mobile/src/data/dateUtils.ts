@@ -10,8 +10,19 @@ export function startOfDay(d: Date): Date {
   return out;
 }
 
+/**
+ * Counted in calendar days, not in 24-hour blocks.
+ *
+ * A day is 23 or 25 hours across a daylight-saving change, so adding multiples
+ * of DAY_MS drifts an hour either side of midnight and lands twice on the same
+ * date: buildMonthGrid walks 42 days from one start, and a month spanning the
+ * autumn change produced the 1st twice and dropped the last day — which React
+ * saw as two children with the same key.
+ */
 export function addDays(d: Date, n: number): Date {
-  return new Date(startOfDay(d).getTime() + n * DAY_MS);
+  const out = startOfDay(d);
+  out.setDate(out.getDate() + n);
+  return out;
 }
 
 export function addMonths(d: Date, n: number): Date {
