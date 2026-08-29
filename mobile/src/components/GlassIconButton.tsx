@@ -8,6 +8,13 @@ import { useHoverBg } from '../theme/hover';
 const SIZE = 44;
 
 /**
+ * Height of the compact text capsule. Secondary controls that sit in a filter
+ * row above the content they filter, rather than in a header, where a full 44pt
+ * capsule reads as a header bar of its own and eats the day view below it.
+ */
+const COMPACT_SIZE = 32;
+
+/**
  * Gap between capsules in a group, and the distance at which the glass in a
  * group starts to flow together. Spacing above the gap is what fuses a row of
  * capsules into one bar, the way the system toolbars read.
@@ -15,6 +22,8 @@ const SIZE = 44;
 const GROUP_GAP = 6;
 const GROUP_SPACING = 10;
 const JoinedGlassGroupContext = createContext(false);
+
+const COMPACT_SLOP = { top: (SIZE - COMPACT_SIZE) / 2, bottom: (SIZE - COMPACT_SIZE) / 2 };
 
 interface Props {
   onPress: () => void;
@@ -31,11 +40,18 @@ interface TextButtonProps {
   onPress: () => void;
   label: string;
   children: ReactNode;
+  /** Shrinks the capsule to {@link COMPACT_SIZE} for a secondary control. */
+  compact?: boolean;
 }
 
 interface MenuLabelProps {
   label: string;
   children: ReactNode;
+}
+
+interface TextMenuLabelProps extends MenuLabelProps {
+  /** Shrinks the capsule to {@link COMPACT_SIZE} for a secondary control. */
+  compact?: boolean;
 }
 
 /**
@@ -131,7 +147,7 @@ export function GlassIconMenuLabel({ label, children }: MenuLabelProps) {
 }
 
 /** Text label for a native menu trigger, keeping the menu gesture system-owned. */
-export function GlassTextMenuLabel({ label, children }: MenuLabelProps) {
+export function GlassTextMenuLabel({ label, children, compact = false }: TextMenuLabelProps) {
   if (!LIQUID_GLASS) {
     return (
       <View
@@ -139,7 +155,7 @@ export function GlassTextMenuLabel({ label, children }: MenuLabelProps) {
         accessible
         accessibilityRole="button"
         accessibilityLabel={label}
-        style={styles.flatTextMenuLabel}
+        style={[styles.flatTextMenuLabel, compact && styles.flatTextMenuCompact]}
       >
         {children}
       </View>
@@ -148,13 +164,13 @@ export function GlassTextMenuLabel({ label, children }: MenuLabelProps) {
 
   return (
     <View pointerEvents="none" accessible accessibilityRole="button" accessibilityLabel={label}>
-      <GlassView style={styles.glassTextButton}>{children}</GlassView>
+      <GlassView style={[styles.glassTextButton, compact && styles.glassTextCompact]}>{children}</GlassView>
     </View>
   );
 }
 
 /** A compact text action that uses the same native glass treatment as header icons. */
-export function GlassTextButton({ onPress, label, children }: TextButtonProps) {
+export function GlassTextButton({ onPress, label, children, compact = false }: TextButtonProps) {
   if (!LIQUID_GLASS) {
     return (
       <Pressable
@@ -169,8 +185,15 @@ export function GlassTextButton({ onPress, label, children }: TextButtonProps) {
   }
 
   return (
-    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={label}>
-      <GlassView style={styles.glassTextButton} isInteractive>
+    // The compact capsule is shorter than a finger, so the slop puts the touch
+    // target back at 44 without the glass having to be that tall.
+    <Pressable
+      onPress={onPress}
+      hitSlop={compact ? COMPACT_SLOP : undefined}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+    >
+      <GlassView style={[styles.glassTextButton, compact && styles.glassTextCompact]} isInteractive>
         {children}
       </GlassView>
     </Pressable>
@@ -252,6 +275,13 @@ const styles = StyleSheet.create({
     height: SIZE,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  glassTextCompact: {
+    height: COMPACT_SIZE,
+    borderRadius: COMPACT_SIZE / 2,
+  },
+  flatTextMenuCompact: {
+    minHeight: COMPACT_SIZE,
   },
   glassTextButton: {
     minWidth: 68,
