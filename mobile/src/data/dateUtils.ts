@@ -125,6 +125,12 @@ export function formatDueShort(now: Date, dueDate?: string, dueTime?: string): s
   return base;
 }
 
+/** "Aug 30 – Sep 5", or "Aug 3 – 9" when both ends are in the same month. */
+export function dayRangeLabel(start: Date, end: Date): string {
+  const tail = start.getMonth() === end.getMonth() ? `${end.getDate()}` : `${monthShort(end)} ${end.getDate()}`;
+  return `${monthShort(start)} ${start.getDate()} – ${tail}`;
+}
+
 export function isOverdue(now: Date, task: { dueDate?: string; completed: boolean }): boolean {
   if (!task.dueDate || task.completed) return false;
   return isBeforeDay(fromISODate(task.dueDate), now);

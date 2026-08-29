@@ -47,12 +47,18 @@ function startOfMonth(d: Date): Date {
 }
 
 interface Props {
-  monthAnchor: Date;
+  /**
+   * What the grid is showing: the month containing this date when expanded, the
+   * week containing it when collapsed. The calendar pages this on its own and
+   * moves nothing else, so it drifts away from `selectedDate` freely — and since
+   * one date answers both questions, changing height never has to move it.
+   */
+  anchor: Date;
   selectedDate: Date;
   today: Date;
   byDate: Map<string, Task[]>;
   onSelectDate: (date: Date) => void;
-  onChangeMonth: (date: Date) => void;
+  onChangeAnchor: (date: Date) => void;
   /** Plan view only: makes every day cell a drop target for scheduling. */
   onDropTask?: (taskIds: string[], iso: string) => void;
   /** Shades the span the day-column views are showing, so the grid doubles as a locator. */
@@ -95,12 +101,12 @@ interface Props {
  * pulling down, while there is still only one row showing to see it in.
  */
 export default function MonthGrid({
-  monthAnchor,
+  anchor,
   selectedDate,
   today,
   byDate,
   onSelectDate,
-  onChangeMonth,
+  onChangeAnchor,
   onDropTask,
   rangeStart,
   rangeEnd,
@@ -136,21 +142,32 @@ export default function MonthGrid({
   const [weeks, setWeeks] = useState(weekView);
   useEffect(() => setWeeks(weekView), [weekView]);
 
-  const pages = useMemo(() => {
-    if (weeks) {
-      const start = startOfWeek(selectedDate);
-      return [addDays(start, -7), start, addDays(start, 7)];
-    }
-    return [addMonths(monthAnchor, -1), monthAnchor, addMonths(monthAnchor, 1)];
-  }, [weeks, selectedDate, monthAnchor]);
+  /** The anchor read as whichever unit the pages are. */
+  const pageAnchor = useMemo(
+    () => (weeks ? startOfWeek(anchor) : startOfMonth(anchor)),
+    [weeks, anchor]
+  );
 
-  /** Which row of the month the selected day sits on — the one a collapse keeps. */
-  const selectedRow = useMemo(() => {
+  const pages = useMemo(
+    () =>
+      weeks
+        ? [addDays(pageAnchor, -7), pageAnchor, addDays(pageAnchor, 7)]
+        : [addMonths(pageAnchor, -1), pageAnchor, addMonths(pageAnchor, 1)],
+    [weeks, pageAnchor]
+  );
+
+  /**
+   * Which row of the month is the single visible one: the row a collapse closes
+   * onto, and the row an open grows back out of. Both are the anchor's week, so
+   * the height gesture is reversible — collapse, open, collapse again and the
+   * same week comes back rather than the selection's.
+   */
+  const visibleRow = useMemo(() => {
     if (weeks) return 0;
-    const grid = buildMonthGrid(monthAnchor);
-    const at = grid.findIndex(({ date }) => isSameDay(date, selectedDate));
+    const week = startOfWeek(anchor);
+    const at = buildMonthGrid(pageAnchor).findIndex(({ date }) => isSameDay(date, week));
     return at < 0 ? 0 : Math.floor(at / 7);
-  }, [weeks, monthAnchor, selectedDate]);
+  }, [weeks, pageAnchor, anchor]);
 
   // Only when the page width itself changes, which means a rotation or a resize.
   // `page` is deliberately not a dependency: the swipe path keeps the track and
@@ -168,22 +185,19 @@ export default function MonthGrid({
     paging.value = false;
   }, [page, paging]);
 
+  // Paging moves the calendar and nothing else. The selection and the day views
+  // below stay where they are, which is what lets a week or a month that isn't
+  // the one you are working in be scrolled into reach as a drop target.
   const commitPage = useCallback(
     (delta: number) => {
       setPage((n) => n + delta);
-      if (!weeks) {
-        onChangeMonth(addMonths(monthAnchor, delta));
-        return;
-      }
-      // A week step carries the selected day with it, so the list below the
-      // calendar moves to the week you are looking at rather than staying behind.
-      const next = addDays(selectedDate, delta * 7);
-      onSelectDate(next);
-      onChangeMonth(startOfMonth(next));
+      onChangeAnchor(weeks ? addDays(pageAnchor, delta * 7) : addMonths(pageAnchor, delta));
     },
-    [weeks, monthAnchor, selectedDate, onSelectDate, onChangeMonth]
+    [weeks, pageAnchor, onChangeAnchor]
   );
 
+  // Only the height changes hands. The anchor already names the week the strip
+  // closes onto and the month it opens into, so neither direction has to move it.
   const settleHeight = useCallback(
     (open: boolean) => {
       setWeeks(!open);
@@ -262,9 +276,9 @@ export default function MonthGrid({
     height: CELL_HEIGHT + COLLAPSE_TRAVEL * expand.value,
   }));
 
-  // The vertical step is what keeps the selected week in the one visible row as
-  // the rest of the month closes over it.
-  const rowOffset = selectedRow * CELL_HEIGHT;
+  // The vertical step is what holds one week in the single visible row while the
+  // rest of the month closes over it, or opens back out around it.
+  const rowOffset = visibleRow * CELL_HEIGHT;
   const track = useAnimatedStyle(() => ({
     transform: [{ translateX: scrollX.value }, { translateY: -rowOffset * (1 - expand.value) }],
   }));
@@ -297,7 +311,7 @@ export default function MonthGrid({
                   today={today}
                   byDate={byDate}
                   onSelectDate={onSelectDate}
-                  onChangeMonth={onChangeMonth}
+                  onChangeAnchor={onChangeAnchor}
                   onDropTask={i === 1 ? onDropTask : undefined}
                   rangeStart={rangeStart}
                   rangeEnd={rangeEnd}
@@ -342,11 +356,11 @@ function CalendarPage({
   today,
   byDate,
   onSelectDate,
-  onChangeMonth,
+  onChangeAnchor,
   onDropTask,
   rangeStart,
   rangeEnd,
-}: Omit<Props, 'monthAnchor' | 'weekView' | 'onWeekViewChange'> & { start: Date; weeks: boolean }) {
+}: Omit<Props, 'anchor' | 'weekView' | 'onWeekViewChange'> & { start: Date; weeks: boolean }) {
   const colors = useColors();
   const styles = useStyles();
 
@@ -356,16 +370,6 @@ function CalendarPage({
         ? Array.from({ length: 7 }, (_, i) => ({ date: addDays(start, i), inMonth: true }))
         : buildMonthGrid(start),
     [weeks, start]
-  );
-
-  // Selecting a day in a week that has run into the next month has to take the
-  // month with it, or opening the grid back up would land on the month behind.
-  const select = useCallback(
-    (date: Date) => {
-      onSelectDate(date);
-      if (weeks) onChangeMonth(startOfMonth(date));
-    },
-    [weeks, onSelectDate, onChangeMonth]
   );
 
   // Compared as day numbers so a partial-day time never shifts the band.
@@ -394,8 +398,8 @@ function CalendarPage({
           today={today}
           selectedDate={selectedDate}
           dot={dotColorFor(toISODate(date))}
-          onSelectDate={select}
-          onChangeMonth={onChangeMonth}
+          onSelectDate={onSelectDate}
+          onChangeAnchor={onChangeAnchor}
           onDropTask={onDropTask}
           {...rangeFor(date)}
         />
@@ -411,7 +415,7 @@ interface CellProps {
   selectedDate: Date;
   dot: string | null;
   onSelectDate: (d: Date) => void;
-  onChangeMonth: (d: Date) => void;
+  onChangeAnchor: (d: Date) => void;
   onDropTask?: (taskIds: string[], iso: string) => void;
   inRange: boolean;
   isFirst: boolean;
@@ -425,7 +429,7 @@ function DayCell({
   selectedDate,
   dot,
   onSelectDate,
-  onChangeMonth,
+  onChangeAnchor,
   onDropTask,
   inRange,
   isFirst,
@@ -462,7 +466,7 @@ function DayCell({
       <Pressable
         onPress={() => {
           onSelectDate(date);
-          if (!inMonth) onChangeMonth(startOfMonth(date));
+          if (!inMonth) onChangeAnchor(startOfMonth(date));
         }}
       >
         <View
