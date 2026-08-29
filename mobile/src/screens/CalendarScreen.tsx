@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { LayoutChangeEvent, PanResponder, Pressable, ScrollView, Text, View } from 'react-native';
 import MenuView, { type MenuAction, type NativeActionEvent } from '@expo/ui/community/menu';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { makeStyles } from '../theme/styles';
@@ -17,7 +17,7 @@ import { Task } from '../data/types';
 import AgendaDayGroup from './calendar/AgendaDayGroup';
 import AddExistingTaskSheet, { AddExistingTaskButton } from './calendar/AddExistingTaskSheet';
 import MonthGrid from './calendar/MonthGrid';
-import SchedulePane from './calendar/SchedulePane';
+import SchedulePane, { SCHEDULE_PANE_WIDTH } from './calendar/SchedulePane';
 import WeekGrid from './calendar/WeekGrid';
 import QuickAddBar from '../components/QuickAddBar';
 import AddTaskFab from '../components/AddTaskFab';
@@ -33,6 +33,9 @@ import { alpha } from '../theme/colors';
 const AGENDA_WINDOW_DAYS = 45;
 const RANGE_DAY_OPTIONS = [2, 3] as const;
 const PRIORITY_RANK = { high: 0, medium: 1, low: 2, none: 3 } as const;
+const PLAN_PANE_MIN_WIDTH = 280;
+const CALENDAR_MIN_WIDTH = 280;
+const PANE_RESIZER_WIDTH = 11;
 
 function sortCalendarTasks(tasks: Task[], sort: PlanSort, orderIds: string[] = []): Task[] {
   const arranged = new Map(orderIds.map((id, index) => [id, index]));
@@ -92,6 +95,10 @@ export default function CalendarScreen() {
   const [anchor, setAnchor] = useState(today);
   const [selectedDate, setSelectedDate] = useState(today);
   const [addExistingOpen, setAddExistingOpen] = useState(false);
+  const [rowWidth, setRowWidth] = useState(0);
+  const [schedulePaneWidth, setSchedulePaneWidth] = useState(SCHEDULE_PANE_WIDTH);
+  const schedulePaneWidthRef = useRef(schedulePaneWidth);
+  const resizeStartWidth = useRef(schedulePaneWidth);
   // Stable handlers: a fresh `onClose` each render reaches the sheet's backdrop
   // as a fresh component type, and the scrim it remounts is one that flickers.
   const openAddExisting = useCallback(() => setAddExistingOpen(true), []);
@@ -100,6 +107,51 @@ export default function CalendarScreen() {
   // The agenda clips its drop targets to this frame (see AgendaDayGroup clipTo):
   // scrolled-off days must never keep swallowing drops meant for the calendar.
   const agendaRef = useRef<ScrollView | null>(null);
+
+  const clampSchedulePaneWidth = useCallback(
+    (width: number) => {
+      const max = rowWidth
+        ? Math.max(PLAN_PANE_MIN_WIDTH, rowWidth - CALENDAR_MIN_WIDTH - PANE_RESIZER_WIDTH)
+        : SCHEDULE_PANE_WIDTH;
+      return Math.min(Math.max(width, PLAN_PANE_MIN_WIDTH), max);
+    },
+    [rowWidth]
+  );
+  const setClampedSchedulePaneWidth = useCallback(
+    (width: number) => {
+      const next = clampSchedulePaneWidth(width);
+      schedulePaneWidthRef.current = next;
+      setSchedulePaneWidth(next);
+    },
+    [clampSchedulePaneWidth]
+  );
+  const resizePan = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => WEB_ENTRY,
+        onMoveShouldSetPanResponder: () => WEB_ENTRY,
+        onPanResponderGrant: () => {
+          resizeStartWidth.current = schedulePaneWidthRef.current;
+        },
+        onPanResponderMove: (_event, gesture) => {
+          setClampedSchedulePaneWidth(resizeStartWidth.current + gesture.dx);
+        },
+      }),
+    [setClampedSchedulePaneWidth]
+  );
+  const handleRowLayout = useCallback(
+    (event: LayoutChangeEvent) => {
+      const nextWidth = event.nativeEvent.layout.width;
+      setRowWidth(nextWidth);
+      if (!WEB_ENTRY) return;
+      const max = Math.max(PLAN_PANE_MIN_WIDTH, nextWidth - CALENDAR_MIN_WIDTH - PANE_RESIZER_WIDTH);
+      if (schedulePaneWidthRef.current > max) {
+        schedulePaneWidthRef.current = max;
+        setSchedulePaneWidth(max);
+      }
+    },
+    []
+  );
 
   // Layout and the completed filter are how this screen is set up, not where you
   // are in it — so they're restored, while the date always opens on today.
@@ -303,10 +355,25 @@ export default function CalendarScreen() {
     : `${anchor.toLocaleDateString('en-US', { month: 'long' })} ${anchor.getFullYear()}`;
 
   return (
-    <View style={[styles.row, { paddingTop: insets.top + 6 }]}>
-      {wide && <SchedulePane />}
+    <View style={[styles.row, { paddingTop: insets.top + 6 }]} onLayout={handleRowLayout}>
+      {wide && (
+        <SchedulePane
+          width={WEB_ENTRY ? schedulePaneWidth : undefined}
+          showRightBorder={!WEB_ENTRY}
+        />
+      )}
+      {wide && WEB_ENTRY && (
+        <View
+          style={styles.paneResizer}
+          accessibilityRole="adjustable"
+          accessibilityLabel="Resize plan task pane"
+          {...resizePan.panHandlers}
+        >
+          <View style={styles.paneResizerLine} />
+        </View>
+      )}
 
-      <View style={styles.calendarCol}>
+      <View style={[styles.calendarCol, wide && WEB_ENTRY && styles.calendarColResizable]}>
         <View style={styles.header}>
           {!wide && (
             <GlassIconButton onPress={openDrawer} label="Menu">
@@ -442,6 +509,20 @@ export default function CalendarScreen() {
 const useStyles = makeStyles((c) => ({
   row: { flex: 1, flexDirection: 'row', backgroundColor: c.screenBg },
   calendarCol: { flex: 1, minWidth: 0 },
+  calendarColResizable: { minWidth: CALENDAR_MIN_WIDTH },
+  paneResizer: {
+    width: PANE_RESIZER_WIDTH,
+    flexGrow: 0,
+    flexShrink: 0,
+    alignItems: 'center',
+    backgroundColor: c.screenBg,
+    ...({ cursor: 'col-resize', userSelect: 'none' } as object),
+  },
+  paneResizerLine: {
+    width: 1,
+    flex: 1,
+    backgroundColor: c.border,
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',

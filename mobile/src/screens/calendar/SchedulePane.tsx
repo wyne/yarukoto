@@ -19,12 +19,18 @@ import { useDragActive } from '../../drag/DragContext';
 import { useDragSource } from '../../drag/dragSource';
 import { hapticSelect } from '../../data/haptics';
 import { IconCalendarBox } from '../../icons/Icons';
+import { WEB_ENTRY } from '../../data/platform';
 
 const DEFAULT_CRITERIA: TaskCriteria = { ...EMPTY_CRITERIA, due: 'nodate' };
 const DEFAULT_SORT_BY: SortBy = 'priority';
 
+interface Props {
+  width?: number;
+  showRightBorder?: boolean;
+}
+
 /** Left column of the Plan view: find existing tasks, then drag them onto the calendar. */
-export default function SchedulePane() {
+export default function SchedulePane({ width = SCHEDULE_PANE_WIDTH, showRightBorder = true }: Props) {
   const styles = useStyles();
   const colors = useColors();
   const { state } = useTasks();
@@ -66,7 +72,7 @@ export default function SchedulePane() {
   }, []);
 
   return (
-    <View style={styles.pane}>
+    <View style={[styles.pane, showRightBorder && styles.paneBorder, { width }]}>
       <View style={styles.header}>
         <IconCalendarBox size={18} color={colors.textSecondary} />
         <Text style={styles.title}>Plan task</Text>
@@ -92,7 +98,9 @@ export default function SchedulePane() {
         showStatus={false}
       />
       <Text style={styles.hint}>
-        {selectedIds.length > 0
+        {WEB_ENTRY
+          ? 'Drag a task onto the calendar to plan it. Tap tasks first to move several together.'
+          : selectedIds.length > 0
           ? `${selectedIds.length} selected. Long press a selected task to place ${
               selectedIds.length === 1 ? 'it' : 'them'
             } on the calendar.`
@@ -191,12 +199,13 @@ const useStyles = makeStyles((c) => ({
     ...({ userSelect: 'none', cursor: 'grab' } as object),
   },
   pane: {
-    width: SCHEDULE_PANE_WIDTH,
     flexGrow: 0,
     flexShrink: 0,
+    backgroundColor: c.screenBg,
+  },
+  paneBorder: {
     borderRightWidth: 1,
     borderRightColor: c.border,
-    backgroundColor: c.screenBg,
   },
   header: {
     flexDirection: 'row',
