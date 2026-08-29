@@ -48,6 +48,15 @@ interface SheetProps {
  * registering as active.
  */
 const DISMISS_DELAY_MS = 400;
+
+/**
+ * What the sheet opens on. Everything here is a candidate for a slot on the
+ * calendar, so the tasks worth showing first are the ones that have no date yet,
+ * highest priority first. Both stay adjustable, and a change sticks for as long
+ * as the sheet is mounted.
+ */
+const DEFAULT_CRITERIA: TaskCriteria = { ...EMPTY_CRITERIA, due: 'nodate' };
+const DEFAULT_SORT_BY: SortBy = 'priority';
 const COLLAPSED_HEIGHT = 1;
 const EXPANDED_HEIGHT = 430;
 /** How far the handle can pull the sheet up, for a long list of tasks. */
@@ -128,8 +137,8 @@ export default function AddExistingTaskSheet({ visible, onClose }: SheetProps) {
   const scrimOpacity = colors.scrimOpacity;
   const titleIconColor = colors.textSecondary;
   const closeIconColor = colors.textPrimary;
-  const [criteria, setCriteria] = useState<TaskCriteria>(EMPTY_CRITERIA);
-  const [sortBy, setSortBy] = useState<SortBy>('manual');
+  const [criteria, setCriteria] = useState<TaskCriteria>(DEFAULT_CRITERIA);
+  const [sortBy, setSortBy] = useState<SortBy>(DEFAULT_SORT_BY);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const ref = useRef<React.ElementRef<typeof BottomSheetModal>>(null);
   const presented = useRef(false);
@@ -336,6 +345,8 @@ export default function AddExistingTaskSheet({ visible, onClose }: SheetProps) {
           onChange={updateCriteria}
           sortBy={sortBy}
           onSortChange={updateSort}
+          // Nothing here is going on the calendar if it is already done.
+          showStatus={false}
         />
         <Text style={styles.hint}>
           {selectedIds.length > 0
