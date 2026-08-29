@@ -130,8 +130,14 @@ export function isOverdue(now: Date, task: { dueDate?: string; completed: boolea
   return isBeforeDay(fromISODate(task.dueDate), now);
 }
 
-/** Days in a Sunday-first grid for the month containing `monthAnchor`, including
- * the leading/trailing days from adjacent months needed to fill the grid. */
+/**
+ * Days in a Sunday-first grid for the month containing `monthAnchor`, including
+ * the leading/trailing days from adjacent months needed to fill the grid.
+ *
+ * Always six rows, even when the month fits in five and the last is entirely the
+ * next month's. The grid reserves the height for six either way, so a short month
+ * trimmed to five doesn't give that row back — it just leaves it empty.
+ */
 export function buildMonthGrid(monthAnchor: Date): { date: Date; inMonth: boolean }[] {
   const year = monthAnchor.getFullYear();
   const month = monthAnchor.getMonth();
@@ -141,10 +147,6 @@ export function buildMonthGrid(monthAnchor: Date): { date: Date; inMonth: boolea
   for (let i = 0; i < 42; i++) {
     const date = addDays(gridStart, i);
     cells.push({ date, inMonth: date.getMonth() === month });
-  }
-  // Trim trailing rows that are entirely outside the month.
-  while (cells.length > 35 && cells.slice(-7).every((c) => !c.inMonth)) {
-    cells.splice(-7, 7);
   }
   return cells;
 }
