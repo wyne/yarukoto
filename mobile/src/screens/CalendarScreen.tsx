@@ -246,22 +246,26 @@ export default function CalendarScreen() {
   );
 
   const viewMenu = WEB_ENTRY ? (
-    <GlassTextButton onPress={cycleView} label="Calendar view">
+    <GlassTextButton onPress={cycleView} label="Calendar view" compact>
       {menuLabel(viewLabel)}
     </GlassTextButton>
   ) : (
     <MenuView actions={viewActions} onPressAction={handleViewAction}>
-      <GlassTextMenuLabel label="Calendar view">{menuLabel(viewLabel)}</GlassTextMenuLabel>
+      <GlassTextMenuLabel label="Calendar view" compact>
+        {menuLabel(viewLabel)}
+      </GlassTextMenuLabel>
     </MenuView>
   );
 
   const sortMenu = WEB_ENTRY ? (
-    <GlassTextButton onPress={toggleSort} label="Calendar sort">
+    <GlassTextButton onPress={toggleSort} label="Calendar sort" compact>
       {menuLabel(`Sort: ${sortLabel}`)}
     </GlassTextButton>
   ) : (
     <MenuView actions={sortActions} onPressAction={handleSortAction}>
-      <GlassTextMenuLabel label="Calendar sort">{menuLabel(`Sort: ${sortLabel}`)}</GlassTextMenuLabel>
+      <GlassTextMenuLabel label="Calendar sort" compact>
+        {menuLabel(`Sort: ${sortLabel}`)}
+      </GlassTextMenuLabel>
     </MenuView>
   );
 
