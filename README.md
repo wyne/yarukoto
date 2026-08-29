@@ -221,27 +221,48 @@ eas init          # links the project and writes extra.eas.projectId into app.js
 `eas init` is the only step that writes back to the repo. Everything else it needs —
 `ios.bundleIdentifier`, the build profiles — is already committed.
 
-> **The app builds under two identities so both can live on the same device.** `production` is
-> `com.wyne.yarukoto` and `development` is `com.wyne.yarukoto.dev`; each also gets its own icon
-> (the dev one is desaturated) and display name, switched by the `APP_VARIANT` env var in
-> `mobile/app.config.js`. Changing the production identifier later means a new app record in App
-> Store Connect.
+> **The app builds under three identities so they can all live on the same device at once.**
+> `production` is `com.wyne.yarukoto`, `development` is `com.wyne.yarukoto.dev` and `preview` is
+> `com.wyne.yarukoto.preview`; each also gets its own icon (dev desaturated, preview hue-shifted
+> red) and display name, switched by the `APP_VARIANT` env var in `mobile/app.config.js`. Changing
+> the production identifier later means a new app record in App Store Connect.
 
 ### Build profiles
 
-`mobile/eas.json` defines two, each baking in its `APP_VARIANT`:
+`mobile/eas.json` defines three, each baking in its `APP_VARIANT`:
 
-| Profile | What it produces | Needs an Apple account? |
+| Profile | What it produces | Distribution |
 |---|---|---|
-| `development` | A dev-client build for a real device, loads JS from Metro. | Yes |
-| `production` | A store build, with `autoIncrement` for the build number. | Yes |
+| `development` | A dev-client build for a real device, loads JS from Metro. | `internal` — ad hoc, registered devices only |
+| `preview` | A standalone release build, for trying one on a device without touching the store copy. | `internal` — ad hoc, registered devices only |
+| `production` | A store build, with `autoIncrement` for the build number. | App Store |
+
+All three need an Apple account: even the ad hoc profiles have to be signed against a team.
 
 `cli.appVersionSource` is `remote`, so EAS keeps the build number on its side and bumps it per
 production build. `version` in `app.config.js` seeds it on the first build and is otherwise
 ignored — that is deliberate, it keeps build-number churn out of git.
 
-For local native builds, keep `APP_VARIANT` on both commands. `prebuild --clean` regenerates the
-native project with the selected bundle/application id, and `expo run:*` compiles that same variant.
+### Which commands need a prebuild
+
+Two different native projects are in play, and which one a command reads is the thing to keep
+straight.
+
+**`expo run:ios` and `expo run:android` compile the `mobile/ios` and `mobile/android` folders in
+your working tree.** Those are generated, and they hold one variant at a time — the folder is even
+named for it, `ios/Yarukotopreview.xcodeproj`. So switching variants means regenerating them, which
+is why `ios:dev` chains `prebuild --clean` ahead of `run:ios`. Skip it and you rebuild whatever
+variant was generated last, under its bundle id and its icon, whatever you set `APP_VARIANT` to on
+the command line. Keep `APP_VARIANT` on both halves.
+
+**`eas build` never reads those folders**, `--local` included. It builds from a git-based copy of
+the repo, and `/ios` and `/android` are gitignored, so they aren't in it — EAS runs `expo prebuild`
+itself inside the build with the profile's `env` applied, which is where `APP_VARIANT` comes from.
+Nothing to prebuild first no matter which profile you're switching between, icons and bundle ids
+come out right on their own, and the folders in your tree are left untouched.
+
+The corollary of building from git: **uncommitted work is not in an EAS build.** The CLI prompts
+when the tree is dirty.
 
 To build the local iOS dev client and run it against Metro:
 
@@ -282,9 +303,49 @@ eas build --platform android --profile production
 ```
 
 `npm run ios` is still available for a quick full native debug build, but when switching between
-dev and production variants, prefer the explicit commands above so the regenerated native project
-matches the app id you intend to build. For a quick check against Expo Go with no native build at
-all, `npx expo start --go` still works.
+variants, prefer the explicit commands above so the regenerated native project matches the app id
+you intend to build. For a quick check against Expo Go with no native build at all,
+`npx expo start --go` still works.
+
+### Building on your own machine, and installing it
+
+Adding `--local` runs the same EAS build here instead of on EAS's workers — the quickest way to a
+signed build on a device you own without waiting in a queue. It needs Xcode (or the Android SDK and
+a JDK for `--platform android`), and it writes the artifact into the directory you run it from:
+
+```bash
+cd mobile
+npx eas build --platform ios --profile development --local
+npx eas build --platform ios --profile preview --local
+```
+
+Each produces a `build-<epoch-ms>.ipa` in `mobile/`, which is gitignored. Run them one at a time:
+signing an ad hoc build can need a provisioning profile regenerating, and that asks.
+
+Both of those profiles sign against the devices registered to the Apple team — `eas device:list`
+shows them and `eas device:create` adds one. That list is baked into the signature at build time,
+so a phone that wasn't registered when the IPA was signed refuses to install it: register it, then
+build again.
+
+Then put it on a paired device:
+
+```bash
+npm run install:ipa
+```
+
+`mobile/scripts/install-ipa.sh` lists the IPAs newest-first with their version, variant and age,
+lists the paired devices, and installs the chosen one with `xcrun devicectl`. With `fzf` installed
+you get a picker with an Info.plist preview; without it, a numbered menu. It installs one IPA per
+run, so run it once per build. The phone has to be plugged in or reachable with Wireless Debugging
+on, or the device list comes up empty.
+
+The dev client is only half an app until Metro is serving the JS:
+
+```bash
+npm run start:dev
+```
+
+The preview build is standalone and runs on its own.
 
 ### Getting it onto TestFlight
 
