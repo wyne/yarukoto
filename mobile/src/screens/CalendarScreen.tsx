@@ -26,7 +26,7 @@ import { useSyncRefresh } from '../data/useSyncRefresh';
 import GlassIconButton, { GlassIconButtonGroup, GlassTextButton, GlassTextMenuLabel } from '../components/GlassIconButton';
 import { WEB_ENTRY } from '../data/platform';
 import { IconChevronDown, IconChevronLeft, IconChevronRight, IconMenu } from '../icons/Icons';
-import { useDragActive } from '../drag/DragContext';
+import { taskIdsFromDrag, useDragActive, useDragPayload } from '../drag/DragContext';
 import { Measurable } from '../drag/useDropTarget';
 import { alpha } from '../theme/colors';
 
@@ -78,6 +78,7 @@ export default function CalendarScreen() {
   // boolean, not the payload: this is the root of the screen, and it should wake
   // for a drag starting and ending, not for every day cell the finger crosses.
   const dragging = useDragActive();
+  const dragPayload = useDragPayload();
   // Every calendar surface is a drop target and a task is carried between them
   // rightward as often as any other way, so the drawer's own rightward swipe
   // stands down here. The menu button in the header still opens it.
@@ -124,6 +125,11 @@ export default function CalendarScreen() {
     byDate.forEach((tasks, iso) => out.set(iso, sortCalendarTasks(tasks, sort, calendarOrder[iso])));
     return out;
   }, [byDate, sort, calendarOrder]);
+  const draggingCompleted = useMemo(() => {
+    if (!dragPayload) return false;
+    const ids = taskIdsFromDrag(dragPayload);
+    return ids.length > 0 && ids.every((id) => !!state.tasks.find((task) => task.id === id)?.completed);
+  }, [dragPayload, state.tasks]);
 
   const agendaDays = useMemo(() => {
     const out: { date: Date; tasks: Task[] }[] = [];
@@ -346,6 +352,7 @@ export default function CalendarScreen() {
               onDropTask={scheduleTasks}
               onOpenTask={openTask}
               reorderable={sort === 'custom'}
+              draggingCompleted={draggingCompleted}
               // The columns are boxes, not a list: their frames have to stop
               // above the tab bar rather than run under it, which then leaves
               // only the button for the chips inside to clear.

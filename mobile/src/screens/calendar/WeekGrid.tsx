@@ -27,6 +27,8 @@ interface Props {
   onOpenTask: (taskId: string) => void;
   /** Custom sorting allows drops to choose a position inside the day. */
   reorderable?: boolean;
+  /** Completed tasks are forced below active tasks, so their insertion slots are separate. */
+  draggingCompleted?: boolean;
   /**
    * How far the grid holds off the bottom of the screen. A column is a bordered
    * box with a header, so unlike a list it can't run under the system tab bar
@@ -55,6 +57,7 @@ export default function WeekGrid({
   onDropTask,
   onOpenTask,
   reorderable = false,
+  draggingCompleted = false,
   bottomInset = 0,
   bottomClearance = 0,
 }: Props) {
@@ -74,6 +77,7 @@ export default function WeekGrid({
           onDropTask={onDropTask}
           onOpenTask={onOpenTask}
           reorderable={reorderable}
+          draggingCompleted={draggingCompleted}
           bottomClearance={bottomClearance}
           showSelectedBadge={dayCount === 1}
         />
@@ -91,6 +95,7 @@ interface ColProps {
   onDropTask: (taskIds: string[], iso: string, beforeId?: string | null) => void;
   onOpenTask: (taskId: string) => void;
   reorderable: boolean;
+  draggingCompleted: boolean;
   bottomClearance: number;
   showSelectedBadge: boolean;
 }
@@ -104,6 +109,7 @@ function DayColumn({
   onDropTask,
   onOpenTask,
   reorderable,
+  draggingCompleted,
   bottomClearance,
   showSelectedBadge,
 }: ColProps) {
@@ -140,11 +146,15 @@ function DayColumn({
 
   const dropIntoSlot = (payload: DragPayload, beforeId: string | null) => {
     const moving = new Set(taskIdsFromDrag(payload));
-    const index = beforeId ? tasks.findIndex((task) => task.id === beforeId) : -1;
+    if (!beforeId) {
+      onDropTask([...moving], iso, null);
+      return;
+    }
+    const index = tasks.findIndex((task) => task.id === beforeId);
     const normalizedBeforeId =
-      beforeId && !moving.has(beforeId)
+      index !== -1 && !moving.has(beforeId)
         ? beforeId
-        : tasks.slice(index + 1).find((task) => !moving.has(task.id))?.id ?? null;
+        : tasks.slice(Math.max(0, index + 1)).find((task) => !moving.has(task.id))?.id ?? null;
     onDropTask([...moving], iso, normalizedBeforeId);
   };
 
@@ -156,6 +166,10 @@ function DayColumn({
       return { ...prev, [taskId]: { y, height } };
     });
   }, []);
+  const insertStops = React.useMemo(
+    () => buildInsertStops(iso, tasks, chipLayouts, draggingCompleted),
+    [iso, tasks, chipLayouts, draggingCompleted]
+  );
 
   return (
     <View
@@ -201,32 +215,20 @@ function DayColumn({
             />
           ))}
           {reorderable &&
-            tasks.map((task, index) => {
-              const layout = chipLayouts[task.id];
-              if (!layout) return null;
-              const prevTask = index > 0 ? tasks[index - 1] : null;
-              const prevLayout = prevTask ? chipLayouts[prevTask.id] : null;
-              const top = prevLayout ? prevLayout.y + prevLayout.height / 2 : 0;
-              const bottom = layout.y + layout.height / 2;
+            insertStops.map((stop, index) => {
+              const bounds = insertBounds(insertStops, index);
               return (
                 <InsertBoundary
-                  key={`before-${task.id}`}
-                  id={`cols/day:${iso}/before:${task.id}`}
-                  top={top}
-                  height={Math.max(1, bottom - top)}
-                  lineTop={layout.y - INSERT_GAP / 2 - INSERT_LINE_HEIGHT / 2 - top}
-                  onDrop={(payload) => dropIntoSlot(payload, task.id)}
+                  key={stop.id}
+                  id={stop.id}
+                  top={bounds.top}
+                  height={bounds.height}
+                  bottom={bounds.bottom}
+                  lineTop={stop.lineTop - bounds.top}
+                  onDrop={(payload) => dropIntoSlot(payload, stop.beforeId)}
                 />
               );
             })}
-          {reorderable && (
-            <AppendBoundary
-              id={`cols/day:${iso}/append`}
-              tasks={tasks}
-              layouts={chipLayouts}
-              onDrop={(payload) => dropIntoSlot(payload, null)}
-            />
-          )}
         </View>
       </ScrollView>
     </View>
@@ -236,6 +238,73 @@ function DayColumn({
 interface ChipLayout {
   y: number;
   height: number;
+}
+
+interface InsertStop {
+  id: string;
+  beforeId: string | null;
+  lineTop: number;
+}
+
+function lineBefore(layout: ChipLayout): number {
+  return Math.max(0, layout.y - INSERT_GAP / 2 - INSERT_LINE_HEIGHT / 2);
+}
+
+function lineAfter(layout: ChipLayout): number {
+  return layout.y + layout.height + INSERT_GAP / 2 - INSERT_LINE_HEIGHT / 2;
+}
+
+function buildInsertStops(
+  iso: string,
+  tasks: Task[],
+  layouts: Record<string, ChipLayout>,
+  draggingCompleted: boolean
+): InsertStop[] {
+  const bucketTasks = tasks.filter((task) => task.completed === draggingCompleted);
+  const stops = bucketTasks.flatMap((task): InsertStop[] => {
+    const layout = layouts[task.id];
+    return layout
+      ? [{ id: `cols/day:${iso}/before:${task.id}`, beforeId: task.id, lineTop: lineBefore(layout) }]
+      : [];
+  });
+  const firstCompleted = tasks.find((task) => task.completed);
+  const lastInBucket = bucketTasks[bucketTasks.length - 1];
+  const lastTask = tasks[tasks.length - 1];
+  const terminalLayout = draggingCompleted
+    ? layouts[lastInBucket?.id ?? lastTask?.id ?? '']
+    : firstCompleted
+      ? layouts[firstCompleted.id]
+      : layouts[lastInBucket?.id ?? ''];
+
+  if (tasks.length === 0) {
+    stops.push({ id: `cols/day:${iso}/append`, beforeId: null, lineTop: INSERT_GAP / 2 - INSERT_LINE_HEIGHT / 2 });
+  } else if (draggingCompleted) {
+    if (terminalLayout) {
+      stops.push({ id: `cols/day:${iso}/append`, beforeId: null, lineTop: lineAfter(terminalLayout) });
+    }
+  } else if (firstCompleted) {
+    if (terminalLayout) {
+      stops.push({
+        id: `cols/day:${iso}/append-active`,
+        beforeId: firstCompleted.id,
+        lineTop: lineBefore(terminalLayout),
+      });
+    }
+  } else if (terminalLayout) {
+    stops.push({ id: `cols/day:${iso}/append`, beforeId: null, lineTop: lineAfter(terminalLayout) });
+  }
+
+  return stops.sort((a, b) => a.lineTop - b.lineTop);
+}
+
+function insertBounds(stops: InsertStop[], index: number): { top: number; height?: number; bottom?: number } {
+  const center = stops[index].lineTop + INSERT_LINE_HEIGHT / 2;
+  const prev = stops[index - 1]?.lineTop;
+  const next = stops[index + 1]?.lineTop;
+  const top = prev === undefined ? 0 : (prev + INSERT_LINE_HEIGHT / 2 + center) / 2;
+  if (next === undefined) return { top, bottom: 0 };
+  const bottom = (center + next + INSERT_LINE_HEIGHT / 2) / 2;
+  return { top, height: Math.max(1, bottom - top) };
 }
 
 /** Draggable so a task can be moved between days without leaving the week. */
@@ -280,27 +349,6 @@ function TaskChip({
       </Pressable>
     </View>
   );
-}
-
-function AppendBoundary({
-  id,
-  tasks,
-  layouts,
-  onDrop,
-}: {
-  id: string;
-  tasks: Task[];
-  layouts: Record<string, ChipLayout>;
-  onDrop: (payload: DragPayload) => void;
-}) {
-  const lastTask = tasks[tasks.length - 1];
-  const lastLayout = lastTask ? layouts[lastTask.id] : null;
-  const top = lastLayout ? lastLayout.y + lastLayout.height / 2 : 0;
-  const lineTop = lastLayout
-    ? lastLayout.y + lastLayout.height + INSERT_GAP / 2 - INSERT_LINE_HEIGHT / 2 - top
-    : INSERT_GAP / 2 - INSERT_LINE_HEIGHT / 2;
-
-  return <InsertBoundary id={id} top={top} bottom={0} lineTop={lineTop} onDrop={onDrop} />;
 }
 
 function InsertBoundary({
