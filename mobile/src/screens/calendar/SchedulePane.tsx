@@ -124,6 +124,7 @@ export default function SchedulePane() {
                   key={list.id}
                   label={list.name}
                   color={list.color}
+                  indent={!!group.folder}
                   active={scope.kind === 'list' && scope.value === list.id}
                   onPress={() => {
                     setScope({ kind: 'list', value: list.id, label: list.name });
@@ -155,17 +156,20 @@ function ScopeRow({
   label,
   color,
   active,
+  indent,
   onPress,
 }: {
   label: string;
   color?: string;
   active: boolean;
+  /** A list inside a folder, inset one step under that folder's heading. */
+  indent?: boolean;
   onPress: () => void;
 }) {
   const styles = useStyles();
   const accent = useAccent();
   return (
-    <Pressable style={styles.scopeRow} onPress={onPress}>
+    <Pressable style={[styles.scopeRow, indent && styles.scopeRowNested]} onPress={onPress}>
       {color && <View style={[styles.dot, { backgroundColor: color }]} />}
       <Text style={[styles.scopeRowText, active && { color: accent, fontFamily: fonts.sansSemiBold }]}>{label}</Text>
     </Pressable>
@@ -277,6 +281,14 @@ const useStyles = makeStyles((c) => ({
     paddingVertical: 11,
     borderBottomWidth: 1,
     borderBottomColor: c.divider,
+  },
+  /**
+   * The nav interleaves folders with the lists that aren't in one, so a root
+   * list can sort directly under a folder's own lists. The indent is what says
+   * which rows the heading above covers.
+   */
+  scopeRowNested: {
+    paddingLeft: 22,
   },
   scopeRowText: {
     fontFamily: fonts.sansRegular,

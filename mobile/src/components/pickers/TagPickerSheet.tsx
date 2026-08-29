@@ -7,6 +7,9 @@ import { useHoverBg } from '../../theme/hover';
 import { fonts } from '../../theme/typography';
 import NativeOwnedTextInput from '../NativeOwnedTextInput';
 import { useAccent, useColors } from '../../theme/ThemeContext';
+import { selectionCheckColor } from '../../theme/colors';
+import GlassIconButton from '../GlassIconButton';
+import { IconCheckBig } from '../../icons/Icons';
 import { useTasks } from '../../data/TaskContext';
 import { tagCounts } from '../../data/selectors';
 
@@ -26,6 +29,7 @@ export default function TagPickerSheet({ visible, onClose, initialTags, onApply,
   const colors = useColors();
   const styles = useStyles();
   const accent = useAccent();
+  const accentText = selectionCheckColor(accent);
   const { state } = useTasks();
   const [selected, setSelected] = useState<string[]>(initialTags);
   const [newTag, setNewTag] = useState('');
@@ -56,6 +60,7 @@ export default function TagPickerSheet({ visible, onClose, initialTags, onApply,
       anchor={anchor}
       popoverWidth={300}
       onBack={onBack}
+      stackBehavior="push"
     >
       <View style={styles.chipsRow}>
         {allTags.map((tag) => {
@@ -86,15 +91,18 @@ export default function TagPickerSheet({ visible, onClose, initialTags, onApply,
           <Text style={{ color: accent, fontFamily: fonts.sansMedium, fontSize: 14 }}>Add</Text>
         </Pressable>
       </View>
-      <Pressable
-        style={[styles.applyBtn, { backgroundColor: colors.inverseSurface }]}
-        onPress={() => {
-          onApply(selected);
-          onClose();
-        }}
-      >
-        <Text style={styles.applyText}>Apply</Text>
-      </Pressable>
+      <View style={styles.applyRow}>
+        <GlassIconButton
+          label="Save tags"
+          tintColor={accent}
+          onPress={() => {
+            onApply(selected);
+            onClose();
+          }}
+        >
+          <IconCheckBig size={18} color={accentText} strokeWidth={2.4} />
+        </GlassIconButton>
+      </View>
     </BottomSheet>
   );
 }
@@ -140,15 +148,8 @@ const useStyles = makeStyles((c) => ({
     paddingHorizontal: 14,
     paddingVertical: 10,
   },
-  applyBtn: {
+  applyRow: {
     marginTop: 18,
-    borderRadius: 10,
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  applyText: {
-    fontFamily: fonts.sansSemiBold,
-    fontSize: 16,
-    color: c.inverseText,
+    alignItems: 'flex-end',
   },
 }));

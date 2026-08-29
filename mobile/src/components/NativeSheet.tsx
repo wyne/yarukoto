@@ -181,7 +181,6 @@ export default function NativeSheet({
         // entries is already one too many.
         style={StyleSheet.flatten([
           styles.content,
-          contentStyle,
           {
             paddingTop: title ? 0 : 24,
             // A keyboard sheet rides above the keyboard, which is itself covering
@@ -189,6 +188,10 @@ export default function NativeSheet({
             // leaves a gap under the content.
             paddingBottom: keyboard ? 12 : Math.max(16, insets.bottom),
           },
+          // Last, so it can actually drop the padding above. A sheet that draws
+          // its own chrome — the task detail with its own header — otherwise
+          // gets the untitled sheet's 24pt reapplied under the grabber.
+          contentStyle,
         ])}
       >
         {!!title && (
