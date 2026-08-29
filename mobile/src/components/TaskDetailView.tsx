@@ -81,6 +81,7 @@ export default function TaskDetailView({ taskId, onClose, variant, active = true
     deleteTasks,
     addSubtask,
     toggleSubtask,
+    supportsFeature,
   } = useTasks();
   const presentDateTimePicker = useNativeDateTimePicker();
   const task = state.tasks.find((t) => t.id === taskId);
@@ -167,6 +168,7 @@ export default function TaskDetailView({ taskId, onClose, variant, active = true
   const allTags = Array.from(new Set([...knownTags, ...task.tags]));
   const reminders = normalizeReminders(task.reminders);
   const reminderLabel = reminderSummary(reminders);
+  const remindersSupported = supportsFeature('taskReminders');
 
   const toggleTag = (tag: string) => {
     updateTask(task.id, {
@@ -359,7 +361,7 @@ export default function TaskDetailView({ taskId, onClose, variant, active = true
               </View>
             </>
           )}
-          {!!task.dueDate && (
+          {!!task.dueDate && remindersSupported && (
             <>
               <Divider indent={44} />
               <View style={styles.metaRow}>

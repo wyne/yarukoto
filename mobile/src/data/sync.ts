@@ -1,5 +1,5 @@
 import { Api, ApiError, SyncBatch } from './api';
-import { FolderDef, ListDef, Task, ViewPref } from './types';
+import { FolderDef, ListDef, SERVER_FEATURES, ServerFeature, Task, ViewPref } from './types';
 
 export { ApiError };
 
@@ -70,6 +70,23 @@ interface Collections {
   viewPrefs: ViewPref[];
 }
 
+export function hasServerFeature(features: readonly ServerFeature[], feature: ServerFeature): boolean {
+  return features.includes(feature);
+}
+
+/**
+ * Drops fields the connected backend cannot persist. The asymmetry matters:
+ * `POST /sync` upserts whole rows, so omitting a field a server *does* support
+ * erases the stored value, while a field an older server has never heard of is
+ * simply ignored. Strip only what /health has actually disclaimed — when the
+ * feature set is unknown, callers should pass every feature rather than none.
+ */
+function taskForFeatures(task: Task, features: readonly ServerFeature[]): Task {
+  if (hasServerFeature(features, 'taskReminders')) return task;
+  const { reminders: _unsupported, ...compatible } = task;
+  return compatible;
+}
+
 /**
  * Sends every dirty record except tasks whose detail editor is still open.
  * Held tasks remain in the outbox, so pulls cannot overwrite them and the next
@@ -79,9 +96,12 @@ export async function pushDirty(
   api: Api,
   outbox: Outbox,
   state: Collections,
-  heldTaskIds: ReadonlySet<string> = new Set()
+  heldTaskIds: ReadonlySet<string> = new Set(),
+  supportedFeatures: readonly ServerFeature[] = SERVER_FEATURES
 ): Promise<SyncBatch | null> {
-  const tasks = state.tasks.filter((t) => outbox.has(t.id) && !heldTaskIds.has(t.id));
+  const tasks = state.tasks
+    .filter((t) => outbox.has(t.id) && !heldTaskIds.has(t.id))
+    .map((task) => taskForFeatures(task, supportedFeatures));
   const lists = state.lists.filter((l) => outbox.has(l.id));
   const folders = state.folders.filter((f) => outbox.has(f.id));
   const viewPrefs = state.viewPrefs.filter((v) => outbox.has(v.id));
