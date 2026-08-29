@@ -9,7 +9,7 @@ import { Task } from '../../data/types';
 import { dayTargetId } from '../../drag/hitTest';
 import { useDropTarget } from '../../drag/useDropTarget';
 import { useDraggable } from '../../drag/useDraggable';
-import { taskIdsFromDrag, useDragActive } from '../../drag/DragContext';
+import { DragPayload, taskIdsFromDrag, useDragActive } from '../../drag/DragContext';
 import { useDragSource } from '../../drag/dragSource';
 
 interface Props {
@@ -20,8 +20,10 @@ interface Props {
   /** How many day columns to show. Defaults to a full week. */
   dayCount?: number;
   onSelectDate: (date: Date) => void;
-  onDropTask: (taskIds: string[], iso: string) => void;
+  onDropTask: (taskIds: string[], iso: string, beforeId?: string | null) => void;
   onOpenTask: (taskId: string) => void;
+  /** Custom sorting allows drops to choose a position inside the day. */
+  reorderable?: boolean;
   /**
    * How far the grid holds off the bottom of the screen. A column is a bordered
    * box with a header, so unlike a list it can't run under the system tab bar
@@ -49,6 +51,7 @@ export default function WeekGrid({
   onSelectDate,
   onDropTask,
   onOpenTask,
+  reorderable = false,
   bottomInset = 0,
   bottomClearance = 0,
 }: Props) {
@@ -67,6 +70,7 @@ export default function WeekGrid({
           onSelectDate={onSelectDate}
           onDropTask={onDropTask}
           onOpenTask={onOpenTask}
+          reorderable={reorderable}
           bottomClearance={bottomClearance}
           showSelectedBadge={dayCount === 1}
         />
@@ -81,8 +85,9 @@ interface ColProps {
   selectedDate: Date;
   tasks: Task[];
   onSelectDate: (d: Date) => void;
-  onDropTask: (taskIds: string[], iso: string) => void;
+  onDropTask: (taskIds: string[], iso: string, beforeId?: string | null) => void;
   onOpenTask: (taskId: string) => void;
+  reorderable: boolean;
   bottomClearance: number;
   showSelectedBadge: boolean;
 }
@@ -95,6 +100,7 @@ function DayColumn({
   onSelectDate,
   onDropTask,
   onOpenTask,
+  reorderable,
   bottomClearance,
   showSelectedBadge,
 }: ColProps) {
@@ -108,16 +114,37 @@ function DayColumn({
   // A task being dragged between columns must not scroll the column it left.
   const dragging = useDragActive();
 
-  const { ref, onLayout, isOver } = useDropTarget(dayTargetId(iso, 'cols'), (payload) =>
-    onDropTask(taskIdsFromDrag(payload), iso)
+  const columnTarget = useDropTarget(
+    dayTargetId(iso, 'cols'),
+    (payload) => onDropTask(taskIdsFromDrag(payload), iso, null),
+    !reorderable
   );
+  const appendTarget = useDropTarget(
+    `cols/day:${iso}:append`,
+    (payload) => onDropTask(taskIdsFromDrag(payload), iso, null),
+    reorderable
+  );
+
+  const dropOnTask = (payload: DragPayload, taskId: string, after: boolean) => {
+    const moving = new Set(taskIdsFromDrag(payload));
+    const index = tasks.findIndex((task) => task.id === taskId);
+    const start = after ? index + 1 : index;
+    const beforeId = tasks.slice(start).find((task) => !moving.has(task.id))?.id ?? null;
+    onDropTask([...moving], iso, beforeId);
+  };
 
   return (
     <View
-      ref={ref}
-      onLayout={onLayout}
+      ref={!reorderable ? columnTarget.ref : undefined}
+      onLayout={!reorderable ? columnTarget.onLayout : undefined}
       collapsable={false}
-      style={[styles.col, isOver && { backgroundColor: colors.accentTintBg, borderColor: accent }]}
+      style={[
+        styles.col,
+        (columnTarget.isOver || (tasks.length === 0 && appendTarget.isOver)) && {
+          backgroundColor: colors.accentTintBg,
+          borderColor: accent,
+        },
+      ]}
     >
       <Pressable style={styles.colHeader} onPress={() => onSelectDate(date)}>
         <Text style={styles.colWeekday}>{weekdayShort(date).toUpperCase()}</Text>
@@ -141,23 +168,76 @@ function DayColumn({
         scrollEnabled={!dragging}
       >
         {tasks.map((task) => (
-          <TaskChip key={task.id} task={task} onPress={() => onOpenTask(task.id)} />
+          <TaskChip
+            key={task.id}
+            task={task}
+            reorderable={reorderable}
+            onDropBefore={(payload) => dropOnTask(payload, task.id, false)}
+            onDropAfter={(payload) => dropOnTask(payload, task.id, true)}
+            onPress={() => onOpenTask(task.id)}
+          />
         ))}
+        <View
+          ref={reorderable ? appendTarget.ref : undefined}
+          onLayout={reorderable ? appendTarget.onLayout : undefined}
+          collapsable={false}
+          style={styles.appendZone}
+        >
+          {appendTarget.isOver && tasks.length > 0 && (
+            <View pointerEvents="none" style={[styles.appendLine, { backgroundColor: accent }]} />
+          )}
+        </View>
       </ScrollView>
     </View>
   );
 }
 
 /** Draggable so a task can be moved between days without leaving the week. */
-function TaskChip({ task, onPress }: { task: Task; onPress: () => void }) {
+function TaskChip({
+  task,
+  reorderable,
+  onDropBefore,
+  onDropAfter,
+  onPress,
+}: {
+  task: Task;
+  reorderable: boolean;
+  onDropBefore: (payload: DragPayload) => void;
+  onDropAfter: (payload: DragPayload) => void;
+  onPress: () => void;
+}) {
   const colors = useColors();
   const styles = useStyles();
   const accent = useAccent();
   const { onLongPress, ...handlers } = useDraggable({ taskId: task.id, title: task.title });
   const isSource = useDragSource(task.id);
+  const before = useDropTarget(`cols/task:${task.id}:before`, onDropBefore, reorderable);
+  const after = useDropTarget(`cols/task:${task.id}:after`, onDropAfter, reorderable);
+  const insertion = before.isOver ? 'before' : after.isOver ? 'after' : null;
 
   return (
     <View style={styles.chipWrap} {...handlers}>
+      {reorderable && (
+        <>
+          <View
+            ref={before.ref}
+            onLayout={before.onLayout}
+            collapsable={false}
+            pointerEvents="none"
+            style={styles.dropBefore}
+          />
+          <View
+            ref={after.ref}
+            onLayout={after.onLayout}
+            collapsable={false}
+            pointerEvents="none"
+            style={styles.dropAfter}
+          />
+        </>
+      )}
+      {insertion === 'before' && (
+        <View pointerEvents="none" style={[styles.insertLine, styles.insertBefore, { backgroundColor: accent }]} />
+      )}
       <Pressable
         style={[
           styles.chip,
@@ -175,6 +255,9 @@ function TaskChip({ task, onPress }: { task: Task; onPress: () => void }) {
           {!!task.dueTime && <Text style={styles.chipTime}>{formatTime24to12(task.dueTime)}</Text>}
         </View>
       </Pressable>
+      {insertion === 'after' && (
+        <View pointerEvents="none" style={[styles.insertLine, styles.insertAfter, { backgroundColor: accent }]} />
+      )}
     </View>
   );
 }
@@ -232,16 +315,60 @@ const useStyles = makeStyles((c) => ({
   },
   colBody: {
     padding: 4,
-    gap: 4,
     // Fills the column even when the chips don't, so the whole of it is content
     // the finger can pull on rather than the top few rows of it.
     flexGrow: 1,
   },
   chipWrap: {
+    position: 'relative',
+    paddingVertical: 2,
     // Spread as a plain object rather than suppressed line by line: a
     // `@ts-expect-error` inside the builder stops `makeStyles` inferring the
     // sheet's shape at all, and every style name goes missing.
     ...({ userSelect: 'none', cursor: 'grab' } as object),
+  },
+  dropBefore: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: '50%',
+    zIndex: 2,
+  },
+  dropAfter: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: '50%',
+    zIndex: 2,
+  },
+  insertLine: {
+    position: 'absolute',
+    left: 4,
+    right: 4,
+    height: 2,
+    borderRadius: 1,
+    zIndex: 3,
+  },
+  insertBefore: {
+    top: 1,
+  },
+  insertAfter: {
+    bottom: 1,
+  },
+  appendZone: {
+    flexGrow: 1,
+    minHeight: 28,
+    position: 'relative',
+  },
+  appendLine: {
+    position: 'absolute',
+    top: 3,
+    left: 4,
+    right: 4,
+    height: 2,
+    borderRadius: 1,
   },
   chip: {
     flexDirection: 'row',

@@ -15,9 +15,9 @@ export function containsPoint(rect: Rect, p: Point): boolean {
 }
 
 /**
- * Which drop target is under the pointer. Later registrations win, so a nested
- * target beats the container it sits in. Kept free of React and gesture code so
- * the fiddliest part of dragging can be reasoned about on its own.
+ * Which drop target is under the pointer. The smallest containing target wins,
+ * so a row insertion zone beats the day column wrapped around it even when
+ * React happens to register the parent later than its children.
  *
  * Takes the registry itself — any iterable of id/rect pairs, which a Map is —
  * rather than a list built for it. This runs on every pointer event, and the
@@ -28,8 +28,14 @@ export function resolveDropTarget(
   p: Point
 ): string | null {
   let found: string | null = null;
+  let foundArea = Infinity;
   for (const [id, target] of targets) {
-    if (target.rect && containsPoint(target.rect, p)) found = id;
+    if (!target.rect || !containsPoint(target.rect, p)) continue;
+    const area = target.rect.width * target.rect.height;
+    if (area <= foundArea) {
+      found = id;
+      foundArea = area;
+    }
   }
   return found;
 }
