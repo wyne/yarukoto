@@ -1,5 +1,5 @@
-import React from 'react';
-import { Platform, View } from 'react-native';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
+import { LayoutChangeEvent, PanResponder, Platform, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSharedValue, withTiming } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
@@ -92,6 +92,9 @@ const SWIPE_FLING = 350;
  * pull on nothing, then have a modal appear part-way through.
  */
 const SWIPE_TO_OPEN = Platform.OS === 'ios';
+const DETAIL_COLUMN_MIN_WIDTH = 320;
+const MAIN_CONTENT_MIN_WIDTH = 520;
+const DETAIL_RESIZER_WIDTH = 11;
 
 export default function MainTabs() {
   return (
@@ -114,6 +117,10 @@ function Layout() {
   const { wide, openDrawer, drawerProgress, serverOpen, closeServer } = useSidebar();
   const { openTaskId, closeTask } = useDetail();
   const { selectedIds } = useSelection();
+  const [rowWidth, setRowWidth] = useState(0);
+  const [detailColumnWidth, setDetailColumnWidth] = useState(DETAIL_COLUMN_WIDTH);
+  const detailColumnWidthRef = useRef(detailColumnWidth);
+  const resizeStartWidth = useRef(detailColumnWidth);
 
   // A selection takes the column over: the actions apply to several tasks, so
   // showing one task's detail beside them would only mislead about what the next
@@ -121,8 +128,50 @@ function Layout() {
   const bulk = WEB_ENTRY && selectedIds.length > 0;
   const showPane = wide && (bulk || !!openTaskId);
 
+  const clampDetailColumnWidth = useCallback(
+    (width: number) => {
+      const max = rowWidth
+        ? Math.max(DETAIL_COLUMN_MIN_WIDTH, rowWidth - MAIN_CONTENT_MIN_WIDTH - DETAIL_RESIZER_WIDTH)
+        : DETAIL_COLUMN_WIDTH;
+      return Math.min(Math.max(width, DETAIL_COLUMN_MIN_WIDTH), max);
+    },
+    [rowWidth]
+  );
+  const setClampedDetailColumnWidth = useCallback(
+    (width: number) => {
+      const next = clampDetailColumnWidth(width);
+      detailColumnWidthRef.current = next;
+      setDetailColumnWidth(next);
+    },
+    [clampDetailColumnWidth]
+  );
+  const detailResizePan = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => WEB_ENTRY,
+        onMoveShouldSetPanResponder: () => WEB_ENTRY,
+        onPanResponderGrant: () => {
+          resizeStartWidth.current = detailColumnWidthRef.current;
+        },
+        onPanResponderMove: (_event, gesture) => {
+          setClampedDetailColumnWidth(resizeStartWidth.current - gesture.dx);
+        },
+      }),
+    [setClampedDetailColumnWidth]
+  );
+  const handleRowLayout = useCallback((event: LayoutChangeEvent) => {
+    const nextWidth = event.nativeEvent.layout.width;
+    setRowWidth(nextWidth);
+    if (!WEB_ENTRY) return;
+    const max = Math.max(DETAIL_COLUMN_MIN_WIDTH, nextWidth - MAIN_CONTENT_MIN_WIDTH - DETAIL_RESIZER_WIDTH);
+    if (detailColumnWidthRef.current > max) {
+      detailColumnWidthRef.current = max;
+      setDetailColumnWidth(max);
+    }
+  }, []);
+
   return (
-    <View style={styles.row}>
+    <View style={styles.row} onLayout={handleRowLayout}>
       <DrawerSwipeArea>
         <View style={styles.flex}>
           <Tabs />
@@ -132,13 +181,31 @@ function Layout() {
         </View>
       </DrawerSwipeArea>
       {showPane && (
-        <View style={styles.detailColumn}>
-          {bulk || !openTaskId ? (
-            <BulkActions variant="pane" />
-          ) : (
-            <TaskDetailView key={openTaskId} taskId={openTaskId} onClose={closeTask} variant="pane" />
+        <>
+          {WEB_ENTRY && (
+            <View
+              style={styles.detailResizer}
+              accessibilityRole="adjustable"
+              accessibilityLabel="Resize task pane"
+              {...detailResizePan.panHandlers}
+            >
+              <View style={styles.detailResizerLine} />
+            </View>
           )}
-        </View>
+          <View
+            style={[
+              styles.detailColumn,
+              !WEB_ENTRY && styles.detailColumnBorder,
+              WEB_ENTRY && { width: detailColumnWidth },
+            ]}
+          >
+            {bulk || !openTaskId ? (
+              <BulkActions variant="pane" />
+            ) : (
+              <TaskDetailView key={openTaskId} taskId={openTaskId} onClose={closeTask} variant="pane" />
+            )}
+          </View>
+        </>
       )}
       {!wide && <TaskDetailSheet />}
       <ServerSheet visible={serverOpen} onClose={closeServer} />
@@ -481,8 +548,23 @@ const useStyles = makeStyles((c) => ({
     width: DETAIL_COLUMN_WIDTH,
     flexGrow: 0,
     flexShrink: 0,
+    backgroundColor: c.screenBg,
+  },
+  detailColumnBorder: {
     borderLeftWidth: 1,
     borderLeftColor: c.border,
+  },
+  detailResizer: {
+    width: DETAIL_RESIZER_WIDTH,
+    flexGrow: 0,
+    flexShrink: 0,
+    alignItems: 'center',
     backgroundColor: c.screenBg,
+    ...({ cursor: 'col-resize', userSelect: 'none' } as object),
+  },
+  detailResizerLine: {
+    width: 1,
+    flex: 1,
+    backgroundColor: c.border,
   },
 }));
