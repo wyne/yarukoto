@@ -2,7 +2,7 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useR
 import { AppState } from 'react-native';
 import { setAudioModeAsync, useAudioPlayer } from 'expo-audio';
 import { buildSampleData } from './sampleData';
-import { FolderDef, ListDef, Priority, Task, ViewPref } from './types';
+import { FolderDef, ListDef, Priority, SERVER_FEATURES, ServerFeature, Task, ViewPref } from './types';
 import { addDays, toISODate } from './dateUtils';
 import { parseQuickAdd } from './quickAdd';
 import { normalizeTaskPatch } from './reminders';
@@ -36,7 +36,7 @@ import {
   saveToken,
 } from './storage';
 import { ApiError, createApi } from './api';
-import { Outbox, SyncStatus, mergeBatch, pullSince, pushDirty } from './sync';
+import { Outbox, SyncStatus, hasServerFeature, mergeBatch, pullSince, pushDirty } from './sync';
 import { activeFolders, activeLists } from './selectors';
 import { Ordered, applyOrders, computeOrders, reorderRows } from './ordering';
 export { ApiError } from './api';
@@ -481,9 +481,17 @@ export const ACTIVE_SYNC_MS = 5000;
  * so this delay is never what you wait through when you pick a device up.
  */
 export const IDLE_SYNC_MS = 60000;
+/**
+ * How often a connected client re-probes `/health` for the server's feature
+ * list. Long, because that answer only changes when the server is redeployed,
+ * and the sync loop itself runs every few seconds.
+ */
+export const FEATURE_PROBE_MS = 300000;
 
 interface TaskContextValue {
   state: State;
+  /** True when the current local mode/server supports an optional feature. */
+  supportsFeature: (feature: ServerFeature) => boolean;
   addTaskFromQuickAdd: (text: string, defaults?: QuickAddDefaults) => void;
   toggleComplete: (id: string) => void;
   pendingUndo: PendingUndo | null;
@@ -540,6 +548,14 @@ const TaskContext = createContext<TaskContextValue | null>(null);
 
 export function TaskProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(reducer, undefined, initState);
+  // `null` means "not probed yet", which is deliberately not the same as `[]`.
+  // A server that answered with no features is one to strip fields for; a server
+  // we simply haven't reached is not, because omitting a field it does support
+  // would wipe the stored value.
+  const [serverFeatures, setServerFeatures] = useState<ServerFeature[] | null>(() => {
+    const mode = loadMode();
+    return mode === 'server' ? (loadServerSnapshot()?.serverFeatures ?? null) : [...SERVER_FEATURES];
+  });
   const ding = useAudioPlayer(require('../../assets/sounds/ding.wav'));
 
   // A completion ding should sound even with the phone in silent mode.
@@ -560,6 +576,12 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     stateRef.current = state;
   }, [state]);
+  const serverFeaturesRef = useRef(serverFeatures);
+  useEffect(() => {
+    serverFeaturesRef.current = serverFeatures;
+  }, [serverFeatures]);
+  /** When /health last answered, so the loop can re-probe on its own schedule. */
+  const featuresProbedAtRef = useRef(0);
 
   // Persisted with the local server snapshot. Undefined means the next pull is a
   // full hydrate, which is still the right answer until a cached collection exists.
@@ -888,6 +910,9 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
   const connect = useCallback(async (serverUrl: string, token: string) => {
     const url = serverUrl.replace(/\/+$/, '');
     const api = createApi(url, token);
+    // A probe that fails leaves this null: unknown, to be resolved by the sync
+    // loop, rather than an assertion that the server supports nothing.
+    const info = await api.health();
     // A full hydrate doubles as validation: a bad URL or token throws ApiError
     // here, before anything is persisted or the UI leaves FirstRun.
     const batch = await api.pull(undefined);
@@ -899,6 +924,8 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     cursorRef.current = batch.now;
     outboxRef.current = new Outbox();
     clearDirtyIds();
+    featuresProbedAtRef.current = info ? Date.now() : 0;
+    setServerFeatures(info?.features ?? null);
 
     dispatch({ type: 'CONNECT', serverUrl: url, token });
     dispatch({
@@ -916,6 +943,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     clearServerSnapshot();
     clearDirtyIds();
     saveMode('sample');
+    setServerFeatures([...SERVER_FEATURES]);
     dispatch({ type: 'USE_SAMPLE_DATA', data: buildSampleData(new Date()) });
   }, []);
   const disconnect = useCallback(() => {
@@ -925,6 +953,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     clearServerSnapshot();
     clearDirtyIds();
     saveMode('none');
+    setServerFeatures([...SERVER_FEATURES]);
     dispatch({ type: 'DISCONNECT' });
   }, []);
   const removeSavedServer = useCallback((url: string) => {
@@ -958,12 +987,34 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     const run = async () => {
       setSyncStatus((s) => ({ ...s, state: 'syncing' }));
       try {
+        // Re-probe only when the answer is unknown or stale — a feature list that
+        // changes on redeploy does not need fetching every few seconds.
+        let features = serverFeaturesRef.current;
+        if (features === null || Date.now() - featuresProbedAtRef.current >= FEATURE_PROBE_MS) {
+          const info = await api.health();
+          if (info) {
+            const next = info.features;
+            featuresProbedAtRef.current = Date.now();
+            features = next;
+            // Written straight through, not just queued: the push below reads the
+            // ref, and setState would not land until after the next render.
+            // Pushing a stale answer is exactly what strips a supported field.
+            serverFeaturesRef.current = next;
+            setServerFeatures((current) =>
+              current && current.length === next.length && current.every((feature) => next.includes(feature))
+                ? current
+                : next
+            );
+          }
+        }
         if (outboxRef.current.size > 0) {
           const pushed = await pushDirty(
             api,
             outboxRef.current,
             stateRef.current,
-            new Set(taskEditCountsRef.current.keys())
+            new Set(taskEditCountsRef.current.keys()),
+            // Unknown means send everything; only a server that answered gets fields stripped.
+            features ?? SERVER_FEATURES
           );
           saveDirtyIds(outboxRef.current.toArray());
           setMergeDirtyIds(outboxRef.current.snapshot());
@@ -984,6 +1035,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
           lists: stateRef.current.lists,
           folders: stateRef.current.folders,
           viewPrefs: stateRef.current.viewPrefs,
+          serverFeatures: features ?? undefined,
           cursor: cursorRef.current,
         });
         setMergeDirtyIds(outboxRef.current.snapshot());
@@ -1060,15 +1112,25 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       lists: state.lists,
       folders: state.folders,
       viewPrefs: state.viewPrefs,
+      serverFeatures: serverFeatures ?? undefined,
       cursor: cursorRef.current,
     });
-  }, [state.mode, state.tasks, state.lists, state.folders, state.viewPrefs]);
+  }, [state.mode, state.tasks, state.lists, state.folders, state.viewPrefs, serverFeatures]);
 
   const syncNow = useCallback(() => cycleRef.current?.() ?? Promise.resolve(), []);
+  // Two questions, two opposite safe answers. Offering a capability we have not
+  // confirmed is merely wrong on screen and fixes itself on the next probe, so an
+  // unknown server hides it. Stripping a field off a push is *not* recoverable —
+  // the upsert replaces the row — so an unknown server is still sent everything.
+  const supportsFeature = useCallback(
+    (feature: ServerFeature) => state.mode !== 'server' || hasServerFeature(serverFeatures ?? [], feature),
+    [state.mode, serverFeatures]
+  );
 
   const value = useMemo<TaskContextValue>(
     () => ({
       state,
+      supportsFeature,
       addTaskFromQuickAdd,
       toggleComplete,
       pendingUndo,
@@ -1107,6 +1169,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     }),
     [
       state,
+      supportsFeature,
       addTaskFromQuickAdd,
       toggleComplete,
       pendingUndo,

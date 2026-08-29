@@ -1,5 +1,8 @@
+export { SERVER_FEATURES } from '../../../shared/types';
+
 export type {
   Priority,
+  ServerFeature,
   Subtask,
   TaskReminder,
   Synced,

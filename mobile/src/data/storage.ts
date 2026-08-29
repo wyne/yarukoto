@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ACCENT_OPTIONS, AccentColor, DEFAULT_ACCENT, SchemePref } from '../theme/colors';
-import { FolderDef, ListDef, Task, ViewPref } from './types';
+import { FolderDef, ListDef, SERVER_FEATURES, ServerFeature, Task, ViewPref } from './types';
 import {
   DUE_FILTERS,
   DueFilter,
@@ -477,6 +477,8 @@ export interface ServerSnapshot {
   lists: ListDef[];
   folders: FolderDef[];
   viewPrefs: ViewPref[];
+  /** What the connected server last advertised. Absent means never probed. */
+  serverFeatures?: ServerFeature[];
   cursor?: string;
   savedAt: string;
 }
@@ -487,6 +489,15 @@ function hasStringId(value: unknown): value is { id: string } {
 
 function isRecordArray(value: unknown): value is { id: string }[] {
   return Array.isArray(value) && value.every(hasStringId);
+}
+
+// Absent is not the same as empty. A snapshot written before this client ever
+// probed /health knows nothing about the server, while `[]` is a server that
+// answered and supports no optional features. Only the latter may gate UI or
+// strip fields off a push.
+function parseServerFeatures(value: unknown): ServerFeature[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  return value.filter((feature): feature is ServerFeature => SERVER_FEATURES.includes(feature as ServerFeature));
 }
 
 export function loadServerSnapshot(): ServerSnapshot | null {
@@ -506,6 +517,7 @@ export function loadServerSnapshot(): ServerSnapshot | null {
     lists: stored.lists as ListDef[],
     folders: stored.folders as FolderDef[],
     viewPrefs: stored.viewPrefs as ViewPref[],
+    serverFeatures: parseServerFeatures(stored.serverFeatures),
     cursor: typeof stored.cursor === 'string' ? stored.cursor : undefined,
     savedAt: typeof stored.savedAt === 'string' ? stored.savedAt : new Date(0).toISOString(),
   };

@@ -1,4 +1,4 @@
-import { FolderDef, ListDef, Task, ViewPref } from './types';
+import { FolderDef, ListDef, SERVER_FEATURES, ServerFeature, Task, ViewPref } from './types';
 
 export class ApiError extends Error {
   status: number;
@@ -38,6 +38,8 @@ export interface ServerInfo {
   commit: string | null;
   commitShort: string | null;
   builtAt: string | null;
+  /** Optional backend capabilities. Missing means no optional features. */
+  features: ServerFeature[];
 }
 
 export interface Api {
@@ -88,6 +90,11 @@ export function createApi(serverUrl: string, token: string): Api {
           commit: typeof body.commit === 'string' ? body.commit : null,
           commitShort: typeof body.commitShort === 'string' ? body.commitShort : null,
           builtAt: typeof body.builtAt === 'string' ? body.builtAt : null,
+          features: Array.isArray(body.features)
+            ? body.features.filter((feature: unknown): feature is ServerFeature =>
+                SERVER_FEATURES.includes(feature as ServerFeature)
+              )
+            : [],
         };
       } catch {
         return null;
