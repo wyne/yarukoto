@@ -208,6 +208,13 @@ Native folders are not committed (`mobile/.gitignore` ignores `/ios` and `/andro
 generated from `app.json` + `app.config.js` on each build. Edit the config, not the generated
 project.
 
+**It ships iPhone-only.** `ios.supportsTablet` is `false`, so the App Store lists it for iPhone and
+an iPad runs it in compatibility mode. Nothing is lost by that today: the wide layout — the sidebar
+and schedule pane, everything behind `wide` — is a runtime `width >= 900` check, so it is already
+unreachable on a portrait iPhone, and the web build gets it either way. Turning iPad on later is
+that one flag plus iPad screenshots, on the same app record. The reverse — shipping iPad support
+and then withdrawing it — is the direction Apple pushes back on, which is why it starts off.
+
 ### One-time setup
 
 ```bash
