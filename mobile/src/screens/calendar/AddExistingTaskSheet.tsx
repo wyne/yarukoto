@@ -102,21 +102,19 @@ export function AddExistingTaskButton({ onPress }: ButtonProps) {
           onPress={onPress}
           disabled={dragging}
           accessibilityRole="button"
-          accessibilityLabel={dragging ? 'Cancel task drag' : 'Add existing task'}
+          accessibilityLabel={dragging ? 'Cancel task drag' : 'Plan task'}
         >
           <Animated.View style={overStyle}>
             {LIQUID_GLASS ? (
               <GlassView style={styles.glassButton} tintColor={tint} isInteractive={!dragging}>
-                {!dragging && <IconPlus size={16} color="#fff" strokeWidth={2} />}
                 <Text style={styles.glassButtonText}>
-                  {dragging ? 'Drag here to cancel' : 'Add existing'}
+                  {dragging ? 'Drag here to cancel' : 'Plan task'}
                 </Text>
               </GlassView>
             ) : (
               <View style={[styles.flatButton, { backgroundColor: tint }]}>
-                {!dragging && <IconPlus size={16} color="#fff" strokeWidth={2} />}
                 <Text style={styles.glassButtonText}>
-                  {dragging ? 'Drag here to cancel' : 'Add existing'}
+                  {dragging ? 'Drag here to cancel' : 'Plan task'}
                 </Text>
               </View>
             )}
@@ -272,7 +270,7 @@ export default function AddExistingTaskSheet({ visible, onClose }: SheetProps) {
         <View style={styles.header}>
           <View style={styles.headerTitle}>
             <IconCalendarBox size={18} color={titleIconColor} />
-            <Text style={styles.title}>Add existing</Text>
+            <Text style={styles.title}>Plan task</Text>
           </View>
           <GlassIconButton onPress={() => closeRef.current()} label="Close add existing">
             <View style={styles.closeIcon}>
