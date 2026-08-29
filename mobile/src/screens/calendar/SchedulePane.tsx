@@ -1,84 +1,103 @@
-import React, { useMemo, useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import React, { useCallback, useMemo, useState } from 'react';
+import { ScrollView, Text, TextInput, View } from 'react-native';
 import { makeStyles } from '../../theme/styles';
 import { fonts } from '../../theme/typography';
-import { useAccent } from '../../theme/ThemeContext';
+import { priorityColor } from '../../theme/colors';
+import { useColors } from '../../theme/ThemeContext';
 import { useTasks } from '../../data/TaskContext';
-import { useDetail } from '../../navigation/DetailContext';
-import {
-  activeTasks,
-  getListById,
-  inboxTasks,
-  navGroups,
-  tagCounts,
-  unscheduledTasks,
-} from '../../data/selectors';
+import { getListById } from '../../data/selectors';
 import { Task } from '../../data/types';
 import TaskRow from '../../components/TaskRow';
 import Card from '../../components/Card';
 import { closeOpenSwipeRow } from '../../components/SwipeableRow';
 import Divider from '../../components/Divider';
-import BottomSheet from '../../components/BottomSheet';
+import FilterBar from '../../components/browse/FilterBar';
+import { EMPTY_CRITERIA, TaskCriteria, filterTasks } from '../../data/taskFilter';
+import { SortBy, sortTasks } from '../../data/viewOptions';
 import { useDraggable } from '../../drag/useDraggable';
 import { useDragActive } from '../../drag/DragContext';
 import { useDragSource } from '../../drag/dragSource';
-import { IconChevronDown } from '../../icons/Icons';
+import { hapticSelect } from '../../data/haptics';
+import { IconCalendarBox } from '../../icons/Icons';
 
-export type Scope =
-  | { kind: 'unscheduled' }
-  | { kind: 'inbox' }
-  | { kind: 'list'; value: string; label: string }
-  | { kind: 'tag'; value: string; label: string };
+const DEFAULT_CRITERIA: TaskCriteria = { ...EMPTY_CRITERIA, due: 'nodate' };
+const DEFAULT_SORT_BY: SortBy = 'priority';
 
-const UNSCHEDULED: Scope = { kind: 'unscheduled' };
-
-function scopeLabel(scope: Scope): string {
-  switch (scope.kind) {
-    case 'unscheduled':
-      return 'Unscheduled';
-    case 'inbox':
-      return 'Inbox';
-    default:
-      return scope.label;
-  }
-}
-
-/** Left column of the Plan view: pick a slice of tasks, then drag them onto the calendar. */
+/** Left column of the Plan view: find existing tasks, then drag them onto the calendar. */
 export default function SchedulePane() {
   const styles = useStyles();
-  const accent = useAccent();
+  const colors = useColors();
   const { state } = useTasks();
-  const { openTask, openTaskId } = useDetail();
   // A drag is heading for the calendar, not the list — lock the list's scroll so
   // the finger can carry the ghost out without the ScrollView stealing the pan.
   const dragging = useDragActive();
   const now = new Date();
 
-  const [scope, setScope] = useState<Scope>(UNSCHEDULED);
-  const [pickerOpen, setPickerOpen] = useState(false);
+  const [criteria, setCriteria] = useState<TaskCriteria>(DEFAULT_CRITERIA);
+  const [sortBy, setSortBy] = useState<SortBy>(DEFAULT_SORT_BY);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
-  const tasks = useMemo(() => {
-    switch (scope.kind) {
-      case 'unscheduled':
-        return unscheduledTasks(state.tasks);
-      case 'inbox':
-        return inboxTasks(state.tasks);
-      case 'list':
-        return activeTasks(state.tasks).filter((t) => t.listId === scope.value);
-      case 'tag':
-        return activeTasks(state.tasks).filter((t) => t.tags.includes(scope.value));
-    }
-  }, [scope, state.tasks]);
+  const tasks = useMemo(
+    () =>
+      sortTasks(filterTasks(state.tasks, criteria, { lists: state.lists, now }), {
+        groupBy: 'none',
+        sortBy,
+        arrangements: {},
+      }),
+    // `now` only affects date buckets; reopening/re-rendering catches changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [criteria, sortBy, state.lists, state.tasks]
+  );
+  const selectedIdSet = useMemo(() => new Set(selectedIds), [selectedIds]);
 
-  const tags = tagCounts(state.tasks);
+  const updateCriteria = useCallback((next: TaskCriteria) => {
+    setSelectedIds([]);
+    setCriteria(next);
+  }, []);
+  const updateSort = useCallback((next: SortBy) => {
+    setSelectedIds([]);
+    setSortBy(next);
+  }, []);
+  const toggleSelected = useCallback((taskId: string) => {
+    hapticSelect();
+    setSelectedIds((current) =>
+      current.includes(taskId) ? current.filter((id) => id !== taskId) : [...current, taskId]
+    );
+  }, []);
 
   return (
     <View style={styles.pane}>
-      <Pressable style={styles.scopeBtn} onPress={() => setPickerOpen(true)}>
-        <Text style={styles.scopeLabel}>{scopeLabel(scope)}</Text>
-        <Text style={styles.scopeCount}>{tasks.length}</Text>
-        <IconChevronDown />
-      </Pressable>
+      <View style={styles.header}>
+        <IconCalendarBox size={18} color={colors.textSecondary} />
+        <Text style={styles.title}>Plan task</Text>
+        <Text style={styles.count}>{tasks.length}</Text>
+      </View>
+
+      <TextInput
+        value={criteria.query}
+        onChangeText={(query) => updateCriteria({ ...criteria, query })}
+        placeholder="Search tasks and tags"
+        placeholderTextColor={colors.textFaint}
+        style={styles.searchInput}
+        autoCorrect={false}
+        returnKeyType="search"
+        clearButtonMode="while-editing"
+      />
+      <FilterBar
+        criteria={criteria}
+        onChange={updateCriteria}
+        sortBy={sortBy}
+        onSortChange={updateSort}
+        // Nothing here is going on the calendar if it is already done.
+        showStatus={false}
+      />
+      <Text style={styles.hint}>
+        {selectedIds.length > 0
+          ? `${selectedIds.length} selected. Long press a selected task to place ${
+              selectedIds.length === 1 ? 'it' : 'them'
+            } on the calendar.`
+          : 'Long press a task to place it on the calendar. Tap tasks to select multiple.'}
+      </Text>
 
       <ScrollView
         contentContainerStyle={styles.scroll}
@@ -95,11 +114,9 @@ export default function SchedulePane() {
                 <DraggableTask
                   task={task}
                   now={now}
-                  listName={getListById(state.lists, task.listId)}
-                  hideListId={scope.kind === 'list' ? scope.value : undefined}
-                  hideTag={scope.kind === 'tag' ? scope.value : undefined}
-                  active={openTaskId === task.id}
-                  onPress={() => openTask(task.id)}
+                  selectedIds={selectedIds}
+                  selected={selectedIdSet.has(task.id)}
+                  onToggleSelected={() => toggleSelected(task.id)}
                 />
                 {i < tasks.length - 1 && <Divider />}
               </View>
@@ -107,72 +124,7 @@ export default function SchedulePane() {
           </Card>
         )}
       </ScrollView>
-
-      <BottomSheet visible={pickerOpen} onClose={() => setPickerOpen(false)} title="Plan from">
-        <ScrollView style={{ maxHeight: 420 }}>
-          {[UNSCHEDULED, { kind: 'inbox' } as Scope].map((s) => (
-            <ScopeRow key={s.kind} label={scopeLabel(s)} active={scope.kind === s.kind} onPress={() => {
-              setScope(s);
-              setPickerOpen(false);
-            }} />
-          ))}
-          {navGroups(state.lists, state.folders).map((group) => (
-            <View key={group.folder?.id ?? 'root'}>
-              {group.folder && <Text style={styles.sectionLabel}>{group.folder.name}</Text>}
-              {group.lists.map((list) => (
-                <ScopeRow
-                  key={list.id}
-                  label={list.name}
-                  color={list.color}
-                  indent={!!group.folder}
-                  active={scope.kind === 'list' && scope.value === list.id}
-                  onPress={() => {
-                    setScope({ kind: 'list', value: list.id, label: list.name });
-                    setPickerOpen(false);
-                  }}
-                />
-              ))}
-            </View>
-          ))}
-          {tags.length > 0 && <Text style={styles.sectionLabel}>Tags</Text>}
-          {tags.map(({ tag }) => (
-            <ScopeRow
-              key={tag}
-              label={`#${tag}`}
-              active={scope.kind === 'tag' && scope.value === tag}
-              onPress={() => {
-                setScope({ kind: 'tag', value: tag, label: `#${tag}` });
-                setPickerOpen(false);
-              }}
-            />
-          ))}
-        </ScrollView>
-      </BottomSheet>
     </View>
-  );
-}
-
-function ScopeRow({
-  label,
-  color,
-  active,
-  indent,
-  onPress,
-}: {
-  label: string;
-  color?: string;
-  active: boolean;
-  /** A list inside a folder, inset one step under that folder's heading. */
-  indent?: boolean;
-  onPress: () => void;
-}) {
-  const styles = useStyles();
-  const accent = useAccent();
-  return (
-    <Pressable style={[styles.scopeRow, indent && styles.scopeRowNested]} onPress={onPress}>
-      {color && <View style={[styles.dot, { backgroundColor: color }]} />}
-      <Text style={[styles.scopeRowText, active && { color: accent, fontFamily: fonts.sansSemiBold }]}>{label}</Text>
-    </Pressable>
   );
 }
 
@@ -183,37 +135,38 @@ function ScopeRow({
 function DraggableTask({
   task,
   now,
-  listName,
-  hideListId,
-  hideTag,
-  active,
-  onPress,
+  selectedIds,
+  selected,
+  onToggleSelected,
 }: {
   task: Task;
   now: Date;
-  listName: ReturnType<typeof getListById>;
-  hideListId?: string;
-  hideTag?: string;
-  active?: boolean;
-  onPress: () => void;
+  selectedIds: string[];
+  selected: boolean;
+  onToggleSelected: () => void;
 }) {
   const styles = useStyles();
-  const { toggleComplete, snoozeTask } = useTasks();
-  const { onLongPress, ...handlers } = useDraggable({ taskId: task.id, title: task.title });
+  const colors = useColors();
+  const { state, toggleComplete, snoozeTask } = useTasks();
+  const { onLongPress, ...handlers } = useDraggable({
+    taskId: task.id,
+    taskIds: selected ? selectedIds : [task.id],
+    title: task.title,
+  });
   const isSource = useDragSource(task.id);
 
   return (
     <View style={styles.draggable} {...handlers}>
       <TaskRow
         task={task}
-        list={listName}
+        list={getListById(state.lists, task.listId)}
         now={now}
-        showContext
+        showContext="tags"
+        selectionMode
+        selected={selected}
+        selectionColor={priorityColor(task.priority, colors)}
         dragSource={isSource}
-        active={active}
-        hideListId={hideListId}
-        hideTag={hideTag}
-        onPress={onPress}
+        onPress={onToggleSelected}
         onLongPress={onLongPress}
         onToggleComplete={() => toggleComplete(task.id)}
         onLater={() => snoozeTask(task.id)}
@@ -245,26 +198,45 @@ const useStyles = makeStyles((c) => ({
     borderRightColor: c.border,
     backgroundColor: c.screenBg,
   },
-  scopeBtn: {
+  header: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 10,
   },
-  scopeLabel: {
+  title: {
     flex: 1,
-    fontFamily: fonts.sansSemiBold,
-    fontSize: 16,
+    fontFamily: fonts.sansBold,
+    fontSize: 18,
     color: c.textPrimary,
   },
-  scopeCount: {
+  count: {
     fontFamily: fonts.monoRegular,
     fontSize: 12.5,
     color: c.textTertiary,
   },
+  searchInput: {
+    marginHorizontal: 16,
+    marginBottom: 10,
+    fontFamily: fonts.sansRegular,
+    fontSize: 16,
+    color: c.textPrimary,
+    backgroundColor: c.chipBg,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  hint: {
+    marginHorizontal: 16,
+    marginBottom: 10,
+    fontFamily: fonts.sansRegular,
+    fontSize: 13.5,
+    color: c.textTertiary,
+  },
   scroll: {
-    paddingHorizontal: 8,
+    paddingHorizontal: 12,
     paddingBottom: 16,
   },
   empty: {
@@ -273,40 +245,5 @@ const useStyles = makeStyles((c) => ({
     fontFamily: fonts.sansRegular,
     fontSize: 14.5,
     color: c.textTertiary,
-  },
-  scopeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingVertical: 11,
-    borderBottomWidth: 1,
-    borderBottomColor: c.divider,
-  },
-  /**
-   * The nav interleaves folders with the lists that aren't in one, so a root
-   * list can sort directly under a folder's own lists. The indent is what says
-   * which rows the heading above covers.
-   */
-  scopeRowNested: {
-    paddingLeft: 22,
-  },
-  scopeRowText: {
-    fontFamily: fonts.sansRegular,
-    fontSize: 16,
-    color: c.textPrimary,
-  },
-  dot: {
-    width: 10,
-    height: 10,
-    borderRadius: 3,
-  },
-  sectionLabel: {
-    fontFamily: fonts.monoRegular,
-    fontSize: 11.5,
-    letterSpacing: 1,
-    textTransform: 'uppercase',
-    color: c.textTertiary,
-    marginTop: 12,
-    marginBottom: 2,
   },
 }));
