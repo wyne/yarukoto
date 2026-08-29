@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { LayoutChangeEvent, Pressable, ScrollView, Text, View } from 'react-native';
 import { alpha, priorityColor } from '../../theme/colors';
 import { makeStyles } from '../../theme/styles';
 import { fonts } from '../../theme/typography';
@@ -11,6 +11,9 @@ import { useDropTarget } from '../../drag/useDropTarget';
 import { useDraggable } from '../../drag/useDraggable';
 import { DragPayload, taskIdsFromDrag, useDragActive } from '../../drag/DragContext';
 import { useDragSource } from '../../drag/dragSource';
+
+const INSERT_GAP = 6;
+const INSERT_LINE_HEIGHT = 2;
 
 interface Props {
   startDate: Date;
@@ -113,25 +116,46 @@ function DayColumn({
   const isSelected = showSelectedBadge && isSameDay(date, selectedDate) && !isToday;
   // A task being dragged between columns must not scroll the column it left.
   const dragging = useDragActive();
+  const [chipLayouts, setChipLayouts] = React.useState<Record<string, ChipLayout>>({});
+
+  React.useEffect(() => {
+    const ids = new Set(tasks.map((task) => task.id));
+    setChipLayouts((prev) => {
+      const next: Record<string, ChipLayout> = {};
+      let changed = false;
+      for (const id of ids) {
+        const layout = prev[id];
+        if (layout) next[id] = layout;
+      }
+      if (Object.keys(prev).length !== Object.keys(next).length) changed = true;
+      return changed ? next : prev;
+    });
+  }, [tasks]);
 
   const columnTarget = useDropTarget(
     dayTargetId(iso, 'cols'),
     (payload) => onDropTask(taskIdsFromDrag(payload), iso, null),
     !reorderable
   );
-  const appendTarget = useDropTarget(
-    `cols/day:${iso}:append`,
-    (payload) => onDropTask(taskIdsFromDrag(payload), iso, null),
-    reorderable
-  );
 
-  const dropOnTask = (payload: DragPayload, taskId: string, after: boolean) => {
+  const dropIntoSlot = (payload: DragPayload, beforeId: string | null) => {
     const moving = new Set(taskIdsFromDrag(payload));
-    const index = tasks.findIndex((task) => task.id === taskId);
-    const start = after ? index + 1 : index;
-    const beforeId = tasks.slice(start).find((task) => !moving.has(task.id))?.id ?? null;
-    onDropTask([...moving], iso, beforeId);
+    const index = beforeId ? tasks.findIndex((task) => task.id === beforeId) : -1;
+    const normalizedBeforeId =
+      beforeId && !moving.has(beforeId)
+        ? beforeId
+        : tasks.slice(index + 1).find((task) => !moving.has(task.id))?.id ?? null;
+    onDropTask([...moving], iso, normalizedBeforeId);
   };
+
+  const rememberChipLayout = React.useCallback((taskId: string, event: LayoutChangeEvent) => {
+    const { y, height } = event.nativeEvent.layout;
+    setChipLayouts((prev) => {
+      const current = prev[taskId];
+      if (current && Math.abs(current.y - y) < 0.5 && Math.abs(current.height - height) < 0.5) return prev;
+      return { ...prev, [taskId]: { y, height } };
+    });
+  }, []);
 
   return (
     <View
@@ -140,7 +164,7 @@ function DayColumn({
       collapsable={false}
       style={[
         styles.col,
-        (columnTarget.isOver || (tasks.length === 0 && appendTarget.isOver)) && {
+        columnTarget.isOver && {
           backgroundColor: colors.accentTintBg,
           borderColor: accent,
         },
@@ -167,24 +191,41 @@ function DayColumn({
         showsVerticalScrollIndicator={false}
         scrollEnabled={!dragging}
       >
-        {tasks.map((task) => (
-          <TaskChip
-            key={task.id}
-            task={task}
-            reorderable={reorderable}
-            onDropBefore={(payload) => dropOnTask(payload, task.id, false)}
-            onDropAfter={(payload) => dropOnTask(payload, task.id, true)}
-            onPress={() => onOpenTask(task.id)}
-          />
-        ))}
-        <View
-          ref={reorderable ? appendTarget.ref : undefined}
-          onLayout={reorderable ? appendTarget.onLayout : undefined}
-          collapsable={false}
-          style={styles.appendZone}
-        >
-          {appendTarget.isOver && tasks.length > 0 && (
-            <View pointerEvents="none" style={[styles.appendLine, { backgroundColor: accent }]} />
+        <View style={styles.chipsLayer}>
+          {tasks.map((task) => (
+            <TaskChip
+              key={task.id}
+              task={task}
+              onLayout={(event) => rememberChipLayout(task.id, event)}
+              onPress={() => onOpenTask(task.id)}
+            />
+          ))}
+          {reorderable &&
+            tasks.map((task, index) => {
+              const layout = chipLayouts[task.id];
+              if (!layout) return null;
+              const prevTask = index > 0 ? tasks[index - 1] : null;
+              const prevLayout = prevTask ? chipLayouts[prevTask.id] : null;
+              const top = prevLayout ? prevLayout.y + prevLayout.height / 2 : 0;
+              const bottom = layout.y + layout.height / 2;
+              return (
+                <InsertBoundary
+                  key={`before-${task.id}`}
+                  id={`cols/day:${iso}/before:${task.id}`}
+                  top={top}
+                  height={Math.max(1, bottom - top)}
+                  lineTop={layout.y - INSERT_GAP / 2 - INSERT_LINE_HEIGHT / 2 - top}
+                  onDrop={(payload) => dropIntoSlot(payload, task.id)}
+                />
+              );
+            })}
+          {reorderable && (
+            <AppendBoundary
+              id={`cols/day:${iso}/append`}
+              tasks={tasks}
+              layouts={chipLayouts}
+              onDrop={(payload) => dropIntoSlot(payload, null)}
+            />
           )}
         </View>
       </ScrollView>
@@ -192,18 +233,19 @@ function DayColumn({
   );
 }
 
+interface ChipLayout {
+  y: number;
+  height: number;
+}
+
 /** Draggable so a task can be moved between days without leaving the week. */
 function TaskChip({
   task,
-  reorderable,
-  onDropBefore,
-  onDropAfter,
+  onLayout,
   onPress,
 }: {
   task: Task;
-  reorderable: boolean;
-  onDropBefore: (payload: DragPayload) => void;
-  onDropAfter: (payload: DragPayload) => void;
+  onLayout: (event: LayoutChangeEvent) => void;
   onPress: () => void;
 }) {
   const colors = useColors();
@@ -211,33 +253,14 @@ function TaskChip({
   const accent = useAccent();
   const { onLongPress, ...handlers } = useDraggable({ taskId: task.id, title: task.title });
   const isSource = useDragSource(task.id);
-  const before = useDropTarget(`cols/task:${task.id}:before`, onDropBefore, reorderable);
-  const after = useDropTarget(`cols/task:${task.id}:after`, onDropAfter, reorderable);
-  const insertion = before.isOver ? 'before' : after.isOver ? 'after' : null;
 
   return (
-    <View style={styles.chipWrap} {...handlers}>
-      {reorderable && (
-        <>
-          <View
-            ref={before.ref}
-            onLayout={before.onLayout}
-            collapsable={false}
-            pointerEvents="none"
-            style={styles.dropBefore}
-          />
-          <View
-            ref={after.ref}
-            onLayout={after.onLayout}
-            collapsable={false}
-            pointerEvents="none"
-            style={styles.dropAfter}
-          />
-        </>
-      )}
-      {insertion === 'before' && (
-        <View pointerEvents="none" style={[styles.insertLine, styles.insertBefore, { backgroundColor: accent }]} />
-      )}
+    <View
+      onLayout={onLayout}
+      collapsable={false}
+      style={styles.chipWrap}
+      {...handlers}
+    >
       <Pressable
         style={[
           styles.chip,
@@ -255,8 +278,63 @@ function TaskChip({
           {!!task.dueTime && <Text style={styles.chipTime}>{formatTime24to12(task.dueTime)}</Text>}
         </View>
       </Pressable>
-      {insertion === 'after' && (
-        <View pointerEvents="none" style={[styles.insertLine, styles.insertAfter, { backgroundColor: accent }]} />
+    </View>
+  );
+}
+
+function AppendBoundary({
+  id,
+  tasks,
+  layouts,
+  onDrop,
+}: {
+  id: string;
+  tasks: Task[];
+  layouts: Record<string, ChipLayout>;
+  onDrop: (payload: DragPayload) => void;
+}) {
+  const lastTask = tasks[tasks.length - 1];
+  const lastLayout = lastTask ? layouts[lastTask.id] : null;
+  const top = lastLayout ? lastLayout.y + lastLayout.height / 2 : 0;
+  const lineTop = lastLayout
+    ? lastLayout.y + lastLayout.height + INSERT_GAP / 2 - INSERT_LINE_HEIGHT / 2 - top
+    : INSERT_GAP / 2 - INSERT_LINE_HEIGHT / 2;
+
+  return <InsertBoundary id={id} top={top} bottom={0} lineTop={lineTop} onDrop={onDrop} />;
+}
+
+function InsertBoundary({
+  id,
+  top,
+  height,
+  bottom,
+  lineTop,
+  onDrop,
+}: {
+  id: string;
+  top: number;
+  height?: number;
+  bottom?: number;
+  lineTop: number;
+  onDrop: (payload: DragPayload) => void;
+}) {
+  const styles = useStyles();
+  const accent = useAccent();
+  const { ref, onLayout, isOver } = useDropTarget(id, onDrop, true);
+
+  return (
+    <View
+      ref={ref}
+      onLayout={onLayout}
+      pointerEvents="none"
+      collapsable={false}
+      style={[styles.insertBoundary, height === undefined ? { top, bottom: bottom ?? 0 } : { top, height }]}
+    >
+      {isOver && (
+        <View
+          pointerEvents="none"
+          style={[styles.insertLine, { top: Math.max(0, lineTop), backgroundColor: accent }]}
+        />
       )}
     </View>
   );
@@ -319,56 +397,31 @@ const useStyles = makeStyles((c) => ({
     // the finger can pull on rather than the top few rows of it.
     flexGrow: 1,
   },
+  chipsLayer: {
+    flexGrow: 1,
+    position: 'relative',
+    paddingBottom: INSERT_GAP,
+  },
   chipWrap: {
     position: 'relative',
-    paddingVertical: 2,
+    marginTop: INSERT_GAP,
     // Spread as a plain object rather than suppressed line by line: a
     // `@ts-expect-error` inside the builder stops `makeStyles` inferring the
     // sheet's shape at all, and every style name goes missing.
     ...({ userSelect: 'none', cursor: 'grab' } as object),
   },
-  dropBefore: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: '50%',
-    zIndex: 2,
-  },
-  dropAfter: {
+  insertBoundary: {
     position: 'absolute',
     left: 0,
     right: 0,
-    bottom: 0,
-    height: '50%',
-    zIndex: 2,
+    zIndex: 3,
   },
   insertLine: {
     position: 'absolute',
     left: 4,
     right: 4,
-    height: 2,
-    borderRadius: 1,
-    zIndex: 3,
-  },
-  insertBefore: {
-    top: 1,
-  },
-  insertAfter: {
-    bottom: 1,
-  },
-  appendZone: {
-    flexGrow: 1,
-    minHeight: 28,
-    position: 'relative',
-  },
-  appendLine: {
-    position: 'absolute',
-    top: 3,
-    left: 4,
-    right: 4,
-    height: 2,
-    borderRadius: 1,
+    height: INSERT_LINE_HEIGHT,
+    borderRadius: INSERT_LINE_HEIGHT / 2,
   },
   chip: {
     flexDirection: 'row',

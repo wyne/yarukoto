@@ -52,6 +52,6 @@ export function resolveDropTarget(
 export const dayTargetId = (iso: string, scope: string): string => `${scope}/day:${iso}`;
 
 export function isoFromDayTarget(id: string): string | null {
-  const at = id.indexOf('/day:');
-  return at === -1 ? null : id.slice(at + '/day:'.length);
+  const match = id.match(/\/day:(\d{4}-\d{2}-\d{2})(?:$|[/:])/);
+  return match ? match[1] : null;
 }
