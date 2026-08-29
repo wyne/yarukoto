@@ -48,6 +48,7 @@ import {
   IconFolder,
   IconInboxTray,
   IconPlus,
+  IconSettings,
   IconStack,
   IconTag,
   IconTrash,
@@ -73,9 +74,9 @@ const LIFT_THRESHOLD = 8;
  */
 const FOLD_MS = 180;
 
-export const SIDEBAR_WIDTH = 260;
+export const SIDEBAR_WIDTH = 300;
 /** Icon-only rail when the pinned sidebar is collapsed. */
-export const SIDEBAR_COLLAPSED_WIDTH = 56;
+export const SIDEBAR_COLLAPSED_WIDTH = 64;
 
 /** Fixed at module scope: the set never varies, and a fresh array per render
  *  would rebuild seven rows for nothing. */
@@ -521,7 +522,7 @@ const Sidebar = React.memo(function Sidebar({ state, navigation, onNavigate }: P
             hitSlop={8}
             accessibilityLabel={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           >
-            {collapsed ? <IconChevronRight size={16} /> : <IconChevronLeft size={16} />}
+            {collapsed ? <IconChevronRight size={18} /> : <IconChevronLeft size={18} />}
           </Pressable>
         )}
       </View>
@@ -542,7 +543,7 @@ const Sidebar = React.memo(function Sidebar({ state, navigation, onNavigate }: P
               onPress={() => go(route)}
               accessibilityLabel={label}
             >
-              <Icon size={18} color={active ? accent : colors.textTertiary} />
+              <Icon size={20} color={active ? accent : colors.textTertiary} />
               {!collapsed && (
                 <>
                   <Text style={[styles.rowLabel, active && { color: accent, fontFamily: fonts.sansSemiBold }]}>
@@ -643,7 +644,7 @@ const Sidebar = React.memo(function Sidebar({ state, navigation, onNavigate }: P
               onPress={() => openNavSheet({ kind: 'newList', folderId: null })}
               accessibilityLabel="New list"
             >
-              <IconPlus size={15} color={colors.textTertiary} />
+              <IconPlus size={17} color={colors.textTertiary} />
               <Text style={styles.newLabel}>New list</Text>
             </Pressable>
             <Pressable
@@ -651,7 +652,7 @@ const Sidebar = React.memo(function Sidebar({ state, navigation, onNavigate }: P
               onPress={() => openNavSheet({ kind: 'newFolder' })}
               accessibilityLabel="New folder"
             >
-              <IconPlus size={15} color={colors.textTertiary} />
+              <IconPlus size={17} color={colors.textTertiary} />
               <Text style={styles.newLabel}>New folder</Text>
             </Pressable>
           </View>
@@ -668,7 +669,7 @@ const Sidebar = React.memo(function Sidebar({ state, navigation, onNavigate }: P
                   style={hoverBg([styles.row, active && { backgroundColor: colors.selectedRowBg }], active)}
                   onPress={() => openTag(tag)}
                 >
-                  <IconTag size={16} color={active ? accent : colors.textTertiary} />
+                  <IconTag size={18} color={active ? accent : colors.textTertiary} />
                   <Text
                     style={[styles.rowLabel, styles.tagLabel, active && { color: accent }]}
                     numberOfLines={1}
@@ -686,7 +687,7 @@ const Sidebar = React.memo(function Sidebar({ state, navigation, onNavigate }: P
       <Pressable
         style={hoverBg([styles.footer, collapsed && styles.footerCollapsed, { paddingBottom: Math.max(12, insets.bottom) }])}
         onPress={openServer}
-        accessibilityLabel="Server connection"
+        accessibilityLabel="Server settings"
       >
         <SyncIndicator
           mode={data.mode}
@@ -694,6 +695,7 @@ const Sidebar = React.memo(function Sidebar({ state, navigation, onNavigate }: P
           serverUrl={data.serverUrl}
           compact={collapsed}
         />
+        <IconSettings size={18} color={colors.textTertiary} />
       </Pressable>
 
       <NavContextMenu
@@ -836,7 +838,7 @@ const FolderRow = React.memo(function FolderRow({
       accessibilityState={{ selected: active }}
     >
       <View style={styles.rowIcon}>
-        <IconFolder size={17} color={active ? accent : colors.textTertiary} />
+        <IconFolder size={19} color={active ? accent : colors.textTertiary} />
       </View>
       <Text
         style={[styles.rowLabel, active && { color: accent, fontFamily: fonts.sansSemiBold }]}
@@ -860,9 +862,9 @@ const FolderRow = React.memo(function FolderRow({
         {count > 0 && <Text style={[styles.rowCount, active && { color: accent }]}>{count}</Text>}
         <View style={styles.chevron}>
           {folded ? (
-            <IconChevronRight size={12} color={active ? accent : colors.textTertiary} />
+            <IconChevronRight size={14} color={active ? accent : colors.textTertiary} />
           ) : (
-            <IconChevronDown size={12} color={active ? accent : colors.textTertiary} />
+            <IconChevronDown size={14} color={active ? accent : colors.textTertiary} />
           )}
         </View>
       </Pressable>
@@ -960,7 +962,7 @@ const useStyles = makeStyles((c) => ({
     flexDirection: 'row',
     alignItems: 'center',
     paddingRight: 12,
-    paddingBottom: 12,
+    paddingBottom: 14,
   },
   brandRowCollapsed: {
     justifyContent: 'center',
@@ -976,10 +978,10 @@ const useStyles = makeStyles((c) => ({
   },
   brand: {
     fontFamily: fonts.sansBold,
-    fontSize: 17,
+    fontSize: 19,
     flex: 1,
     color: c.textPrimary,
-    paddingHorizontal: 16,
+    paddingHorizontal: 18,
   },
   scrollArea: {
     flex: 1,
@@ -992,8 +994,8 @@ const useStyles = makeStyles((c) => ({
     overflow: 'hidden',
   },
   scroll: {
-    paddingHorizontal: 8,
-    paddingBottom: 12,
+    paddingHorizontal: 10,
+    paddingBottom: 14,
     // The scroller is already flex:1; this is the content filling it, so the
     // space under the last tag belongs to the list and can be dragged on.
     flexGrow: 1,
@@ -1001,24 +1003,24 @@ const useStyles = makeStyles((c) => ({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    paddingHorizontal: 10,
+    gap: 12,
+    paddingHorizontal: 12,
     borderRadius: 8,
-    minHeight: 36,
+    minHeight: 44,
   },
   rowLabel: {
     flex: 1,
     fontFamily: fonts.sansMedium,
-    fontSize: 15,
+    fontSize: 16.5,
     color: c.textPrimary,
   },
   tagLabel: {
     fontFamily: fonts.monoRegular,
-    fontSize: 13.5,
+    fontSize: 15,
   },
   rowCount: {
     fontFamily: fonts.monoRegular,
-    fontSize: 12.5,
+    fontSize: 14,
     color: c.textFaint,
   },
   /** The Tags caption. Folders used to share this and are now rows instead. */
@@ -1028,48 +1030,48 @@ const useStyles = makeStyles((c) => ({
     letterSpacing: 1,
     textTransform: 'uppercase',
     color: c.textFaint,
-    paddingHorizontal: 10,
-    paddingTop: 18,
-    paddingBottom: 6,
+    paddingHorizontal: 12,
+    paddingTop: 20,
+    paddingBottom: 8,
   },
   treeSeparator: {
     height: 1,
     backgroundColor: c.border,
     // Inset to the row text rather than the full width, so it reads as a rule
     // between two groups of rows and not as an edge of the sidebar.
-    marginHorizontal: 10,
-    marginTop: 10,
-    marginBottom: 6,
+    marginHorizontal: 12,
+    marginTop: 12,
+    marginBottom: 8,
   },
   /** Both adds share a line, now that a list can be made at the root too. */
   addRow: {
     flexDirection: 'row',
-    marginTop: 4,
+    marginTop: 6,
   },
   /** Mirrors the sidebar row metrics so it sits on the same rhythm as the lists. */
   newRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 10,
+    gap: 9,
+    paddingHorizontal: 12,
     borderRadius: 8,
-    minHeight: 36,
+    minHeight: 44,
   },
   /** Matches TaskDetailView's "Add subtask" — the app's other subordinate add row. */
   newLabel: {
     fontFamily: fonts.sansRegular,
-    fontSize: 15,
+    fontSize: 16.5,
     color: c.textTertiary,
   },
   /** Reserves the chevron's column so every row's icon and label line up. */
   /** The disclosure column, at the trailing edge of a folder row. */
   chevron: {
-    width: 12,
+    width: 14,
     alignItems: 'center',
   },
   folderDisclosure: {
     alignSelf: 'stretch',
-    minWidth: 34,
+    minWidth: 42,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-end',
@@ -1082,32 +1084,32 @@ const useStyles = makeStyles((c) => ({
    * same x in both halves of the nav.
    */
   rowIcon: {
-    width: 18,
+    width: 20,
     alignItems: 'center',
   },
   dot: {
-    width: 10,
-    height: 10,
-    borderRadius: 3,
+    width: 12,
+    height: 12,
+    borderRadius: 4,
   },
   letterBadge: {
-    width: 20,
-    height: 20,
-    borderRadius: 5,
+    width: 24,
+    height: 24,
+    borderRadius: 6,
     alignItems: 'center',
     justifyContent: 'center',
   },
   letterBadgeText: {
     fontFamily: fonts.sansBold,
-    fontSize: 12.5,
+    fontSize: 14,
     color: c.surface,
   },
   footer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 16,
-    paddingTop: 10,
+    gap: 10,
+    paddingHorizontal: 18,
+    paddingTop: 12,
     borderTopWidth: 1,
     borderTopColor: c.border,
   },

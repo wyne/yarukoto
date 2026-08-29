@@ -96,14 +96,14 @@ export default function SyncIndicator({ mode, status, serverUrl, compact }: Prop
 
 const useStyles = makeStyles((c) => ({
   dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
   },
   label: {
     flex: 1,
     fontFamily: fonts.monoRegular,
-    fontSize: 12,
+    fontSize: 13.5,
     color: c.textTertiary,
   },
 }));

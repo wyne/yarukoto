@@ -31,6 +31,15 @@ import { Measurable } from '../drag/useDropTarget';
 const AGENDA_WINDOW_DAYS = 45;
 const MULTI_DAY_COUNT = 3;
 
+function hexToRgba(hex: string, alpha: number): string {
+  const value = hex.replace('#', '');
+  if (value.length !== 6) return hex;
+  const r = parseInt(value.slice(0, 2), 16);
+  const g = parseInt(value.slice(2, 4), 16);
+  const b = parseInt(value.slice(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
 type Mode = PlanMode;
 
 /**
@@ -181,7 +190,7 @@ export default function CalendarScreen() {
         style={[
           styles.todayBtn,
           { borderColor: showCompleted ? accent : colors.border },
-          showCompleted && { backgroundColor: colors.accentTintBg },
+          showCompleted && { backgroundColor: hexToRgba(accent, 0.14) },
         ]}
         onPress={() => updatePrefs({ showCompleted: !showCompleted })}
       >
