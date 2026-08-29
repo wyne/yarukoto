@@ -5,6 +5,7 @@ import { buildSampleData } from './sampleData';
 import { FolderDef, ListDef, Priority, Task, ViewPref } from './types';
 import { addDays, toISODate } from './dateUtils';
 import { parseQuickAdd } from './quickAdd';
+import { normalizeTaskPatch } from './reminders';
 import { newFolderId, newListId, newSubtaskId, newTaskId } from './ids';
 import {
   Arrangements,
@@ -103,6 +104,19 @@ function tombstoneListPrefs(prefs: ViewPref[], listIds: string[], now: string): 
   return prefs.map((p) => (doomed.has(p.id) ? { ...p, deletedAt: now } : p));
 }
 
+function applyTaskPatch(task: Task, patch: Partial<Task>): Task {
+  const normalized = normalizeTaskPatch(patch);
+  if (
+    !task.dueDate &&
+    !Object.prototype.hasOwnProperty.call(normalized, 'dueDate') &&
+    normalized.reminders &&
+    normalized.reminders.length > 0
+  ) {
+    return { ...task, ...normalized, dueDate: toISODate(new Date()) };
+  }
+  return { ...task, ...normalized };
+}
+
 /**
  * The nav's root: the folders and the lists that aren't inside one, which sit
  * among them as siblings and therefore share a single run of positions.
@@ -168,7 +182,10 @@ function applyAction(state: State, action: Action): State {
         ),
       };
     case 'UPDATE_TASK':
-      return { ...state, tasks: state.tasks.map((t) => (t.id === action.id ? { ...t, ...action.patch } : t)) };
+      return {
+        ...state,
+        tasks: state.tasks.map((t) => (t.id === action.id ? applyTaskPatch(t, action.patch) : t)),
+      };
     case 'DELETE_TASKS': {
       // Soft delete: the row stays so Trash can show and restore it, and so other
       // devices learn about the deletion instead of resurrecting the task.
@@ -188,7 +205,7 @@ function applyAction(state: State, action: Action): State {
     case 'BULK_UPDATE':
       return {
         ...state,
-        tasks: state.tasks.map((t) => (action.ids.includes(t.id) ? { ...t, ...action.patch } : t)),
+        tasks: state.tasks.map((t) => (action.ids.includes(t.id) ? applyTaskPatch(t, action.patch) : t)),
       };
     case 'ADD_SUBTASK':
       return {
@@ -606,6 +623,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       // A typed date overrides the view's date; tags from both are merged.
       dueDate: parsed.dueDate ?? defaults?.dueDate,
       dueTime: parsed.dueTime ?? defaults?.dueTime,
+      reminders: [],
       listId: typedList ? typedList.id : (defaults?.listId ?? null),
       tags: Array.from(new Set([...(defaults?.tags ?? []), ...parsed.tags])),
       subtasks: [],

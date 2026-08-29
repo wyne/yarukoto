@@ -1,6 +1,7 @@
 export type {
   Priority,
   Subtask,
+  TaskReminder,
   Synced,
   Task,
   ListDef,

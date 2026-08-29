@@ -17,6 +17,7 @@ interface Props {
   onDone?: () => void;
   children?: React.ReactNode;
   style?: StyleProp<ViewStyle>;
+  clearLabel?: string;
 }
 
 export default function DueDateQuickMenu({
@@ -28,6 +29,7 @@ export default function DueDateQuickMenu({
   onDone,
   children,
   style,
+  clearLabel = 'Clear',
 }: Props) {
   const styles = useStyles();
   const accent = useAccent();
@@ -57,7 +59,7 @@ export default function DueDateQuickMenu({
     },
     {
       id: 'clear',
-      title: 'Clear',
+      title: clearLabel,
       image: 'xmark.circle' as const,
       state: !date ? ('on' as const) : undefined,
       attributes: date || time ? { destructive: true } : undefined,
@@ -102,6 +104,7 @@ export default function DueDateQuickMenu({
         showTimeShortcut={!!onCustomTime}
         onChange={onChange}
         onDone={onDone}
+        clearLabel={clearLabel}
         style={[styles.webFallback, style]}
       >
         {trigger}

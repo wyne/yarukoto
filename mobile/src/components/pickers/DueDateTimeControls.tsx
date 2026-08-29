@@ -3,8 +3,9 @@ import { Platform, Pressable, Text, TextInput, View } from 'react-native';
 import DateTimePicker from '@expo/ui/community/datetime-picker';
 import { makeStyles } from '../../theme/styles';
 import { fonts } from '../../theme/typography';
-import { useAccent, useColors } from '../../theme/ThemeContext';
+import { useAccent, useColors, useScheme } from '../../theme/ThemeContext';
 import { formatTime24to12, fromISODate, toISODate } from '../../data/dateUtils';
+import ThemedAndroidDateTimeDialog from './ThemedAndroidDateTimeDialog';
 
 interface Props {
   date?: string;
@@ -15,6 +16,7 @@ interface Props {
   allowModeSwitch?: boolean;
   /** Called after a native picker value is selected in inline menus. Sheets omit this so Apply remains explicit. */
   onDone?: () => void;
+  clearDateLabel?: string;
 }
 
 function parseTime(time?: string): { hours: number; minutes: number } {
@@ -51,10 +53,12 @@ export default function DueDateTimeControls({
   initialMode = 'date',
   allowModeSwitch = true,
   onDone,
+  clearDateLabel = 'Clear due date',
 }: Props) {
   const colors = useColors();
   const styles = useStyles();
   const accent = useAccent();
+  const scheme = useScheme();
   const now = new Date();
   const pickerValue = valueForPicker(date, time);
   const nativePicker = Platform.OS !== 'web';
@@ -106,21 +110,23 @@ export default function DueDateTimeControls({
               mode="date"
               display="compact"
               accentColor={accent}
+              themeVariant={scheme}
               onValueChange={(_, selected) => setDate(toISODate(selected), true)}
               style={styles.compactNativePicker}
             />
           </View>
         ) : nativePicker ? (
-          <DateTimePicker
+          <ThemedAndroidDateTimeDialog
             value={pickerValue}
             mode="date"
-            presentation="dialog"
             display="default"
             accentColor={accent}
+            colors={colors}
+            scheme={scheme}
             positiveButton={{ label: 'Set' }}
             negativeButton={{ label: 'Cancel' }}
             onDismiss={dismissDialog}
-            onValueChange={(_, selected) => setDate(toISODate(selected), true)}
+            onValueChange={(selected) => setDate(toISODate(selected), true)}
             style={styles.dialogHost}
           />
         ) : (
@@ -138,7 +144,7 @@ export default function DueDateTimeControls({
         )}
         {(date || time) && (
           <Pressable style={styles.clearRow} onPress={() => setDate(undefined, true)}>
-            <Text style={styles.clearText}>Clear due date</Text>
+            <Text style={styles.clearText}>{clearDateLabel}</Text>
           </Pressable>
         )}
       </View>
@@ -164,21 +170,23 @@ export default function DueDateTimeControls({
               mode="time"
               display="compact"
               accentColor={accent}
+              themeVariant={scheme}
               onValueChange={(_, selected) => setTime(timeFromDate(selected), true)}
               style={styles.compactNativePicker}
             />
           </View>
         ) : nativePicker ? (
-          <DateTimePicker
+          <ThemedAndroidDateTimeDialog
             value={pickerValue}
             mode="time"
-            presentation="dialog"
             display="default"
             accentColor={accent}
+            colors={colors}
+            scheme={scheme}
             positiveButton={{ label: 'Set' }}
             negativeButton={{ label: 'Cancel' }}
             onDismiss={dismissDialog}
-            onValueChange={(_, selected) => setTime(timeFromDate(selected), true)}
+            onValueChange={(selected) => setTime(timeFromDate(selected), true)}
             style={styles.dialogHost}
           />
         ) : (
@@ -268,6 +276,7 @@ const useStyles = makeStyles((c) => ({
     fontFamily: fonts.sansRegular,
     fontSize: 16,
     color: c.textPrimary,
+    backgroundColor: c.surfaceMuted,
   },
   clearRow: {
     marginTop: 8,
