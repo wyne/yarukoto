@@ -371,6 +371,11 @@ function CalendarPage({
         : buildMonthGrid(start),
     [weeks, start]
   );
+  const rows = useMemo(() => {
+    const out: typeof cells[] = [];
+    for (let i = 0; i < cells.length; i += 7) out.push(cells.slice(i, i + 7));
+    return out;
+  }, [cells]);
 
   // Compared as day numbers so a partial-day time never shifts the band.
   const rangeFrom = rangeStart ? startOfDay(rangeStart).getTime() : null;
@@ -390,19 +395,23 @@ function CalendarPage({
 
   return (
     <View style={styles.grid}>
-      {cells.map(({ date, inMonth }) => (
-        <DayCell
-          key={toISODate(date)}
-          date={date}
-          inMonth={inMonth}
-          today={today}
-          selectedDate={selectedDate}
-          dot={dotColorFor(toISODate(date))}
-          onSelectDate={onSelectDate}
-          onChangeAnchor={onChangeAnchor}
-          onDropTask={onDropTask}
-          {...rangeFor(date)}
-        />
+      {rows.map((row) => (
+        <View key={toISODate(row[0].date)} style={styles.gridRow}>
+          {row.map(({ date, inMonth }) => (
+            <DayCell
+              key={toISODate(date)}
+              date={date}
+              inMonth={inMonth}
+              today={today}
+              selectedDate={selectedDate}
+              dot={dotColorFor(toISODate(date))}
+              onSelectDate={onSelectDate}
+              onChangeAnchor={onChangeAnchor}
+              onDropTask={onDropTask}
+              {...rangeFor(date)}
+            />
+          ))}
+        </View>
       ))}
     </View>
   );
@@ -525,11 +534,13 @@ const useStyles = makeStyles((c) => ({
     height: GRID_HEIGHT,
   },
   grid: {
+    flex: 1,
+  },
+  gridRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
   },
   cell: {
-    width: `${100 / 7}%`,
+    flex: 1,
     alignItems: 'center',
     paddingVertical: 2,
   },

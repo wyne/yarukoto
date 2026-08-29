@@ -1,16 +1,17 @@
 import React from 'react';
 import { Platform, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSharedValue, withTiming } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import { BottomTabBarProps, createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { BottomTabBar, BottomTabBarProps, createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import {
   createNativeBottomTabNavigator,
   NativeBottomTabBarProps,
 } from '@react-navigation/bottom-tabs/unstable';
 import { NavigatorScreenParams } from '@react-navigation/native';
 import { makeStyles } from '../theme/styles';
-import { useAccent } from '../theme/ThemeContext';
+import { useAccent, useColors } from '../theme/ThemeContext';
 import { MainTabParamList } from './types';
 import {
   DRAWER_CLOSE_EASING,
@@ -43,6 +44,8 @@ import ActivityScreen from '../screens/ActivityScreen';
 import BrowseScreen from '../screens/BrowseScreen';
 import TrashScreen from '../screens/TrashScreen';
 import NativeListNavigator, { NativeListStackParamList } from './NativeListNavigator';
+import { IconCalendar, IconInboxTray, IconSearch, IconStack } from '../icons/Icons';
+import { ANDROID_TAB_BAR_HEIGHT } from './nativeTabBarLayout';
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
 type NativeMainTabParamList = {
@@ -51,9 +54,10 @@ type NativeMainTabParamList = {
   CalendarTab: undefined;
   BrowseTab: undefined;
 };
-const NativeTab = Platform.OS === 'web'
-  ? null
-  : createNativeBottomTabNavigator<NativeMainTabParamList>();
+const AndroidTab = createBottomTabNavigator<NativeMainTabParamList>();
+const NativeTab = Platform.OS === 'ios'
+  ? createNativeBottomTabNavigator<NativeMainTabParamList>()
+  : null;
 
 /**
  * Web keeps the app's full sidebar navigation. Native uses UIKit/Android native
@@ -231,7 +235,8 @@ function DrawerSwipeArea({ children }: { children: React.ReactNode }) {
 function Tabs() {
   const { wide } = useSidebar();
 
-  if (Platform.OS !== 'web') return <NativeTabs />;
+  if (Platform.OS === 'ios') return <NativeTabs />;
+  if (Platform.OS === 'android') return <AndroidTabs />;
 
   // Labels and icons live in Sidebar, which is the only thing rendering the tab
   // list; `title` is kept because React Navigation uses it for the web page title.
@@ -263,6 +268,85 @@ function Tabs() {
       <Tab.Screen name="BrowseTab" component={BrowseScreen} options={{ title: 'Browse' }} />
       <Tab.Screen name="TrashTab" component={TrashScreen} options={{ title: 'Trash' }} />
     </Tab.Navigator>
+  );
+}
+
+function AndroidTabs() {
+  const styles = useStyles();
+  const { wide } = useSidebar();
+  const { selectedIds } = useSelection();
+  const accent = useAccent();
+  const colors = useColors();
+  const insets = useSafeAreaInsets();
+  const barHidden = selectedIds.length > 0;
+
+  return (
+    <AndroidTab.Navigator
+      initialRouteName="ListsTab"
+      backBehavior="firstRoute"
+      tabBar={(props) => {
+        if (wide) return <Sidebar {...props} />;
+        return (
+          <>
+            {!barHidden && <BottomTabBar {...props} />}
+            <SidebarDrawer state={props.state} navigation={props.navigation} />
+          </>
+        );
+      }}
+      screenOptions={{
+        headerShown: false,
+        tabBarPosition: wide ? 'left' : 'bottom',
+        tabBarActiveTintColor: accent,
+        tabBarInactiveTintColor: colors.textTertiary,
+        tabBarLabelPosition: 'below-icon',
+        tabBarLabelStyle: styles.androidTabLabel,
+        tabBarStyle: [
+          styles.androidTabBar,
+          {
+            height: ANDROID_TAB_BAR_HEIGHT + insets.bottom,
+            paddingBottom: Math.max(8, insets.bottom),
+          },
+        ],
+        tabBarItemStyle: styles.androidTabItem,
+      }}
+    >
+      <AndroidTab.Screen
+        name="ListsTab"
+        component={NativeListNavigator}
+        options={{
+          title: 'Lists',
+          tabBarLabel: 'Lists',
+          tabBarIcon: ({ color, size }) => <IconStack size={size} color={color} strokeWidth={1.8} />,
+        }}
+      />
+      <AndroidTab.Screen
+        name="InboxTab"
+        component={InboxScreen}
+        options={{
+          title: 'Inbox',
+          tabBarLabel: 'Inbox',
+          tabBarIcon: ({ color, size }) => <IconInboxTray size={size} color={color} strokeWidth={1.8} />,
+        }}
+      />
+      <AndroidTab.Screen
+        name="CalendarTab"
+        component={CalendarScreen}
+        options={{
+          title: 'Calendar',
+          tabBarLabel: 'Calendar',
+          tabBarIcon: ({ color, size }) => <IconCalendar size={size} color={color} strokeWidth={1.8} />,
+        }}
+      />
+      <AndroidTab.Screen
+        name="BrowseTab"
+        component={BrowseScreen}
+        options={{
+          title: 'Search',
+          tabBarLabel: 'Search',
+          tabBarIcon: ({ color, size }) => <IconSearch size={size} color={color} strokeWidth={1.8} />,
+        }}
+      />
+    </AndroidTab.Navigator>
   );
 }
 
@@ -373,6 +457,25 @@ const useStyles = makeStyles((c) => ({
   nativeNavRow: {
     flex: 1,
     flexDirection: 'row',
+  },
+  androidTabBar: {
+    paddingTop: 7,
+    borderTopWidth: 1,
+    borderTopColor: c.border,
+    backgroundColor: c.surface,
+    shadowColor: c.shadow,
+    shadowOpacity: c.shadowOpacity,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: -2 },
+    elevation: 14,
+  },
+  androidTabItem: {
+    paddingTop: 4,
+  },
+  androidTabLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    letterSpacing: 0,
   },
   detailColumn: {
     width: DETAIL_COLUMN_WIDTH,

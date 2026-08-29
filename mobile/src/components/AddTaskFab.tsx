@@ -5,7 +5,7 @@ import { GlassView } from 'expo-glass-effect';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAccent } from '../theme/ThemeContext';
 import { PANE_MAX_WIDTH, useSidebar } from '../navigation/SidebarContext';
-import { nativeTabBarClearance } from '../navigation/nativeTabBarLayout';
+import { nativeFloatingControlBottom } from '../navigation/nativeTabBarLayout';
 import { LIQUID_GLASS } from '../data/platform';
 import { QuickAddDefaults } from '../data/TaskContext';
 import TaskComposerSheet from './TaskComposerSheet';
@@ -49,7 +49,7 @@ export default function AddTaskFab({ defaults, contextLabel, hidden }: Props) {
         <View
           style={[
             styles.anchor,
-            { bottom: wide ? insets.bottom + 20 : nativeTabBarClearance(insets.bottom) },
+            { bottom: wide ? insets.bottom + 20 : nativeFloatingControlBottom(insets.bottom) },
           ]}
           pointerEvents="box-none"
         >
