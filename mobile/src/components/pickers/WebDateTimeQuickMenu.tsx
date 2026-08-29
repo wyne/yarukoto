@@ -20,6 +20,7 @@ interface Props {
   onDone?: () => void;
   children: React.ReactNode;
   style?: StyleProp<ViewStyle>;
+  clearLabel?: string;
 }
 
 export default function WebDateTimeQuickMenu({
@@ -32,6 +33,7 @@ export default function WebDateTimeQuickMenu({
   onDone,
   children,
   style,
+  clearLabel = 'Clear',
 }: Props) {
   const colors = useColors();
   const styles = useStyles();
@@ -165,7 +167,7 @@ export default function WebDateTimeQuickMenu({
               onPress={() => showCustom(mode)}
             />
             <MenuRow
-              label="Clear"
+              label={clearLabel}
               selected={mode === 'date' ? !date : !time}
               accent={accent}
               destructive={mode === 'date' ? !!(date || time) : !!time}

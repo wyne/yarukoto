@@ -5,7 +5,8 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { makeStyles } from '../theme/styles';
 import { fonts } from '../theme/typography';
-import { useAccent, useColors } from '../theme/ThemeContext';
+import { selectionCheckColor } from '../theme/colors';
+import { useAccent, useColors, useScheme } from '../theme/ThemeContext';
 import { fromISODate, toISODate } from '../data/dateUtils';
 import { IconCheckBig, IconPlus } from '../icons/Icons';
 import GlassIconButton from '../components/GlassIconButton';
@@ -30,6 +31,8 @@ export default function NativeDateTimePickerScreen({ navigation, route }: Props)
   const colors = useColors();
   const styles = useStyles();
   const accent = useAccent();
+  const accentText = selectionCheckColor(accent);
+  const scheme = useScheme();
   const insets = useSafeAreaInsets();
   const { active, complete, cancel } = useDateTimePickerRequest();
   const request = active?.id === route.params.requestId ? active : null;
@@ -69,7 +72,7 @@ export default function NativeDateTimePickerScreen({ navigation, route }: Props)
         </GlassIconButton>
         <Text style={styles.title}>{request.mode === 'date' ? 'Pick date' : 'Pick time'}</Text>
         <GlassIconButton onPress={apply} label="Done" tintColor={accent}>
-          <IconCheckBig size={18} color="#fff" strokeWidth={2.4} />
+          <IconCheckBig size={18} color={accentText} strokeWidth={2.4} />
         </GlassIconButton>
       </View>
 
@@ -79,6 +82,7 @@ export default function NativeDateTimePickerScreen({ navigation, route }: Props)
           mode={request.mode}
           display={request.mode === 'date' ? 'inline' : 'spinner'}
           accentColor={accent}
+          themeVariant={scheme}
           onValueChange={(_, selected) => {
             if (request.mode === 'date') setDraftDate(toISODate(selected));
             else {
@@ -98,6 +102,7 @@ export default function NativeDateTimePickerScreen({ navigation, route }: Props)
             setDraftDate(nextDate);
             setDraftTime(nextTime);
           }}
+          clearDateLabel={request.clearDateLabel}
         />
       )}
 

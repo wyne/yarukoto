@@ -9,6 +9,7 @@ export interface TaskRow {
   priority: string;
   due_date: string | null;
   due_time: string | null;
+  reminders: string;
   list_id: string | null;
   tags: string;
   subtasks: string;
@@ -48,6 +49,35 @@ export interface ViewPrefRow {
   deleted_at: string | null;
 }
 
+function asReminders(value: string): Task['reminders'] {
+  try {
+    const parsed = JSON.parse(value || '[]');
+    if (!Array.isArray(parsed)) return [];
+    const seen = new Set<string>();
+    return parsed.flatMap((item) => {
+      if (!item || typeof item !== 'object') return [];
+      const reminder = item as { id?: unknown; offsetDays?: unknown; time?: unknown };
+      if (
+        typeof reminder.id !== 'string' ||
+        typeof reminder.offsetDays !== 'number' ||
+        !Number.isInteger(reminder.offsetDays) ||
+        reminder.offsetDays < 0 ||
+        reminder.offsetDays > 3650 ||
+        typeof reminder.time !== 'string' ||
+        !/^([01]\d|2[0-3]):[0-5]\d$/.test(reminder.time)
+      ) {
+        return [];
+      }
+      const key = `${reminder.offsetDays}:${reminder.time}`;
+      if (seen.has(key)) return [];
+      seen.add(key);
+      return [{ id: reminder.id, offsetDays: reminder.offsetDays, time: reminder.time }];
+    });
+  } catch {
+    return [];
+  }
+}
+
 export function taskFromRow(row: TaskRow): Task {
   return {
     id: row.id,
@@ -56,6 +86,7 @@ export function taskFromRow(row: TaskRow): Task {
     priority: row.priority as Task['priority'],
     dueDate: row.due_date ?? undefined,
     dueTime: row.due_time ?? undefined,
+    reminders: row.due_date ? asReminders(row.reminders) : undefined,
     listId: row.list_id,
     tags: JSON.parse(row.tags),
     subtasks: JSON.parse(row.subtasks),
@@ -136,11 +167,11 @@ export function upsertTask(db: Database.Database, task: Task, op: 'create' | 'up
   }
 
   db.prepare(
-    `INSERT INTO tasks (id, title, notes, priority, due_date, due_time, list_id, tags, subtasks, completed, completed_at, created_at, order_key, updated_at, deleted_at, server_updated_at)
-     VALUES (@id, @title, @notes, @priority, @dueDate, @dueTime, @listId, @tags, @subtasks, @completed, @completedAt, @createdAt, @order, @updatedAt, @deletedAt, @serverUpdatedAt)
+    `INSERT INTO tasks (id, title, notes, priority, due_date, due_time, reminders, list_id, tags, subtasks, completed, completed_at, created_at, order_key, updated_at, deleted_at, server_updated_at)
+     VALUES (@id, @title, @notes, @priority, @dueDate, @dueTime, @reminders, @listId, @tags, @subtasks, @completed, @completedAt, @createdAt, @order, @updatedAt, @deletedAt, @serverUpdatedAt)
      ON CONFLICT(id) DO UPDATE SET
        title = excluded.title, notes = excluded.notes, priority = excluded.priority,
-       due_date = excluded.due_date, due_time = excluded.due_time, list_id = excluded.list_id,
+       due_date = excluded.due_date, due_time = excluded.due_time, reminders = excluded.reminders, list_id = excluded.list_id,
        tags = excluded.tags, subtasks = excluded.subtasks, completed = excluded.completed,
        completed_at = excluded.completed_at, created_at = excluded.created_at, order_key = excluded.order_key,
        updated_at = excluded.updated_at, deleted_at = excluded.deleted_at,
@@ -152,6 +183,7 @@ export function upsertTask(db: Database.Database, task: Task, op: 'create' | 'up
     priority: task.priority,
     dueDate: task.dueDate ?? null,
     dueTime: task.dueTime ?? null,
+    reminders: JSON.stringify(task.dueDate ? (task.reminders ?? []) : []),
     listId: task.listId,
     tags: JSON.stringify(task.tags),
     subtasks: JSON.stringify(task.subtasks),

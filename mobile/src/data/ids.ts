@@ -15,3 +15,4 @@ export const newTaskId = (): string => `t-${randomUUID()}`;
 export const newListId = (): string => `l-${randomUUID()}`;
 export const newFolderId = (): string => `f-${randomUUID()}`;
 export const newSubtaskId = (): string => `st-${randomUUID()}`;
+export const newReminderId = (): string => `r-${randomUUID()}`;

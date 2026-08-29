@@ -6,6 +6,14 @@ export interface Subtask {
   done: boolean;
 }
 
+export interface TaskReminder {
+  id: string;
+  /** 0 = due date, 1 = one day before, etc. */
+  offsetDays: number;
+  /** 24h 'HH:mm' in the device's local time. */
+  time: string;
+}
+
 /** Fields every synced record carries, so last-write-wins has something to compare. */
 export interface Synced {
   /** ISO timestamp of the last change. Stamped centrally by the reducer. */
@@ -23,6 +31,8 @@ export interface Task extends Synced {
   dueDate?: string;
   /** 24h 'HH:mm'. Undefined = all-day. */
   dueTime?: string;
+  /** Relative reminders anchored to dueDate. Missing means none. */
+  reminders?: TaskReminder[];
   /** null = Inbox (unfiled). */
   listId: string | null;
   tags: string[];

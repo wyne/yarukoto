@@ -12,6 +12,7 @@ export interface DateTimePickerRequest {
   time?: string;
   onChange: (date: string | undefined, time: string | undefined) => void;
   onDismiss?: () => void;
+  clearDateLabel?: string;
 }
 
 export interface ActiveDateTimePickerRequest {
@@ -19,6 +20,7 @@ export interface ActiveDateTimePickerRequest {
   mode: DateTimePickerMode;
   date?: string;
   time?: string;
+  clearDateLabel?: string;
 }
 
 interface PickerContextValue {
@@ -38,7 +40,7 @@ export function DateTimePickerProvider({ children }: { children: React.ReactNode
   const prepare = useCallback((request: DateTimePickerRequest) => {
     const id = ++nextId.current;
     callbacks.current = { onChange: request.onChange, onDismiss: request.onDismiss };
-    setActive({ id, mode: request.mode, date: request.date, time: request.time });
+    setActive({ id, mode: request.mode, date: request.date, time: request.time, clearDateLabel: request.clearDateLabel });
     return id;
   }, []);
 

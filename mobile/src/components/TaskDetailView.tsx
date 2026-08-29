@@ -13,12 +13,19 @@ import { getListById, navGroups, tagCounts } from '../data/selectors';
 import { formatDueFull, formatTime24to12 } from '../data/dateUtils';
 import { confirmDestructive } from '../data/confirm';
 import { Priority } from '../data/types';
+import {
+  normalizeReminders,
+  reminderOffsetLabel,
+  reminderSummary,
+  taskPatchForReminders,
+} from '../data/reminders';
 import Card from './Card';
 import Divider from './Divider';
 import DragList from './DragList';
 import TaskCheckbox from './TaskCheckbox';
 import {
   IconCalendarBox,
+  IconBell,
   IconCheckBig,
   IconChevronDown,
   IconClock,
@@ -30,6 +37,7 @@ import {
 } from '../icons/Icons';
 import DueDateQuickMenu from './pickers/DueDateQuickMenu';
 import DueTimeQuickMenu from './pickers/DueTimeQuickMenu';
+import ReminderQuickMenu from './pickers/ReminderQuickMenu';
 import { useNativeDateTimePicker } from '../navigation/DateTimePickerContext';
 import { useTaskTextDraft } from './useTaskTextDraft';
 import NativeOwnedTextInput from './NativeOwnedTextInput';
@@ -116,6 +124,7 @@ export default function TaskDetailView({ taskId, onClose, variant, active = true
       mode: 'date',
       date: task.dueDate,
       time: task.dueTime,
+      clearDateLabel: (task.reminders?.length ?? 0) > 0 ? 'Clear date and reminders' : undefined,
       onChange: (dueDate, dueTime) => updateTask(task.id, { dueDate, dueTime }),
     });
   };
@@ -156,6 +165,8 @@ export default function TaskDetailView({ taskId, onClose, variant, active = true
   const doneCount = task.subtasks.filter((s) => s.done).length;
   const knownTags = tagCounts(state.tasks).map((t) => t.tag);
   const allTags = Array.from(new Set([...knownTags, ...task.tags]));
+  const reminders = normalizeReminders(task.reminders);
+  const reminderLabel = reminderSummary(reminders);
 
   const toggleTag = (tag: string) => {
     updateTask(task.id, {
@@ -298,6 +309,7 @@ export default function TaskDetailView({ taskId, onClose, variant, active = true
               onChange={(dueDate, dueTime) => updateTask(task.id, { dueDate, dueTime })}
               onCustomDate={openDatePicker}
               onDone={closeMenu}
+              clearLabel={reminders.length > 0 ? 'Clear date and reminders' : undefined}
             >
               <View style={[styles.metaValueButton, styles.menuValueButton]}>
                 <Text
@@ -344,6 +356,47 @@ export default function TaskDetailView({ taskId, onClose, variant, active = true
                     />
                   </View>
                 </DueTimeQuickMenu>
+              </View>
+            </>
+          )}
+          {!!task.dueDate && (
+            <>
+              <Divider indent={44} />
+              <View style={styles.metaRow}>
+                <IconBell size={18} color={colors.textSecondary} />
+                <Text style={styles.metaLabelFixed}>Reminders</Text>
+                <ReminderQuickMenu
+                  reminders={reminders}
+                  dueTime={task.dueTime}
+                  style={styles.metaValueMenu}
+                  onChange={(next) => updateTask(task.id, taskPatchForReminders(task, next))}
+                >
+                  <View style={[styles.metaValueButton, styles.menuValueButton]}>
+                    {reminders.length === 1 ? (
+                      <View style={styles.reminderValue}>
+                        <Text
+                          numberOfLines={1}
+                          ellipsizeMode="tail"
+                          style={[styles.metaValue, styles.reminderMainValue, { color: accent }]}
+                        >
+                          {reminderOffsetLabel(reminders[0].offsetDays)}
+                        </Text>
+                        <Text numberOfLines={1} style={styles.reminderTimeValue}>
+                          ({formatTime24to12(reminders[0].time)})
+                        </Text>
+                      </View>
+                    ) : (
+                      <Text
+                        numberOfLines={1}
+                        ellipsizeMode="tail"
+                        style={[styles.metaValue, styles.dueValue, reminders.length > 0 && { color: accent }]}
+                      >
+                        {reminderLabel}
+                      </Text>
+                    )}
+                    <IconChevronDown size={12} color={reminders.length > 0 ? accent : colors.textTertiary} strokeWidth={1.8} />
+                  </View>
+                </ReminderQuickMenu>
               </View>
             </>
           )}
@@ -748,6 +801,21 @@ const useStyles = makeStyles((c) => ({
   },
   dueValue: {
     flexShrink: 1,
+  },
+  reminderValue: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    flexShrink: 1,
+    minWidth: 0,
+    gap: 4,
+  },
+  reminderMainValue: {
+    flexShrink: 1,
+  },
+  reminderTimeValue: {
+    fontFamily: fonts.monoRegular,
+    fontSize: 12,
+    color: c.textTertiary,
   },
   tagsWrap: {
     flex: 1,
