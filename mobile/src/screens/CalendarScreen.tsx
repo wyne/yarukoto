@@ -12,7 +12,7 @@ import { useDetail } from '../navigation/DetailContext';
 import { useTasks } from '../data/TaskContext';
 import { PlanMode, PlanSort, loadPlanPrefs, savePlanPrefs } from '../data/storage';
 import { tasksByDate } from '../data/selectors';
-import { addDays, addMonths, addWeeks, monthShort, startOfWeek, toISODate } from '../data/dateUtils';
+import { addDays, addMonths, addWeeks, dayRangeLabel, monthShort, startOfWeek, toISODate } from '../data/dateUtils';
 import { Task } from '../data/types';
 import AgendaDayGroup from './calendar/AgendaDayGroup';
 import AddExistingTaskSheet, { AddExistingTaskButton } from './calendar/AddExistingTaskSheet';
@@ -85,7 +85,11 @@ export default function CalendarScreen() {
   useClaimDrawerSwipe();
   const today = new Date();
 
-  const [monthAnchor, setMonthAnchor] = useState(new Date(today.getFullYear(), today.getMonth(), 1));
+  // What the calendar is showing, read as a month or as a week depending on
+  // whether it is collapsed. It is the calendar's own place in time: paging it
+  // moves this and nothing else, so it drifts away from the selection and from
+  // the day views below at will.
+  const [anchor, setAnchor] = useState(today);
   const [selectedDate, setSelectedDate] = useState(today);
   const [addExistingOpen, setAddExistingOpen] = useState(false);
   // Stable handlers: a fresh `onClose` each render reaches the sheet's backdrop
@@ -172,16 +176,12 @@ export default function CalendarScreen() {
     updatePrefs({ mode: next, rangeDays: nextRangeDays });
   };
 
-  // The arrows and title track whichever range is on screen. Paging the range also
-  // moves the month grid, so the band stays visible when a step crosses months.
+  // The arrows page the calendar by whatever it is showing, which is what the
+  // swipe does — a month expanded, a week collapsed. Neither moves the day views
+  // below: scrolling the calendar ahead is how a day out of their reach becomes a
+  // drop target for a task that is on screen right now.
   const step = (n: number) => {
-    if (effectiveMode === 'day') {
-      setMonthAnchor((m) => addMonths(m, n));
-      return;
-    }
-    const next = effectiveMode === 'week' ? addWeeks(rangeStart, n) : addDays(rangeStart, n * rangeDays);
-    setRangeStart(next);
-    setMonthAnchor(new Date(next.getFullYear(), next.getMonth(), 1));
+    setAnchor((a) => (weekView ? addWeeks(startOfWeek(a), n) : addMonths(a, n)));
   };
 
   // In the day-column views the month grid is a navigator: picking a day jumps the
@@ -193,7 +193,7 @@ export default function CalendarScreen() {
   };
 
   const goToday = () => {
-    setMonthAnchor(new Date(today.getFullYear(), today.getMonth(), 1));
+    setAnchor(today);
     setRangeStart(mode === 'multi' ? today : startOfWeek(today));
     setSelectedDate(today);
   };
@@ -295,12 +295,12 @@ export default function CalendarScreen() {
   );
 
   const rangeEnd = addDays(rangeStart, effectiveMode === 'multi' ? rangeDays - 1 : 6);
-  const rangeLabel =
-    effectiveMode !== 'day'
-      ? `${monthShort(rangeStart)} ${rangeStart.getDate()} – ${
-          rangeStart.getMonth() === rangeEnd.getMonth() ? '' : `${monthShort(rangeEnd)} `
-        }${rangeEnd.getDate()}`
-      : `${monthAnchor.toLocaleDateString('en-US', { month: 'long' })} ${monthAnchor.getFullYear()}`;
+  // Names the calendar, not the range below it — the arrows move the calendar, so
+  // the title is what they move. The day views say where they are with the band.
+  const weekStart = startOfWeek(anchor);
+  const calendarLabel = weekView
+    ? dayRangeLabel(weekStart, addDays(weekStart, 6))
+    : `${anchor.toLocaleDateString('en-US', { month: 'long' })} ${anchor.getFullYear()}`;
 
   return (
     <View style={[styles.row, { paddingTop: insets.top + 6 }]}>
@@ -315,7 +315,7 @@ export default function CalendarScreen() {
           )}
           <View style={styles.titleGroup}>
             <Pressable onPress={goToday} style={styles.titleBtn}>
-              <Text style={styles.title}>{rangeLabel}</Text>
+              <Text style={styles.title}>{calendarLabel}</Text>
             </Pressable>
           </View>
           <GlassIconButtonGroup>
@@ -332,12 +332,12 @@ export default function CalendarScreen() {
           <>
             <View style={styles.gridWrap}>
               <MonthGrid
-                monthAnchor={monthAnchor}
+                anchor={anchor}
                 selectedDate={selectedDate}
                 today={today}
                 byDate={byDate}
                 onSelectDate={pickDate}
-                onChangeMonth={setMonthAnchor}
+                onChangeAnchor={setAnchor}
                 onDropTask={scheduleTasks}
                 rangeStart={rangeStart}
                 rangeEnd={rangeEnd}
@@ -368,12 +368,12 @@ export default function CalendarScreen() {
           <>
             <View style={styles.gridWrap}>
               <MonthGrid
-                monthAnchor={monthAnchor}
+                anchor={anchor}
                 selectedDate={selectedDate}
                 today={today}
                 byDate={byDate}
                 onSelectDate={setSelectedDate}
-                onChangeMonth={setMonthAnchor}
+                onChangeAnchor={setAnchor}
                 onDropTask={scheduleTasks}
                 weekView={weekView}
                 onWeekViewChange={(next) => updatePrefs({ weekView: next })}
