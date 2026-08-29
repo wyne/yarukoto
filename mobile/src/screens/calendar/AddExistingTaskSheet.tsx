@@ -18,7 +18,7 @@ import { getListById } from '../../data/selectors';
 import { EMPTY_CRITERIA, TaskCriteria, filterTasks } from '../../data/taskFilter';
 import { SortBy, sortTasks } from '../../data/viewOptions';
 import { LIQUID_GLASS } from '../../data/platform';
-import { nativeTabBarClearance } from '../../navigation/nativeTabBarLayout';
+import { nativeFloatingControlBottom } from '../../navigation/nativeTabBarLayout';
 import { closeOpenSwipeRow } from '../../components/SwipeableRow';
 import Card from '../../components/Card';
 import Divider from '../../components/Divider';
@@ -75,7 +75,7 @@ export function AddExistingTaskButton({ onPress }: ButtonProps) {
       pointerEvents="box-none"
       style={[
         styles.buttonAnchor,
-        { bottom: nativeTabBarClearance(insets.bottom) },
+        { bottom: nativeFloatingControlBottom(insets.bottom) },
         dragging && styles.buttonAnchorDragging,
       ]}
     >

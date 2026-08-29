@@ -1,6 +1,17 @@
+import { Platform } from 'react-native';
+
+export const ANDROID_TAB_BAR_HEIGHT = 64;
+export const IOS_NATIVE_TAB_BAR_HEIGHT = 72;
+export const ANDROID_FLOATING_CONTROL_GAP = 12;
+
 /** Bottom edge for controls that sit above the system tab bar, such as the task FAB. */
 export function nativeTabBarClearance(safeAreaBottom: number): number {
-  return safeAreaBottom + 72;
+  return safeAreaBottom + (Platform.OS === 'android' ? ANDROID_TAB_BAR_HEIGHT : IOS_NATIVE_TAB_BAR_HEIGHT);
+}
+
+/** Bottom offset for floating controls inside the current screen's visible frame. */
+export function nativeFloatingControlBottom(safeAreaBottom: number): number {
+  return Platform.OS === 'android' ? ANDROID_FLOATING_CONTROL_GAP : nativeTabBarClearance(safeAreaBottom);
 }
 
 /** Leaves the final task fully scrollable above the translucent system bar. */
