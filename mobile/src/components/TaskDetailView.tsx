@@ -9,7 +9,7 @@ import { fonts } from '../theme/typography';
 import { useAccent, useColors } from '../theme/ThemeContext';
 import { FINE_POINTER } from '../data/platform';
 import { useTasks } from '../data/TaskContext';
-import { getListById, navGroups, tagCounts } from '../data/selectors';
+import { getListById } from '../data/selectors';
 import { formatDueFull, formatTime24to12 } from '../data/dateUtils';
 import { confirmDestructive } from '../data/confirm';
 import { Priority } from '../data/types';
@@ -26,11 +26,9 @@ import TaskCheckbox from './TaskCheckbox';
 import {
   IconCalendarBox,
   IconBell,
-  IconCheckBig,
   IconChevronDown,
   IconClock,
   IconDotsHorizontal,
-  IconFolder,
   IconPlus,
   IconTag,
   IconTrash,
@@ -38,6 +36,8 @@ import {
 import DueDateQuickMenu from './pickers/DueDateQuickMenu';
 import DueTimeQuickMenu from './pickers/DueTimeQuickMenu';
 import ReminderQuickMenu from './pickers/ReminderQuickMenu';
+import ListPickerSheet from './pickers/ListPickerSheet';
+import TagPickerSheet from './pickers/TagPickerSheet';
 import { useNativeDateTimePicker } from '../navigation/DateTimePickerContext';
 import { useTaskTextDraft } from './useTaskTextDraft';
 import NativeOwnedTextInput from './NativeOwnedTextInput';
@@ -58,12 +58,6 @@ const PRIORITIES: { key: Priority; label: string }[] = [
   { key: 'high', label: 'High' },
 ];
 
-/**
- * One height for every meta menu, matching the composer's panel. The menus
- * differ in length based on the available lists and tags, and sharing one
- * height keeps the panel stable when switching between them.
- */
-const MENU_PANEL_HEIGHT = 222;
 const KEYBOARD_ACCESSORY_ID = 'task-detail-keyboard-accessory';
 
 export default function TaskDetailView({ taskId, onClose, variant, active = true }: Props) {
@@ -103,24 +97,19 @@ export default function TaskDetailView({ taskId, onClose, variant, active = true
   const Scroll: React.ComponentType<ScrollViewProps> =
     variant === 'sheet' ? (BottomSheetScrollView as React.ComponentType<ScrollViewProps>) : ScrollView;
 
-  const [menu, setMenu] = useState<'list' | 'tags' | null>(null);
+  const [picker, setPicker] = useState<'list' | 'tags' | null>(null);
   const [addingSubtask, setAddingSubtask] = useState(false);
   const [newSubtask, setNewSubtask] = useState('');
-  const [newTag, setNewTag] = useState('');
 
-  // Lists and tags stay inline so switching between them does not stack sheets.
-  const closeMenu = () => {
+  // Pushed, not switched: these sit over the detail sheet rather than replacing it.
+  const openPicker = (which: 'list' | 'tags') => {
     Keyboard.dismiss();
-    setMenu(null);
+    setPicker(which);
   };
-  const toggleMenu = (m: 'list' | 'tags') => {
-    Keyboard.dismiss();
-    setMenu((prev) => (prev === m ? null : m));
-  };
+  const closePicker = () => setPicker(null);
   const openDatePicker = () => {
     if (!task) return;
     Keyboard.dismiss();
-    setMenu(null);
     presentDateTimePicker({
       mode: 'date',
       date: task.dueDate,
@@ -164,23 +153,10 @@ export default function TaskDetailView({ taskId, onClose, variant, active = true
   const list = getListById(state.lists, task.listId);
   const folder = list ? state.folders.find((f) => f.id === list.folderId) : undefined;
   const doneCount = task.subtasks.filter((s) => s.done).length;
-  const knownTags = tagCounts(state.tasks).map((t) => t.tag);
-  const allTags = Array.from(new Set([...knownTags, ...task.tags]));
+  const listLabel = list ? (folder ? `${folder.name} / ${list.name}` : list.name) : 'Inbox';
   const reminders = normalizeReminders(task.reminders);
   const reminderLabel = reminderSummary(reminders);
   const remindersSupported = supportsFeature('taskReminders');
-
-  const toggleTag = (tag: string) => {
-    updateTask(task.id, {
-      tags: task.tags.includes(tag) ? task.tags.filter((t) => t !== tag) : [...task.tags, tag],
-    });
-  };
-
-  const addNewTag = () => {
-    const t = newTag.trim().toLowerCase().replace(/\s+/g, '-');
-    if (t && !task.tags.includes(t)) updateTask(task.id, { tags: [...task.tags, t] });
-    setNewTag('');
-  };
 
   const confirmDelete = () => {
     confirmDestructive('Delete task?', textDraft.title, () => {
@@ -247,15 +223,31 @@ export default function TaskDetailView({ taskId, onClose, variant, active = true
 
   const content = (
     <View style={[styles.screen, { paddingTop: topPad }]}>
-      {variant === 'pane' && (
-        <View style={styles.header}>
-          <Pressable onPress={closeDetail} hitSlop={8}>
-            <Text style={[styles.close, { color: accent }]}>Close</Text>
-          </Pressable>
-          <Text style={styles.headerCenter}>{list ? list.name : 'Inbox'}</Text>
-          <IconDotsHorizontal />
+      <View style={styles.header}>
+        {/* Both flanks hold their width so the list stays optically centred. */}
+        <View style={styles.headerSide}>
+          {variant === 'pane' && (
+            <Pressable onPress={closeDetail} hitSlop={8}>
+              <Text style={[styles.close, { color: accent }]}>Close</Text>
+            </Pressable>
+          )}
         </View>
-      )}
+        <Pressable
+          style={hoverBg(styles.listCrumb)}
+          onPress={() => openPicker('list')}
+          accessibilityRole="button"
+          accessibilityLabel={`List, ${listLabel}. Move this task`}
+        >
+          {!!list && <View style={[styles.crumbDot, { backgroundColor: list.color }]} />}
+          <Text style={styles.crumbText} numberOfLines={1}>
+            {listLabel}
+          </Text>
+          <IconChevronDown size={11} color={colors.textTertiary} strokeWidth={2} />
+        </Pressable>
+        <View style={[styles.headerSide, styles.headerSideEnd]}>
+          {variant === 'pane' && <IconDotsHorizontal />}
+        </View>
+      </View>
 
       <Scroll
         style={styles.scrollView}
@@ -310,7 +302,6 @@ export default function TaskDetailView({ taskId, onClose, variant, active = true
               style={styles.metaValueMenu}
               onChange={(dueDate, dueTime) => updateTask(task.id, { dueDate, dueTime })}
               onCustomDate={openDatePicker}
-              onDone={closeMenu}
               clearLabel={reminders.length > 0 ? 'Clear date and reminders' : undefined}
             >
               <View style={[styles.metaValueButton, styles.menuValueButton]}>
@@ -403,13 +394,7 @@ export default function TaskDetailView({ taskId, onClose, variant, active = true
             </>
           )}
           <Divider indent={44} />
-          <Pressable style={hoverBg(styles.metaRow)} onPress={() => toggleMenu('list')}>
-            <IconFolder size={18} color={colors.textSecondary} />
-            <Text style={styles.metaLabel}>List</Text>
-            <Text style={styles.metaValue}>{list ? `${folder?.name} / ${list.name}` : 'Inbox'}</Text>
-          </Pressable>
-          <Divider indent={44} />
-          <Pressable style={hoverBg(styles.metaRow)} onPress={() => toggleMenu('tags')}>
+          <Pressable style={hoverBg(styles.metaRow)} onPress={() => openPicker('tags')}>
             <IconTag size={18} color={colors.textSecondary} />
             <Text style={styles.metaLabelFixed}>Tags</Text>
             <View style={styles.tagsWrap}>
@@ -456,93 +441,6 @@ export default function TaskDetailView({ taskId, onClose, variant, active = true
             </View>
           </View>
         </Card>
-
-        {menu && (
-          // Fixed height, and everything scrolls inside it — same as the
-          // composer's panels, so switching menus doesn't jiggle the layout.
-          <View style={styles.menuPanel}>
-            <ScrollView
-              contentContainerStyle={styles.menuScrollContent}
-              keyboardShouldPersistTaps="handled"
-              showsVerticalScrollIndicator={false}
-            >
-              {menu === 'list' && (
-                <>
-                  <Pressable
-                    style={hoverBg(styles.menuRow)}
-                    onPress={() => {
-                      updateTask(task.id, { listId: null });
-                      closeMenu();
-                    }}
-                  >
-                    <Text style={styles.menuLabel}>Inbox</Text>
-                    {task.listId === null && <IconCheckBig size={14} color={accent} strokeWidth={2.4} />}
-                  </Pressable>
-                  {navGroups(state.lists, state.folders).map((group) => (
-                    <View key={group.folder?.id ?? 'root'}>
-                      {group.folder && <Text style={styles.menuSection}>{group.folder.name}</Text>}
-                      {group.lists.map((list) => (
-                        <Pressable
-                          key={list.id}
-                          style={hoverBg(styles.menuRow)}
-                          onPress={() => {
-                            updateTask(task.id, { listId: list.id });
-                            closeMenu();
-                          }}
-                        >
-                          <View style={[styles.listDot, { backgroundColor: list.color }]} />
-                          <Text style={styles.menuLabel}>{list.name}</Text>
-                          {task.listId === list.id && <IconCheckBig size={14} color={accent} strokeWidth={2.4} />}
-                        </Pressable>
-                      ))}
-                    </View>
-                  ))}
-                </>
-              )}
-
-              {/* Tags stay open on tap — picking several at once is the normal case. */}
-              {menu === 'tags' && (
-                <>
-                  {allTags.length === 0 && <Text style={styles.menuEmpty}>No tags yet — add one below.</Text>}
-                  <View style={styles.chipsRow}>
-                    {allTags.map((tag) => {
-                      const active = task.tags.includes(tag);
-                      return (
-                        <Pressable
-                          key={tag}
-                          style={hoverBg([styles.chip, active && { backgroundColor: accent, borderColor: accent }], active)}
-                          onPress={() => toggleTag(tag)}
-                        >
-                          <Text style={[styles.chipText, active && { color: '#fff' }]}>#{tag}</Text>
-                        </Pressable>
-                      );
-                    })}
-                  </View>
-                  <View style={styles.addRow}>
-                    <NativeOwnedTextInput
-                      sheet={registerInputWithSheet}
-                      value={newTag}
-                      onChangeText={setNewTag}
-                      placeholder="New tag"
-                      placeholderTextColor={colors.textFaint}
-                      style={styles.input}
-                      onSubmitEditing={addNewTag}
-                      returnKeyType="done"
-                      {...keyboardTargetProps}
-                      {...accessoryProps}
-                    />
-                    <Pressable style={[styles.addBtn, { borderColor: accent }]} onPress={addNewTag}>
-                      <Text style={[styles.addBtnText, { color: accent }]}>Add</Text>
-                    </Pressable>
-                  </View>
-                  <Pressable style={styles.doneBtn} onPress={closeMenu}>
-                    <Text style={styles.doneText}>Done</Text>
-                  </Pressable>
-                </>
-              )}
-            </ScrollView>
-          </View>
-        )}
 
         <Card style={[styles.pad14, { marginTop: 12 }]}>
           <Text style={styles.sectionLabel}>Notes</Text>
@@ -675,6 +573,18 @@ export default function TaskDetailView({ taskId, onClose, variant, active = true
           <Text style={styles.dismissText}>Done</Text>
         </Pressable>
       )}
+      <ListPickerSheet
+        visible={picker === 'list'}
+        onClose={closePicker}
+        value={task.listId}
+        onApply={(listId) => updateTask(task.id, { listId })}
+      />
+      <TagPickerSheet
+        visible={picker === 'tags'}
+        onClose={closePicker}
+        initialTags={task.tags}
+        onApply={(tags) => updateTask(task.id, { tags })}
+      />
     </View>
   );
 
@@ -709,7 +619,34 @@ const useStyles = makeStyles((c) => ({
     fontFamily: fonts.sansMedium,
     fontSize: 16,
   },
-  headerCenter: {
+  /**
+   * Wide enough to balance the crumb against the pane's Close button, and
+   * shrinkable so a long list name gets the space instead of pushing off-centre.
+   */
+  headerSide: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  headerSideEnd: {
+    justifyContent: 'flex-end',
+  },
+  listCrumb: {
+    flexShrink: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 8,
+  },
+  crumbDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 2.5,
+  },
+  crumbText: {
+    flexShrink: 1,
     fontFamily: fonts.monoRegular,
     fontSize: 12.5,
     color: c.textTertiary,
@@ -769,12 +706,6 @@ const useStyles = makeStyles((c) => ({
     paddingHorizontal: 14,
     paddingVertical: 12,
     minHeight: 44,
-  },
-  metaLabel: {
-    flex: 1,
-    fontFamily: fonts.sansRegular,
-    fontSize: 16,
-    color: c.textPrimary,
   },
   metaLabelFixed: {
     fontFamily: fonts.sansRegular,
@@ -980,112 +911,5 @@ const useStyles = makeStyles((c) => ({
     shadowRadius: 18,
     shadowOffset: { width: 0, height: 8 },
     elevation: 20,
-  },
-  menuPanel: {
-    marginTop: 8,
-    borderWidth: 1,
-    borderColor: c.border,
-    borderRadius: 12,
-    backgroundColor: c.surface,
-    overflow: 'hidden',
-    height: MENU_PANEL_HEIGHT,
-  },
-  menuScrollContent: {
-    paddingVertical: 8,
-  },
-  menuRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 11,
-  },
-  menuLabel: {
-    flex: 1,
-    fontFamily: fonts.sansMedium,
-    fontSize: 16,
-    color: c.textPrimary,
-  },
-  menuSection: {
-    paddingHorizontal: 14,
-    paddingTop: 6,
-    paddingBottom: 6,
-    fontFamily: fonts.monoRegular,
-    fontSize: 11,
-    letterSpacing: 1,
-    textTransform: 'uppercase',
-    color: c.textFaint,
-  },
-  menuEmpty: {
-    paddingHorizontal: 14,
-    paddingVertical: 4,
-    fontFamily: fonts.sansRegular,
-    fontSize: 14,
-    color: c.textTertiary,
-  },
-  listDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 3,
-  },
-  chipsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    paddingHorizontal: 14,
-  },
-  chip: {
-    borderWidth: 1,
-    borderColor: c.border,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  chipText: {
-    fontFamily: fonts.sansMedium,
-    fontSize: 14,
-    color: c.textPrimary,
-  },
-  addRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginTop: 14,
-    alignItems: 'center',
-    paddingHorizontal: 14,
-  },
-  input: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: c.border,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontFamily: fonts.sansRegular,
-    fontSize: 15,
-    color: c.textPrimary,
-  },
-  addBtn: {
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-  },
-  addBtnText: {
-    fontFamily: fonts.sansMedium,
-    fontSize: 14,
-  },
-  doneBtn: {
-    marginTop: 12,
-    marginHorizontal: 14,
-    borderWidth: 1,
-    borderColor: c.border,
-    borderRadius: 10,
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
-  doneText: {
-    fontFamily: fonts.sansSemiBold,
-    fontSize: 15,
-    color: c.textPrimary,
   },
 }));

@@ -381,7 +381,7 @@ export default function TaskComposerSheet({ visible, onClose, defaults, contextL
                     {group.lists.map((list) => (
                       <Pressable
                         key={list.id}
-                        style={styles.menuRow}
+                        style={[styles.menuRow, !!group.folder && styles.menuRowNested]}
                         onPress={() => {
                           setListId(list.id);
                           closeMenu();
@@ -501,6 +501,14 @@ const useStyles = makeStyles((c) => ({
     gap: 12,
     paddingHorizontal: 14,
     paddingVertical: 11,
+  },
+  /**
+   * The nav interleaves folders with the lists that aren't in one, so a root
+   * list can sort directly under a folder's own lists. One step in from the
+   * row's own padding is what says which rows the heading above covers.
+   */
+  menuRowNested: {
+    paddingLeft: 36,
   },
   menuLabel: {
     flex: 1,

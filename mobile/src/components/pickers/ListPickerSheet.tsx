@@ -6,8 +6,19 @@ import { makeStyles } from '../../theme/styles';
 import { useHoverBg } from '../../theme/hover';
 import { fonts } from '../../theme/typography';
 import { useAccent } from '../../theme/ThemeContext';
+import { IconInboxTray } from '../../icons/Icons';
 import { useTasks } from '../../data/TaskContext';
 import { navGroups } from '../../data/selectors';
+
+/**
+ * One nesting step, matching the sidebar's.
+ *
+ * The nav interleaves folders with the lists that aren't in one, so a root list
+ * can sort after a folder and land directly under that folder's own lists. With
+ * every row in the same column the folder heading above is the only cue, and it
+ * points the wrong way — the indent is what says which rows the heading covers.
+ */
+const INDENT = 22;
 
 interface Props {
   visible: boolean;
@@ -39,16 +50,26 @@ export default function ListPickerSheet({ visible, onClose, value, onApply, anch
       anchor={anchor}
       popoverWidth={280}
       onBack={onBack}
+      stackBehavior="push"
     >
       <Pressable style={hoverBg(styles.row)} onPress={() => choose(null)}>
+        <View style={styles.leading}>
+          <IconInboxTray size={16} color={value === null ? accent : undefined} />
+        </View>
         <Text style={[styles.rowText, value === null && { color: accent, fontFamily: fonts.sansSemiBold }]}>Inbox</Text>
       </Pressable>
       {navGroups(state.lists, state.folders).map((group) => (
         <View key={group.folder?.id ?? 'root'}>
           {group.folder && <Text style={styles.folderLabel}>{group.folder.name}</Text>}
           {group.lists.map((list) => (
-            <Pressable key={list.id} style={hoverBg(styles.row)} onPress={() => choose(list.id)}>
-              <View style={[styles.dot, { backgroundColor: list.color }]} />
+            <Pressable
+              key={list.id}
+              style={hoverBg([styles.row, !!group.folder && styles.nestedRow])}
+              onPress={() => choose(list.id)}
+            >
+              <View style={styles.leading}>
+                <View style={[styles.dot, { backgroundColor: list.color }]} />
+              </View>
               <Text style={[styles.rowText, value === list.id && { color: accent, fontFamily: fonts.sansSemiBold }]}>
                 {list.name}
               </Text>
@@ -69,10 +90,18 @@ const useStyles = makeStyles((c) => ({
     borderBottomWidth: 1,
     borderBottomColor: c.divider,
   },
+  /** Padding, not margin: the divider stays full-bleed and the whole row stays pressable. */
+  nestedRow: {
+    paddingLeft: INDENT,
+  },
   rowText: {
     fontFamily: fonts.sansRegular,
     fontSize: 16,
     color: c.textPrimary,
+  },
+  leading: {
+    width: 16,
+    alignItems: 'center',
   },
   dot: {
     width: 10,
