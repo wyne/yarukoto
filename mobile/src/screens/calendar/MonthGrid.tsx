@@ -14,7 +14,7 @@ import { dayTargetId } from '../../drag/hitTest';
 import { taskIdsFromDrag } from '../../drag/DragContext';
 import { useDropTarget } from '../../drag/useDropTarget';
 
-const WEEKDAY_LETTERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+const WEEKDAY_LETTERS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
 /** A 30px day badge in a cell padded 2px top and bottom. */
 const CELL_HEIGHT = 34;

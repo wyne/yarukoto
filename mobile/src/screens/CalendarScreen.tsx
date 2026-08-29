@@ -408,6 +408,8 @@ export default function CalendarScreen() {
                   now={today}
                   onOpenTask={openTask}
                   onDropTask={scheduleTasks}
+                  reorderable={sort === 'custom'}
+                  draggingCompleted={draggingCompleted}
                   clipTo={agendaRef as unknown as React.RefObject<Measurable | null>}
                 />
               ))}

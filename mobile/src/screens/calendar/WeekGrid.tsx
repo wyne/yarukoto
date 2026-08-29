@@ -9,7 +9,7 @@ import { Task } from '../../data/types';
 import { dayTargetId } from '../../drag/hitTest';
 import { useDropTarget } from '../../drag/useDropTarget';
 import { useDraggable } from '../../drag/useDraggable';
-import { DragPayload, taskIdsFromDrag, useDragActive } from '../../drag/DragContext';
+import { DragPayload, taskIdsFromDrag, useDragActive, useDragOverDay } from '../../drag/DragContext';
 import { useDragSource } from '../../drag/dragSource';
 
 const INSERT_GAP = 6;
@@ -120,6 +120,10 @@ function DayColumn({
   const iso = toISODate(date);
   const isToday = isSameDay(date, today);
   const isSelected = showSelectedBadge && isSameDay(date, selectedDate) && !isToday;
+  // The column, not the slot, is what says *where* a task is headed: with granular
+  // placement the hovered target is an insertion line inside the column, so ask
+  // about the day rather than about this View's own drop target.
+  const isDropDay = useDragOverDay(iso, 'cols');
   // A task being dragged between columns must not scroll the column it left.
   const dragging = useDragActive();
   const [chipLayouts, setChipLayouts] = React.useState<Record<string, ChipLayout>>({});
@@ -178,7 +182,7 @@ function DayColumn({
       collapsable={false}
       style={[
         styles.col,
-        columnTarget.isOver && {
+        isDropDay && {
           backgroundColor: colors.accentTintBg,
           borderColor: accent,
         },

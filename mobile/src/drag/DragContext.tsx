@@ -1,6 +1,6 @@
 import React, { createContext, useCallback, useContext, useMemo, useRef, useSyncExternalStore } from 'react';
 import { Animated } from 'react-native';
-import { Point, Rect, resolveDropTarget } from './hitTest';
+import { isoFromDayTarget, Point, Rect, resolveDropTarget } from './hitTest';
 import { hapticPickup, hapticTargetChange } from '../data/haptics';
 
 export interface DragPayload {
@@ -214,6 +214,21 @@ export function useDragPayload(): DragPayload | null {
 /** The target under the pointer. For the ghost; a target should ask about itself. */
 export function useDragOverId(): string | null {
   return useDragSelector(selectOverId);
+}
+
+/**
+ * True while the pointer is over any drop target belonging to `iso` on `scope` —
+ * the day's own cell or one of the insertion slots inside it. Granular placement
+ * means the hovered target is usually a slot rather than the day box, so a day
+ * that wants to show itself as the destination has to ask about its whole family
+ * of ids instead of its own.
+ */
+export function useDragOverDay(iso: string, scope: string): boolean {
+  return useDragSelector((state) => {
+    const { overId } = state;
+    if (!overId || !overId.startsWith(`${scope}/`)) return false;
+    return isoFromDayTarget(overId) === iso;
+  });
 }
 
 /**

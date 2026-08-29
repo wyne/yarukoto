@@ -29,9 +29,9 @@ export function addMonths(d: Date, n: number): Date {
   return new Date(d.getFullYear(), d.getMonth() + n, 1);
 }
 
-/** Monday-first, matching buildMonthGrid. */
+/** Sunday-first, matching buildMonthGrid. */
 export function startOfWeek(d: Date): Date {
-  return addDays(d, -((d.getDay() + 6) % 7));
+  return addDays(d, -d.getDay());
 }
 
 export function addWeeks(d: Date, n: number): Date {
@@ -130,15 +130,13 @@ export function isOverdue(now: Date, task: { dueDate?: string; completed: boolea
   return isBeforeDay(fromISODate(task.dueDate), now);
 }
 
-/** Days in a Monday-first grid for the month containing `monthAnchor`, including
+/** Days in a Sunday-first grid for the month containing `monthAnchor`, including
  * the leading/trailing days from adjacent months needed to fill the grid. */
 export function buildMonthGrid(monthAnchor: Date): { date: Date; inMonth: boolean }[] {
   const year = monthAnchor.getFullYear();
   const month = monthAnchor.getMonth();
   const first = new Date(year, month, 1);
-  // Monday = 0 ... Sunday = 6
-  const firstWeekday = (first.getDay() + 6) % 7;
-  const gridStart = addDays(first, -firstWeekday);
+  const gridStart = addDays(first, -first.getDay());
   const cells: { date: Date; inMonth: boolean }[] = [];
   for (let i = 0; i < 42; i++) {
     const date = addDays(gridStart, i);
