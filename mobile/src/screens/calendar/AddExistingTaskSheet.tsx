@@ -21,6 +21,7 @@ import { LIQUID_GLASS } from '../../data/platform';
 import { nativeFloatingControlBottom } from '../../navigation/nativeTabBarLayout';
 import { closeOpenSwipeRow } from '../../components/SwipeableRow';
 import Card from '../../components/Card';
+import GlassIconButton from '../../components/GlassIconButton';
 import Divider from '../../components/Divider';
 import FilterBar from '../../components/browse/FilterBar';
 import TaskRow from '../../components/TaskRow';
@@ -41,6 +42,12 @@ interface SheetProps {
   onClose: () => void;
 }
 
+/**
+ * How long after closing the sheet leaves the modal stack. Past the collapse
+ * animation, and past the gap between a pickup closing the sheet and the drag
+ * registering as active.
+ */
+const DISMISS_DELAY_MS = 400;
 const COLLAPSED_HEIGHT = 1;
 const EXPANDED_HEIGHT = 430;
 /** How far the handle can pull the sheet up, for a long list of tasks. */
@@ -120,6 +127,7 @@ export default function AddExistingTaskSheet({ visible, onClose }: SheetProps) {
   const dragging = useDragActive();
   const scrimOpacity = colors.scrimOpacity;
   const titleIconColor = colors.textSecondary;
+  const closeIconColor = colors.textPrimary;
   const [criteria, setCriteria] = useState<TaskCriteria>(EMPTY_CRITERIA);
   const [sortBy, setSortBy] = useState<SortBy>('manual');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -150,6 +158,30 @@ export default function AddExistingTaskSheet({ visible, onClose }: SheetProps) {
   useEffect(() => {
     if (dragging && presented.current) ref.current?.snapToIndex(0);
   }, [dragging]);
+
+  /**
+   * Closing means snapping to the 1pt detent, which is not dismissal: the modal
+   * stays presented, and stays registered in the modal provider's stack. Every
+   * sheet presented after it then minimizes *this* one on the way in and has the
+   * provider restore it on the way out — so closing an unrelated sheet, the
+   * composer on another tab say, re-opens this one over whatever is on screen.
+   *
+   * Leaving that stack is what this does, and it waits rather than doing it on
+   * the spot. Dismissing into the collapse still running lands an onChange that
+   * overwrites the DISMISSING status, which strands the modal in the stack
+   * anyway; and a pickup closes the sheet a beat before the drag registers, so
+   * dismissing immediately tears the row out from under the finger. The delay
+   * clears both, and a drag that starts inside it cancels the dismissal — that
+   * sheet has to stay mounted for as long as its rows are being dragged.
+   */
+  useEffect(() => {
+    if (visible || dragging || !presented.current) return;
+    const timer = setTimeout(() => {
+      presented.current = false;
+      ref.current?.dismiss();
+    }, DISMISS_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [visible, dragging]);
 
   const tasks = useMemo(
     () =>
@@ -233,17 +265,15 @@ export default function AddExistingTaskSheet({ visible, onClose }: SheetProps) {
             <IconCalendarBox size={18} color={titleIconColor} />
             <Text style={styles.title}>Add existing</Text>
           </View>
-          <Pressable
-            onPress={() => closeRef.current()}
-            accessibilityRole="button"
-            accessibilityLabel="Close add existing"
-          >
-            <Text style={styles.done}>Done</Text>
-          </Pressable>
+          <GlassIconButton onPress={() => closeRef.current()} label="Close add existing">
+            <View style={styles.closeIcon}>
+              <IconPlus size={18} color={closeIconColor} strokeWidth={2} />
+            </View>
+          </GlassIconButton>
         </View>
       </View>
     ),
-    [styles, titleIconColor]
+    [styles, titleIconColor, closeIconColor]
   );
 
   return (
@@ -251,7 +281,6 @@ export default function AddExistingTaskSheet({ visible, onClose }: SheetProps) {
       ref={ref}
       index={1}
       snapPoints={snapPoints}
-      enableDismissOnClose={false}
       enableDynamicSizing={false}
       /*
         Pulling the list moves the sheet once the list has no more to scroll —
@@ -473,8 +502,10 @@ const useStyles = makeStyles((c) => ({
     justifyContent: 'space-between',
     gap: 12,
     paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 10,
+    // The 44pt glass capsule sets this strip's height; the padding only has to
+    // keep it clear of the grabber above.
+    paddingTop: 4,
+    paddingBottom: 4,
   },
   headerTitle: {
     flex: 1,
@@ -488,10 +519,9 @@ const useStyles = makeStyles((c) => ({
     fontSize: 18,
     color: c.textPrimary,
   },
-  done: {
-    fontFamily: fonts.sansMedium,
-    fontSize: 15,
-    color: c.textTertiary,
+  /** No X in the set; the date picker's cancel turns a plus the same way. */
+  closeIcon: {
+    transform: [{ rotate: '45deg' }],
   },
   searchInput: {
     marginHorizontal: 16,
