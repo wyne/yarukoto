@@ -130,6 +130,29 @@ export function GlassIconMenuLabel({ label, children }: MenuLabelProps) {
   );
 }
 
+/** Text label for a native menu trigger, keeping the menu gesture system-owned. */
+export function GlassTextMenuLabel({ label, children }: MenuLabelProps) {
+  if (!LIQUID_GLASS) {
+    return (
+      <View
+        pointerEvents="none"
+        accessible
+        accessibilityRole="button"
+        accessibilityLabel={label}
+        style={styles.flatTextMenuLabel}
+      >
+        {children}
+      </View>
+    );
+  }
+
+  return (
+    <View pointerEvents="none" accessible accessibilityRole="button" accessibilityLabel={label}>
+      <GlassView style={styles.glassTextButton}>{children}</GlassView>
+    </View>
+  );
+}
+
 /** A compact text action that uses the same native glass treatment as header icons. */
 export function GlassTextButton({ onPress, label, children }: TextButtonProps) {
   if (!LIQUID_GLASS) {
@@ -241,6 +264,13 @@ const styles = StyleSheet.create({
   flatTextButton: {
     minWidth: 68,
     alignItems: 'center',
+  },
+  flatTextMenuLabel: {
+    minWidth: 68,
+    minHeight: SIZE,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 12,
   },
   menuLabel: {
     width: SIZE,

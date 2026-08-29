@@ -198,23 +198,52 @@ export function saveScheme(pref: SchemePref): void {
 
 /** Which calendar layout the Plan screen is in. 'multi' is the few-day column view. */
 export type PlanMode = 'day' | 'multi' | 'week';
+export type PlanRangeDays = 2 | 3;
+export type PlanSort = 'custom' | 'priority';
 
 const PLAN_MODES: PlanMode[] = ['day', 'multi', 'week'];
+const PLAN_RANGE_DAYS: PlanRangeDays[] = [2, 3];
+const PLAN_SORTS: PlanSort[] = ['custom', 'priority'];
+
+function readStringArrayRecord(value: unknown): Record<string, string[]> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  const out: Record<string, string[]> = {};
+  for (const [key, ids] of Object.entries(value)) {
+    if (Array.isArray(ids)) out[key] = ids.filter((id): id is string => typeof id === 'string');
+  }
+  return out;
+}
 
 export interface PlanPrefs {
   mode: PlanMode;
+  rangeDays: PlanRangeDays;
+  sort: PlanSort;
+  /** Calendar-only custom order, keyed by ISO due date. */
+  calendarOrder: Record<string, string[]>;
   showCompleted: boolean;
   /** The calendar collapsed to the selected day's week rather than the month. */
   weekView: boolean;
 }
 
-export const DEFAULT_PLAN_PREFS: PlanPrefs = { mode: 'day', showCompleted: false, weekView: false };
+export const DEFAULT_PLAN_PREFS: PlanPrefs = {
+  mode: 'day',
+  rangeDays: 3,
+  sort: 'custom',
+  calendarOrder: {},
+  showCompleted: false,
+  weekView: false,
+};
 
 export function loadPlanPrefs(): PlanPrefs {
   const stored = readJson<Partial<PlanPrefs>>(PLAN_KEY);
   if (!stored) return DEFAULT_PLAN_PREFS;
   return {
     mode: PLAN_MODES.includes(stored.mode as PlanMode) ? (stored.mode as PlanMode) : DEFAULT_PLAN_PREFS.mode,
+    rangeDays: PLAN_RANGE_DAYS.includes(stored.rangeDays as PlanRangeDays)
+      ? (stored.rangeDays as PlanRangeDays)
+      : DEFAULT_PLAN_PREFS.rangeDays,
+    sort: PLAN_SORTS.includes(stored.sort as PlanSort) ? (stored.sort as PlanSort) : DEFAULT_PLAN_PREFS.sort,
+    calendarOrder: readStringArrayRecord(stored.calendarOrder),
     showCompleted: typeof stored.showCompleted === 'boolean' ? stored.showCompleted : DEFAULT_PLAN_PREFS.showCompleted,
     weekView: typeof stored.weekView === 'boolean' ? stored.weekView : DEFAULT_PLAN_PREFS.weekView,
   };

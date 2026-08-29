@@ -18,7 +18,7 @@ export function taskIdsFromDrag(payload: DragPayload): string[] {
 
 interface TargetEntry {
   rect: Rect | null;
-  onDrop: (payload: DragPayload) => void;
+  onDrop: (payload: DragPayload, point: Point, rect: Rect) => void;
   /** Re-reads the target's window rect; called again whenever a drag starts. */
   measure: () => void;
 }
@@ -66,6 +66,7 @@ const DragContext = createContext<DragValue | null>(null);
 export function DragProvider({ children }: { children: React.ReactNode }) {
   const targets = useRef(new Map<string, TargetEntry>()).current;
   const pointer = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
+  const pointerPoint = useRef<Point>({ x: 0, y: 0 });
   const state = useRef<DragState>(IDLE);
   const listeners = useRef(new Set<() => void>()).current;
 
@@ -123,6 +124,7 @@ export function DragProvider({ children }: { children: React.ReactNode }) {
       const fresh = !state.current.payload;
       // Rects go stale when panes scroll or the window resizes; refresh on every drag.
       targets.forEach((entry) => entry.measure());
+      pointerPoint.current = point;
       pointer.setValue({ x: point.x, y: point.y });
       emit({ payload: next, overId: null });
       if (fresh) hapticPickup();
@@ -134,6 +136,7 @@ export function DragProvider({ children }: { children: React.ReactNode }) {
     (point: Point) => {
       const { payload, overId } = state.current;
       if (!payload) return;
+      pointerPoint.current = point;
       pointer.setValue({ x: point.x, y: point.y });
       // The registry is walked in place. Copying it into a list of {id, rect} ran
       // once per pointer event and threw away one object per target as it went.
@@ -150,8 +153,10 @@ export function DragProvider({ children }: { children: React.ReactNode }) {
   const finish = useCallback(
     (drop: boolean) => {
       const { payload, overId } = state.current;
+      const dropPoint = pointerPoint.current;
+      const target = overId ? targets.get(overId) : null;
       emit(IDLE);
-      if (drop && payload && overId) targets.get(overId)?.onDrop(payload);
+      if (drop && payload && target?.rect) target.onDrop(payload, dropPoint, target.rect);
     },
     [emit, targets]
   );

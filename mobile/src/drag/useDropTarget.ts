@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { View } from 'react-native';
 import { DragPayload, useDrag, useDragSelector } from './DragContext';
+import { Point, Rect } from './hitTest';
 
 interface DropTargetBinding {
   /** Attach to the target View, along with onLayout. */
@@ -30,7 +31,7 @@ export interface Measurable {
  */
 export function useDropTarget(
   id: string,
-  onDrop: (payload: DragPayload) => void,
+  onDrop: (payload: DragPayload, point: Point, rect: Rect) => void,
   /**
    * Pass false on surfaces that render the same ids but can't accept drops. Tab
    * screens stay mounted, so a non-droppable copy would otherwise register the
@@ -79,7 +80,7 @@ export function useDropTarget(
     if (!enabled) return;
     return registerTarget(id, {
       rect: null,
-      onDrop: (payload) => onDropRef.current(payload),
+      onDrop: (payload, point, rect) => onDropRef.current(payload, point, rect),
       measure,
     });
   }, [id, registerTarget, measure, enabled]);
