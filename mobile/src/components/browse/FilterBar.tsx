@@ -22,6 +22,11 @@ interface Props {
   onChange: (next: TaskCriteria) => void;
   sortBy?: SortBy;
   onSortChange?: (sortBy: SortBy) => void;
+  /**
+   * Offer the status filter. Off for a surface where only active tasks are a
+   * sensible answer, which leaves `criteria.status` at whatever it was given.
+   */
+  showStatus?: boolean;
 }
 
 /**
@@ -33,7 +38,7 @@ interface Props {
  * to find out what is being applied. Only a chip that narrows something is
  * filled; the rest name the dimension and stay quiet.
  */
-export default function FilterBar({ criteria, onChange, sortBy, onSortChange }: Props) {
+export default function FilterBar({ criteria, onChange, sortBy, onSortChange, showStatus = true }: Props) {
   const hoverBg = useHoverBg();
   const colors = useColors();
   const styles = useStyles();
@@ -118,11 +123,12 @@ export default function FilterBar({ criteria, onChange, sortBy, onSortChange }: 
         {chip('lists', listsLabel(), listCount > 0)}
         {chip('tags', tagsLabel(), criteria.tags.length > 0)}
         {chip('due', criteria.due === 'any' ? 'Due' : dueLabel(criteria.due), criteria.due !== 'any')}
-        {chip(
-          'status',
-          criteria.status === EMPTY_CRITERIA.status ? 'Status' : statusLabel(criteria.status),
-          criteria.status !== EMPTY_CRITERIA.status
-        )}
+        {showStatus &&
+          chip(
+            'status',
+            criteria.status === EMPTY_CRITERIA.status ? 'Status' : statusLabel(criteria.status),
+            criteria.status !== EMPTY_CRITERIA.status
+          )}
         {sortBy !== undefined &&
           onSortChange &&
           chip('sort', sortBy === 'manual' ? 'Sort by' : `Sort: ${sortLabel(sortBy)}`, sortBy !== 'manual')}
