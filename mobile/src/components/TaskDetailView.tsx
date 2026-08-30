@@ -129,6 +129,7 @@ export default function TaskDetailView({ taskId, onClose, variant, active = true
   };
 
   const notesRef = useRef<TextInput>(null);
+  const subtaskInputRef = useRef<TextInput>(null);
   const [keyboardUp, setKeyboardUp] = useState(false);
   const [keyboardInputFocused, setKeyboardInputFocused] = useState(false);
 
@@ -175,6 +176,21 @@ export default function TaskDetailView({ taskId, onClose, variant, active = true
 
   const removeSubtask = (subtaskId: string) => {
     updateTask(task.id, { subtasks: task.subtasks.filter((s) => s.id !== subtaskId) });
+  };
+
+  const submitNewSubtask = () => {
+    const title = newSubtask.trim();
+    if (!title) {
+      setNewSubtask('');
+      setAddingSubtask(false);
+      return;
+    }
+
+    addSubtask(task.id, title);
+    subtaskInputRef.current?.clear();
+    subtaskInputRef.current?.setNativeProps({ text: '' });
+    setNewSubtask('');
+    requestAnimationFrame(() => subtaskInputRef.current?.focus());
   };
 
   /**
@@ -509,7 +525,9 @@ export default function TaskDetailView({ taskId, onClose, variant, active = true
           />
           {addingSubtask ? (
             <View style={styles.subtaskRow}>
+              <IconPlus size={15} color={colors.textTertiary} />
               <NativeOwnedTextInput
+                ref={subtaskInputRef as never}
                 sheet={registerInputWithSheet}
                 autoFocus
                 value={newSubtask}
@@ -520,12 +538,9 @@ export default function TaskDetailView({ taskId, onClose, variant, active = true
                 onFocus={() => setKeyboardInputFocused(true)}
                 onBlur={() => setKeyboardInputFocused(false)}
                 {...accessoryProps}
-                onSubmitEditing={() => {
-                  if (newSubtask.trim()) addSubtask(task.id, newSubtask.trim());
-                  setNewSubtask('');
-                  setAddingSubtask(false);
-                }}
-                returnKeyType="done"
+                onSubmitEditing={submitNewSubtask}
+                submitBehavior="submit"
+                returnKeyType="next"
               />
             </View>
           ) : (
