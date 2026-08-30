@@ -524,6 +524,7 @@ export default function TaskListScreen({ mode, filter }: Props) {
                   <Divider
                     indent={touching ? 0 : undefined}
                     color={within ? colors.selectedRowBg : undefined}
+                    railColor={task.listId ? listsById.get(task.listId)?.color : undefined}
                   />
                 );
               })()}
@@ -680,7 +681,9 @@ export default function TaskListScreen({ mode, filter }: Props) {
                         onLater={() => snoozeTask(task.id)}
                         onDone={() => toggleComplete(task.id)}
                       />
-                      {i < completed.length - 1 && <Divider />}
+                      {i < completed.length - 1 && (
+                        <Divider railColor={task.listId ? listsById.get(task.listId)?.color : undefined} />
+                      )}
                     </View>
                   ))}
                 </Card>

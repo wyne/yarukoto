@@ -379,7 +379,9 @@ export default function AddExistingTaskSheet({ visible, onClose }: SheetProps) {
                     onToggleSelected={() => toggleSelected(task.id)}
                     onPickup={finishPickup}
                   />
-                  {i < tasks.length - 1 && <Divider />}
+                  {i < tasks.length - 1 && (
+                    <Divider railColor={getListById(state.lists, task.listId)?.color} />
+                  )}
                 </View>
               ))}
             </Card>

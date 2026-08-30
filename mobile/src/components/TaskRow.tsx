@@ -148,11 +148,12 @@ export default function TaskRow({
           dragSource && { backgroundColor: colors.accentTintBg },
           task.completed && styles.rowCompleted,
           handleGutter && styles.rowHandleGutter,
-          rowActive && [styles.rowActive, { borderLeftColor: accent }],
+          rowActive && styles.rowActive,
           hovered && !selected && !dragSource && !rowActive ? styles.rowHovered : null,
         ];
       }}
     >
+      {!!list?.color && <View pointerEvents="none" style={[styles.listRail, { backgroundColor: list.color }]} />}
       {selectionMode ? (
         <Pressable onPress={press} hitSlop={10}>
           <View
@@ -253,6 +254,7 @@ type PressState = PressableStateCallbackType & { hovered?: boolean };
 
 const useStyles = makeStyles((c) => ({
   row: {
+    position: 'relative',
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
@@ -261,6 +263,13 @@ const useStyles = makeStyles((c) => ({
     minHeight: 44,
     backgroundColor: c.surface,
     ...(noTextSelect as object),
+  },
+  listRail: {
+    position: 'absolute',
+    left: 4,
+    top: 0,
+    bottom: 0,
+    width: 3,
   },
   /**
    * The grip's width and its offset from the edge (28), plus the same 12 the row
@@ -274,8 +283,6 @@ const useStyles = makeStyles((c) => ({
     backgroundColor: c.hoverBg,
   },
   rowActive: {
-    paddingLeft: 11,
-    borderLeftWidth: 3,
     backgroundColor: c.selectedRowBg,
   },
   rowCompleted: {

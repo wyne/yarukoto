@@ -111,7 +111,9 @@ export default function BrowseView({ criteria, onCriteriaChange }: Props) {
                   onLater={() => snoozeTask(task.id)}
                   onDone={() => toggleComplete(task.id)}
                 />
-                {i < tasks.length - 1 && <Divider />}
+                {i < tasks.length - 1 && (
+                  <Divider railColor={task.listId ? listsById.get(task.listId)?.color : undefined} />
+                )}
               </View>
             ))}
           </Card>

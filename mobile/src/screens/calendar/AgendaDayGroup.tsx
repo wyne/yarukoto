@@ -4,7 +4,7 @@ import { makeStyles } from '../../theme/styles';
 import { fonts } from '../../theme/typography';
 import { useAccent } from '../../theme/ThemeContext';
 import { monthShort, toISODate, weekdayShort } from '../../data/dateUtils';
-import { Task } from '../../data/types';
+import { ListDef, Task } from '../../data/types';
 import Card from '../../components/Card';
 import Divider from '../../components/Divider';
 import AgendaRow from './AgendaRow';
@@ -15,6 +15,7 @@ import { Measurable, useDropTarget } from '../../drag/useDropTarget';
 interface Props {
   date: Date;
   tasks: Task[];
+  lists: ListDef[];
   now: Date;
   onOpenTask: (taskId: string) => void;
   /** Plan only. Makes the whole group a drop target and its rows draggable. */
@@ -39,6 +40,7 @@ interface Props {
 export default function AgendaDayGroup({
   date,
   tasks,
+  lists,
   now,
   onOpenTask,
   onDropTask,
@@ -54,6 +56,10 @@ export default function AgendaDayGroup({
   // placement the hovered target is an insertion line inside the group, so ask
   // about the day rather than about this View's own drop target.
   const isDropDay = useDragOverDay(iso, 'agenda');
+  const listColors = React.useMemo(
+    () => new Map(lists.filter((list) => !list.deletedAt).map((list) => [list.id, list.color])),
+    [lists]
+  );
   const [rowLayouts, setRowLayouts] = React.useState<Record<string, RowLayout>>({});
 
   React.useEffect(() => {
@@ -128,7 +134,9 @@ export default function AgendaDayGroup({
           {tasks.map((task, i) => (
             <View key={task.id} onLayout={(event) => rememberRowLayout(task.id, event)} collapsable={false}>
               <AgendaRow task={task} now={now} draggable={droppable} onPress={() => onOpenTask(task.id)} />
-              {i < tasks.length - 1 && <Divider indent={90} />}
+              {i < tasks.length - 1 && (
+                <Divider indent={90} railColor={task.listId ? listColors.get(task.listId) : undefined} />
+              )}
             </View>
           ))}
           {droppable &&
