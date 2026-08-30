@@ -8,9 +8,15 @@ import { makeMutable } from 'react-native-reanimated';
 import { makeStyles } from '../theme/styles';
 import { useDragActive } from '../drag/DragContext';
 import { hapticAction } from '../data/haptics';
-import { IconCalendarBox, IconCheckBig } from '../icons/Icons';
+import { IconCalendarBox, IconCheckBig, IconClock } from '../icons/Icons';
 
-const ACTION_WIDTH = 66;
+/**
+ * Narrower than the two actions were, so that three of them still leave enough
+ * of the row to read while they are out. Well clear of a 44pt touch target, and
+ * `OPEN_THRESHOLD` is measured against the finger rather than against this, so
+ * the swipe itself feels exactly as it did.
+ */
+const ACTION_WIDTH = 58;
 
 /**
  * How far the row must be left when the finger lifts for it to stay open. Well
@@ -70,13 +76,20 @@ export function closeOpenSwipeRow() {
 
 interface Props {
   children: React.ReactNode;
+  onToday: () => void;
   onLater: () => void;
   onDone: () => void;
   disabled?: boolean;
 }
 
 /**
- * Swipe a row left to reveal Later and Done.
+ * Swipe a row left to reveal Today, Tmrw and Done.
+ *
+ * The two dates read as the days they set rather than as directions to push the
+ * task in: "Later" was already tomorrow and nothing else, so naming it that is
+ * only saying what the tap has always done. Today sits before it because a row
+ * you are already looking at is more often due now than deferred, and because
+ * the pair then reads left to right in the order the days fall in.
  *
  * Built on gesture-handler's swipeable rather than a PanResponder: the row also
  * sits inside a scroll view and a reorderable list, and a JS-thread responder
@@ -87,10 +100,10 @@ interface Props {
  * half-open.
  *
  * Touch-only, by the caller's gating: with a mouse this is the same sideways
- * motion as dragging a row somewhere, and the context menu already offers both
- * actions.
+ * motion as dragging a row somewhere, and the context menu already offers all
+ * three actions.
  */
-export default function SwipeableRow({ children, onLater, onDone, disabled }: Props) {
+export default function SwipeableRow({ children, onToday, onLater, onDone, disabled }: Props) {
   const colors = useColors();
   const styles = useStyles();
   const rowRef = useRef<SwipeableMethods>(null);
@@ -138,11 +151,18 @@ export default function SwipeableRow({ children, onLater, onDone, disabled }: Pr
     () => (
       <View style={styles.actionsRow}>
         <Pressable
+          style={[styles.action, { backgroundColor: colors.swipeToday }]}
+          onPress={() => runAction(onToday)}
+        >
+          <IconClock size={18} color="#fff" strokeWidth={1.7} />
+          <Text style={styles.actionLabel}>Today</Text>
+        </Pressable>
+        <Pressable
           style={[styles.action, { backgroundColor: colors.swipeLater }]}
           onPress={() => runAction(onLater)}
         >
           <IconCalendarBox size={18} color="#fff" strokeWidth={1.6} />
-          <Text style={styles.actionLabel}>Later</Text>
+          <Text style={styles.actionLabel}>Tmrw</Text>
         </Pressable>
         <Pressable
           style={[styles.action, { backgroundColor: colors.swipeDone }]}
@@ -153,7 +173,7 @@ export default function SwipeableRow({ children, onLater, onDone, disabled }: Pr
         </Pressable>
       </View>
     ),
-    [onDone, onLater, runAction]
+    [onDone, onLater, onToday, runAction]
   );
 
   return (
@@ -164,7 +184,7 @@ export default function SwipeableRow({ children, onLater, onDone, disabled }: Pr
       rightThreshold={OPEN_THRESHOLD}
       dragOffsetFromRightEdge={EDGE_OFFSET}
       dragOffsetFromLeftEdge={NEVER_FROM_LEFT}
-      // Nothing lives past the two actions, so there is nothing to stretch into.
+      // Nothing lives past the last action, so there is nothing to stretch into.
       overshootRight={false}
       onSwipeableWillOpen={claim}
       onSwipeableWillClose={forget}

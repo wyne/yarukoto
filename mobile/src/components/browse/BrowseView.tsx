@@ -40,7 +40,7 @@ export default function BrowseView({ criteria, onCriteriaChange }: Props) {
   const { wide } = useSidebar();
   const refreshControl = useSyncRefresh();
   const { openTask, openTaskId } = useDetail();
-  const { state, toggleComplete, snoozeTask } = useTasks();
+  const { state, toggleComplete, scheduleToday, snoozeTask } = useTasks();
   const now = new Date();
 
   const tasks = useMemo(
@@ -107,6 +107,7 @@ export default function BrowseView({ criteria, onCriteriaChange }: Props) {
                   active={openTaskId === task.id}
                   onPress={() => openTask(task.id)}
                   onToggleComplete={() => toggleComplete(task.id)}
+                  onToday={() => scheduleToday(task.id)}
                   onLater={() => snoozeTask(task.id)}
                   onDone={() => toggleComplete(task.id)}
                 />

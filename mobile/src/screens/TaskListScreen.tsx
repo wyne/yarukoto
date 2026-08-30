@@ -92,6 +92,7 @@ export default function TaskListScreen({ mode, filter }: Props) {
     state,
     updateTask,
     toggleComplete,
+    scheduleToday,
     snoozeTask,
     reorderTasks,
     setArrangement,
@@ -505,6 +506,7 @@ export default function TaskListScreen({ mode, filter }: Props) {
               selected={isSelected(task.id)}
               onPress={() => pressRow(task.id)}
               onToggleComplete={() => toggleComplete(task.id)}
+              onToday={() => scheduleToday(task.id)}
               onLater={() => snoozeTask(task.id)}
               onDone={() => toggleComplete(task.id)}
             />
@@ -674,6 +676,7 @@ export default function TaskListScreen({ mode, filter }: Props) {
                           selectionMode ? toggleSelected(task.id) : openTask(task.id)
                         }
                         onToggleComplete={() => toggleComplete(task.id)}
+                        onToday={() => scheduleToday(task.id)}
                         onLater={() => snoozeTask(task.id)}
                         onDone={() => toggleComplete(task.id)}
                       />

@@ -96,6 +96,7 @@ export const lightPalette = {
    */
   heldRowBg: '#DDDDD5',
 
+  swipeToday: '#B5540C',
   swipeLater: '#55554F',
   swipeDone: '#1E7A3C',
 
@@ -187,6 +188,7 @@ export const darkPalette: Palette = {
   hoverBg: '#232320',
   heldRowBg: '#33322E',
 
+  swipeToday: '#96521C',
   swipeLater: '#6E6D66',
   swipeDone: '#2A6B41',
 
