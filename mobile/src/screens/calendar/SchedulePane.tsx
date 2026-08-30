@@ -21,7 +21,7 @@ import { hapticSelect } from '../../data/haptics';
 import { IconCalendarBox } from '../../icons/Icons';
 import { WEB_ENTRY } from '../../data/platform';
 
-const DEFAULT_CRITERIA: TaskCriteria = { ...EMPTY_CRITERIA, due: 'nodate' };
+const DEFAULT_CRITERIA: TaskCriteria = { ...EMPTY_CRITERIA, due: ['nodate', 'overdue'] };
 const DEFAULT_SORT_BY: SortBy = 'priority';
 
 interface Props {

@@ -35,8 +35,12 @@ export function taskMatcher(query: string): (task: Task) => boolean {
  * named separately; filtering wants the question you actually ask, and nobody
  * asks for "tomorrow but not today" — so `week` covers the next seven days from
  * now, tomorrow included.
+ *
+ * There is no `any`: several of these are held at once and an empty selection is
+ * already what "any" means, the same way it does for lists and tags. A vocabulary
+ * with a member meaning "ignore the other members" would let the two disagree.
  */
-export type DueFilter = 'any' | 'overdue' | 'today' | 'week' | 'later' | 'nodate';
+export type DueFilter = 'overdue' | 'today' | 'week' | 'later' | 'nodate';
 
 /** Trash is never in scope here, so there is no filter for it. */
 export type StatusFilter = 'active' | 'completed' | 'any';
@@ -47,7 +51,7 @@ export type StatusFilter = 'active' | 'completed' | 'any';
  * wrote it — an older one, or a hand-edited store, can name a filter this
  * version has never heard of.
  */
-export const DUE_FILTERS: DueFilter[] = ['any', 'overdue', 'today', 'week', 'later', 'nodate'];
+export const DUE_FILTERS: DueFilter[] = ['overdue', 'today', 'week', 'later', 'nodate'];
 export const STATUS_FILTERS: StatusFilter[] = ['active', 'completed', 'any'];
 
 /**
@@ -73,7 +77,8 @@ export interface TaskCriteria {
   /** Expanded to the lists inside them when matching, not stored expanded. */
   folderIds: string[];
   tags: string[];
-  due: DueFilter;
+  /** Several stretches at once — "no date or overdue" is the planning question. */
+  due: DueFilter[];
   status: StatusFilter;
 }
 
@@ -82,7 +87,7 @@ export const EMPTY_CRITERIA: TaskCriteria = {
   listIds: [],
   folderIds: [],
   tags: [],
-  due: 'any',
+  due: [],
   status: 'active',
 };
 
@@ -93,7 +98,7 @@ export function isEmptyCriteria(c: TaskCriteria): boolean {
     c.listIds.length === 0 &&
     c.folderIds.length === 0 &&
     c.tags.length === 0 &&
-    c.due === 'any' &&
+    c.due.length === 0 &&
     c.status === EMPTY_CRITERIA.status
   );
 }
@@ -120,11 +125,16 @@ function resolveListIds(c: TaskCriteria, lists: ListDef[]): Set<string> | null {
   return out.size > 0 ? out : null;
 }
 
-function matchesDue(task: Task, due: DueFilter, now: Date): boolean {
-  if (due === 'any') return true;
+function matchesDue(task: Task, due: DueFilter[], now: Date): boolean {
+  if (due.length === 0) return true;
   const bucket = dateBucket(task, now).key;
-  if (due === 'week') return bucket === 'today' || bucket === 'tomorrow' || bucket === 'week';
-  return bucket === due;
+  // OR-ed, like every other multi-valued dimension. The stretches overlap —
+  // `week` contains `today` — which costs nothing when the answer is a union.
+  return due.some((d) =>
+    d === 'week'
+      ? bucket === 'today' || bucket === 'tomorrow' || bucket === 'week'
+      : bucket === d
+  );
 }
 
 /**

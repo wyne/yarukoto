@@ -35,16 +35,16 @@ interface Props {
 }
 
 /** Adds or removes one value, which is all any of the multi-choice rows do. */
-function toggle(values: string[], value: string): string[] {
+function toggle<T extends string>(values: T[], value: T): T[] {
   return values.includes(value) ? values.filter((v) => v !== value) : [...values, value];
 }
 
 /**
  * The choices behind one filter chip.
  *
- * Lists and tags stay open as you pick, because picking two is the ordinary
+ * Lists, tags and due stay open as you pick, because picking two is the ordinary
  * case and a sheet that shut on the first would make the second a second trip.
- * Due, status, and sort close on choice — there is only ever one answer to those.
+ * Status and sort close on choice — there is only ever one answer to those.
  */
 export default function FilterSheet({
   kind,
@@ -79,11 +79,10 @@ export default function FilterSheet({
             <Choice
               key={opt.value}
               label={opt.label}
-              selected={criteria.due === opt.value}
-              onPress={() => {
-                onChange({ ...criteria, due: opt.value });
-                onClose();
-              }}
+              selected={criteria.due.includes(opt.value)}
+              onPress={() =>
+                onChange({ ...criteria, due: toggle(criteria.due, opt.value) })
+              }
             />
           ))}
         {kind === 'status' &&

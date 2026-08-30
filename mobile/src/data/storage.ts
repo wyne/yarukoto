@@ -355,6 +355,10 @@ function stringArray(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : [];
 }
 
+function dueFilters(values: unknown[]): DueFilter[] {
+  return values.filter((d): d is DueFilter => DUE_FILTERS.includes(d as DueFilter));
+}
+
 /**
  * What Browse was last asked.
  *
@@ -376,7 +380,12 @@ export function loadBrowseCriteria(): TaskCriteria {
     listIds: stringArray(stored.listIds),
     folderIds: stringArray(stored.folderIds),
     tags: stringArray(stored.tags),
-    due: DUE_FILTERS.includes(stored.due as DueFilter) ? (stored.due as DueFilter) : EMPTY_CRITERIA.due,
+    // Filtered rather than rejected wholesale, so a build that knew a stretch
+    // this one doesn't still restores the stretches they have in common. A bare
+    // string is what builds before this filter went multi-valued wrote; `any`
+    // was one of those values and is spelled as no selection now, so it falls
+    // out of `DUE_FILTERS` here without needing a case of its own.
+    due: dueFilters(Array.isArray(stored.due) ? stored.due : [stored.due]),
     status: STATUS_FILTERS.includes(stored.status as StatusFilter)
       ? (stored.status as StatusFilter)
       : EMPTY_CRITERIA.status,

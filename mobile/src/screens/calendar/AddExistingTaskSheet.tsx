@@ -51,11 +51,12 @@ const DISMISS_DELAY_MS = 400;
 
 /**
  * What the sheet opens on. Everything here is a candidate for a slot on the
- * calendar, so the tasks worth showing first are the ones that have no date yet,
- * highest priority first. Both stay adjustable, and a change sticks for as long
- * as the sheet is mounted.
+ * calendar, so it leads with the two piles a plan is actually made out of —
+ * what was never given a date, and what was given one and missed — highest
+ * priority first. Both stay adjustable, and a change sticks for as long as the
+ * sheet is mounted.
  */
-const DEFAULT_CRITERIA: TaskCriteria = { ...EMPTY_CRITERIA, due: 'nodate' };
+const DEFAULT_CRITERIA: TaskCriteria = { ...EMPTY_CRITERIA, due: ['nodate', 'overdue'] };
 const DEFAULT_SORT_BY: SortBy = 'priority';
 const COLLAPSED_HEIGHT = 1;
 const EXPANDED_HEIGHT = 430;
