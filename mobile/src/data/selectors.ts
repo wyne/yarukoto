@@ -1,5 +1,5 @@
 import { FolderDef, ListDef, Task } from './types';
-import { fromISODate, isSameDay, startOfDay } from './dateUtils';
+import { fromISODate, startOfDay } from './dateUtils';
 
 /**
  * Lists and folders are soft-deleted like tasks — the row stays so the deletion
@@ -163,8 +163,21 @@ export function tagCounts(tasks: Task[]): { tag: string; count: number }[] {
     .sort((a, b) => b.count - a.count);
 }
 
-export function tasksForToday(tasks: Task[], now: Date): Task[] {
-  return activeTasks(tasks).filter((t) => t.dueDate && isSameDay(fromISODate(t.dueDate), now));
+/**
+ * The day's work: due today, plus everything that went past its date and is
+ * still open.
+ *
+ * Overdue belongs here rather than in a view of its own. A date that has been
+ * missed doesn't stop being today's problem, and a Today that shows only what
+ * is due on the dot is a Today you can finish while the backlog grows behind
+ * it. Grouping the view by date puts the two back on either side of a header —
+ * see `dateBucket`, which has an Overdue bucket for exactly this.
+ */
+export function tasksDueByToday(tasks: Task[], now: Date): Task[] {
+  const today = startOfDay(now).getTime();
+  return activeTasks(tasks).filter(
+    (t) => t.dueDate && startOfDay(fromISODate(t.dueDate)).getTime() <= today
+  );
 }
 
 export function tasksUpcomingCount(tasks: Task[], now: Date): number {

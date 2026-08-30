@@ -70,10 +70,13 @@ function destinationFor(view: SavedFirstTabView | null): {
 } {
   if (view?.kind === 'activity') return { screen: 'Activity' };
   if (view?.kind === 'trash') return { screen: 'Trash' };
-  if (view?.kind === 'today') return { screen: 'Tasks', params: { view: 'today' } };
   if (view?.kind === 'list') return { screen: 'Tasks', params: { listId: view.id } };
   if (view?.kind === 'folder') return { screen: 'Tasks', params: { folderId: view.id } };
   if (view?.kind === 'tag') return { screen: 'Tasks', params: { tag: view.value } };
+  // Including a saved `today`, which installs from before Today had a tab of its
+  // own still carry. Restoring it would open this tab on a second copy of the
+  // tab sitting next to it, so those land on All and are rewritten on the next
+  // destination picked from the drawer.
   return { screen: 'Tasks', params: { view: 'all' } };
 }
 
