@@ -100,6 +100,9 @@ export default function TaskDetailView({ taskId, onClose, variant, active = true
   const [picker, setPicker] = useState<'list' | 'tags' | null>(null);
   const [addingSubtask, setAddingSubtask] = useState(false);
   const [newSubtask, setNewSubtask] = useState('');
+  const [focusedSubtaskId, setFocusedSubtaskId] = useState<string | null>(null);
+  const [subtaskDrafts, setSubtaskDrafts] = useState<Record<string, string>>({});
+  const subtaskDraftsRef = useRef<Record<string, string>>({});
 
   // Pushed, not switched: these sit over the detail sheet rather than replacing it.
   const openPicker = (which: 'list' | 'tags') => {
@@ -175,7 +178,35 @@ export default function TaskDetailView({ taskId, onClose, variant, active = true
   };
 
   const removeSubtask = (subtaskId: string) => {
+    const { [subtaskId]: _removed, ...rest } = subtaskDraftsRef.current;
+    subtaskDraftsRef.current = rest;
+    setSubtaskDrafts(rest);
+    if (focusedSubtaskId === subtaskId) setFocusedSubtaskId(null);
     updateTask(task.id, { subtasks: task.subtasks.filter((s) => s.id !== subtaskId) });
+  };
+
+  const setSubtaskDraft = (subtaskId: string, title: string) => {
+    const next = { ...subtaskDraftsRef.current, [subtaskId]: title };
+    subtaskDraftsRef.current = next;
+    setSubtaskDrafts(next);
+  };
+
+  const commitSubtaskTitle = (subtaskId: string) => {
+    const draft = subtaskDraftsRef.current[subtaskId];
+    if (draft === undefined) return;
+    const subtask = task.subtasks.find((s) => s.id === subtaskId);
+    const { [subtaskId]: _removed, ...rest } = subtaskDraftsRef.current;
+    subtaskDraftsRef.current = rest;
+    setSubtaskDrafts(rest);
+    if (!subtask) {
+      return;
+    }
+
+    const title = draft.trim();
+    if (!title || title === subtask.title) return;
+    updateTask(task.id, {
+      subtasks: task.subtasks.map((s) => (s.id === subtaskId ? { ...s, title } : s)),
+    });
   };
 
   const submitNewSubtask = () => {
@@ -506,9 +537,32 @@ export default function TaskDetailView({ taskId, onClose, variant, active = true
             renderItem={(st) => (
               <View style={[styles.subtaskRow, FINE_POINTER && task.subtasks.length > 1 && styles.subtaskRowWithHandle]}>
                 <TaskCheckbox completed={st.done} priority="none" onPress={() => toggleSubtask(task.id, st.id)} size={17} />
-                <Pressable style={hoverBg(styles.subtaskTitleButton)} onPress={() => toggleSubtask(task.id, st.id)}>
-                  <Text style={[styles.subtaskText, st.done && styles.subtaskDone]}>{st.title}</Text>
-                </Pressable>
+                <NativeOwnedTextInput
+                  sheet={registerInputWithSheet}
+                  value={subtaskDrafts[st.id] ?? st.title}
+                  syncKey={st.title}
+                  onChangeText={(title) => setSubtaskDraft(st.id, title)}
+                  multiline
+                  scrollEnabled={false}
+                  returnKeyType="done"
+                  submitBehavior="blurAndSubmit"
+                  style={[
+                    styles.subtaskInput,
+                    styles.subtaskTitleInput,
+                    st.done && focusedSubtaskId !== st.id && styles.subtaskDone,
+                  ]}
+                  onFocus={() => {
+                    setFocusedSubtaskId(st.id);
+                    setKeyboardInputFocused(true);
+                  }}
+                  onBlur={() => {
+                    if (focusedSubtaskId === st.id) setFocusedSubtaskId(null);
+                    setKeyboardInputFocused(false);
+                    commitSubtaskTitle(st.id);
+                  }}
+                  onSubmitEditing={() => commitSubtaskTitle(st.id)}
+                  {...accessoryProps}
+                />
                 <View style={styles.subtaskActions}>
                   <Pressable
                     accessibilityRole="button"
@@ -833,18 +887,6 @@ const useStyles = makeStyles((c) => ({
   subtaskRowWithHandle: {
     paddingRight: 40,
   },
-  subtaskTitleButton: {
-    flex: 1,
-    minWidth: 0,
-    alignSelf: 'stretch',
-    justifyContent: 'center',
-    borderRadius: 6,
-  },
-  subtaskText: {
-    fontFamily: fonts.sansRegular,
-    fontSize: 15,
-    color: c.textPrimary,
-  },
   subtaskDone: {
     textDecorationLine: 'line-through',
     color: c.textTertiary,
@@ -855,6 +897,11 @@ const useStyles = makeStyles((c) => ({
     fontSize: 15,
     color: c.textPrimary,
     padding: 0,
+  },
+  subtaskTitleInput: {
+    minWidth: 0,
+    lineHeight: 20,
+    paddingVertical: 2,
   },
   subtaskActions: {
     flexDirection: 'row',
