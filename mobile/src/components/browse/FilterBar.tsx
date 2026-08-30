@@ -122,7 +122,7 @@ export default function FilterBar({ criteria, onChange, sortBy, onSortChange, sh
       >
         {chip('lists', listsLabel(), listCount > 0)}
         {chip('tags', tagsLabel(), criteria.tags.length > 0)}
-        {chip('due', criteria.due === 'any' ? 'Due' : dueLabel(criteria.due), criteria.due !== 'any')}
+        {chip('due', dueLabel(criteria.due), criteria.due.length > 0)}
         {showStatus &&
           chip(
             'status',
