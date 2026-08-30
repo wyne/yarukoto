@@ -24,7 +24,7 @@ import {
   inboxCount,
   listCounts,
   tagCounts,
-  tasksForToday,
+  tasksDueByToday,
   trashedTasks,
 } from '../data/selectors';
 import { InboxParams, NativeTaskViewParams, taskViewParams } from '../navigation/types';
@@ -90,9 +90,15 @@ const VIEWS = [
   { route: 'TrashTab', label: 'Trash', Icon: IconTrash },
 ] as const;
 
+/**
+ * The rows that are views of the first native tab rather than tabs of their own.
+ *
+ * Inbox and Today are absent because they *are* tabs — see `MainTabs`. Inbox
+ * still gets a mention in `go` below: a list, folder or tag travels on its
+ * route, and those are views of the first tab even though the bare row is not.
+ */
 const NATIVE_LIST_DESTINATIONS = {
   AllTab: { screen: 'Tasks', params: { view: 'all' } },
-  TodayTab: { screen: 'Tasks', params: { view: 'today' } },
   ActivityTab: { screen: 'Activity', params: undefined },
   TrashTab: { screen: 'Trash', params: undefined },
 } as const;
@@ -356,7 +362,7 @@ const Sidebar = React.memo(function Sidebar({ state, navigation, onNavigate }: P
       // excludes them.
       AllTab: activeTasks(data.tasks).length,
       InboxTab: inboxCount(data.tasks),
-      TodayTab: tasksForToday(data.tasks, now).length,
+      TodayTab: tasksDueByToday(data.tasks, now).length,
       TrashTab: trashedTasks(data.tasks).length || null,
     };
   }, [data.tasks]);
@@ -416,13 +422,16 @@ const Sidebar = React.memo(function Sidebar({ state, navigation, onNavigate }: P
       );
 
       const navigate = () => {
-        const nativeDestination = native
-          ? NATIVE_LIST_DESTINATIONS[route as keyof typeof NATIVE_LIST_DESTINATIONS]
+        // A list, folder or tag travels on the Inbox row's route, carrying the
+        // view it wants in its params. Those go to the first tab, which is where
+        // filtered views live; the bare Inbox row goes to the Inbox tab.
+        const destination = native
+          ? route === 'InboxTab' && params
+            ? { screen: 'Tasks' as const, params }
+            : NATIVE_LIST_DESTINATIONS[route as keyof typeof NATIVE_LIST_DESTINATIONS]
           : undefined;
-        const filteredList = native && route === 'InboxTab' && !!params;
-        if (native && (nativeDestination || filteredList)) {
-          const screen = nativeDestination?.screen ?? 'Tasks';
-          const next = nativeDestination?.params ?? params;
+        if (destination) {
+          const { screen, params: next } = destination;
           (navigation.navigate as (name: string, params?: object) => void)('ListsTab', {
             screen,
             // Every destination on this screen is a whole view, never a change to
@@ -467,16 +476,14 @@ const Sidebar = React.memo(function Sidebar({ state, navigation, onNavigate }: P
       ? NATIVE_LIST_DESTINATIONS[route as keyof typeof NATIVE_LIST_DESTINATIONS]
       : undefined;
     if (destination) {
-      return (
-        onListTab
-        && nativeListScreen === destination.screen
-        && (route === 'AllTab'
-          ? !filtered && nativeListParams?.view !== 'today'
-          : route === 'TodayTab'
-            ? nativeListParams?.view === 'today'
-            : true)
-      );
+      if (!onListTab || nativeListScreen !== destination.screen) return false;
+      if (destination.screen !== 'Tasks') return true;
+      // A list, folder or tag has a row of its own further down the tree, and
+      // while one is open none of the fixed views is what the tab is showing.
+      return !filtered && (nativeListParams?.view ?? 'all') === destination.params.view;
     }
+    // On native a filter is a view of the *first* tab, so the Inbox tab being up
+    // is the whole question; `filtered` there describes a different tab.
     if (route === 'InboxTab') return native ? onInbox : onInbox && !filtered;
     return current.name === route;
   };

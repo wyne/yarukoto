@@ -58,6 +58,15 @@ export function sortLabel(sortBy: SortBy): string {
 /** The single group every ungrouped view uses, so it can be arranged like any other. */
 export const UNGROUPED_KEY = 'all';
 
+/**
+ * Where grouping by list puts the tasks that are in no list.
+ *
+ * Named rather than spelled out at each site because it is read outside this
+ * file too: a row under this header is already under the name of its list, so
+ * `groupHide` has to recognise the one group where that isn't true.
+ */
+export const INBOX_GROUP_KEY = '__inbox';
+
 /** Positions the user dragged out for one group under one sort, if any. */
 export function arrangementFor(
   arrangements: Arrangements,
@@ -198,7 +207,7 @@ export function groupTasks(tasks: Task[], options: ViewOptions, ctx: GroupContex
       case 'list': {
         const list = t.listId ? listsById.get(t.listId) : undefined;
         if (list) push(list.id, list.name, t, list.color);
-        else push('__inbox', 'Inbox', t);
+        else push(INBOX_GROUP_KEY, 'Inbox', t);
         break;
       }
       case 'date': {
@@ -235,8 +244,8 @@ export function groupTasks(tasks: Task[], options: ViewOptions, ctx: GroupContex
       let i = 1;
       for (const list of orderedLists(ctx.lists, ctx.folders)) rank.set(list.id, i++);
       return groups.sort((a, b) => {
-        const ar = a.key === '__inbox' ? 0 : (rank.get(a.key) ?? Infinity);
-        const br = b.key === '__inbox' ? 0 : (rank.get(b.key) ?? Infinity);
+        const ar = a.key === INBOX_GROUP_KEY ? 0 : (rank.get(a.key) ?? Infinity);
+        const br = b.key === INBOX_GROUP_KEY ? 0 : (rank.get(b.key) ?? Infinity);
         return ar - br;
       });
     }

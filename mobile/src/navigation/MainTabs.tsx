@@ -44,13 +44,14 @@ import ActivityScreen from '../screens/ActivityScreen';
 import BrowseScreen from '../screens/BrowseScreen';
 import TrashScreen from '../screens/TrashScreen';
 import NativeListNavigator, { NativeListStackParamList } from './NativeListNavigator';
-import { IconCalendar, IconInboxTray, IconSearch, IconStack } from '../icons/Icons';
+import { IconCalendar, IconClock, IconInboxTray, IconSearch, IconStack } from '../icons/Icons';
 import { ANDROID_TAB_BAR_HEIGHT } from './nativeTabBarLayout';
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
 type NativeMainTabParamList = {
   ListsTab: NavigatorScreenParams<NativeListStackParamList> | undefined;
   InboxTab: undefined;
+  TodayTab: undefined;
   CalendarTab: undefined;
   BrowseTab: undefined;
 };
@@ -396,6 +397,15 @@ function AndroidTabs() {
         }}
       />
       <AndroidTab.Screen
+        name="TodayTab"
+        component={TodayScreen}
+        options={{
+          title: 'Today',
+          tabBarLabel: 'Today',
+          tabBarIcon: ({ color, size }) => <IconClock size={size} color={color} strokeWidth={1.8} />,
+        }}
+      />
+      <AndroidTab.Screen
         name="CalendarTab"
         component={CalendarScreen}
         options={{
@@ -464,6 +474,17 @@ function NativeTabs() {
           tabBarLabel: Platform.OS === 'ios' ? '' : 'Inbox',
           tabBarIcon: Platform.OS === 'ios'
             ? ({ focused }) => ({ type: 'sfSymbol', name: focused ? 'tray.fill' : 'tray' })
+            : undefined,
+        }}
+      />
+      <Tabs.Screen
+        name="TodayTab"
+        component={TodayScreen}
+        options={{
+          title: 'Today',
+          tabBarLabel: Platform.OS === 'ios' ? '' : 'Today',
+          tabBarIcon: Platform.OS === 'ios'
+            ? ({ focused }) => ({ type: 'sfSymbol', name: focused ? 'clock.fill' : 'clock' })
             : undefined,
         }}
       />

@@ -17,14 +17,14 @@ import {
   completedTasksList,
   inboxTasks,
   listsInFolder,
-  tasksForToday,
+  tasksDueByToday,
 } from '../data/selectors';
 import { isSameDay, toISODate } from '../data/dateUtils';
 import { QuickAddDefaults } from '../data/TaskContext';
 import { hapticSelect } from '../data/haptics';
 import { useSyncRefresh } from '../data/useSyncRefresh';
 import { FINE_POINTER, WEB_ENTRY } from '../data/platform';
-import { TaskGroup, groupTasks, hasArrangement, viewKey } from '../data/viewOptions';
+import { INBOX_GROUP_KEY, TaskGroup, groupTasks, hasArrangement, viewKey } from '../data/viewOptions';
 import { useCollapsedSections } from '../data/uiPrefs';
 import { Task } from '../data/types';
 import { TaskListFilter } from '../navigation/types';
@@ -253,7 +253,7 @@ export default function TaskListScreen({ mode, filter }: Props) {
     let a: Task[];
     let c: Task[];
     if (mode === 'today') {
-      a = tasksForToday(state.tasks, now);
+      a = tasksDueByToday(state.tasks, now);
       c = completedTasksList(state.tasks).filter((t) => t.completedAt && isSameDay(new Date(t.completedAt), now));
     } else if (untriagedOnly) {
       a = inboxTasks(state.tasks);
@@ -409,7 +409,7 @@ export default function TaskListScreen({ mode, filter }: Props) {
 
   const groupHide = (groupKey: string) => ({
     hideListId:
-      options.groupBy === 'list' && groupKey !== '__inbox' ? groupKey : filterHideListId,
+      options.groupBy === 'list' && groupKey !== INBOX_GROUP_KEY ? groupKey : filterHideListId,
     hideTag:
       options.groupBy === 'tag' && groupKey.startsWith('tag:') ? groupKey.slice(4) : filterHideTag,
   });
