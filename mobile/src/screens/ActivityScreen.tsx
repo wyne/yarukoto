@@ -11,7 +11,7 @@ import { WEB_ENTRY } from '../data/platform';
 import { ActivityRevision, createApi } from '../data/api';
 import { useTasks } from '../data/TaskContext';
 import { ListDef, Task } from '../data/types';
-import { formatDueFull, formatDueShort } from '../data/dateUtils';
+import { addDays, formatDueFull, formatDueShort, fromISODate, toISODate } from '../data/dateUtils';
 import Card from '../components/Card';
 import Divider from '../components/Divider';
 import GlassIconButton from '../components/GlassIconButton';
@@ -55,19 +55,18 @@ function eventColor(kind: ActivityKind, c: Palette): string {
 
 const todayLabel = new Intl.DateTimeFormat(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
 const timeLabel = new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' });
+const ACTIVITY_PAGE_SIZE = 60;
+const ACTIVITY_DAYS_PER_LOAD = 7;
 
 function dayKey(value: string): string {
-  return value.slice(0, 10);
+  return toISODate(new Date(value));
 }
 
-function dayLabel(value: string): string {
-  const date = new Date(value);
+function dayLabel(day: string): string {
   const now = new Date();
-  if (dayKey(value) === dayKey(now.toISOString())) return 'Today';
-  const yesterday = new Date(now);
-  yesterday.setDate(now.getDate() - 1);
-  if (dayKey(value) === dayKey(yesterday.toISOString())) return 'Yesterday';
-  return todayLabel.format(date);
+  if (day === toISODate(now)) return 'Today';
+  if (day === toISODate(addDays(now, -1))) return 'Yesterday';
+  return todayLabel.format(fromISODate(day));
 }
 
 function compactText(value: string, fallback = 'None'): string {
@@ -208,22 +207,32 @@ export default function ActivityScreen() {
   const { wide, openDrawer } = useSidebar();
   const { state, syncNow } = useTasks();
   const [items, setItems] = useState<ActivityItem[]>([]);
+  const [nextBeforeId, setNextBeforeId] = useState<number | null>(null);
+  const [hasMore, setHasMore] = useState(false);
+  const [visibleDayCount, setVisibleDayCount] = useState(ACTIVITY_DAYS_PER_LOAD);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const now = useMemo(() => new Date(), []);
 
-  const load = useCallback(async () => {
+  const loadInitial = useCallback(async () => {
+    setVisibleDayCount(ACTIVITY_DAYS_PER_LOAD);
     if (state.mode !== 'server') {
       setItems([]);
+      setNextBeforeId(null);
+      setHasMore(false);
       setLoaded(true);
       setError(null);
       return;
     }
+    setLoaded(false);
     try {
       const api = createApi(state.serverUrl, state.token);
-      const revisions = await api.activity(120);
+      const revisions = await api.activity(ACTIVITY_PAGE_SIZE);
       setItems(revisions.flatMap((revision) => summarize(revision, now, state.lists)));
+      setNextBeforeId(revisions.at(-1)?.id ?? null);
+      setHasMore(revisions.length === ACTIVITY_PAGE_SIZE);
       setError(null);
     } catch {
       setError('Activity could not be loaded.');
@@ -233,18 +242,18 @@ export default function ActivityScreen() {
   }, [state.mode, state.serverUrl, state.token, state.lists, now]);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    loadInitial();
+  }, [loadInitial]);
 
   const refresh = useCallback(async () => {
     setRefreshing(true);
     try {
       await syncNow();
-      await load();
+      await loadInitial();
     } finally {
       setRefreshing(false);
     }
-  }, [syncNow, load]);
+  }, [syncNow, loadInitial]);
 
   const groups = useMemo(() => {
     const byDay = new Map<string, ActivityItem[]>();
@@ -254,6 +263,58 @@ export default function ActivityScreen() {
     }
     return Array.from(byDay.entries());
   }, [items]);
+  const visibleGroups = groups.slice(0, visibleDayCount);
+
+  const loadOlder = useCallback(async () => {
+    if (loadingMore || refreshing) return;
+    if (groups.length > visibleDayCount) {
+      setVisibleDayCount((count) => count + ACTIVITY_DAYS_PER_LOAD);
+      return;
+    }
+    if (state.mode !== 'server' || !hasMore || nextBeforeId === null) return;
+
+    setLoadingMore(true);
+    try {
+      const api = createApi(state.serverUrl, state.token);
+      const revisions = await api.activity(ACTIVITY_PAGE_SIZE, nextBeforeId);
+      const existing = new Set(items.map((item) => item.id));
+      const olderItems = revisions
+        .flatMap((revision) => summarize(revision, now, state.lists))
+        .filter((item) => !existing.has(item.id));
+      if (olderItems.length > 0) {
+        setItems((current) => [...current, ...olderItems]);
+        setVisibleDayCount((count) => count + ACTIVITY_DAYS_PER_LOAD);
+      }
+      setNextBeforeId(revisions.at(-1)?.id ?? nextBeforeId);
+      setHasMore(revisions.length === ACTIVITY_PAGE_SIZE && olderItems.length > 0);
+    } catch {
+      setError('Activity could not be loaded.');
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [
+    groups.length,
+    hasMore,
+    items,
+    loadingMore,
+    nextBeforeId,
+    now,
+    refreshing,
+    state.lists,
+    state.mode,
+    state.serverUrl,
+    state.token,
+    visibleDayCount,
+  ]);
+
+  const handleScroll = useCallback(
+    ({ nativeEvent }: { nativeEvent: { contentOffset: { y: number }; contentSize: { height: number }; layoutMeasurement: { height: number } } }) => {
+      const distanceFromBottom =
+        nativeEvent.contentSize.height - nativeEvent.layoutMeasurement.height - nativeEvent.contentOffset.y;
+      if (distanceFromBottom < 480) loadOlder();
+    },
+    [loadOlder]
+  );
 
   const empty =
     state.mode !== 'server'
@@ -274,18 +335,20 @@ export default function ActivityScreen() {
 
       <ScrollView
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.textTertiary} />}
+        onScroll={handleScroll}
+        scrollEventThrottle={200}
         contentContainerStyle={[
           styles.scroll,
           !WEB_ENTRY && !wide && styles.scrollMobileTabs,
           wide && styles.paneWide,
         ]}
       >
-        {groups.length === 0 ? (
+        {visibleGroups.length === 0 ? (
           <Text style={styles.empty}>{empty}</Text>
         ) : (
-          groups.map(([day, dayItems]) => (
+          visibleGroups.map(([day, dayItems]) => (
             <View key={day} style={styles.group}>
-              <Text style={styles.day}>{dayLabel(dayItems[0].recordedAt)}</Text>
+              <Text style={styles.day}>{dayLabel(day)}</Text>
               <Card>
                 {dayItems.map((item, i) => (
                   <View key={item.id}>

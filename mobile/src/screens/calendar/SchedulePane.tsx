@@ -126,7 +126,9 @@ export default function SchedulePane({ width = SCHEDULE_PANE_WIDTH, showRightBor
                   selected={selectedIdSet.has(task.id)}
                   onToggleSelected={() => toggleSelected(task.id)}
                 />
-                {i < tasks.length - 1 && <Divider />}
+                {i < tasks.length - 1 && (
+                  <Divider railColor={getListById(state.lists, task.listId)?.color} />
+                )}
               </View>
             ))}
           </Card>

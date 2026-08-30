@@ -5,7 +5,7 @@ import { makeStyles } from '../../theme/styles';
 import { fonts } from '../../theme/typography';
 import { useAccent, useColors } from '../../theme/ThemeContext';
 import { addDays, formatTime24to12, isSameDay, toISODate, weekdayShort } from '../../data/dateUtils';
-import { Task } from '../../data/types';
+import { ListDef, Task } from '../../data/types';
 import { dayTargetId } from '../../drag/hitTest';
 import { useDropTarget } from '../../drag/useDropTarget';
 import { useDraggable } from '../../drag/useDraggable';
@@ -20,6 +20,7 @@ interface Props {
   selectedDate: Date;
   today: Date;
   byDate: Map<string, Task[]>;
+  lists: ListDef[];
   /** How many day columns to show. Defaults to a full week. */
   dayCount?: number;
   onSelectDate: (date: Date) => void;
@@ -52,6 +53,7 @@ export default function WeekGrid({
   selectedDate,
   today,
   byDate,
+  lists,
   dayCount = 7,
   onSelectDate,
   onDropTask,
@@ -63,6 +65,10 @@ export default function WeekGrid({
 }: Props) {
   const styles = useStyles();
   const days = Array.from({ length: dayCount }, (_, i) => addDays(startDate, i));
+  const listColors = React.useMemo(
+    () => new Map(lists.filter((list) => !list.deletedAt).map((list) => [list.id, list.color])),
+    [lists]
+  );
 
   return (
     <View style={[styles.week, !!bottomInset && { paddingBottom: bottomInset }]}>
@@ -73,6 +79,7 @@ export default function WeekGrid({
           today={today}
           selectedDate={selectedDate}
           tasks={byDate.get(toISODate(date)) ?? []}
+          listColors={listColors}
           onSelectDate={onSelectDate}
           onDropTask={onDropTask}
           onOpenTask={onOpenTask}
@@ -91,6 +98,7 @@ interface ColProps {
   today: Date;
   selectedDate: Date;
   tasks: Task[];
+  listColors: Map<string, string>;
   onSelectDate: (d: Date) => void;
   onDropTask: (taskIds: string[], iso: string, beforeId?: string | null) => void;
   onOpenTask: (taskId: string) => void;
@@ -105,6 +113,7 @@ function DayColumn({
   today,
   selectedDate,
   tasks,
+  listColors,
   onSelectDate,
   onDropTask,
   onOpenTask,
@@ -214,6 +223,7 @@ function DayColumn({
             <TaskChip
               key={task.id}
               task={task}
+              listColor={task.listId ? listColors.get(task.listId) : undefined}
               onLayout={(event) => rememberChipLayout(task.id, event)}
               onPress={() => onOpenTask(task.id)}
             />
@@ -314,10 +324,12 @@ function insertBounds(stops: InsertStop[], index: number): { top: number; height
 /** Draggable so a task can be moved between days without leaving the week. */
 function TaskChip({
   task,
+  listColor,
   onLayout,
   onPress,
 }: {
   task: Task;
+  listColor?: string;
   onLayout: (event: LayoutChangeEvent) => void;
   onPress: () => void;
 }) {
@@ -343,6 +355,7 @@ function TaskChip({
         onPress={onPress}
         onLongPress={onLongPress}
       >
+        {!!listColor && <View pointerEvents="none" style={[styles.chipListRail, { backgroundColor: listColor }]} />}
         <View style={[styles.chipDot, { backgroundColor: priorityColor(task.priority, colors) }]} />
         <View style={styles.chipText}>
           <Text style={[styles.chipTitle, task.completed && styles.chipDone]} numberOfLines={2}>
@@ -476,6 +489,7 @@ const useStyles = makeStyles((c) => ({
     borderRadius: INSERT_LINE_HEIGHT / 2,
   },
   chip: {
+    position: 'relative',
     flexDirection: 'row',
     gap: 6,
     padding: 6,
@@ -483,6 +497,13 @@ const useStyles = makeStyles((c) => ({
     backgroundColor: c.surfaceMuted,
     borderWidth: 1,
     borderColor: c.border,
+  },
+  chipListRail: {
+    position: 'absolute',
+    left: 3,
+    top: 0,
+    bottom: 0,
+    width: 3,
   },
   chipCompleted: {
     opacity: 0.55,

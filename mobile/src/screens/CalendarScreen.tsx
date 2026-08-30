@@ -408,6 +408,7 @@ export default function CalendarScreen() {
               selectedDate={selectedDate}
               today={today}
               byDate={sortedByDate}
+              lists={state.lists}
               onSelectDate={pickDate}
               onDropTask={scheduleTasks}
               onOpenTask={openTask}
@@ -465,6 +466,7 @@ export default function CalendarScreen() {
                   key={toISODate(date)}
                   date={date}
                   tasks={tasks}
+                  lists={state.lists}
                   now={today}
                   onOpenTask={openTask}
                   onDropTask={scheduleTasks}

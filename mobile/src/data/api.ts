@@ -47,7 +47,7 @@ export interface Api {
   health: () => Promise<ServerInfo | null>;
   pull: (since?: string) => Promise<SyncBatch>;
   push: (batch: SyncPush) => Promise<SyncBatch>;
-  activity: (limit?: number) => Promise<ActivityRevision[]>;
+  activity: (limit?: number, beforeId?: number) => Promise<ActivityRevision[]>;
 }
 
 /** A fetch wrapper carrying the server's base URL and bearer token. */
@@ -102,8 +102,10 @@ export function createApi(serverUrl: string, token: string): Api {
     },
     pull: (since) => syncRequest(`/api/v1/sync${since ? `?since=${encodeURIComponent(since)}` : ''}`),
     push: (batch) => syncRequest('/api/v1/sync', { method: 'POST', body: JSON.stringify(batch) }),
-    activity: async (limit = 80) => {
-      const body = await request(`/api/v1/activity?limit=${encodeURIComponent(limit)}`);
+    activity: async (limit = 80, beforeId) => {
+      const params = new URLSearchParams({ limit: String(limit) });
+      if (beforeId !== undefined) params.set('beforeId', String(beforeId));
+      const body = await request(`/api/v1/activity?${params.toString()}`);
       return Array.isArray(body?.revisions) ? body.revisions : [];
     },
   };

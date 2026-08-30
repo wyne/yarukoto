@@ -2,11 +2,24 @@ import { FastifyInstance } from 'fastify';
 import Database from 'better-sqlite3';
 
 export function registerHistoryRoutes(app: FastifyInstance, db: Database.Database): void {
-  app.get<{ Querystring: { limit?: string } }>('/api/v1/activity', async (request, reply) => {
+  app.get<{ Querystring: { limit?: string; beforeId?: string } }>('/api/v1/activity', async (request, reply) => {
     const limit = Math.max(1, Math.min(200, Number(request.query.limit ?? 80) || 80));
+    const beforeId = Math.max(0, Number(request.query.beforeId ?? 0) || 0);
     const rows = db
-      .prepare('SELECT id, task_id, snapshot, op, recorded_at FROM task_revisions ORDER BY id DESC LIMIT ?')
-      .all(limit) as { id: number; task_id: string; snapshot: string; op: string; recorded_at: string }[];
+      .prepare(
+        `SELECT id, task_id, snapshot, op, recorded_at
+         FROM task_revisions
+         WHERE (? = 0 OR id < ?)
+         ORDER BY id DESC
+         LIMIT ?`
+      )
+      .all(beforeId, beforeId, limit) as {
+        id: number;
+        task_id: string;
+        snapshot: string;
+        op: string;
+        recorded_at: string;
+      }[];
     const previous = db.prepare(
       'SELECT snapshot FROM task_revisions WHERE task_id = ? AND id < ? ORDER BY id DESC LIMIT 1'
     );
