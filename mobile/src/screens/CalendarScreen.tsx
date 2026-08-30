@@ -37,27 +37,29 @@ const PLAN_PANE_MIN_WIDTH = 280;
 const CALENDAR_MIN_WIDTH = 280;
 const PANE_RESIZER_WIDTH = 11;
 
-function sortCalendarTasks(tasks: Task[], sort: PlanSort, orderIds: string[] = []): Task[] {
-  const arranged = new Map(orderIds.map((id, index) => [id, index]));
+function sortCalendarTasks(tasks: Task[], sort: PlanSort): Task[] {
   return [...tasks].sort((a, b) => {
     if (a.completed !== b.completed) return a.completed ? 1 : -1;
     if (sort === 'priority') {
       const priority = PRIORITY_RANK[a.priority] - PRIORITY_RANK[b.priority];
       if (priority) return priority;
     }
-    const pa = arranged.get(a.id);
-    const pb = arranged.get(b.id);
-    if (pa !== undefined || pb !== undefined) {
-      if (pa === undefined) return 1;
-      if (pb === undefined) return -1;
-      return pa - pb;
-    }
     return a.order - b.order;
   });
 }
 
-function compactCalendarOrder(order: Record<string, string[]>): Record<string, string[]> {
-  return Object.fromEntries(Object.entries(order).filter(([, ids]) => ids.length > 0));
+function orderNeighbors(
+  tasks: Task[],
+  moving: Set<string>,
+  beforeId: string | null
+): { prevId: string | null; nextId: string | null } | null {
+  const remaining = tasks.filter((task) => !moving.has(task.id));
+  if (beforeId) {
+    const at = remaining.findIndex((task) => task.id === beforeId);
+    if (at !== -1) return { prevId: remaining[at - 1]?.id ?? null, nextId: beforeId };
+  }
+  const prevId = remaining[remaining.length - 1]?.id ?? null;
+  return prevId ? { prevId, nextId: null } : null;
 }
 
 type Mode = PlanMode;
@@ -75,7 +77,7 @@ export default function CalendarScreen() {
   const refreshControl = useSyncRefresh();
   const { wide, openDrawer } = useSidebar();
   const { openTask } = useDetail();
-  const { state, bulkUpdate, addTaskFromQuickAdd } = useTasks();
+  const { state, bulkUpdate, addTaskFromQuickAdd, reorderTasks } = useTasks();
   // While a drag is in flight, the agenda must not scroll under the finger — the
   // whole point is carrying the task up out of the list onto the calendar. The
   // boolean, not the payload: this is the root of the screen, and it should wake
@@ -156,7 +158,7 @@ export default function CalendarScreen() {
   // Layout and the completed filter are how this screen is set up, not where you
   // are in it — so they're restored, while the date always opens on today.
   const [prefs, setPrefs] = useState(loadPlanPrefs);
-  const { mode, rangeDays, sort, calendarOrder, showCompleted, weekView } = prefs;
+  const { mode, rangeDays, sort, showCompleted, weekView } = prefs;
   const updatePrefs = (patch: Partial<typeof prefs>) => {
     const next = { ...prefs, ...patch };
     setPrefs(next);
@@ -178,9 +180,9 @@ export default function CalendarScreen() {
   );
   const sortedByDate = useMemo(() => {
     const out = new Map<string, Task[]>();
-    byDate.forEach((tasks, iso) => out.set(iso, sortCalendarTasks(tasks, sort, calendarOrder[iso])));
+    byDate.forEach((tasks, iso) => out.set(iso, sortCalendarTasks(tasks, sort)));
     return out;
-  }, [byDate, sort, calendarOrder]);
+  }, [byDate, sort]);
   const draggingCompleted = useMemo(() => {
     if (!dragPayload) return false;
     const ids = taskIdsFromDrag(dragPayload);
@@ -202,21 +204,8 @@ export default function CalendarScreen() {
   const scheduleTasks = (taskIds: string[], iso: string, beforeId: string | null = null) => {
     const moving = new Set(taskIds);
     if (sort === 'custom') {
-      const nextOrder: Record<string, string[]> = { ...calendarOrder };
-      const touched = new Set<string>([iso]);
-      for (const task of state.tasks) {
-        if (moving.has(task.id) && task.dueDate) touched.add(task.dueDate);
-      }
-      for (const date of touched) {
-        const current = sortedByDate.get(date) ?? [];
-        nextOrder[date] = current.map((task) => task.id).filter((id) => !moving.has(id));
-      }
-      const target = nextOrder[iso] ?? [];
-      const at = beforeId ? target.indexOf(beforeId) : -1;
-      const insertAt = at === -1 ? target.length : at;
-      target.splice(insertAt, 0, ...taskIds);
-      nextOrder[iso] = target;
-      updatePrefs({ calendarOrder: compactCalendarOrder(nextOrder) });
+      const neighbors = orderNeighbors(sortedByDate.get(iso) ?? [], moving, beforeId);
+      if (neighbors) reorderTasks(taskIds, neighbors.prevId, neighbors.nextId);
     }
     const needsDate = taskIds.some((id) => state.tasks.find((task) => task.id === id)?.dueDate !== iso);
     if (needsDate) bulkUpdate(taskIds, { dueDate: iso });
