@@ -192,6 +192,10 @@ export default function NativeSheet({
           // its own chrome — the task detail with its own header — otherwise
           // gets the untitled sheet's 24pt reapplied under the grabber.
           contentStyle,
+          // BottomSheetView is absolutely positioned with no bottom edge. A
+          // fixed-detent sheet therefore needs an explicit height so flex
+          // descendants receive a bounded viewport and can scroll immediately.
+          snapPoints ? { height: '100%' } : null,
         ])}
       >
         {!!title && (
