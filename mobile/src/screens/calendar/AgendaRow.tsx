@@ -37,7 +37,7 @@ const TIME_COL_GAP = 12;
  */
 export default function AgendaRow({ task, now, onPress, draggable }: Props) {
   const styles = useStyles();
-  const { state, toggleComplete, snoozeTask } = useTasks();
+  const { state, toggleComplete, scheduleToday, snoozeTask } = useTasks();
   const { openTaskId } = useDetail();
   const showContext = useRowContext(TIME_COL_WIDTH + TIME_COL_GAP);
   const { onLongPress, ...handlers } = useDraggable({ taskId: task.id, title: task.title });
@@ -62,6 +62,7 @@ export default function AgendaRow({ task, now, onPress, draggable }: Props) {
       onPress={onPress}
       onLongPress={onLongPress}
       onToggleComplete={() => toggleComplete(task.id)}
+      onToday={() => scheduleToday(task.id)}
       onLater={() => snoozeTask(task.id)}
       onDone={() => toggleComplete(task.id)}
     />

@@ -66,7 +66,7 @@ type Action =
   | { type: 'BULK_UPDATE'; ids: string[]; patch: Partial<Task> }
   | { type: 'ADD_SUBTASK'; taskId: string; title: string }
   | { type: 'TOGGLE_SUBTASK'; taskId: string; subtaskId: string }
-  | { type: 'SNOOZE_TASK'; id: string }
+  | { type: 'SET_DUE_DAY'; id: string; days: number }
   | { type: 'REORDER_TASKS'; ids: string[]; prevId: string | null; nextId: string | null }
   | { type: 'SET_ARRANGEMENT'; key: string; sortBy: SortBy; groupKey: string; ids: string[] }
   | { type: 'CLEAR_ARRANGEMENT'; key: string; sortBy: SortBy }
@@ -228,11 +228,13 @@ function applyAction(state: State, action: Action): State {
             : t
         ),
       };
-    case 'SNOOZE_TASK':
+    // Resolved against the clock at dispatch rather than at render, so a row
+    // left on screen overnight still means the day it is pressed on.
+    case 'SET_DUE_DAY':
       return {
         ...state,
         tasks: state.tasks.map((t) =>
-          t.id === action.id ? { ...t, dueDate: toISODate(addDays(new Date(), 1)) } : t
+          t.id === action.id ? { ...t, dueDate: toISODate(addDays(new Date(), action.days)) } : t
         ),
       };
     case 'REORDER_TASKS':
@@ -508,6 +510,9 @@ interface TaskContextValue {
   bulkUpdate: (ids: string[], patch: Partial<Task>) => void;
   addSubtask: (taskId: string, title: string) => void;
   toggleSubtask: (taskId: string, subtaskId: string) => void;
+  /** Due today. */
+  scheduleToday: (id: string) => void;
+  /** Due tomorrow. */
   snoozeTask: (id: string) => void;
   /** `ids` is the visible slice in its new order. */
   reorderTasks: (ids: string[], prevId: string | null, nextId: string | null) => void;
@@ -740,9 +745,16 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     },
     [markDirty]
   );
+  const scheduleToday = useCallback(
+    (id: string) => {
+      dispatch({ type: 'SET_DUE_DAY', id, days: 0 });
+      markDirty([id]);
+    },
+    [markDirty]
+  );
   const snoozeTask = useCallback(
     (id: string) => {
-      dispatch({ type: 'SNOOZE_TASK', id });
+      dispatch({ type: 'SET_DUE_DAY', id, days: 1 });
       markDirty([id]);
     },
     [markDirty]
@@ -1145,6 +1157,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       bulkUpdate,
       addSubtask,
       toggleSubtask,
+      scheduleToday,
       snoozeTask,
       reorderTasks,
       setArrangement,
@@ -1184,6 +1197,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       bulkUpdate,
       addSubtask,
       toggleSubtask,
+      scheduleToday,
       snoozeTask,
       reorderTasks,
       setArrangement,

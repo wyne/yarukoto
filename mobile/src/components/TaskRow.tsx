@@ -68,6 +68,7 @@ interface Props {
   onPress: () => void;
   onLongPress?: (e: GestureResponderEvent) => void;
   onToggleComplete: () => void;
+  onToday: () => void;
   onLater: () => void;
   onDone: () => void;
 }
@@ -92,6 +93,7 @@ export default function TaskRow({
   onPress,
   onLongPress,
   onToggleComplete,
+  onToday,
   onLater,
   onDone,
 }: Props) {
@@ -233,7 +235,7 @@ export default function TaskRow({
   if (selectionMode || task.completed || Platform.OS === 'web') return row;
 
   return (
-    <SwipeableRow onLater={onLater} onDone={onDone}>
+    <SwipeableRow onToday={onToday} onLater={onLater} onDone={onDone}>
       {row}
     </SwipeableRow>
   );

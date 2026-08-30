@@ -406,7 +406,7 @@ function DraggableTask({
 }) {
   const styles = useStyles();
   const colors = useColors();
-  const { state, toggleComplete, snoozeTask } = useTasks();
+  const { state, toggleComplete, scheduleToday, snoozeTask } = useTasks();
   const { onLongPress, ...handlers } = useDraggable({
     taskId: task.id,
     taskIds: selected ? selectedIds : [task.id],
@@ -431,6 +431,7 @@ function DraggableTask({
           requestAnimationFrame(onPickup);
         }}
         onToggleComplete={() => toggleComplete(task.id)}
+        onToday={() => scheduleToday(task.id)}
         onLater={() => snoozeTask(task.id)}
         onDone={() => toggleComplete(task.id)}
       />
