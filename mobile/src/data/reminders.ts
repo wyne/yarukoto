@@ -4,6 +4,9 @@ import { newReminderId } from './ids';
 
 export const DEFAULT_REMINDER_TIME = '09:00';
 
+/** Ten years of lead time, which is well past useful and short of absurd. */
+export const MAX_REMINDER_OFFSET_DAYS = 3650;
+
 export const REMINDER_DAY_PRESETS = [
   { offsetDays: 0, label: 'Due date' },
   { offsetDays: 1, label: '1 day before' },
@@ -37,12 +40,17 @@ export function reminderPresets(dueTime?: string): ReminderPreset[] {
   );
 }
 
-function validTime(value: unknown): value is string {
+export function isReminderTime(value: unknown): value is string {
   return typeof value === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
 }
 
-function validOffset(value: unknown): value is number {
-  return typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= 3650;
+export function isReminderOffset(value: unknown): value is number {
+  return (
+    typeof value === 'number' &&
+    Number.isInteger(value) &&
+    value >= 0 &&
+    value <= MAX_REMINDER_OFFSET_DAYS
+  );
 }
 
 export function normalizeReminders(value: unknown): TaskReminder[] {
@@ -52,7 +60,7 @@ export function normalizeReminders(value: unknown): TaskReminder[] {
   for (const item of value) {
     if (!item || typeof item !== 'object') continue;
     const r = item as Partial<TaskReminder>;
-    if (typeof r.id !== 'string' || !validOffset(r.offsetDays) || !validTime(r.time)) continue;
+    if (typeof r.id !== 'string' || !isReminderOffset(r.offsetDays) || !isReminderTime(r.time)) continue;
     const normalized = { id: r.id, offsetDays: r.offsetDays, time: r.time };
     const key = reminderKey(normalized);
     if (seen.has(key)) continue;

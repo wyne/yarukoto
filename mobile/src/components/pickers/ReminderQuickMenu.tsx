@@ -8,6 +8,8 @@ import { useAccent, useColors } from '../../theme/ThemeContext';
 import { formatTime24to12, toISODate } from '../../data/dateUtils';
 import {
   DEFAULT_REMINDER_TIME,
+  isReminderTime,
+  MAX_REMINDER_OFFSET_DAYS,
   REMINDER_DAY_PRESETS,
   REMINDER_TIME_PRESETS,
   createReminder,
@@ -15,12 +17,13 @@ import {
   hasReminder,
   normalizeReminders,
   reminderKey,
+  reminderOffsetLabel,
   reminderPresets,
 } from '../../data/reminders';
 import type { TaskReminder } from '../../data/types';
 import { useNativeDateTimePicker } from '../../navigation/DateTimePickerContext';
 import NativeSheet from '../NativeSheet';
-import NativeOwnedTextInput from '../NativeOwnedTextInput';
+import { IconMinus, IconPlus } from '../../icons/Icons';
 
 const TOGGLE_ID_PREFIX = 'toggle|';
 
@@ -32,10 +35,6 @@ interface Props {
   style?: StyleProp<ViewStyle>;
 }
 
-function isValidTime(value: string): boolean {
-  return /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
-}
-
 function presetToggleId(preset: Pick<TaskReminder, 'offsetDays' | 'time'>): string {
   return `${TOGGLE_ID_PREFIX}${preset.offsetDays}|${preset.time}`;
 }
@@ -44,7 +43,7 @@ function parsePresetToggleId(id: string): Pick<TaskReminder, 'offsetDays' | 'tim
   if (!id.startsWith(TOGGLE_ID_PREFIX)) return null;
   const [days, time] = id.slice(TOGGLE_ID_PREFIX.length).split('|');
   const offsetDays = Number(days);
-  if (!Number.isInteger(offsetDays) || !time || !isValidTime(time)) return null;
+  if (!Number.isInteger(offsetDays) || !time || !isReminderTime(time)) return null;
   return { offsetDays, time };
 }
 
@@ -59,17 +58,16 @@ export default function ReminderQuickMenu({ reminders: rawReminders, dueTime, on
   const presetKeys = useMemo(() => new Set(presets.map(reminderKey)), [presets]);
   const customReminders = reminders.filter((reminder) => !presetKeys.has(reminderKey(reminder)));
   const [customOpen, setCustomOpen] = useState(false);
-  const [customDays, setCustomDays] = useState('1');
+  // Both are only ever written from a stepper, a chip, or the system time
+  // picker, so neither can hold a value the model would reject — there is no
+  // invalid state for the sheet to guard against or explain.
+  const [customOffset, setCustomOffset] = useState(1);
   const [customTime, setCustomTime] = useState(DEFAULT_REMINDER_TIME);
-  const customOffset = Number(customDays);
-  const customTimeValid = isValidTime(customTime);
-  const customValid =
-    /^\d+$/.test(customDays) &&
-    Number.isInteger(customOffset) &&
-    customOffset >= 0 &&
-    customOffset <= 3650 &&
-    customTimeValid;
-  const customExists = customValid && hasReminder(reminders, { offsetDays: customOffset, time: customTime });
+  const customExists = hasReminder(reminders, { offsetDays: customOffset, time: customTime });
+
+  const stepOffset = (by: number) => {
+    setCustomOffset((current) => Math.min(MAX_REMINDER_OFFSET_DAYS, Math.max(0, current + by)));
+  };
 
   const add = (offsetDays: number, time: string) => {
     if (hasReminder(reminders, { offsetDays, time })) return;
@@ -96,7 +94,7 @@ export default function ReminderQuickMenu({ reminders: rawReminders, dueTime, on
     presentDateTimePicker({
       mode: 'time',
       date: toISODate(new Date()),
-      time: customTimeValid ? customTime : DEFAULT_REMINDER_TIME,
+      time: customTime,
       onChange: (_, time) => {
         if (time) setCustomTime(time);
       },
@@ -104,7 +102,7 @@ export default function ReminderQuickMenu({ reminders: rawReminders, dueTime, on
   };
 
   const addCustom = () => {
-    if (!customValid || customExists) return;
+    if (customExists) return;
     add(customOffset, customTime);
     setCustomOpen(false);
   };
@@ -181,29 +179,52 @@ export default function ReminderQuickMenu({ reminders: rawReminders, dueTime, on
         visible={customOpen}
         onClose={() => setCustomOpen(false)}
         title="Custom reminder"
-        keyboard
         stackBehavior="push"
         onCancel={() => setCustomOpen(false)}
         onConfirm={addCustom}
         confirmLabel="Add reminder"
-        confirmDisabled={!customValid || customExists}
+        confirmDisabled={customExists}
       >
         <View style={styles.sheetBody}>
-          <View style={styles.dayPresetRow}>
+          <Text style={styles.sectionLabel}>When</Text>
+          <View style={styles.stepperRow}>
+            <Pressable
+              style={styles.stepperButton}
+              onPress={() => stepOffset(-1)}
+              disabled={customOffset === 0}
+              accessibilityRole="button"
+              accessibilityLabel="Fewer days before due"
+            >
+              <IconMinus size={18} color={customOffset === 0 ? colors.textFaint : colors.textPrimary} />
+            </Pressable>
+            <Text style={styles.stepperValue}>{reminderOffsetLabel(customOffset)}</Text>
+            <Pressable
+              style={styles.stepperButton}
+              onPress={() => stepOffset(1)}
+              disabled={customOffset === MAX_REMINDER_OFFSET_DAYS}
+              accessibilityRole="button"
+              accessibilityLabel="More days before due"
+            >
+              <IconPlus
+                size={18}
+                color={customOffset === MAX_REMINDER_OFFSET_DAYS ? colors.textFaint : colors.textPrimary}
+              />
+            </Pressable>
+          </View>
+          <View style={styles.chipRow}>
             {REMINDER_DAY_PRESETS.map((preset) => {
-              const value = String(preset.offsetDays);
-              const active = customDays === value;
+              const active = customOffset === preset.offsetDays;
               return (
                 <Pressable
-                  key={value}
+                  key={preset.offsetDays}
                   style={[
-                    styles.dayPresetButton,
+                    styles.chip,
                     { borderColor: active ? accent : colors.border },
                     active && { backgroundColor: accent },
                   ]}
-                  onPress={() => setCustomDays(value)}
+                  onPress={() => setCustomOffset(preset.offsetDays)}
                 >
-                  <Text style={[styles.dayPresetText, { color: active ? accentText : colors.textSecondary }]}>
+                  <Text style={[styles.chipText, { color: active ? accentText : colors.textSecondary }]}>
                     {preset.label}
                   </Text>
                 </Pressable>
@@ -211,38 +232,29 @@ export default function ReminderQuickMenu({ reminders: rawReminders, dueTime, on
             })}
           </View>
 
-          <View style={styles.customRow}>
-            <NativeOwnedTextInput
-              sheet
-              value={customDays}
-              onChangeText={(value) => setCustomDays(value.replace(/\D/g, '').slice(0, 4))}
-              placeholder="1"
-              placeholderTextColor={colors.textFaint}
-              keyboardType="number-pad"
-              style={styles.daysInput}
-            />
-            <Text style={styles.customText}>days before at</Text>
-            <Pressable style={styles.timeButton} onPress={pickTime}>
-              <Text style={[styles.timeButtonText, { color: accent }]}>
-                {customTimeValid ? formatTime24to12(customTime) : customTime}
-              </Text>
-            </Pressable>
-          </View>
-
-          <View style={styles.timePresetRow}>
+          <Text style={styles.sectionLabel}>Time</Text>
+          <Pressable
+            style={styles.timeButton}
+            onPress={pickTime}
+            accessibilityRole="button"
+            accessibilityLabel={`Reminder time, ${formatTime24to12(customTime)}`}
+          >
+            <Text style={[styles.timeButtonText, { color: accent }]}>{formatTime24to12(customTime)}</Text>
+          </Pressable>
+          <View style={styles.chipRow}>
             {REMINDER_TIME_PRESETS.map((preset) => {
               const active = customTime === preset.time;
               return (
                 <Pressable
                   key={preset.time}
                   style={[
-                    styles.timePresetButton,
+                    styles.chip,
                     { borderColor: active ? accent : colors.border },
                     active && { backgroundColor: accent },
                   ]}
                   onPress={() => setCustomTime(preset.time)}
                 >
-                  <Text style={[styles.timePresetText, { color: active ? accentText : colors.textSecondary }]}>
+                  <Text style={[styles.chipText, { color: active ? accentText : colors.textSecondary }]}>
                     {preset.label}
                   </Text>
                 </Pressable>
@@ -250,17 +262,9 @@ export default function ReminderQuickMenu({ reminders: rawReminders, dueTime, on
             })}
           </View>
 
-          <NativeOwnedTextInput
-            sheet
-            value={customTime}
-            onChangeText={(value) => setCustomTime(value.trim().slice(0, 5))}
-            placeholder="HH:MM"
-            placeholderTextColor={colors.textFaint}
-            style={styles.timeInput}
-          />
-
+          {/* The reminders already on the task live in the menu, not here, so
+              this is the only thing that explains a greyed-out Add. */}
           {customExists && <Text style={styles.hint}>That reminder is already set.</Text>}
-          {!customTimeValid && <Text style={styles.hint}>Use 24-hour time, like 09:00.</Text>}
         </View>
       </NativeSheet>
     </>
@@ -269,14 +273,42 @@ export default function ReminderQuickMenu({ reminders: rawReminders, dueTime, on
 
 const useStyles = makeStyles((c) => ({
   sheetBody: {
-    gap: 12,
+    gap: 10,
   },
-  dayPresetRow: {
+  sectionLabel: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 13,
+    color: c.textTertiary,
+    marginTop: 4,
+  },
+  /** The readout, and the only place the offset can be set to an odd number. */
+  stepperRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: c.border,
+    borderRadius: 8,
+    backgroundColor: c.surfaceMuted,
+  },
+  stepperButton: {
+    width: 46,
+    height: 42,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stepperValue: {
+    flex: 1,
+    textAlign: 'center',
+    fontFamily: fonts.sansMedium,
+    fontSize: 16,
+    color: c.textPrimary,
+  },
+  chipRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
   },
-  dayPresetButton: {
+  chip: {
     minHeight: 34,
     justifyContent: 'center',
     borderWidth: 1,
@@ -284,72 +316,23 @@ const useStyles = makeStyles((c) => ({
     paddingHorizontal: 10,
     backgroundColor: c.surfaceMuted,
   },
-  dayPresetText: {
+  chipText: {
     fontFamily: fonts.sansMedium,
     fontSize: 14,
   },
-  customRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    flexWrap: 'wrap',
-  },
-  daysInput: {
-    width: 58,
-    minHeight: 38,
-    borderWidth: 1,
-    borderColor: c.border,
-    borderRadius: 7,
-    paddingHorizontal: 10,
-    fontFamily: fonts.sansMedium,
-    fontSize: 16,
-    color: c.textPrimary,
-    backgroundColor: c.surfaceMuted,
-  },
-  customText: {
-    fontFamily: fonts.sansRegular,
-    fontSize: 15,
-    color: c.textSecondary,
-  },
   timeButton: {
-    minHeight: 38,
+    minHeight: 42,
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: c.border,
-    borderRadius: 7,
-    paddingHorizontal: 9,
-    backgroundColor: c.surfaceMuted,
-  },
-  timeButtonText: {
-    fontFamily: fonts.sansMedium,
-    fontSize: 15,
-  },
-  timePresetRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  timePresetButton: {
-    minHeight: 32,
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderRadius: 7,
-    paddingHorizontal: 10,
-    backgroundColor: c.surfaceMuted,
-  },
-  timePresetText: {
-    fontFamily: fonts.sansMedium,
-    fontSize: 13,
-  },
-  timeInput: {
-    minHeight: 40,
+    alignItems: 'center',
     borderWidth: 1,
     borderColor: c.border,
     borderRadius: 8,
-    paddingHorizontal: 11,
-    fontFamily: fonts.sansRegular,
-    fontSize: 16,
-    color: c.textPrimary,
+    paddingHorizontal: 12,
     backgroundColor: c.surfaceMuted,
+  },
+  timeButtonText: {
+    fontFamily: fonts.sansSemiBold,
+    fontSize: 17,
   },
   hint: {
     fontFamily: fonts.sansRegular,
