@@ -43,12 +43,18 @@ export function reminderOffsetUnit(offsetDays: number): ReminderOffsetUnit {
  *
  * Labelled in that unit throughout, unlike `reminderOffsetLabel` — the day
  * wheel has to read 6, 7, 8 and not 6, '1 week', 8.
+ *
+ * The 'before' that `reminderOffsetLabel` carries is left off: the wheel is
+ * only ever as narrow as its longest rung, and so is the selection capsule
+ * drawn across it. The tab above the wheel already names the unit, and every
+ * reminder runs before its due date, so the word was buying nothing and
+ * costing half the column.
  */
 export function reminderOffsetOptions(unit: ReminderOffsetUnit): { offsetDays: number; label: string }[] {
   const step = offsetUnitStep(unit);
   return Array.from({ length: OFFSET_WHEEL_LENGTH[unit] + 1 }, (_, count) => ({
     offsetDays: count * step,
-    label: count === 0 ? 'Due date' : `${count} ${unit}${count === 1 ? '' : 's'} before`,
+    label: count === 0 ? 'Due date' : `${count} ${unit}${count === 1 ? '' : 's'}`,
   }));
 }
 

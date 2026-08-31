@@ -33,6 +33,20 @@ const UNIT_TAB_LABELS: Record<ReminderOffsetUnit, string> = { day: 'Day', week: 
 /** iOS is the only platform whose spinner is a wheel; Material has none. */
 const WHEEL_TIME = Platform.OS === 'ios';
 
+/**
+ * Wheel geometry, gathered here because it is the only lever on the selection
+ * capsule. Each wheel hands its host width straight to the capsule drawn behind
+ * the chosen rung, so these widths are the capsule widths.
+ *
+ * Deliberately overcorrected: narrow enough that the time wheel may compress,
+ * to establish whether the capsule is bounded by the host at all. If the two
+ * still meet at these numbers, the width is not what governs it.
+ */
+const WHEEL_HEIGHT = 216;
+const OFFSET_WHEEL_WIDTH = 96;
+const TIME_WHEEL_WIDTH = 132;
+const WHEEL_GAP = 36;
+
 /** The wheel is a clock, so only the time on this Date is ever read back. */
 function dateForTime(time: string): Date {
   const [hours, minutes] = time.split(':').map(Number);
@@ -323,9 +337,19 @@ const useStyles = makeStyles((c) => ({
     fontFamily: fonts.sansMedium,
     fontSize: 14,
   },
+  /**
+   * Centred rather than filled. Each wheel hands its host width straight to the
+   * selection capsule drawn behind the chosen rung, so a wheel stretched across
+   * half the sheet gets a capsule to match — reaching far past the words it is
+   * meant to be marking. Sized to their contents instead, the capsules stop
+   * near the text, and the gap keeps the two from meeting in the middle and
+   * reading as one doubled highlight around the hour.
+   */
   wheelRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: WHEEL_GAP,
     marginTop: 4,
   },
   /**
@@ -336,12 +360,12 @@ const useStyles = makeStyles((c) => ({
    * a wheel rather than as a cramped list.
    */
   offsetWheel: {
-    flex: 1.1,
-    height: 216,
+    width: OFFSET_WHEEL_WIDTH,
+    height: WHEEL_HEIGHT,
   },
   timeWheel: {
-    flex: 1,
-    height: 216,
+    width: TIME_WHEEL_WIDTH,
+    height: WHEEL_HEIGHT,
   },
   timeButton: {
     minHeight: 42,
