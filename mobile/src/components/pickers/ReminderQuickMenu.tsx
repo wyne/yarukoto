@@ -183,6 +183,10 @@ export default function ReminderQuickMenu({ reminders: rawReminders, dueTime, on
         title="Custom reminder"
         keyboard
         stackBehavior="push"
+        onCancel={() => setCustomOpen(false)}
+        onConfirm={addCustom}
+        confirmLabel="Add reminder"
+        confirmDisabled={!customValid || customExists}
       >
         <View style={styles.sheetBody}>
           <View style={styles.dayPresetRow}>
@@ -257,19 +261,6 @@ export default function ReminderQuickMenu({ reminders: rawReminders, dueTime, on
 
           {customExists && <Text style={styles.hint}>That reminder is already set.</Text>}
           {!customTimeValid && <Text style={styles.hint}>Use 24-hour time, like 09:00.</Text>}
-
-          <Pressable
-            disabled={!customValid || customExists}
-            style={[
-              styles.addButton,
-              { backgroundColor: customValid && !customExists ? accent : colors.chipBg },
-            ]}
-            onPress={addCustom}
-          >
-            <Text style={[styles.addText, { color: customValid && !customExists ? accentText : colors.textFaint }]}>
-              Add reminder
-            </Text>
-          </Pressable>
         </View>
       </NativeSheet>
     </>
@@ -364,15 +355,5 @@ const useStyles = makeStyles((c) => ({
     fontFamily: fonts.sansRegular,
     fontSize: 13,
     color: c.textTertiary,
-  },
-  addButton: {
-    minHeight: 42,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 8,
-  },
-  addText: {
-    fontFamily: fonts.sansSemiBold,
-    fontSize: 16,
   },
 }));

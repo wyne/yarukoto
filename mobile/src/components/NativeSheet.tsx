@@ -1,17 +1,19 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef } from 'react';
-import { Keyboard, Pressable, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Keyboard, StyleProp, StyleSheet, ViewStyle } from 'react-native';
 import {
   BottomSheetBackdrop,
   BottomSheetBackdropProps,
   BottomSheetFooterProps,
   BottomSheetHandle,
+  BottomSheetHandleProps,
   BottomSheetModal,
+  BottomSheetScrollView,
   BottomSheetView,
 } from '@gorhom/bottom-sheet';
 import { makeStyles } from '../theme/styles';
-import { useAccent, useColors } from '../theme/ThemeContext';
-import { fonts } from '../theme/typography';
+import { useColors } from '../theme/ThemeContext';
+import SheetHeader from './SheetHeader';
+import { useSheetBottomPadding } from './useSheetInsets';
 
 interface Props {
   visible: boolean;
@@ -30,6 +32,26 @@ interface Props {
    * screen (the task detail, say) hand their height here.
    */
   snapPoints?: (string | number)[];
+  /**
+   * Tallest a content-sized sheet may grow to, in points, and a detent it can be
+   * dragged up to. Without it a sheet has exactly one detent — its content
+   * height — so there is nowhere to drag and content past the bottom of the
+   * screen is simply unreachable.
+   *
+   * Only meaningful alongside `scroll`: the cap is what makes a long list stop
+   * growing, and the scrollable is what makes the part below the cap reachable.
+   */
+  maxHeight?: number;
+  /**
+   * Scroll the body instead of letting it size the sheet without limit.
+   *
+   * This moves the title row into the handle, which is the only place it can be
+   * pinned: BottomSheetView claims the sheet's scrollable slot for itself, so a
+   * scrollable nested inside one is left out of the pan gesture and never
+   * scrolls. Everything in the handle is draggable, so the title resizes the
+   * sheet along with the grabber.
+   */
+  scroll?: boolean;
   /** Extra styles for the sheet body — lets a sheet drop the default padding when its content draws its own. */
   contentStyle?: StyleProp<ViewStyle>;
   /** Sheet chrome colour; the default is the app surface, not the screen behind. */
@@ -41,6 +63,12 @@ interface Props {
   /** Optional action at the trailing edge of the title row. */
   onDone?: () => void;
   doneLabel?: string;
+  /** Glass actions used by draft/edit metadata sheets. */
+  onCancel?: () => void;
+  cancelLabel?: string;
+  onConfirm?: () => void;
+  confirmLabel?: string;
+  confirmDisabled?: boolean;
   children: React.ReactNode;
 }
 
@@ -61,18 +89,24 @@ export default function NativeSheet({
   grabber = true,
   onShow,
   snapPoints,
+  maxHeight,
+  scroll,
   contentStyle,
   background,
   footerComponent,
   stackBehavior,
   onDone,
   doneLabel = 'Done',
+  onCancel,
+  cancelLabel = 'Cancel',
+  onConfirm,
+  confirmLabel = 'Done',
+  confirmDisabled = false,
   children,
 }: Props) {
   const styles = useStyles();
   const colors = useColors();
-  const accent = useAccent();
-  const insets = useSafeAreaInsets();
+  const bottomPadding = useSheetBottomPadding(keyboard);
   const ref = useRef<React.ElementRef<typeof BottomSheetModal>>(null);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
@@ -81,6 +115,18 @@ export default function NativeSheet({
   const onShowRef = useRef(onShow);
   onShowRef.current = onShow;
   const shownRef = useRef(false);
+
+  /**
+   * The header's callbacks, held so `renderHandle` can reach the current ones
+   * without listing them as dependencies — callers pass fresh arrow functions
+   * every render, and a changed identity there remounts the whole handle.
+   */
+  const headerRef = useRef({ onCancel, onConfirm, onDone });
+  headerRef.current = { onCancel, onConfirm, onDone };
+  // Which buttons the header draws, as values rather than identities.
+  const hasCancel = !!onCancel;
+  const hasConfirm = !!onConfirm;
+  const hasDone = !!onDone;
 
   /**
    * Tracks whether there is a presented sheet for us to dismiss.
@@ -135,14 +181,50 @@ export default function NativeSheet({
     }
   }, []);
 
+  /**
+   * The title strip for a scrolling sheet, drawn in the handle so it stays put
+   * while the body moves under it.
+   *
+   * Stable for the reason the backdrop is: a changed component identity remounts
+   * what it draws. Only the values the header actually paints are dependencies;
+   * the callbacks come off the ref above.
+   */
+  const renderHandle = useCallback(
+    (props: BottomSheetHandleProps) => (
+      <BottomSheetHandle
+        {...props}
+        style={styles.scrollHandle}
+        indicatorStyle={grabber ? styles.indicator : styles.indicatorHidden}
+      >
+        {!!title && (
+          <SheetHeader
+            title={title}
+            style={styles.scrollHeader}
+            onCancel={hasCancel ? () => headerRef.current.onCancel?.() : undefined}
+            cancelLabel={cancelLabel}
+            onConfirm={hasConfirm ? () => headerRef.current.onConfirm?.() : undefined}
+            confirmLabel={confirmLabel}
+            confirmDisabled={confirmDisabled}
+            onDone={hasDone ? () => headerRef.current.onDone?.() : undefined}
+            doneLabel={doneLabel}
+          />
+        )}
+      </BottomSheetHandle>
+    ),
+    [styles, grabber, title, hasCancel, cancelLabel, hasConfirm, confirmLabel, confirmDisabled, hasDone, doneLabel]
+  );
+
   return (
     <BottomSheetModal
       ref={ref}
-      snapPoints={snapPoints}
+      // A content-sized sheet with a cap gets that cap as a second detent, so
+      // there is somewhere to drag to. The two coincide once the content is
+      // taller than the cap, and the library drops the duplicate.
+      snapPoints={snapPoints ?? (maxHeight !== undefined ? [maxHeight] : undefined)}
       stackBehavior={stackBehavior}
       enableDynamicSizing={!snapPoints}
+      maxDynamicContentSize={snapPoints ? undefined : maxHeight}
       enablePanDownToClose
-      enableOverDrag={false}
       // 'interactive', not 'extend': extend keeps the sheet at its content-height
       // detent and lets the keyboard cover it, while interactive subtracts the
       // keyboard height from that detent so the sheet rides above it.
@@ -154,7 +236,7 @@ export default function NativeSheet({
       keyboardBlurBehavior={keyboard ? 'restore' : undefined}
       backdropComponent={renderBackdrop}
       footerComponent={footerComponent}
-      handleComponent={grabber ? BottomSheetHandle : null}
+      handleComponent={scroll ? renderHandle : grabber ? BottomSheetHandle : null}
       handleIndicatorStyle={styles.indicator}
       style={styles.sheet}
       backgroundStyle={[styles.background, background ? { backgroundColor: background } : null]}
@@ -167,54 +249,68 @@ export default function NativeSheet({
         onDismissedRef.current?.();
       }}
     >
-      {/*
-        Must be BottomSheetView, not a plain View: with enableDynamicSizing and no
-        snapPoints, its onLayout is the only thing that reports the content height.
-        Without it the sheet resolves to no detents at all, so present() has nowhere
-        to snap — it stays invisible and never animates to an index, which also means
-        onAnimate never fires and onShow never focuses the input.
-      */}
-      <BottomSheetView
-        // Flattened, not an array: the library spreads an array style straight
-        // into StyleSheet.compose, which takes exactly two arguments. Under
-        // react-native-web that throws and takes the whole sheet down — three
-        // entries is already one too many.
-        style={StyleSheet.flatten([
-          styles.content,
-          {
-            paddingTop: title ? 0 : 24,
-            // A keyboard sheet rides above the keyboard, which is itself covering
-            // the home indicator — so the bottom inset buys nothing there and just
-            // leaves a gap under the content.
-            paddingBottom: keyboard ? 12 : Math.max(16, insets.bottom),
-          },
-          // Last, so it can actually drop the padding above. A sheet that draws
-          // its own chrome — the task detail with its own header — otherwise
-          // gets the untitled sheet's 24pt reapplied under the grabber.
-          contentStyle,
-          // BottomSheetView is absolutely positioned with no bottom edge. A
-          // fixed-detent sheet therefore needs an explicit height so flex
-          // descendants receive a bounded viewport and can scroll immediately.
-          snapPoints ? { height: '100%' } : null,
-        ])}
-      >
-        {!!title && (
-          <View style={styles.header}>
-            <Text style={styles.title}>{title}</Text>
-            {!!onDone && (
-              <Pressable
-                onPress={onDone}
-                hitSlop={10}
-                accessibilityRole="button"
-                accessibilityLabel={doneLabel}
-              >
-                <Text style={[styles.done, { color: accent }]}>{doneLabel}</Text>
-              </Pressable>
-            )}
-          </View>
-        )}
-        {children}
-      </BottomSheetView>
+      {scroll ? (
+        /*
+          Reports its own content size to dynamic sizing, so the sheet still opens
+          at the height of what is in it — up to `maxHeight`, past which this
+          scrolls instead of growing. The title is not in here; it is in the
+          handle above, where it stays put.
+        */
+        <BottomSheetScrollView
+          contentContainerStyle={StyleSheet.flatten([
+            styles.content,
+            { paddingBottom: bottomPadding },
+            contentStyle,
+          ])}
+          keyboardShouldPersistTaps="handled"
+        >
+          {children}
+        </BottomSheetScrollView>
+      ) : (
+        /*
+          Must be BottomSheetView, not a plain View: with enableDynamicSizing and no
+          snapPoints, its onLayout is the only thing that reports the content height.
+          Without it the sheet resolves to no detents at all, so present() has nowhere
+          to snap — it stays invisible and never animates to an index, which also means
+          onAnimate never fires and onShow never focuses the input.
+        */
+        <BottomSheetView
+          // Flattened, not an array: the library spreads an array style straight
+          // into StyleSheet.compose, which takes exactly two arguments. Under
+          // react-native-web that throws and takes the whole sheet down — three
+          // entries is already one too many.
+          style={StyleSheet.flatten([
+            styles.content,
+            {
+              paddingTop: title ? 0 : 24,
+              paddingBottom: bottomPadding,
+            },
+            // Last, so it can actually drop the padding above. A sheet that draws
+            // its own chrome — the task detail with its own header — otherwise
+            // gets the untitled sheet's 24pt reapplied under the grabber.
+            contentStyle,
+            // BottomSheetView is absolutely positioned with no bottom edge. A
+            // fixed-detent sheet therefore needs an explicit height so flex
+            // descendants receive a bounded viewport and can scroll immediately.
+            snapPoints ? { height: '100%' } : null,
+          ])}
+        >
+          {!!title && (
+            <SheetHeader
+              title={title}
+              style={styles.header}
+              onCancel={onCancel}
+              cancelLabel={cancelLabel}
+              onConfirm={onConfirm}
+              confirmLabel={confirmLabel}
+              confirmDisabled={confirmDisabled}
+              onDone={onDone}
+              doneLabel={doneLabel}
+            />
+          )}
+          {children}
+        </BottomSheetView>
+      )}
     </BottomSheetModal>
   );
 }
@@ -237,21 +333,17 @@ const useStyles = makeStyles((c) => ({
     paddingHorizontal: 16,
   },
   header: {
-    minHeight: 24,
     marginBottom: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
   },
-  title: {
-    flex: 1,
-    fontFamily: fonts.sansSemiBold,
-    fontSize: 16,
-    color: c.textPrimary,
+  /** The handle's own 10pt padding, widened to line the title up with the body. */
+  scrollHandle: {
+    paddingHorizontal: 16,
+    paddingBottom: 12,
   },
-  done: {
-    fontFamily: fonts.sansSemiBold,
-    fontSize: 15,
+  scrollHeader: {
+    marginTop: 8,
+  },
+  indicatorHidden: {
+    height: 0,
   },
 }));

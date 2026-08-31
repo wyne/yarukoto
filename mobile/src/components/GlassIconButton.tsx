@@ -33,6 +33,7 @@ interface Props {
   children: ReactNode;
   /** Optional tint for prominent glass actions. */
   tintColor?: string;
+  disabled?: boolean;
   ref?: Ref<View>;
 }
 
@@ -65,7 +66,7 @@ interface TextMenuLabelProps extends MenuLabelProps {
  * `isInteractive` hands it to UIKit, which morphs the glass under the finger,
  * while the flat path keeps the pointer hover tint that a mouse expects.
  */
-export default function GlassIconButton({ onPress, label, children, tintColor, ref }: Props) {
+export default function GlassIconButton({ onPress, label, children, tintColor, disabled = false, ref }: Props) {
   const hoverBg = useHoverBg();
   const joined = useContext(JoinedGlassGroupContext);
 
@@ -74,13 +75,15 @@ export default function GlassIconButton({ onPress, label, children, tintColor, r
       <Pressable
         ref={ref}
         onPress={onPress}
+        disabled={disabled}
         hitSlop={8}
         accessibilityRole="button"
         accessibilityLabel={label}
+        accessibilityState={disabled ? { disabled: true } : undefined}
         style={
           tintColor
-            ? [styles.flatButton, styles.tintedFallback, { backgroundColor: tintColor }]
-            : hoverBg(styles.flatButton)
+            ? [styles.flatButton, styles.tintedFallback, { backgroundColor: tintColor }, disabled && styles.disabled]
+            : hoverBg([styles.flatButton, disabled && styles.disabled])
         }
       >
         {children}
@@ -93,9 +96,11 @@ export default function GlassIconButton({ onPress, label, children, tintColor, r
       <Pressable
         ref={ref}
         onPress={onPress}
+        disabled={disabled}
         accessibilityRole="button"
         accessibilityLabel={label}
-        style={styles.joinedButton}
+        accessibilityState={disabled ? { disabled: true } : undefined}
+        style={[styles.joinedButton, disabled && styles.disabled]}
       >
         {children}
       </Pressable>
@@ -106,11 +111,13 @@ export default function GlassIconButton({ onPress, label, children, tintColor, r
     <Pressable
       ref={ref}
       onPress={onPress}
+      disabled={disabled}
       accessibilityRole="button"
       accessibilityLabel={label}
-      style={styles.glassPress}
+      accessibilityState={disabled ? { disabled: true } : undefined}
+      style={[styles.glassPress, disabled && styles.disabled]}
     >
-      <GlassView style={styles.glassButton} tintColor={tintColor} isInteractive>
+      <GlassView style={styles.glassButton} tintColor={tintColor} isInteractive={!disabled}>
         {children}
       </GlassView>
     </Pressable>
@@ -312,5 +319,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+  },
+  disabled: {
+    opacity: 0.45,
   },
 });

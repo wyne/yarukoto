@@ -40,6 +40,7 @@ import ListPickerSheet from './pickers/ListPickerSheet';
 import TagPickerSheet from './pickers/TagPickerSheet';
 import { useNativeDateTimePicker } from '../navigation/DateTimePickerContext';
 import { useTaskTextDraft } from './useTaskTextDraft';
+import { useSheetBottomPadding } from './useSheetInsets';
 import NativeOwnedTextInput from './NativeOwnedTextInput';
 
 interface Props {
@@ -89,6 +90,9 @@ export default function TaskDetailView({ taskId, onClose, variant, active = true
   });
   // The sheet supplies its own top chrome and safe-area padding.
   const topPad = variant === 'pane' ? insets.top + 6 : 6;
+  // Both variants run to the bottom edge of the screen, so the scroll's own
+  // tail is what has to clear the home indicator and the display's corners.
+  const bottomPad = useSheetBottomPadding();
 
   // In the sheet, the scrollable must be the library's so the sheet's pan gesture
   // coordinates with it: drag down at the top closes the sheet, otherwise the
@@ -298,7 +302,11 @@ export default function TaskDetailView({ taskId, onClose, variant, active = true
 
       <Scroll
         style={styles.scrollView}
-        contentContainerStyle={[styles.scroll, Platform.OS !== 'ios' && keyboardUp && styles.scrollKeyboard]}
+        contentContainerStyle={[
+          styles.scroll,
+          { paddingBottom: bottomPad },
+          Platform.OS !== 'ios' && keyboardUp && styles.scrollKeyboard,
+        ]}
         automaticallyAdjustKeyboardInsets={Platform.OS === 'ios' && variant === 'sheet'}
         keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'none'}
         keyboardShouldPersistTaps="handled"
@@ -722,7 +730,6 @@ const useStyles = makeStyles((c) => ({
   },
   scroll: {
     paddingHorizontal: 12,
-    paddingBottom: 32,
     gap: 0,
   },
   scrollView: {

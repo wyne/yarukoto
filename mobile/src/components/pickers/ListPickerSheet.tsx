@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, Text, useWindowDimensions, View } from 'react-native';
 import BottomSheet from '../BottomSheet';
 import type { PopoverAnchor } from '../Popover';
 import { makeStyles } from '../../theme/styles';
@@ -20,6 +20,13 @@ import { navGroups } from '../../data/selectors';
  */
 const INDENT = 22;
 
+/**
+ * How much of the screen the sheet may grow into before the list starts
+ * scrolling instead. Also the detent it can be dragged up to, so a short list
+ * opens at its own height and can still be pulled taller.
+ */
+const MAX_HEIGHT_RATIO = 0.85;
+
 interface Props {
   visible: boolean;
   onClose: () => void;
@@ -36,6 +43,7 @@ export default function ListPickerSheet({ visible, onClose, value, onApply, anch
   const styles = useStyles();
   const accent = useAccent();
   const { state } = useTasks();
+  const { height } = useWindowDimensions();
 
   const choose = (listId: string | null) => {
     onApply(listId);
@@ -51,6 +59,8 @@ export default function ListPickerSheet({ visible, onClose, value, onApply, anch
       popoverWidth={280}
       onBack={onBack}
       stackBehavior="push"
+      scroll
+      maxHeight={Math.round(height * MAX_HEIGHT_RATIO)}
     >
       <Pressable style={hoverBg(styles.row)} onPress={() => choose(null)}>
         <View style={styles.leading}>

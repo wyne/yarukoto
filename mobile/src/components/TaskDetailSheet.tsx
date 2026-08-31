@@ -60,7 +60,8 @@ export default function TaskDetailSheet() {
       snapPoints={['92%']}
       background={colors.screenBg}
       footerComponent={Platform.OS === 'ios' ? KeyboardDismissFooter : undefined}
-      // TaskDetailView owns its horizontal layout; the sheet body must not pad again.
+      // TaskDetailView owns its horizontal layout and its own scroll tail
+      // clearance; the sheet body must not pad again.
       contentStyle={styles.body}
     >
       {taskId ? (
@@ -81,6 +82,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 0,
     paddingTop: 0,
+    paddingBottom: 0,
   },
   keyboardFooter: {
     backgroundColor: 'transparent',

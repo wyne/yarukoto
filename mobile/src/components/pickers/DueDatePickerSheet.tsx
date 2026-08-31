@@ -1,9 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text } from 'react-native';
 import BottomSheet from '../BottomSheet';
 import type { PopoverAnchor } from '../Popover';
-import { useColors } from '../../theme/ThemeContext';
-import { fonts } from '../../theme/typography';
 import DueDateTimeControls from './DueDateTimeControls';
 
 interface Props {
@@ -19,7 +16,6 @@ interface Props {
 }
 
 export default function DueDatePickerSheet({ visible, onClose, initialDate, initialTime, onApply, anchor, onBack }: Props) {
-  const colors = useColors();
   const [date, setDate] = useState(initialDate);
   const [time, setTime] = useState(initialTime);
 
@@ -30,6 +26,11 @@ export default function DueDatePickerSheet({ visible, onClose, initialDate, init
     }
   }, [visible, initialDate, initialTime]);
 
+  const apply = () => {
+    onApply(date, date ? time : undefined);
+    onClose();
+  };
+
   return (
     <BottomSheet
       visible={visible}
@@ -38,34 +39,13 @@ export default function DueDatePickerSheet({ visible, onClose, initialDate, init
       anchor={anchor}
       popoverWidth={330}
       onBack={onBack}
+      onCancel={onClose}
+      onConfirm={apply}
     >
       <DueDateTimeControls date={date} time={time} onChange={(nextDate, nextTime) => {
         setDate(nextDate);
         setTime(nextTime);
       }} />
-      <Pressable
-        style={[styles.applyBtn, { backgroundColor: colors.inverseSurface }]}
-        onPress={() => {
-          onApply(date, date ? time : undefined);
-          onClose();
-        }}
-      >
-        <Text style={[styles.applyText, { color: colors.inverseText }]}>Apply</Text>
-      </Pressable>
     </BottomSheet>
   );
 }
-
-const styles = StyleSheet.create({
-  applyBtn: {
-    marginTop: 20,
-    borderRadius: 10,
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  applyText: {
-    fontFamily: fonts.sansSemiBold,
-    fontSize: 16,
-    color: '#fff',
-  },
-});
