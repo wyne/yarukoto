@@ -51,6 +51,16 @@ export function IconPlus({ size = 16, color: colorProp, strokeWidth = 1.8 }: Ico
   );
 }
 
+export function IconMinus({ size = 16, color: colorProp, strokeWidth = 1.8 }: IconProps) {
+  const accent = useAccent();
+  const color = colorProp ?? accent;
+  return (
+    <Svg width={size} height={size} viewBox="0 0 16 16" fill="none">
+      <Path d="M3 8h10" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" />
+    </Svg>
+  );
+}
+
 export function IconPlusBig({ size = 20, color: colorProp, strokeWidth = 1.8 }: IconProps) {
   const accent = useAccent();
   const color = colorProp ?? accent;

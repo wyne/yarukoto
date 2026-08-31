@@ -5,11 +5,10 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { makeStyles } from '../theme/styles';
 import { fonts } from '../theme/typography';
-import { selectionCheckColor } from '../theme/colors';
-import { useAccent, useColors, useScheme } from '../theme/ThemeContext';
+import { useAccent, useScheme } from '../theme/ThemeContext';
 import { fromISODate, toISODate } from '../data/dateUtils';
-import { IconCheckBig, IconPlus } from '../icons/Icons';
-import GlassIconButton from '../components/GlassIconButton';
+import SheetHeader from '../components/SheetHeader';
+import { useSheetBottomPadding } from '../components/useSheetInsets';
 import DueDateTimeControls from '../components/pickers/DueDateTimeControls';
 import { useDateTimePickerRequest } from '../navigation/DateTimePickerContext';
 import type { RootStackParamList } from '../navigation/types';
@@ -28,12 +27,11 @@ function timeFromPicker(value: Date): string {
 }
 
 export default function NativeDateTimePickerScreen({ navigation, route }: Props) {
-  const colors = useColors();
   const styles = useStyles();
   const accent = useAccent();
-  const accentText = selectionCheckColor(accent);
   const scheme = useScheme();
   const insets = useSafeAreaInsets();
+  const bottomPadding = useSheetBottomPadding();
   const { active, complete, cancel } = useDateTimePickerRequest();
   const request = active?.id === route.params.requestId ? active : null;
   const [draftDate, setDraftDate] = useState(() =>
@@ -63,18 +61,12 @@ export default function NativeDateTimePickerScreen({ navigation, route }: Props)
   };
 
   return (
-    <View style={[styles.screen, { paddingTop: Math.max(8, insets.top) }]}>
-      <View style={styles.header}>
-        <GlassIconButton onPress={close} label="Cancel">
-          <View style={styles.closeIcon}>
-            <IconPlus size={18} color={colors.textPrimary} strokeWidth={2} />
-          </View>
-        </GlassIconButton>
-        <Text style={styles.title}>{request.mode === 'date' ? 'Pick date' : 'Pick time'}</Text>
-        <GlassIconButton onPress={apply} label="Done" tintColor={accent}>
-          <IconCheckBig size={18} color={accentText} strokeWidth={2.4} />
-        </GlassIconButton>
-      </View>
+    <View style={[styles.screen, { paddingTop: Math.max(8, insets.top), paddingBottom: bottomPadding }]}>
+      <SheetHeader
+        title={request.mode === 'date' ? 'Pick date' : 'Pick time'}
+        onCancel={close}
+        onConfirm={apply}
+      />
 
       {Platform.OS === 'ios' ? (
         <DateTimePicker
@@ -127,20 +119,6 @@ const useStyles = makeStyles((c) => ({
     flex: 1,
     paddingHorizontal: 16,
     backgroundColor: c.surface,
-  },
-  header: {
-    minHeight: 44,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  title: {
-    fontFamily: fonts.sansSemiBold,
-    fontSize: 16,
-    color: c.textPrimary,
-  },
-  closeIcon: {
-    transform: [{ rotate: '45deg' }],
   },
   datePicker: {
     width: '100%',

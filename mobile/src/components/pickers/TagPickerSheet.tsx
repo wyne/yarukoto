@@ -7,9 +7,6 @@ import { useHoverBg } from '../../theme/hover';
 import { fonts } from '../../theme/typography';
 import NativeOwnedTextInput from '../NativeOwnedTextInput';
 import { useAccent, useColors } from '../../theme/ThemeContext';
-import { selectionCheckColor } from '../../theme/colors';
-import GlassIconButton from '../GlassIconButton';
-import { IconCheckBig } from '../../icons/Icons';
 import { useTasks } from '../../data/TaskContext';
 import { tagCounts } from '../../data/selectors';
 
@@ -29,7 +26,6 @@ export default function TagPickerSheet({ visible, onClose, initialTags, onApply,
   const colors = useColors();
   const styles = useStyles();
   const accent = useAccent();
-  const accentText = selectionCheckColor(accent);
   const { state } = useTasks();
   const [selected, setSelected] = useState<string[]>(initialTags);
   const [newTag, setNewTag] = useState('');
@@ -51,6 +47,11 @@ export default function TagPickerSheet({ visible, onClose, initialTags, onApply,
     setNewTag('');
   };
 
+  const apply = () => {
+    onApply(selected);
+    onClose();
+  };
+
   return (
     <BottomSheet
       visible={visible}
@@ -61,6 +62,9 @@ export default function TagPickerSheet({ visible, onClose, initialTags, onApply,
       popoverWidth={300}
       onBack={onBack}
       stackBehavior="push"
+      onCancel={onClose}
+      onConfirm={apply}
+      confirmLabel="Save tags"
     >
       <View style={styles.chipsRow}>
         {allTags.map((tag) => {
@@ -90,18 +94,6 @@ export default function TagPickerSheet({ visible, onClose, initialTags, onApply,
         <Pressable style={[styles.addBtn, { borderColor: accent }]} onPress={addNewTag}>
           <Text style={{ color: accent, fontFamily: fonts.sansMedium, fontSize: 14 }}>Add</Text>
         </Pressable>
-      </View>
-      <View style={styles.applyRow}>
-        <GlassIconButton
-          label="Save tags"
-          tintColor={accent}
-          onPress={() => {
-            onApply(selected);
-            onClose();
-          }}
-        >
-          <IconCheckBig size={18} color={accentText} strokeWidth={2.4} />
-        </GlassIconButton>
       </View>
     </BottomSheet>
   );
@@ -147,9 +139,5 @@ const useStyles = makeStyles((c) => ({
     borderRadius: 8,
     paddingHorizontal: 14,
     paddingVertical: 10,
-  },
-  applyRow: {
-    marginTop: 18,
-    alignItems: 'flex-end',
   },
 }));
