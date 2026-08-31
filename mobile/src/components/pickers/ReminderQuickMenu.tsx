@@ -1,31 +1,63 @@
 import React, { useMemo, useState } from 'react';
 import { Keyboard, Platform, Pressable, StyleProp, Text, View, ViewStyle } from 'react-native';
 import MenuView, { type MenuAction, type NativeActionEvent } from '@expo/ui/community/menu';
-import { selectionCheckColor } from '../../theme/colors';
+import DateTimePicker from '@expo/ui/community/datetime-picker';
+import Picker from '@expo/ui/community/picker';
 import { makeStyles } from '../../theme/styles';
 import { fonts } from '../../theme/typography';
-import { useAccent, useColors } from '../../theme/ThemeContext';
+import { useAccent, useColors, useScheme } from '../../theme/ThemeContext';
 import { formatTime24to12, toISODate } from '../../data/dateUtils';
 import {
   DEFAULT_REMINDER_TIME,
   isReminderTime,
-  MAX_REMINDER_OFFSET_DAYS,
-  REMINDER_DAY_PRESETS,
-  REMINDER_TIME_PRESETS,
   createReminder,
   formatReminder,
   hasReminder,
   normalizeReminders,
   reminderKey,
-  reminderOffsetLabel,
+  reminderOffsetOptions,
+  reminderOffsetUnit,
   reminderPresets,
+  snapReminderOffset,
+  type ReminderOffsetUnit,
 } from '../../data/reminders';
 import type { TaskReminder } from '../../data/types';
 import { useNativeDateTimePicker } from '../../navigation/DateTimePickerContext';
 import NativeSheet from '../NativeSheet';
-import { IconMinus, IconPlus } from '../../icons/Icons';
 
 const TOGGLE_ID_PREFIX = 'toggle|';
+
+const UNIT_TABS: ReminderOffsetUnit[] = ['day', 'week'];
+const UNIT_TAB_LABELS: Record<ReminderOffsetUnit, string> = { day: 'Day', week: 'Week' };
+
+/** iOS is the only platform whose spinner is a wheel; Material has none. */
+const WHEEL_TIME = Platform.OS === 'ios';
+
+/**
+ * Wheel geometry, gathered here because it is the only lever on the selection
+ * capsule. Each wheel hands its host width straight to the capsule drawn behind
+ * the chosen rung, so these widths are the capsule widths.
+ *
+ * Deliberately overcorrected: narrow enough that the time wheel may compress,
+ * to establish whether the capsule is bounded by the host at all. If the two
+ * still meet at these numbers, the width is not what governs it.
+ */
+const WHEEL_HEIGHT = 216;
+const OFFSET_WHEEL_WIDTH = 96;
+const TIME_WHEEL_WIDTH = 132;
+const WHEEL_GAP = 36;
+
+/** The wheel is a clock, so only the time on this Date is ever read back. */
+function dateForTime(time: string): Date {
+  const [hours, minutes] = time.split(':').map(Number);
+  const value = new Date();
+  value.setHours(hours, minutes, 0, 0);
+  return value;
+}
+
+function timeFromDate(value: Date): string {
+  return `${String(value.getHours()).padStart(2, '0')}:${String(value.getMinutes()).padStart(2, '0')}`;
+}
 
 interface Props {
   reminders?: TaskReminder[];
@@ -51,22 +83,27 @@ export default function ReminderQuickMenu({ reminders: rawReminders, dueTime, on
   const colors = useColors();
   const styles = useStyles();
   const accent = useAccent();
-  const accentText = selectionCheckColor(accent);
+  const scheme = useScheme();
   const presentDateTimePicker = useNativeDateTimePicker();
   const reminders = normalizeReminders(rawReminders);
   const presets = useMemo(() => reminderPresets(dueTime), [dueTime]);
   const presetKeys = useMemo(() => new Set(presets.map(reminderKey)), [presets]);
   const customReminders = reminders.filter((reminder) => !presetKeys.has(reminderKey(reminder)));
   const [customOpen, setCustomOpen] = useState(false);
-  // Both are only ever written from a stepper, a chip, or the system time
-  // picker, so neither can hold a value the model would reject — there is no
-  // invalid state for the sheet to guard against or explain.
+  // Both are only ever written from a wheel rung, so neither can hold a value
+  // the model would reject — there is no invalid state for the sheet to guard
+  // against or explain.
   const [customOffset, setCustomOffset] = useState(1);
   const [customTime, setCustomTime] = useState(DEFAULT_REMINDER_TIME);
+  const [offsetUnit, setOffsetUnit] = useState<ReminderOffsetUnit>('day');
+  const offsetOptions = useMemo(() => reminderOffsetOptions(offsetUnit), [offsetUnit]);
   const customExists = hasReminder(reminders, { offsetDays: customOffset, time: customTime });
 
-  const stepOffset = (by: number) => {
-    setCustomOffset((current) => Math.min(MAX_REMINDER_OFFSET_DAYS, Math.max(0, current + by)));
+  // Switching units moves the wheel to the nearest rung the new one has, so the
+  // selection stays somewhere the user can see rather than snapping to the top.
+  const changeUnit = (unit: ReminderOffsetUnit) => {
+    setOffsetUnit(unit);
+    setCustomOffset((current) => snapReminderOffset(current, unit));
   };
 
   const add = (offsetDays: number, time: string) => {
@@ -86,6 +123,7 @@ export default function ReminderQuickMenu({ reminders: rawReminders, dueTime, on
 
   const openCustom = () => {
     Keyboard.dismiss();
+    setOffsetUnit(reminderOffsetUnit(customOffset));
     setCustomOpen(true);
   };
 
@@ -186,81 +224,81 @@ export default function ReminderQuickMenu({ reminders: rawReminders, dueTime, on
         confirmDisabled={customExists}
       >
         <View style={styles.sheetBody}>
-          <Text style={styles.sectionLabel}>When</Text>
-          <View style={styles.stepperRow}>
-            <Pressable
-              style={styles.stepperButton}
-              onPress={() => stepOffset(-1)}
-              disabled={customOffset === 0}
-              accessibilityRole="button"
-              accessibilityLabel="Fewer days before due"
-            >
-              <IconMinus size={18} color={customOffset === 0 ? colors.textFaint : colors.textPrimary} />
-            </Pressable>
-            <Text style={styles.stepperValue}>{reminderOffsetLabel(customOffset)}</Text>
-            <Pressable
-              style={styles.stepperButton}
-              onPress={() => stepOffset(1)}
-              disabled={customOffset === MAX_REMINDER_OFFSET_DAYS}
-              accessibilityRole="button"
-              accessibilityLabel="More days before due"
-            >
-              <IconPlus
-                size={18}
-                color={customOffset === MAX_REMINDER_OFFSET_DAYS ? colors.textFaint : colors.textPrimary}
-              />
-            </Pressable>
-          </View>
-          <View style={styles.chipRow}>
-            {REMINDER_DAY_PRESETS.map((preset) => {
-              const active = customOffset === preset.offsetDays;
+          {/*
+            Drawn here rather than with the native segmented control: that one
+            is a SwiftUI Host, and inside the sheet it rendered but never took a
+            tap. This also themes with the app instead of the system.
+          */}
+          <View style={styles.unitTabs}>
+            {UNIT_TABS.map((unit) => {
+              const active = unit === offsetUnit;
               return (
                 <Pressable
-                  key={preset.offsetDays}
-                  style={[
-                    styles.chip,
-                    { borderColor: active ? accent : colors.border },
-                    active && { backgroundColor: accent },
-                  ]}
-                  onPress={() => setCustomOffset(preset.offsetDays)}
+                  key={unit}
+                  style={[styles.unitTab, active && { backgroundColor: colors.surface, borderColor: colors.border }]}
+                  onPress={() => changeUnit(unit)}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: active }}
                 >
-                  <Text style={[styles.chipText, { color: active ? accentText : colors.textSecondary }]}>
-                    {preset.label}
+                  <Text
+                    style={[
+                      styles.unitTabText,
+                      { color: active ? colors.textPrimary : colors.textSecondary },
+                    ]}
+                  >
+                    {UNIT_TAB_LABELS[unit]}
                   </Text>
                 </Pressable>
               );
             })}
           </View>
 
-          <Text style={styles.sectionLabel}>Time</Text>
-          <Pressable
-            style={styles.timeButton}
-            onPress={pickTime}
-            accessibilityRole="button"
-            accessibilityLabel={`Reminder time, ${formatTime24to12(customTime)}`}
-          >
-            <Text style={[styles.timeButtonText, { color: accent }]}>{formatTime24to12(customTime)}</Text>
-          </Pressable>
-          <View style={styles.chipRow}>
-            {REMINDER_TIME_PRESETS.map((preset) => {
-              const active = customTime === preset.time;
-              return (
-                <Pressable
-                  key={preset.time}
-                  style={[
-                    styles.chip,
-                    { borderColor: active ? accent : colors.border },
-                    active && { backgroundColor: accent },
-                  ]}
-                  onPress={() => setCustomTime(preset.time)}
-                >
-                  <Text style={[styles.chipText, { color: active ? accentText : colors.textSecondary }]}>
-                    {preset.label}
-                  </Text>
-                </Pressable>
-              );
-            })}
+          <View style={styles.wheelRow}>
+            {/*
+              Values are strings because the SwiftUI wheel tags its rows with
+              them, and hands back what it was tagged with — a numeric value
+              would come back as its own string and never match an option.
+            */}
+            <Picker
+              style={styles.offsetWheel}
+              selectedValue={String(customOffset)}
+              onValueChange={(value) => setCustomOffset(Number(value))}
+            >
+              {offsetOptions.map((option) => (
+                <Picker.Item
+                  key={option.offsetDays}
+                  label={option.label}
+                  value={String(option.offsetDays)}
+                  color={colors.textPrimary}
+                />
+              ))}
+            </Picker>
+
+            {WHEEL_TIME && (
+              <DateTimePicker
+                value={dateForTime(customTime)}
+                mode="time"
+                display="spinner"
+                accentColor={accent}
+                themeVariant={scheme}
+                onValueChange={(_, selected) => setCustomTime(timeFromDate(selected))}
+                style={styles.timeWheel}
+              />
+            )}
           </View>
+
+          {/* Off iOS the spinner is a text field rather than a wheel, so the
+              time keeps the button through to the app's own picker screen. */}
+          {!WHEEL_TIME && (
+            <Pressable
+              style={styles.timeButton}
+              onPress={pickTime}
+              accessibilityRole="button"
+              accessibilityLabel={`Reminder time, ${formatTime24to12(customTime)}`}
+            >
+              <Text style={[styles.timeButtonText, { color: accent }]}>{formatTime24to12(customTime)}</Text>
+            </Pressable>
+          )}
 
           {/* The reminders already on the task live in the menu, not here, so
               this is the only thing that explains a greyed-out Add. */}
@@ -273,52 +311,61 @@ export default function ReminderQuickMenu({ reminders: rawReminders, dueTime, on
 
 const useStyles = makeStyles((c) => ({
   sheetBody: {
-    gap: 10,
+    gap: 14,
+    paddingTop: 4,
   },
-  sectionLabel: {
-    fontFamily: fonts.sansMedium,
-    fontSize: 13,
-    color: c.textTertiary,
-    marginTop: 4,
-  },
-  /** The readout, and the only place the offset can be set to an odd number. */
-  stepperRow: {
+  unitTabs: {
     flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: c.border,
-    borderRadius: 8,
+    alignSelf: 'center',
+    gap: 2,
+    padding: 2,
+    borderRadius: 9,
     backgroundColor: c.surfaceMuted,
+    borderWidth: 1,
+    borderColor: c.divider,
   },
-  stepperButton: {
-    width: 46,
-    height: 42,
+  unitTab: {
+    minWidth: 96,
+    minHeight: 30,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  stepperValue: {
-    flex: 1,
-    textAlign: 'center',
-    fontFamily: fonts.sansMedium,
-    fontSize: 16,
-    color: c.textPrimary,
-  },
-  chipRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  chip: {
-    minHeight: 34,
-    justifyContent: 'center',
-    borderWidth: 1,
     borderRadius: 7,
-    paddingHorizontal: 10,
-    backgroundColor: c.surfaceMuted,
+    borderWidth: 1,
+    borderColor: 'transparent',
   },
-  chipText: {
+  unitTabText: {
     fontFamily: fonts.sansMedium,
     fontSize: 14,
+  },
+  /**
+   * Centred rather than filled. Each wheel hands its host width straight to the
+   * selection capsule drawn behind the chosen rung, so a wheel stretched across
+   * half the sheet gets a capsule to match — reaching far past the words it is
+   * meant to be marking. Sized to their contents instead, the capsules stop
+   * near the text, and the gap keeps the two from meeting in the middle and
+   * reading as one doubled highlight around the hour.
+   */
+  wheelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: WHEEL_GAP,
+    marginTop: 4,
+  },
+  /**
+   * Both wheels need a height: the SwiftUI picker and the UIDatePicker size
+   * themselves independently, and matching them is what keeps the two sets of
+   * rows on the same lines rather than drifting apart. Tall enough for two
+   * rungs either side of the selected one, which is what makes a wheel read as
+   * a wheel rather than as a cramped list.
+   */
+  offsetWheel: {
+    width: OFFSET_WHEEL_WIDTH,
+    height: WHEEL_HEIGHT,
+  },
+  timeWheel: {
+    width: TIME_WHEEL_WIDTH,
+    height: WHEEL_HEIGHT,
   },
   timeButton: {
     minHeight: 42,
@@ -338,5 +385,6 @@ const useStyles = makeStyles((c) => ({
     fontFamily: fonts.sansRegular,
     fontSize: 13,
     color: c.textTertiary,
+    textAlign: 'center',
   },
 }));
