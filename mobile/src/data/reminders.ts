@@ -20,6 +20,45 @@ export const REMINDER_TIME_PRESETS = [
   { time: '17:00', label: '5 PM' },
 ] as const;
 
+export type ReminderOffsetUnit = 'day' | 'week';
+
+/**
+ * How far the offset wheel runs in each unit. Both stop well short of
+ * MAX_REMINDER_OFFSET_DAYS — that is the model's ceiling, not a distance
+ * anyone scrolls to.
+ */
+const OFFSET_WHEEL_LENGTH: Record<ReminderOffsetUnit, number> = { day: 30, week: 52 };
+
+function offsetUnitStep(unit: ReminderOffsetUnit): number {
+  return unit === 'week' ? 7 : 1;
+}
+
+/** The unit an offset reads most naturally in: whole weeks stay weeks. */
+export function reminderOffsetUnit(offsetDays: number): ReminderOffsetUnit {
+  return offsetDays > 0 && offsetDays % 7 === 0 ? 'week' : 'day';
+}
+
+/**
+ * The rungs of the offset wheel for one unit.
+ *
+ * Labelled in that unit throughout, unlike `reminderOffsetLabel` — the day
+ * wheel has to read 6, 7, 8 and not 6, '1 week', 8.
+ */
+export function reminderOffsetOptions(unit: ReminderOffsetUnit): { offsetDays: number; label: string }[] {
+  const step = offsetUnitStep(unit);
+  return Array.from({ length: OFFSET_WHEEL_LENGTH[unit] + 1 }, (_, count) => ({
+    offsetDays: count * step,
+    label: count === 0 ? 'Due date' : `${count} ${unit}${count === 1 ? '' : 's'} before`,
+  }));
+}
+
+/** The nearest offset the given unit's wheel can actually land on. */
+export function snapReminderOffset(offsetDays: number, unit: ReminderOffsetUnit): number {
+  const step = offsetUnitStep(unit);
+  const rungs = Math.round(offsetDays / step);
+  return Math.min(OFFSET_WHEEL_LENGTH[unit], Math.max(0, rungs)) * step;
+}
+
 export interface ReminderPreset {
   offsetDays: number;
   time: string;
