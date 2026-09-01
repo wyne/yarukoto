@@ -393,3 +393,130 @@ export function IconChevronRight({ size = 14, color: colorProp, strokeWidth = 1.
     </Svg>
   );
 }
+
+/*
+ * Notes formatting. Drawn on an 18-unit grid like the rest of the set, and
+ * sized to sit together in one toolbar row rather than to match any icon above.
+ */
+
+export function IconBold({ size = 18, color: colorProp, strokeWidth = 1.7 }: IconProps) {
+  const c = useColors();
+  const color = colorProp ?? c.textSecondary;
+  return (
+    <Svg width={size} height={size} viewBox="0 0 18 18" fill="none">
+      <Path
+        d="M5.5 3.5h4a2.6 2.6 0 010 5.2h-4V3.5zM5.5 8.7h4.7a2.9 2.9 0 010 5.8H5.5V8.7z"
+        stroke={color}
+        strokeWidth={strokeWidth}
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+export function IconItalic({ size = 18, color: colorProp, strokeWidth = 1.7 }: IconProps) {
+  const c = useColors();
+  const color = colorProp ?? c.textSecondary;
+  return (
+    <Svg width={size} height={size} viewBox="0 0 18 18" fill="none">
+      <Path d="M11.5 3.5h-4M10.5 14.5h-4M11 3.5L7.5 14.5" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+export function IconStrikethrough({ size = 18, color: colorProp, strokeWidth = 1.7 }: IconProps) {
+  const c = useColors();
+  const color = colorProp ?? c.textSecondary;
+  return (
+    <Svg width={size} height={size} viewBox="0 0 18 18" fill="none">
+      <Path
+        d="M12.5 5.4c-.6-1.1-1.9-1.8-3.4-1.8-1.9 0-3.2 1-3.2 2.4 0 1 .7 1.8 2 2.3M5.5 12.4c.6 1.2 1.9 1.9 3.5 1.9 2 0 3.4-1 3.4-2.5 0-.7-.2-1.3-.8-1.8"
+        stroke={color}
+        strokeWidth={strokeWidth}
+        strokeLinecap="round"
+      />
+      <Path d="M3.5 9h11" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+export function IconHeading({ size = 18, color: colorProp, strokeWidth = 1.7 }: IconProps) {
+  const c = useColors();
+  const color = colorProp ?? c.textSecondary;
+  return (
+    <Svg width={size} height={size} viewBox="0 0 18 18" fill="none">
+      <Path d="M4 4v10M10 4v10M4 9h6" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" />
+      <Path d="M12.4 9.6l1.6-1v5.4" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+export function IconListBullet({ size = 18, color: colorProp, strokeWidth = 1.7 }: IconProps) {
+  const c = useColors();
+  const color = colorProp ?? c.textSecondary;
+  return (
+    <Svg width={size} height={size} viewBox="0 0 18 18" fill="none">
+      <Circle cx={4} cy={5} r={1.1} fill={color} />
+      <Circle cx={4} cy={9} r={1.1} fill={color} />
+      <Circle cx={4} cy={13} r={1.1} fill={color} />
+      <Path d="M7.5 5h7M7.5 9h7M7.5 13h7" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+export function IconListNumber({ size = 18, color: colorProp, strokeWidth = 1.7 }: IconProps) {
+  const c = useColors();
+  const color = colorProp ?? c.textSecondary;
+  return (
+    <Svg width={size} height={size} viewBox="0 0 18 18" fill="none">
+      <Path
+        d="M3 3.9l1.1-.6v3.1M2.9 9c.1-.5.6-.8 1.1-.7.5.1.8.5.7 1-.2.7-1.8 1.2-1.8 2.1h2.1M2.9 12.8c.2-.4.7-.6 1.2-.5.5.1.8.5.7.9-.1.4-.5.6-1 .6.6 0 1.1.3 1.1.8s-.5.9-1.1.9c-.5 0-1-.2-1.2-.6"
+        stroke={color}
+        strokeWidth={1.35}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path d="M7.5 5h7M7.5 9h7M7.5 13h7" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+export function IconListCheck({ size = 18, color: colorProp, strokeWidth = 1.7 }: IconProps) {
+  const c = useColors();
+  const color = colorProp ?? c.textSecondary;
+  return (
+    <Svg width={size} height={size} viewBox="0 0 18 18" fill="none">
+      <Rect x={2.6} y={3} width={4} height={4} rx={1.2} stroke={color} strokeWidth={1.4} />
+      <Path d="M3.6 5.1l.9.9 1.6-1.8" stroke={color} strokeWidth={1.3} strokeLinecap="round" strokeLinejoin="round" />
+      <Rect x={2.6} y={11} width={4} height={4} rx={1.2} stroke={color} strokeWidth={1.4} />
+      <Path d="M8.6 5h6M8.6 13h6" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+export function IconQuote({ size = 18, color: colorProp, strokeWidth = 1.7 }: IconProps) {
+  const c = useColors();
+  const color = colorProp ?? c.textSecondary;
+  return (
+    <Svg width={size} height={size} viewBox="0 0 18 18" fill="none">
+      <Path d="M3.6 3.8v10.4" stroke={color} strokeWidth={2.2} strokeLinecap="round" />
+      <Path d="M7.5 5.5h7M7.5 9h7M7.5 12.5h4.5" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+export function IconCode({ size = 18, color: colorProp, strokeWidth = 1.7 }: IconProps) {
+  const c = useColors();
+  const color = colorProp ?? c.textSecondary;
+  return (
+    <Svg width={size} height={size} viewBox="0 0 18 18" fill="none">
+      <Path
+        d="M6.6 5L3 9l3.6 4M11.4 5L15 9l-3.6 4"
+        stroke={color}
+        strokeWidth={strokeWidth}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}

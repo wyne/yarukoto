@@ -13,6 +13,7 @@ import { fonts } from '../theme/typography';
 import { useAccent, useColors } from '../theme/ThemeContext';
 import { selectionCheckColor } from '../theme/colors';
 import { Task, ListDef } from '../data/types';
+import { hasNotesContent } from '../data/notesHtml';
 import { formatDueShort, isOverdue } from '../data/dateUtils';
 import TaskCheckbox from './TaskCheckbox';
 import SwipeableRow from './SwipeableRow';
@@ -113,7 +114,7 @@ export default function TaskRow({
   const restParts = (level === 'full' ? [listName, tagsStr] : [tagsStr]).filter(Boolean) as string[];
   const showRest = (level === 'full' || level === 'tags') && restParts.length > 0;
   const tagCount = level === 'count' && !task.completed ? visibleTags.length : 0;
-  const hasNotes = task.notes.trim().length > 0;
+  const hasNotes = hasNotesContent(task.notes);
   const showStar = overdue && task.priority === 'high' && !task.completed;
   const subtaskDone = task.subtasks.filter((s) => s.done).length;
   const showBadge = !showStar && task.subtasks.length > 0 && !task.completed;
