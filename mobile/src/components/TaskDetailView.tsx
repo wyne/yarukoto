@@ -42,6 +42,7 @@ import { useNativeDateTimePicker } from '../navigation/DateTimePickerContext';
 import { useTaskTextDraft } from './useTaskTextDraft';
 import { useSheetBottomPadding } from './useSheetInsets';
 import NativeOwnedTextInput from './NativeOwnedTextInput';
+import NotesEditor, { NotesEditorHandle } from './NotesEditor';
 
 interface Props {
   taskId: string;
@@ -135,7 +136,7 @@ export default function TaskDetailView({ taskId, onClose, variant, active = true
     });
   };
 
-  const notesRef = useRef<TextInput>(null);
+  const notesRef = useRef<NotesEditorHandle>(null);
   const subtaskInputRef = useRef<TextInput>(null);
   const [keyboardUp, setKeyboardUp] = useState(false);
   const [keyboardInputFocused, setKeyboardInputFocused] = useState(false);
@@ -233,14 +234,7 @@ export default function TaskDetailView({ taskId, onClose, variant, active = true
    * so the field switch reads as one continuous motion.
    */
   const jumpToNotes = () => {
-    const notes = notesRef.current;
-    if (!notes) return;
-    notes.focus();
-    // The caret lands where the field last left it; push it past any existing
-    // notes once focus has actually landed.
-    requestAnimationFrame(() => {
-      notes.setNativeProps({ selection: { start: textDraft.notes.length, end: textDraft.notes.length } });
-    });
+    notesRef.current?.focusEnd();
   };
 
   const submitTitle = () => {
@@ -499,18 +493,17 @@ export default function TaskDetailView({ taskId, onClose, variant, active = true
 
         <Card style={[styles.pad14, { marginTop: 12 }]}>
           <Text style={styles.sectionLabel}>Notes</Text>
-          <NativeOwnedTextInput
-            ref={notesRef as never}
+          {/*
+            The one field the iOS keyboard accessory can't reach: the editor is
+            not a TextInput, so it takes no `inputAccessoryViewID`. Its toolbar
+            lives in the card instead, under the text.
+          */}
+          <NotesEditor
+            ref={notesRef}
             sheet={registerInputWithSheet}
             value={textDraft.notes}
-            onChangeText={textDraft.setNotes}
-            placeholder="Add notes…"
-            placeholderTextColor={colors.textFaint}
-            style={styles.notesInput}
-            multiline
-            scrollEnabled={false}
-            {...keyboardTargetProps}
-            {...accessoryProps}
+            onChangeHtml={textDraft.setNotes}
+            onFocus={() => setKeyboardInputFocused(true)}
             onBlur={() => {
               setKeyboardInputFocused(false);
               textDraft.flush();
@@ -850,15 +843,6 @@ const useStyles = makeStyles((c) => ({
     letterSpacing: 1,
     textTransform: 'uppercase',
     color: c.textTertiary,
-  },
-  notesInput: {
-    fontFamily: fonts.sansRegular,
-    fontSize: 15,
-    lineHeight: 21,
-    color: c.textPrimary,
-    marginTop: 6,
-    padding: 0,
-    minHeight: 40,
   },
   subtasksHeader: {
     flexDirection: 'row',

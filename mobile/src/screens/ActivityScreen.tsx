@@ -8,6 +8,7 @@ import { useAccent, useColors } from '../theme/ThemeContext';
 import { PANE_MAX_WIDTH, useSidebar } from '../navigation/SidebarContext';
 import { NATIVE_TAB_CONTENT_PADDING } from '../navigation/nativeTabBarLayout';
 import { WEB_ENTRY } from '../data/platform';
+import { notesPlainText } from '../data/notesHtml';
 import { ActivityRevision, createApi } from '../data/api';
 import { useTasks } from '../data/TaskContext';
 import { ListDef, Task } from '../data/types';
@@ -101,7 +102,16 @@ function changesFor(task: Task, previous: Task | null, lists: ListDef[]): Activi
     changes.push({ label: 'Title', before: compactText(previous.title, 'Untitled'), after: compactText(task.title, 'Untitled') });
   }
   if (task.notes !== previous.notes) {
-    changes.push({ label: 'Notes', before: compactText(previous.notes), after: compactText(task.notes) });
+    // Notes are HTML, and what a reader would see is what this compares. An
+    // edit that only moved the formatting is described rather than printed as
+    // two identical lines.
+    const before = compactText(notesPlainText(previous.notes));
+    const after = compactText(notesPlainText(task.notes));
+    changes.push(
+      before === after
+        ? { label: 'Notes', before, after: 'Formatting changed' }
+        : { label: 'Notes', before, after }
+    );
   }
   if (task.priority !== previous.priority) {
     changes.push({ label: 'Priority', before: priorityLabel(previous.priority), after: priorityLabel(task.priority) });
