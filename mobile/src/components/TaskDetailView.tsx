@@ -222,8 +222,11 @@ export default function TaskDetailView({ taskId, onClose, variant, active = true
     }
 
     addSubtask(task.id, title);
+    // Clearing the state is enough on its own: on the web the field is
+    // controlled, and on native NativeOwnedTextInput pushes the emptied value
+    // down to the field it owns. `setNativeProps` is not on the web host node,
+    // and calling it threw before the reset below ever ran.
     subtaskInputRef.current?.clear();
-    subtaskInputRef.current?.setNativeProps({ text: '' });
     setNewSubtask('');
     requestAnimationFrame(() => subtaskInputRef.current?.focus());
   };
@@ -255,6 +258,23 @@ export default function TaskDetailView({ taskId, onClose, variant, active = true
 
   /** See the title field below: the web deliberately does not wrap. */
   const titleWraps = Platform.OS !== 'web';
+  /**
+   * Subtasks do wrap on the web, so they stay textareas — but a textarea opens
+   * two rows tall and stays that height, which left a one-line subtask sitting
+   * in a box built for a paragraph and clipped anything past two lines. Start
+   * it at a single row and hand the sizing to the browser, which grows and
+   * shrinks the box with the text. `rows` is web-only here: on Android the same
+   * prop caps a multiline field instead of seeding it.
+   */
+  const subtaskGrowProps = Platform.OS === 'web' ? ({ rows: 1 } as const) : null;
+  /**
+   * `submitBehavior` is what native reads to keep a field focused through
+   * Return; the web still reads the older `blurOnSubmit`, and without it the
+   * add-subtask row blurs itself just after submitting, so the second subtask
+   * in a row could not be typed. Native is left on `submitBehavior` alone,
+   * which warns if the two are passed together.
+   */
+  const keepFocusOnSubmitProps = Platform.OS === 'web' ? ({ blurOnSubmit: false } as const) : null;
   /**
    * Pane only, and deliberately just one field's worth.
    *
@@ -552,6 +572,7 @@ export default function TaskDetailView({ taskId, onClose, variant, active = true
                   onChangeText={(title) => setSubtaskDraft(st.id, title)}
                   multiline
                   scrollEnabled={false}
+                  {...subtaskGrowProps}
                   returnKeyType="done"
                   submitBehavior="blurAndSubmit"
                   style={[
@@ -602,6 +623,7 @@ export default function TaskDetailView({ taskId, onClose, variant, active = true
                 {...accessoryProps}
                 onSubmitEditing={submitNewSubtask}
                 submitBehavior="submit"
+                {...keepFocusOnSubmitProps}
                 returnKeyType="next"
               />
             </View>
@@ -909,6 +931,12 @@ const useStyles = makeStyles((c) => ({
     minWidth: 0,
     lineHeight: 20,
     paddingVertical: 2,
+    // Web only, and the other half of the `rows={1}` above: without it the
+    // textarea would hold that one row and clip a title that wrapped.
+    // Spread as a plain object rather than suppressed line by line: a
+    // `@ts-expect-error` inside the builder stops `makeStyles` inferring the
+    // sheet's shape at all, and every style name goes missing.
+    ...({ fieldSizing: 'content' } as object),
   },
   subtaskActions: {
     flexDirection: 'row',
