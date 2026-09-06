@@ -15,6 +15,11 @@ interface Props {
   compact?: boolean;
 }
 
+const SYNC_PULSE_LOW_OPACITY = 0.35;
+const SYNC_PULSE_DOWN_MS = 260;
+const SYNC_PULSE_HOLD_MS = 120;
+const SYNC_PULSE_UP_MS = 520;
+
 /**
  * The dot's colour carries the state; the label says what to do about it.
  *
@@ -33,7 +38,7 @@ function describe(mode: AppMode, status: SyncStatus, serverUrl: string, now: Dat
   // Labels stay short: the sidebar is narrow, and a truncated message helps nobody.
   switch (status.state) {
     case 'syncing':
-      return { color: colors.textTertiary, label: 'Syncing…' };
+      return { color: colors.success, label: host || 'Connected' };
     case 'pending':
       return { color: colors.priorityMedium, label: `${status.pending} pending` };
     case 'offline':
@@ -65,26 +70,76 @@ export default function SyncIndicator({ mode, status, serverUrl, compact }: Prop
   // A slow pulse while syncing, so the indicator reads as live without being a
   // spinner competing for attention.
   const pulse = useRef(new Animated.Value(1)).current;
+  const pulseRunning = useRef(false);
+  const keepPulsing = useRef(false);
+  const mounted = useRef(true);
   const active = mode === 'server' && status.state === 'syncing';
+  const scale = pulse.interpolate({
+    inputRange: [SYNC_PULSE_LOW_OPACITY, 1],
+    outputRange: [1.18, 1],
+  });
 
   useEffect(() => {
     if (!active) {
-      pulse.setValue(1);
+      keepPulsing.current = false;
       return;
     }
-    const loop = Animated.loop(
+
+    keepPulsing.current = true;
+    if (pulseRunning.current) return;
+
+    pulseRunning.current = true;
+    const runPulse = () => {
       Animated.sequence([
-        Animated.timing(pulse, { toValue: 0.3, duration: 600, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
-        Animated.timing(pulse, { toValue: 1, duration: 600, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
-      ])
-    );
-    loop.start();
-    return () => loop.stop();
+        Animated.timing(pulse, {
+          toValue: SYNC_PULSE_LOW_OPACITY,
+          duration: SYNC_PULSE_DOWN_MS,
+          easing: Easing.out(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.delay(SYNC_PULSE_HOLD_MS),
+        Animated.timing(pulse, {
+          toValue: 1,
+          duration: SYNC_PULSE_UP_MS,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ]).start(({ finished }) => {
+        if (!finished || !mounted.current) {
+          pulseRunning.current = false;
+          return;
+        }
+        if (keepPulsing.current) {
+          runPulse();
+          return;
+        }
+        pulseRunning.current = false;
+      });
+    };
+
+    runPulse();
   }, [active, pulse]);
+
+  useEffect(() => {
+    return () => {
+      mounted.current = false;
+      keepPulsing.current = false;
+      pulse.stopAnimation();
+    }
+  }, [pulse]);
 
   return (
     <>
-      <Animated.View style={[styles.dot, { backgroundColor: color, opacity: pulse }]} />
+      <Animated.View
+        style={[
+          styles.dot,
+          {
+            backgroundColor: color,
+            opacity: pulse,
+            transform: [{ scale }],
+          },
+        ]}
+      />
       {!compact && (
         <Text style={styles.label} numberOfLines={1}>
           {label}
