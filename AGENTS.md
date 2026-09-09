@@ -60,3 +60,45 @@ lands a render later.
 
 Local and sample mode have no backend to negotiate with and are treated as fully
 capable.
+
+## Notification actions
+
+A reminder notification carries **Mark done** and **Snooze**, and both have to work
+with the app killed — that is the only state a lock-screen button is interesting in.
+Neither platform lets JavaScript be the thing that answers.
+
+- **iOS** catches the tap in `mobile/modules/notification-actions`, a local Expo
+  module whose handler registers during `didFinishLaunchingWithOptions`. Expo's own
+  response listeners come up with the JS bundle, which is too late: the process can
+  be suspended again before React Native finishes booting, and the tap is gone.
+- **Android** uses a headless task (`registerTaskAsync`), the one platform where
+  expo documents an action tap reaching JS from a terminated app.
+
+Both write the action to a durable queue — UserDefaults on iOS, AsyncStorage on
+Android — *before* attempting anything else, and the app folds the queue into state
+on its next run. The queue is what makes the tap survivable; the network call is
+best-effort by nature, because a phone out of signal cannot reach a server.
+
+### Why completion has its own endpoint
+
+`POST /api/v1/tasks/:id/complete` exists for these handlers alone, and is a
+deliberate exception to "backend features are negotiated through `SERVER_FEATURES`".
+
+`POST /sync` upserts **whole rows**. Using it from a notification handler would mean
+holding the complete task — which native code cannot read out of AsyncStorage
+cleanly — and reimplementing `pushDirty`'s feature negotiation in a second language,
+where a wrongly stripped field silently destroys stored data. That is precisely the
+failure the negotiation protocol exists to prevent, so the answer is not to
+reimplement it more carefully but to use a call that cannot commit it: a task id and
+a timestamp, touching one column.
+
+That is also why the endpoint carries no feature id. There is nothing to negotiate —
+an older server 404s, the handler leaves the entry queued, and the app syncs it
+through the normal outbox on next launch, which is where it was headed anyway. Add a
+feature id only if some future action *does* need to write whole rows.
+
+Snoozes never reach the server at all. A snooze says "not on this screen, not yet",
+which is a fact about one phone's notifications rather than about the task, so it
+lives in device-local storage and is rebuilt into scheduled notifications by the same
+reconciler that owns reminders — one authority over both prefixes, because two would
+each cancel the other's work.
