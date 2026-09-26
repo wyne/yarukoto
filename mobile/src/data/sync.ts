@@ -139,9 +139,39 @@ export async function pullSince(api: Api, since: string | undefined): Promise<Sy
 export function mergeBatch<T extends { id: string }>(local: T[], incoming: T[], dirtyIds: Set<string>): T[] {
   if (incoming.length === 0) return local;
   const byId = new Map(local.map((r) => [r.id, r]));
+  let changed = false;
   for (const row of incoming) {
     if (dirtyIds.has(row.id)) continue;
+    // Most of what comes back is the server echoing an edit this client just
+    // pushed. Keeping the local object for an identical row means the edit
+    // changes state once rather than again on the push result and the next
+    // pull — each of which re-rendered every row showing it.
+    const current = byId.get(row.id);
+    if (current !== undefined && sameValue(current, row)) continue;
     byId.set(row.id, row);
+    changed = true;
   }
-  return Array.from(byId.values());
+  return changed ? Array.from(byId.values()) : local;
+}
+
+/**
+ * Structural equality for JSON-shaped records. Key order is ignored, since the
+ * server's serialisation need not match the order the client built a row in.
+ * Absent and `undefined` are treated alike, as they are once a row is JSON.
+ */
+function sameValue(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  if (typeof a !== 'object' || typeof b !== 'object' || a === null || b === null) return false;
+  if (Array.isArray(a) !== Array.isArray(b)) return false;
+  if (Array.isArray(a)) {
+    const other = b as unknown[];
+    return a.length === other.length && a.every((v, i) => sameValue(v, other[i]));
+  }
+  const ao = a as Record<string, unknown>;
+  const bo = b as Record<string, unknown>;
+  const keys = new Set([...Object.keys(ao), ...Object.keys(bo)]);
+  for (const key of keys) {
+    if (!sameValue(ao[key], bo[key])) return false;
+  }
+  return true;
 }

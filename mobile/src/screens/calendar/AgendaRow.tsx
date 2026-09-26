@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Text, View } from 'react-native';
 import { makeStyles } from '../../theme/styles';
 import { fonts } from '../../theme/typography';
@@ -42,6 +42,11 @@ export default function AgendaRow({ task, now, onPress, draggable }: Props) {
   const showContext = useRowContext(TIME_COL_WIDTH + TIME_COL_GAP);
   const { onLongPress, ...handlers } = useDraggable({ taskId: task.id, title: task.title });
   const isSource = useDragSource(task.id);
+  // Memoised so a fresh element each render doesn't defeat TaskRow's memo.
+  const leading = useMemo(
+    () => <Text style={styles.time}>{task.dueTime ? formatTime24to12(task.dueTime) : 'All day'}</Text>,
+    [styles.time, task.dueTime]
+  );
 
   const row = (
     <TaskRow
@@ -56,9 +61,7 @@ export default function AgendaRow({ task, now, onPress, draggable }: Props) {
       showHandle={draggable && FINE_POINTER}
       dragSource={isSource}
       active={openTaskId === task.id}
-      leading={
-        <Text style={styles.time}>{task.dueTime ? formatTime24to12(task.dueTime) : 'All day'}</Text>
-      }
+      leading={leading}
       onPress={onPress}
       onLongPress={onLongPress}
       onToggleComplete={() => toggleComplete(task.id)}
