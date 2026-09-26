@@ -44,7 +44,7 @@ interface Props {
  * to the sheet that already owns it, and the destructive item sits alone at the
  * bottom behind its own divider.
  *
- * Rendered as a Popover on every platform, not through BottomSheet. A compact
+ * Rendered as a Popover on every platform, not through Sheet. A compact
  * panel at the point you pressed is the right shape on a phone too — it is what
  * this gesture means everywhere else — and a bottom sheet cannot serve the nav
  * at all: the drawer is a Modal, and a sheet portals to a provider outside it,

@@ -107,7 +107,9 @@ const useStyles = makeStyles((c) => ({
     zIndex: 1,
   },
   headerSideEnd: {
-    left: undefined,
+    // 'auto', not undefined: the web drops an undefined override, leaving this
+    // side stretched across the whole row on top of the cancel button.
+    left: 'auto',
     right: 0,
     alignItems: 'flex-end',
   },

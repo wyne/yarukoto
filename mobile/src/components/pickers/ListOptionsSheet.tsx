@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useColors } from '../../theme/ThemeContext';
 import { Pressable, Text, View } from 'react-native';
-import BottomSheet from '../BottomSheet';
+import Sheet from '../Sheet';
 import NativeOwnedTextInput from '../NativeOwnedTextInput';
 import { LIST_COLORS } from '../../theme/colors';
 import { makeStyles } from '../../theme/styles';
@@ -28,7 +28,7 @@ export default function ListOptionsSheet({ list, onClose }: Props) {
     if (list) setName(list.name);
   }, [list]);
 
-  if (!list) return <BottomSheet visible={false} onClose={onClose} title="List" children={null} />;
+  if (!list) return <Sheet visible={false} onClose={onClose} title="List" children={null} />;
 
   const taskCount = state.tasks.filter((t) => t.listId === list.id && !t.deletedAt).length;
   const trimmed = name.trim();
@@ -53,7 +53,7 @@ export default function ListOptionsSheet({ list, onClose }: Props) {
   };
 
   return (
-    <BottomSheet visible onClose={onClose} title={`Edit ${list.name}`} keyboard>
+    <Sheet visible onClose={onClose} title={`Edit ${list.name}`} keyboard>
       <Text style={styles.label}>Name</Text>
       <NativeOwnedTextInput
         sheet
@@ -95,7 +95,7 @@ export default function ListOptionsSheet({ list, onClose }: Props) {
       <Pressable style={styles.deleteBtn} onPress={confirmDelete}>
         <Text style={styles.deleteText}>Delete list</Text>
       </Pressable>
-    </BottomSheet>
+    </Sheet>
   );
 }
 

@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useColors } from '../../theme/ThemeContext';
 import { Pressable, Text, TextInput, View } from 'react-native';
-import NativeSheet from '../NativeSheet';
+import Sheet from '../Sheet';
 import NativeOwnedTextInput from '../NativeOwnedTextInput';
 import { makeStyles } from '../../theme/styles';
 import { fonts } from '../../theme/typography';
@@ -38,7 +38,7 @@ export default function NewListSheet({ visible, folder, onClose }: Props) {
   };
 
   return (
-    <NativeSheet
+    <Sheet
       visible={visible}
       onClose={onClose}
       title={folder ? `New list in ${folder.name}` : 'New list'}
@@ -61,7 +61,7 @@ export default function NewListSheet({ visible, folder, onClose }: Props) {
       <Pressable style={[styles.createBtn, !name.trim() && styles.createBtnDisabled]} onPress={create} disabled={!name.trim()}>
         <Text style={styles.createText}>Create</Text>
       </Pressable>
-    </NativeSheet>
+    </Sheet>
   );
 }
 

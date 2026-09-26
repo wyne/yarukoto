@@ -1,129 +1,43 @@
-import React, { useEffect, useState } from 'react';
-import { Platform, Pressable, Text, View } from 'react-native';
-import DateTimePicker from '@expo/ui/community/datetime-picker';
+import React, { useEffect } from 'react';
+import { View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { makeStyles } from '../theme/styles';
-import { fonts } from '../theme/typography';
-import { useAccent, useScheme } from '../theme/ThemeContext';
-import { fromISODate, toISODate } from '../data/dateUtils';
-import SheetHeader from '../components/SheetHeader';
 import { useSheetBottomPadding } from '../components/useSheetInsets';
-import DueDateTimeControls from '../components/pickers/DueDateTimeControls';
+import DateTimePickerPanel from '../components/pickers/DateTimePickerPanel';
 import { useDateTimePickerRequest } from '../navigation/DateTimePickerContext';
-import { MAC } from '../data/platform';
-import MacTimeMenus from '../components/pickers/MacTimeMenus';
 import type { RootStackParamList } from '../navigation/types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'DateTimePicker'>;
 
-function valueForPicker(date?: string, time?: string): Date {
-  const value = date ? fromISODate(date) : new Date();
-  const [hours, minutes] = (time ?? '09:00').split(':').map(Number);
-  value.setHours(hours, minutes, 0, 0);
-  return value;
-}
-
-function timeFromPicker(value: Date): string {
-  return `${String(value.getHours()).padStart(2, '0')}:${String(value.getMinutes()).padStart(2, '0')}`;
-}
-
+/**
+ * The custom date or time picker as a phone form sheet. The desktop shows the
+ * same panel as a popover instead; see `DateTimePickerProvider`.
+ */
 export default function NativeDateTimePickerScreen({ navigation, route }: Props) {
   const styles = useStyles();
-  const accent = useAccent();
-  const scheme = useScheme();
   const insets = useSafeAreaInsets();
   const bottomPadding = useSheetBottomPadding();
   const { active, complete, cancel } = useDateTimePickerRequest();
   const request = active?.id === route.params.requestId ? active : null;
-  const [draftDate, setDraftDate] = useState(() =>
-    request ? request.date ?? toISODate(new Date()) : undefined
-  );
-  const [draftTime, setDraftTime] = useState(() =>
-    request?.mode === 'time' ? request.time ?? '09:00' : request?.time
-  );
-
-  useEffect(() => {
-    if (!request) return;
-    setDraftDate(request.date ?? toISODate(new Date()));
-    setDraftTime(request.mode === 'time' ? request.time ?? '09:00' : request.time);
-  }, [request]);
 
   useEffect(() => () => cancel(), [cancel]);
 
   if (!request) return <View style={styles.screen} />;
 
-  const close = () => {
-    cancel();
-    navigation.goBack();
-  };
-  const apply = () => {
-    complete(draftDate, draftDate ? draftTime : undefined);
-    navigation.goBack();
-  };
-
   return (
     <View style={[styles.screen, { paddingTop: Math.max(8, insets.top), paddingBottom: bottomPadding }]}>
-      <SheetHeader
-        title={request.mode === 'date' ? 'Pick date' : 'Pick time'}
-        onCancel={close}
-        onConfirm={apply}
+      <DateTimePickerPanel
+        request={request}
+        onCancel={() => {
+          cancel();
+          navigation.goBack();
+        }}
+        onApply={(date, time) => {
+          complete(date, time);
+          navigation.goBack();
+        }}
       />
-
-      {MAC && request.mode === 'time' ? (
-        // The Mac has no wheels: UIKit throws the moment one reaches a window
-        // there, and the compact field that stands in for one takes no input.
-        <View style={styles.macTime}>
-          <MacTimeMenus
-            value={draftTime ?? '09:00'}
-            onChange={(next) => {
-              setDraftDate((current) => current ?? toISODate(new Date()));
-              setDraftTime(next);
-            }}
-          />
-        </View>
-      ) : Platform.OS === 'ios' ? (
-        <DateTimePicker
-          value={valueForPicker(draftDate, draftTime)}
-          mode={request.mode}
-          display={request.mode === 'date' ? 'inline' : 'spinner'}
-          accentColor={accent}
-          themeVariant={scheme}
-          onValueChange={(_, selected) => {
-            if (request.mode === 'date') setDraftDate(toISODate(selected));
-            else {
-              setDraftDate((current) => current ?? toISODate(new Date()));
-              setDraftTime(timeFromPicker(selected));
-            }
-          }}
-          style={request.mode === 'date' ? styles.datePicker : styles.timePicker}
-        />
-      ) : (
-        <DueDateTimeControls
-          date={draftDate}
-          time={draftTime}
-          initialMode={request.mode}
-          allowModeSwitch={false}
-          onChange={(nextDate, nextTime) => {
-            setDraftDate(nextDate);
-            setDraftTime(nextTime);
-          }}
-          clearDateLabel={request.clearDateLabel}
-        />
-      )}
-
-      {request.mode === 'time' && !!draftTime && (
-        <Pressable
-          accessibilityRole="button"
-          style={styles.clearButton}
-          onPress={() => {
-            complete(draftDate, undefined);
-            navigation.goBack();
-          }}
-        >
-          <Text style={styles.clearText}>Clear time</Text>
-        </Pressable>
-      )}
     </View>
   );
 }
@@ -133,27 +47,5 @@ const useStyles = makeStyles((c) => ({
     flex: 1,
     paddingHorizontal: 16,
     backgroundColor: c.surface,
-  },
-  datePicker: {
-    width: '100%',
-    height: 390,
-  },
-  timePicker: {
-    width: '100%',
-    height: 240,
-    marginTop: 20,
-  },
-  macTime: {
-    marginTop: 24,
-  },
-  clearButton: {
-    alignSelf: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-  },
-  clearText: {
-    fontFamily: fonts.sansMedium,
-    fontSize: 16,
-    color: c.priorityHigh,
   },
 }));

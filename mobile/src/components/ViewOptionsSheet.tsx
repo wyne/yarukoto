@@ -1,12 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Text, View, useWindowDimensions } from 'react-native';
+import { Text, View } from 'react-native';
 import Pressable from './HoverPressable';
 import { makeStyles } from '../theme/styles';
 import { useHoverBg } from '../theme/hover';
 import { fonts } from '../theme/typography';
 import { useAccent } from '../theme/ThemeContext';
-import BottomSheet from './BottomSheet';
-import Popover, { POPOVER_MIN_WIDTH, PopoverAnchor } from './Popover';
+import Sheet, { useDesktopPresentation } from './Sheet';
+import Popover, { PopoverAnchor } from './Popover';
 import { DESKTOP_UI } from '../data/platform';
 import {
   GROUP_BY_OPTIONS,
@@ -25,7 +25,7 @@ interface Props {
   onChange: (next: ViewOptions) => void;
   /** Drops the current sort's hand-made arrangement, keeping the sort itself. */
   onRestore: () => void;
-  /** Where the header button sits, so the web popover can tether to it. */
+  /** Where the header button sits, so the desktop popover can tether to it. */
   anchor?: PopoverAnchor | null;
 }
 
@@ -33,7 +33,7 @@ export default function ViewOptionsSheet({ visible, onClose, value, onChange, on
   const hoverBg = useHoverBg();
   const styles = useStyles();
   const accent = useAccent();
-  const { width } = useWindowDimensions();
+  const desktop = useDesktopPresentation();
   const [draft, setDraft] = useState(value);
   const wasVisible = useRef(false);
   const pendingApply = useRef<ViewOptions | null>(null);
@@ -109,8 +109,9 @@ export default function ViewOptionsSheet({ visible, onClose, value, onChange, on
   // the top corner. With a pointer that reads as a detour, so a roomy web window
   // gets a panel tethered to the button instead — and clicking away is the only
   // exit it needs, which retires the Done button with it. A narrow browser keeps
-  // the sheet, which is the better shape on a phone.
-  if (DESKTOP_UI && width >= POPOVER_MIN_WIDTH) {
+  // the sheet, which is the better shape on a phone. Drawn here rather than by
+  // Sheet's own popover because it has no title row to spend room on.
+  if (desktop) {
     return (
       <Popover visible={visible} onClose={onClose} anchor={anchor ?? null}>
         {body}
@@ -119,7 +120,7 @@ export default function ViewOptionsSheet({ visible, onClose, value, onChange, on
   }
 
   return (
-    <BottomSheet
+    <Sheet
       visible={visible}
       onClose={onClose}
       onDismissed={
@@ -143,7 +144,7 @@ export default function ViewOptionsSheet({ visible, onClose, value, onChange, on
       >
         <Text style={styles.doneBtnText}>Done</Text>
       </Pressable>
-    </BottomSheet>
+    </Sheet>
   );
 }
 

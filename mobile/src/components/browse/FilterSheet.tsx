@@ -8,7 +8,7 @@ import { useAccent } from '../../theme/ThemeContext';
 import { useTasks } from '../../data/TaskContext';
 import { navGroups, tagCounts } from '../../data/selectors';
 import { INBOX_LIST_ID, TaskCriteria } from '../../data/taskFilter';
-import BottomSheet from '../BottomSheet';
+import Sheet from '../Sheet';
 import type { PopoverAnchor } from '../Popover';
 import { IconCheckBig } from '../../icons/Icons';
 import { SORT_BY_OPTIONS, SortBy } from '../../data/viewOptions';
@@ -62,7 +62,7 @@ export default function FilterSheet({
   return (
     // `visible={false}` rather than rendering nothing, so the sheet animates out
     // instead of vanishing. Same idiom as ListOptionsSheet.
-    <BottomSheet
+    <Sheet
       visible={kind !== null}
       onClose={onClose}
       title={kind ? TITLES[kind] : ''}
@@ -111,7 +111,7 @@ export default function FilterSheet({
             />
           ))}
       </ScrollView>
-    </BottomSheet>
+    </Sheet>
   );
 }
 

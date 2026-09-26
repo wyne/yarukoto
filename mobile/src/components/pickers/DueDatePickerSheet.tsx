@@ -1,14 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import BottomSheet from '../BottomSheet';
+import Sheet from '../Sheet';
 import type { PopoverAnchor } from '../Popover';
 import DueDateTimeControls from './DueDateTimeControls';
 
 interface Props {
   visible: boolean;
   onClose: () => void;
-  /** Forwarded to BottomSheet: a point makes this a popover on wide web. */
+  /** Forwarded to Sheet: a point makes this a popover on the desktop. */
   anchor?: PopoverAnchor | null;
-  /** Forwarded to BottomSheet: returns to the menu that opened this. */
+  /** Forwarded to Sheet: returns to the menu that opened this. */
   onBack?: () => void;
   initialDate?: string;
   initialTime?: string;
@@ -32,7 +32,7 @@ export default function DueDatePickerSheet({ visible, onClose, initialDate, init
   };
 
   return (
-    <BottomSheet
+    <Sheet
       visible={visible}
       onClose={onClose}
       title="Due date"
@@ -46,6 +46,6 @@ export default function DueDatePickerSheet({ visible, onClose, initialDate, init
         setDate(nextDate);
         setTime(nextTime);
       }} />
-    </BottomSheet>
+    </Sheet>
   );
 }
