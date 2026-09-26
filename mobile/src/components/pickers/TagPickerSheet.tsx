@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Text, View } from 'react-native';
 import Pressable from '../HoverPressable';
-import BottomSheet from '../BottomSheet';
+import Sheet from '../Sheet';
 import type { PopoverAnchor } from '../Popover';
 import { makeStyles } from '../../theme/styles';
 import { useHoverBg } from '../../theme/hover';
@@ -14,9 +14,9 @@ import { tagCounts } from '../../data/selectors';
 interface Props {
   visible: boolean;
   onClose: () => void;
-  /** Forwarded to BottomSheet: a point makes this a popover on wide web. */
+  /** Forwarded to Sheet: a point makes this a popover on the desktop. */
   anchor?: PopoverAnchor | null;
-  /** Forwarded to BottomSheet: returns to the menu that opened this. */
+  /** Forwarded to Sheet: returns to the menu that opened this. */
   onBack?: () => void;
   initialTags: string[];
   onApply: (tags: string[]) => void;
@@ -54,7 +54,7 @@ export default function TagPickerSheet({ visible, onClose, initialTags, onApply,
   };
 
   return (
-    <BottomSheet
+    <Sheet
       visible={visible}
       onClose={onClose}
       title="Tags"
@@ -96,7 +96,7 @@ export default function TagPickerSheet({ visible, onClose, initialTags, onApply,
           <Text style={{ color: accent, fontFamily: fonts.sansMedium, fontSize: 14 }}>Add</Text>
         </Pressable>
       </View>
-    </BottomSheet>
+    </Sheet>
   );
 }
 

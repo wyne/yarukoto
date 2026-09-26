@@ -2,7 +2,7 @@ import React from 'react';
 import { useColors } from '../../theme/ThemeContext';
 import { Text, View } from 'react-native';
 import Pressable from '../HoverPressable';
-import BottomSheet from '../BottomSheet';
+import Sheet from '../Sheet';
 import type { PopoverAnchor } from '../Popover';
 import { priorityColor } from '../../theme/colors';
 import { makeStyles } from '../../theme/styles';
@@ -13,7 +13,7 @@ import { Priority } from '../../data/types';
 interface Props {
   visible: boolean;
   onClose: () => void;
-  /** Forwarded to BottomSheet: a point makes this a popover on wide web. */
+  /** Forwarded to Sheet: a point makes this a popover on the desktop. */
   anchor?: PopoverAnchor | null;
   onApply: (priority: Priority) => void;
 }
@@ -35,7 +35,7 @@ export default function PriorityPickerSheet({ visible, onClose, anchor, onApply 
   };
 
   return (
-    <BottomSheet visible={visible} onClose={onClose} title="Priority" anchor={anchor} popoverWidth={240}>
+    <Sheet visible={visible} onClose={onClose} title="Priority" anchor={anchor} popoverWidth={240}>
       {OPTIONS.map((o) => (
         <Pressable key={o.value} style={hoverBg(styles.row)} onPress={() => choose(o.value)}>
           <View
@@ -47,7 +47,7 @@ export default function PriorityPickerSheet({ visible, onClose, anchor, onApply 
           <Text style={styles.rowText}>{o.label}</Text>
         </Pressable>
       ))}
-    </BottomSheet>
+    </Sheet>
   );
 }
 

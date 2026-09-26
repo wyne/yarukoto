@@ -39,6 +39,7 @@ import DueTimeQuickMenu from './pickers/DueTimeQuickMenu';
 import ReminderQuickMenu from './pickers/ReminderQuickMenu';
 import ListPickerSheet from './pickers/ListPickerSheet';
 import TagPickerSheet from './pickers/TagPickerSheet';
+import { measureAnchor, PopoverAnchor } from './Popover';
 import { useNativeDateTimePicker } from '../navigation/DateTimePickerContext';
 import { useTaskTextDraft } from './useTaskTextDraft';
 import { useSheetBottomPadding } from './useSheetInsets';
@@ -103,6 +104,7 @@ export default function TaskDetailView({ taskId, onClose, variant, active = true
     variant === 'sheet' ? (BottomSheetScrollView as React.ComponentType<ScrollViewProps>) : ScrollView;
 
   const [picker, setPicker] = useState<'list' | 'tags' | null>(null);
+  const [pickerAnchor, setPickerAnchor] = useState<PopoverAnchor | null>(null);
   const [addingSubtask, setAddingSubtask] = useState(false);
   const [newSubtask, setNewSubtask] = useState('');
   const [focusedSubtaskId, setFocusedSubtaskId] = useState<string | null>(null);
@@ -110,30 +112,44 @@ export default function TaskDetailView({ taskId, onClose, variant, active = true
   const subtaskDraftsRef = useRef<Record<string, string>>({});
 
   // Pushed, not switched: these sit over the detail sheet rather than replacing it.
-  const openPicker = (which: 'list' | 'tags') => {
+  // Measured from the pressed row so the desktop can tether the picker to it.
+  const openPicker = (which: 'list' | 'tags') => (e: { currentTarget: unknown }) => {
     Keyboard.dismiss();
-    setPicker(which);
+    measureAnchor(e, (at) => {
+      setPickerAnchor(at);
+      setPicker(which);
+    });
   };
   const closePicker = () => setPicker(null);
+  // The date and time rows, measured so the desktop can open the custom
+  // picker beside the row it was chosen from.
+  const dateRowRef = useRef<View>(null);
+  const timeRowRef = useRef<View>(null);
+  const measureRow = (row: React.RefObject<View | null>, then: (anchor: PopoverAnchor | null) => void) => {
+    if (row.current) row.current.measureInWindow((x, y, width, height) => then({ x, y, width, height }));
+    else then(null);
+  };
   const openDatePicker = () => {
     if (!task) return;
     Keyboard.dismiss();
-    presentDateTimePicker({
+    measureRow(dateRowRef, (anchor) => presentDateTimePicker({
+      anchor,
       mode: 'date',
       date: task.dueDate,
       time: task.dueTime,
       clearDateLabel: (task.reminders?.length ?? 0) > 0 ? 'Clear date and reminders' : undefined,
       onChange: (dueDate, dueTime) => updateTask(task.id, { dueDate, dueTime }),
-    });
+    }));
   };
   const openTimePicker = () => {
     if (!task) return;
-    presentDateTimePicker({
+    measureRow(timeRowRef, (anchor) => presentDateTimePicker({
+      anchor,
       mode: 'time',
       date: task.dueDate,
       time: task.dueTime,
       onChange: (dueDate, dueTime) => updateTask(task.id, { dueDate, dueTime }),
-    });
+    }));
   };
 
   const notesRef = useRef<TextInput>(null);
@@ -306,7 +322,7 @@ export default function TaskDetailView({ taskId, onClose, variant, active = true
         </View>
         <Pressable
           style={hoverBg(styles.listCrumb)}
-          onPress={() => openPicker('list')}
+          onPress={openPicker('list')}
           accessibilityRole="button"
           accessibilityLabel={`List, ${listLabel}. Move this task`}
         >
@@ -369,7 +385,7 @@ export default function TaskDetailView({ taskId, onClose, variant, active = true
         </Card>
 
         <Card style={{ marginTop: 12 }}>
-          <View style={styles.metaRow}>
+          <View ref={dateRowRef} collapsable={false} style={styles.metaRow}>
             <IconCalendarBox size={18} color={colors.textSecondary} />
             <Text style={styles.metaLabelFixed}>Date</Text>
             <DueDateQuickMenu
@@ -395,7 +411,7 @@ export default function TaskDetailView({ taskId, onClose, variant, active = true
           {!!task.dueDate && (
             <>
               <Divider indent={44} />
-              <View style={styles.metaRow}>
+              <View ref={timeRowRef} collapsable={false} style={styles.metaRow}>
                 <IconClock size={18} color={colors.textSecondary} />
                 <Text style={styles.metaLabelFixed}>Time</Text>
                 <DueTimeQuickMenu
@@ -470,7 +486,7 @@ export default function TaskDetailView({ taskId, onClose, variant, active = true
             </>
           )}
           <Divider indent={44} />
-          <Pressable style={hoverBg(styles.metaRow)} onPress={() => openPicker('tags')}>
+          <Pressable style={hoverBg(styles.metaRow)} onPress={openPicker('tags')}>
             <IconTag size={18} color={colors.textSecondary} />
             <Text style={styles.metaLabelFixed}>Tags</Text>
             <View style={styles.tagsWrap}>
@@ -676,12 +692,14 @@ export default function TaskDetailView({ taskId, onClose, variant, active = true
       <ListPickerSheet
         visible={picker === 'list'}
         onClose={closePicker}
+        anchor={pickerAnchor}
         value={task.listId}
         onApply={(listId) => updateTask(task.id, { listId })}
       />
       <TagPickerSheet
         visible={picker === 'tags'}
         onClose={closePicker}
+        anchor={pickerAnchor}
         initialTags={task.tags}
         onApply={(tags) => updateTask(task.id, { tags })}
       />

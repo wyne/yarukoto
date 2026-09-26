@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useColors } from '../../theme/ThemeContext';
 import { Pressable, Text, TextInput } from 'react-native';
-import NativeSheet from '../NativeSheet';
+import Sheet from '../Sheet';
 import NativeOwnedTextInput from '../NativeOwnedTextInput';
 import { makeStyles } from '../../theme/styles';
 import { fonts } from '../../theme/typography';
@@ -31,7 +31,7 @@ export default function NewFolderSheet({ visible, onClose }: Props) {
   };
 
   return (
-    <NativeSheet
+    <Sheet
       visible={visible}
       onClose={onClose}
       title="New folder"
@@ -54,7 +54,7 @@ export default function NewFolderSheet({ visible, onClose }: Props) {
       <Pressable style={[styles.createBtn, !name.trim() && styles.createBtnDisabled]} onPress={create} disabled={!name.trim()}>
         <Text style={styles.createText}>Create</Text>
       </Pressable>
-    </NativeSheet>
+    </Sheet>
   );
 }
 

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
-import BottomSheet from '../BottomSheet';
+import Sheet from '../Sheet';
 import SyncIndicator from '../SyncIndicator';
 import { ACCENT_OPTIONS, SchemePref } from '../../theme/colors';
 import { makeStyles } from '../../theme/styles';
@@ -69,7 +69,7 @@ export default function ServerSheet({ visible, onClose }: Props) {
   const sample = state.mode === 'sample';
 
   return (
-    <BottomSheet visible={visible} onClose={onClose} title={sample ? 'Sample data' : 'Settings'}>
+    <Sheet visible={visible} onClose={onClose} title={sample ? 'Sample data' : 'Settings'}>
       {sample && (
         <Text style={styles.sampleNote}>
           You're exploring with sample data. Leaving it takes you back to the connect screen, where you can point
@@ -152,7 +152,7 @@ export default function ServerSheet({ visible, onClose }: Props) {
       >
         <Text style={styles.disconnectText}>{sample ? 'Leave sample data' : 'Disconnect'}</Text>
       </Pressable>
-    </BottomSheet>
+    </Sheet>
   );
 }
 

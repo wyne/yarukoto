@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { Keyboard, Platform, Pressable, StyleProp, Text, View, ViewStyle } from 'react-native';
 import MenuView, { type MenuAction, type NativeActionEvent } from '../NativeMenu';
 import DateTimePicker from '@expo/ui/community/datetime-picker';
@@ -23,7 +23,8 @@ import {
 } from '../../data/reminders';
 import type { TaskReminder } from '../../data/types';
 import { useNativeDateTimePicker } from '../../navigation/DateTimePickerContext';
-import NativeSheet from '../NativeSheet';
+import Sheet from '../Sheet';
+import { measureAnchor, type PopoverAnchor } from '../Popover';
 import { MAC } from '../../data/platform';
 import MacTimeMenus from './MacTimeMenus';
 
@@ -98,6 +99,9 @@ export default function ReminderQuickMenu({ reminders: rawReminders, dueTime, on
   const presetKeys = useMemo(() => new Set(presets.map(reminderKey)), [presets]);
   const customReminders = reminders.filter((reminder) => !presetKeys.has(reminderKey(reminder)));
   const [customOpen, setCustomOpen] = useState(false);
+  // Where the trigger sits, so the desktop can open the custom panel beside it.
+  const triggerRef = useRef<View>(null);
+  const [customAnchor, setCustomAnchor] = useState<PopoverAnchor | null>(null);
   // Both are only ever written from a wheel rung, so neither can hold a value
   // the model would reject — there is no invalid state for the sheet to guard
   // against or explain.
@@ -132,19 +136,28 @@ export default function ReminderQuickMenu({ reminders: rawReminders, dueTime, on
   const openCustom = () => {
     Keyboard.dismiss();
     setOffsetUnit(reminderOffsetUnit(customOffset));
-    setCustomOpen(true);
+    const trigger = triggerRef.current;
+    if (!trigger) {
+      setCustomOpen(true);
+      return;
+    }
+    trigger.measureInWindow((x, y, width, height) => {
+      setCustomAnchor({ x, y, width, height });
+      setCustomOpen(true);
+    });
   };
 
-  const pickTime = () => {
+  const pickTime = (e: { currentTarget: unknown }) => {
     Keyboard.dismiss();
-    presentDateTimePicker({
+    measureAnchor(e, (anchor) => presentDateTimePicker({
+      anchor,
       mode: 'time',
       date: toISODate(new Date()),
       time: customTime,
       onChange: (_, time) => {
         if (time) setCustomTime(time);
       },
-    });
+    }));
   };
 
   const addCustom = () => {
@@ -220,11 +233,19 @@ export default function ReminderQuickMenu({ reminders: rawReminders, dueTime, on
 
   return (
     <>
-      {trigger}
-      <NativeSheet
+      {/*
+        Measured for the anchor. It takes the caller's layout too, as a row so
+        the trigger inside keeps sizing along the same axis it did without it.
+      */}
+      <View ref={triggerRef} collapsable={false} style={[style, styles.triggerFrame]}>
+        {trigger}
+      </View>
+      <Sheet
         visible={customOpen}
         onClose={() => setCustomOpen(false)}
         title="Custom reminder"
+        anchor={customAnchor}
+        popoverWidth={320}
         stackBehavior="push"
         onCancel={() => setCustomOpen(false)}
         onConfirm={addCustom}
@@ -336,12 +357,15 @@ export default function ReminderQuickMenu({ reminders: rawReminders, dueTime, on
               this is the only thing that explains a greyed-out Add. */}
           {customExists && <Text style={styles.hint}>That reminder is already set.</Text>}
         </View>
-      </NativeSheet>
+      </Sheet>
     </>
   );
 }
 
 const useStyles = makeStyles((c) => ({
+  triggerFrame: {
+    flexDirection: 'row',
+  },
   sheetBody: {
     gap: 14,
     paddingTop: 4,

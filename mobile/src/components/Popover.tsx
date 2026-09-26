@@ -1,6 +1,7 @@
-import React, { useEffect } from 'react';
-import { Modal, Platform, Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
+import React from 'react';
+import { Modal, Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
 import ThemedGlassView from './ThemedGlassView';
+import EscapeToClose from './EscapeToClose';
 import { LIQUID_GLASS } from '../data/platform';
 import { makeStyles } from '../theme/styles';
 
@@ -10,6 +11,21 @@ export interface PopoverAnchor {
   y: number;
   width: number;
   height: number;
+}
+
+/**
+ * Measures the control a press landed on, for a popover to tether to. Hands back
+ * null where the target can't be measured, which callers treat as "no anchor".
+ */
+export function measureAnchor(e: { currentTarget: unknown }, then: (anchor: PopoverAnchor | null) => void) {
+  const node = e.currentTarget as {
+    measureInWindow?: (cb: (x: number, y: number, width: number, height: number) => void) => void;
+  } | null;
+  if (node?.measureInWindow) {
+    node.measureInWindow((x, y, width, height) => then({ x, y, width, height }));
+  } else {
+    then(null);
+  }
 }
 
 interface Props {
@@ -44,9 +60,10 @@ const MARGIN = 8;
 const EDGE = 12;
 
 /**
- * Below this the panel would cover most of the window, at which point a bottom
- * sheet is the better shape — a tethered panel only reads as one when there is
- * visibly a page behind it.
+ * Below this a browser window is probably a phone, where the panel would cover
+ * most of the screen and a bottom sheet is the better shape — a tethered panel
+ * only reads as one when there is visibly a page behind it. A narrow Mac window
+ * is still a desktop window, so the Mac ignores this; see `useDesktopPresentation`.
  */
 export const POPOVER_MIN_WIDTH = 600;
 
@@ -75,16 +92,6 @@ export default function Popover({
   // Narrow windows get whatever is available rather than an overflowing card.
   const width = Math.min(preferred, winWidth - EDGE * 2);
 
-  // Escape closes, as it would for any other dismissible layer on a desktop.
-  useEffect(() => {
-    if (Platform.OS !== 'web' || !visible) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [visible, onClose]);
-
   if (!anchor) return null;
 
   // Aligned to the requested edge, then pulled back inside the window if that
@@ -100,8 +107,9 @@ export default function Popover({
     flip ? { bottom: winHeight - anchor.y + MARGIN } : { top: below },
   ];
 
+  // Escape closes, as it would for any other dismissible layer on a desktop.
   const body = (
-    <>
+    <EscapeToClose active={visible} onEscape={onClose} inModal={!inline} style={StyleSheet.absoluteFill}>
       {/* Catches the click-away. Transparent, so the page stays readable behind
           it — a popover is a light touch, not a modal interruption. */}
       <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
@@ -122,7 +130,7 @@ export default function Popover({
       ) : (
         <View style={[styles.card, place]}>{children}</View>
       )}
-    </>
+    </EscapeToClose>
   );
 
   if (inline) return visible ? body : null;

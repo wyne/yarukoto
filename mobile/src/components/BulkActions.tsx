@@ -10,7 +10,7 @@ import { useTasks } from '../data/TaskContext';
 import { useSelection } from '../navigation/SelectionContext';
 import { addDays, toISODate } from '../data/dateUtils';
 import Tooltip from './Tooltip';
-import type { PopoverAnchor } from './Popover';
+import { measureAnchor, PopoverAnchor } from './Popover';
 import DueDatePickerSheet from './pickers/DueDatePickerSheet';
 import ListPickerSheet from './pickers/ListPickerSheet';
 import TagPickerSheet from './pickers/TagPickerSheet';
@@ -79,14 +79,8 @@ export default function BulkActions({ variant }: Props) {
     setPicker(which);
   };
 
-  const measureThen = (which: Picker) => (e: { currentTarget: unknown }) => {
-    const node = e.currentTarget as { measureInWindow?: (cb: (x: number, y: number, w: number, h: number) => void) => void };
-    if (node?.measureInWindow) {
-      node.measureInWindow((x, y, width, height) => openPicker(which, { x, y, width, height }));
-    } else {
-      openPicker(which);
-    }
-  };
+  const measureThen = (which: Picker) => (e: { currentTarget: unknown }) =>
+    measureAnchor(e, (at) => openPicker(which, at ?? undefined));
 
   const postpone = () => {
     // Same one-day nudge the row's own Later action gives, applied across the

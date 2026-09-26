@@ -1,12 +1,16 @@
 import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useRef } from 'react';
 import { Platform, TextInput, TextInputProps } from 'react-native';
-import { BottomSheetTextInput } from '@gorhom/bottom-sheet';
+import { BottomSheetTextInput, useBottomSheetInternal } from '@gorhom/bottom-sheet';
 import { useScheme } from '../theme/ThemeContext';
 
 interface Props extends Omit<TextInputProps, 'defaultValue' | 'onChangeText' | 'value'> {
   value: string;
   onChangeText: (value: string) => void;
-  /** Register the native field with Gorhom so its sheet follows the keyboard. */
+  /**
+   * Register the native field with Gorhom so its sheet follows the keyboard.
+   * Ignored when the field isn't actually in a sheet — the same picker renders
+   * as a popover or dialog on the desktop, and Gorhom's field throws outside one.
+   */
   sheet?: boolean;
   /** Re-check the native value when a persistent sheet starts a new session. */
   syncKey?: string | number | boolean | null;
@@ -45,7 +49,8 @@ const NativeOwnedTextInput = forwardRef<TextInput, Props>(function NativeOwnedTe
     nativeValueRef.current = value;
   }, [value, syncKey]);
 
-  const Input = sheet && Platform.OS !== 'web' ? BottomSheetTextInput : TextInput;
+  const inSheet = useBottomSheetInternal(true) !== null;
+  const Input = sheet && inSheet && Platform.OS !== 'web' ? BottomSheetTextInput : TextInput;
 
   return (
     <Input

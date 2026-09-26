@@ -9,3 +9,13 @@ public final class SecondaryClickModule: Module {
     }
   }
 }
+
+public final class EscapeKeyModule: Module {
+  public func definition() -> ModuleDefinition {
+    Name("EscapeKey")
+
+    View(EscapeKeyView.self) {
+      Events("onEscape")
+    }
+  }
+}

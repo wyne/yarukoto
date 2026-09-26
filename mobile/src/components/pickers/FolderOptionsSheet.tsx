@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useColors } from '../../theme/ThemeContext';
 import { Pressable, Text } from 'react-native';
-import BottomSheet from '../BottomSheet';
+import Sheet from '../Sheet';
 import NativeOwnedTextInput from '../NativeOwnedTextInput';
 import { makeStyles } from '../../theme/styles';
 import { fonts } from '../../theme/typography';
@@ -27,7 +27,7 @@ export default function FolderOptionsSheet({ folder, onClose }: Props) {
     if (folder) setName(folder.name);
   }, [folder]);
 
-  if (!folder) return <BottomSheet visible={false} onClose={onClose} title="Folder" children={null} />;
+  if (!folder) return <Sheet visible={false} onClose={onClose} title="Folder" children={null} />;
 
   const lists = listsInFolder(state.lists, folder.id);
   const listIds = new Set(lists.map((l) => l.id));
@@ -59,7 +59,7 @@ export default function FolderOptionsSheet({ folder, onClose }: Props) {
   };
 
   return (
-    <BottomSheet visible onClose={onClose} title={`Edit ${folder.name}`} keyboard>
+    <Sheet visible onClose={onClose} title={`Edit ${folder.name}`} keyboard>
       <Text style={styles.label}>Name</Text>
       <NativeOwnedTextInput
         sheet
@@ -90,7 +90,7 @@ export default function FolderOptionsSheet({ folder, onClose }: Props) {
       <Pressable style={styles.deleteBtn} onPress={confirmDelete}>
         <Text style={styles.deleteText}>Delete folder</Text>
       </Pressable>
-    </BottomSheet>
+    </Sheet>
   );
 }
 

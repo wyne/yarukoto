@@ -7,7 +7,7 @@ import { useAccent, useColors } from '../theme/ThemeContext';
 import { ApiError, useTasks } from '../data/TaskContext';
 import { SavedServer, loadSavedServers } from '../data/storage';
 import { IconCheckBig, IconLock, IconServer, IconShield } from '../icons/Icons';
-import BottomSheet from '../components/BottomSheet';
+import Sheet from '../components/Sheet';
 
 /**
  * When the web build is served by its own API server (the normal docker-compose
@@ -184,13 +184,13 @@ export default function FirstRunScreen() {
         </Pressable>
       </View>
 
-      <BottomSheet visible={helpOpen} onClose={() => setHelpOpen(false)} title="Self-hosting Yarukoto">
+      <Sheet visible={helpOpen} onClose={() => setHelpOpen(false)} title="Self-hosting Yarukoto">
         <Text style={styles.helpText}>
           Yarukoto talks to a small self-hosted server that stores your tasks, lists and tags. Deploy the server
           anywhere you like, then enter its URL and an access token here to connect this app to it. Nothing is
           sent anywhere else.
         </Text>
-      </BottomSheet>
+      </Sheet>
     </KeyboardAvoidingView>
   );
 }
