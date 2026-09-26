@@ -5,11 +5,11 @@ import { makeStyles } from '../theme/styles';
 import { fonts } from '../theme/typography';
 import { AppMode } from '../data/storage';
 import { SyncStatus } from '../data/sync';
+import { useSyncStatus } from '../data/TaskContext';
 import { elapsedShort } from '../data/dateUtils';
 
 interface Props {
   mode: AppMode;
-  status: SyncStatus;
   serverUrl: string;
   /** Collapsed sidebar shows the dot alone. */
   compact?: boolean;
@@ -56,8 +56,11 @@ function describe(mode: AppMode, status: SyncStatus, serverUrl: string, now: Dat
   }
 }
 
-export default function SyncIndicator({ mode, status, serverUrl, compact }: Props) {
+export default function SyncIndicator({ mode, serverUrl, compact }: Props) {
   const styles = useStyles();
+  // Read here rather than passed in, so a status change re-renders the indicator
+  // alone and not the sidebar or sheet around it.
+  const status = useSyncStatus();
   // Recomputed on each render, which the 5s sync cycle already triggers — so the
   // elapsed time stays current without a timer of its own.
   const { color, label } = describe(mode, status, serverUrl, new Date());

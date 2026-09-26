@@ -187,7 +187,7 @@ const Sidebar = React.memo(function Sidebar({ state, navigation, onNavigate }: P
   const collapsed = wide && collapsedPref;
   const insets = useSafeAreaInsets();
   const { height: winHeight } = useWindowDimensions();
-  const { state: data, syncStatus, reorderList, reorderFolder } = useTasks();
+  const { state: data, reorderList, reorderFolder } = useTasks();
   const rows = useMemo(
     () => flattenTree(data.folders, data.lists, { collapsed: collapsedFolders }),
     [data.folders, data.lists, collapsedFolders]
@@ -699,7 +699,6 @@ const Sidebar = React.memo(function Sidebar({ state, navigation, onNavigate }: P
       >
         <SyncIndicator
           mode={data.mode}
-          status={syncStatus}
           serverUrl={data.serverUrl}
           compact={collapsed}
         />

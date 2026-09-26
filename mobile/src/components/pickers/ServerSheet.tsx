@@ -6,7 +6,7 @@ import { ACCENT_OPTIONS, SchemePref } from '../../theme/colors';
 import { makeStyles } from '../../theme/styles';
 import { fonts } from '../../theme/typography';
 import { useColors, useTheme } from '../../theme/ThemeContext';
-import { useTasks } from '../../data/TaskContext';
+import { useSyncStatus, useTasks } from '../../data/TaskContext';
 import { ServerInfo, createApi } from '../../data/api';
 import { lastSyncedLabel } from '../../data/dateUtils';
 
@@ -42,7 +42,8 @@ const SCHEME_OPTIONS: Array<{ value: SchemePref; label: string }> = [
 export default function ServerSheet({ visible, onClose }: Props) {
   const colors = useColors();
   const styles = useStyles();
-  const { state, disconnect, syncStatus } = useTasks();
+  const { state, disconnect } = useTasks();
+  const syncStatus = useSyncStatus();
   const { accent, setAccent, schemePref, setSchemePref } = useTheme();
   const [info, setInfo] = useState<ServerInfo | null | undefined>(undefined);
 
@@ -115,7 +116,7 @@ export default function ServerSheet({ visible, onClose }: Props) {
       {state.mode === 'server' && (
         <>
           <View style={styles.statusRow}>
-            <SyncIndicator mode={state.mode} status={syncStatus} serverUrl={state.serverUrl} />
+            <SyncIndicator mode={state.mode} serverUrl={state.serverUrl} />
             <Text style={styles.statusTime}>{lastSyncedLabel(new Date(), syncStatus.lastSyncedAt)}</Text>
           </View>
           <View style={styles.detailBlock}>
