@@ -1,4 +1,10 @@
-const { createRunOncePlugin, withPodfile, withPodfileProperties, withXcodeProject } = require('@expo/config-plugins');
+const {
+  createRunOncePlugin,
+  withAppDelegate,
+  withPodfile,
+  withPodfileProperties,
+  withXcodeProject,
+} = require('@expo/config-plugins');
 
 const pkg = require('../../package.json');
 
@@ -8,6 +14,9 @@ const pkg = require('../../package.json');
  * Expo has no macOS target, but nothing in the app needs one: every dependency
  * compiles for Catalyst once four things in the generated project are set. Each
  * fix below is one of them, and each was a build failure without it.
+ *
+ * It also hooks the app's own commands into the Mac menu bar; that one is a
+ * feature rather than a build fix.
  *
  * Only applied when MAC_CATALYST=1 (see app.config.js). Two of the fixes cost the
  * phone build something — Expo modules compiled from source instead of linked
@@ -100,10 +109,56 @@ function withCatalystAppTarget(config) {
   });
 }
 
+const MENU_MARKER = '// mac-catalyst plugin: menu bar';
+
+/**
+ * Hands the menu bar to modules/mac-menu.
+ *
+ * Catalyst asks the app delegate to amend its default menu bar, through an
+ * override no module can supply, and a menu command's action has to be answered
+ * by something in the responder chain, which the delegate ends. So the delegate
+ * gets both, each forwarding to MacMenuBar, where the menu is actually defined.
+ * The action's name is the one MacMenuBar.action looks up.
+ *
+ * Anchored on Expo's template, and throws if that changes, like the Podfile edit.
+ */
+function withMenuBarAppDelegate(config) {
+  return withAppDelegate(config, (modConfig) => {
+    const appDelegate = modConfig.modResults;
+    if (appDelegate.language !== 'swift') {
+      throw new Error(`mac-catalyst: expected a Swift AppDelegate, found ${appDelegate.language}.`);
+    }
+    let contents = appDelegate.contents;
+    if (contents.includes(MENU_MARKER)) return modConfig;
+
+    const reactImport = /^import React\n/m;
+    const classDecl = /^((?:public )?class AppDelegate: ExpoAppDelegate \{\n)/m;
+    if (!reactImport.test(contents) || !classDecl.test(contents)) {
+      throw new Error('mac-catalyst: expected `import React` and `class AppDelegate: ExpoAppDelegate {` in the AppDelegate; Expo\'s template has changed.');
+    }
+    contents = contents.replace(reactImport, (line) => `${line}import MacMenu\n`);
+    contents = contents.replace(
+      classDecl,
+      `$1  ${MENU_MARKER}\n` +
+        `  override func buildMenu(with builder: UIMenuBuilder) {\n` +
+        `    super.buildMenu(with: builder)\n` +
+        `    MacMenuBar.build(with: builder)\n` +
+        `  }\n\n` +
+        `  @objc func macMenuCommand(_ sender: UICommand) {\n` +
+        `    MacMenuBar.perform(sender)\n` +
+        `  }\n\n`
+    );
+
+    appDelegate.contents = contents;
+    return modConfig;
+  });
+}
+
 function withMacCatalyst(config) {
   config = withSourceBuiltExpoModules(config);
   config = withCatalystPodfile(config);
   config = withCatalystAppTarget(config);
+  config = withMenuBarAppDelegate(config);
   return config;
 }
 

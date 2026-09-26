@@ -41,6 +41,9 @@ The iOS project also builds for the Mac (`npm run mac`; details in the README un
   (always a wheel on iOS) and `DateTimePicker` with `display="spinner"`. Branch on `MAC`
   from `src/data/platform.ts` and use `MacTimeMenus` for a time, or a `NativeMenu` for a
   choice. (The compact `DateTimePicker` doesn't crash there, but takes no input either.)
+- **Menu bar commands go through `useMenuCommand`** (`src/navigation/MenuCommands.tsx`). A
+  screen registers for a command while it is focused; the menu itself is defined natively in
+  `modules/mac-menu`. A new command needs both halves.
 - **A new native dependency has to compile for Catalyst too.** After adding one, run
   `npm run mac` as well as the phone build; one pod without a Catalyst slice fails
   the whole Mac build. If it needs a project-level fix, it belongs in

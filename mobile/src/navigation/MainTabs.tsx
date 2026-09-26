@@ -37,6 +37,7 @@ import { useDragActive } from '../drag/DragContext';
 import ServerSheet from '../components/pickers/ServerSheet';
 import NavSheets from '../components/sidebar/NavSheets';
 import TaskReminderNotifications from './TaskReminderNotifications';
+import MenuCommands from './MenuCommands';
 import AllScreen from '../screens/AllScreen';
 import InboxScreen from '../screens/InboxScreen';
 import TodayScreen from '../screens/TodayScreen';
@@ -214,6 +215,7 @@ function Layout() {
       <NavSheets />
       <DragOverlay />
       <TaskReminderNotifications />
+      <MenuCommands />
     </View>
   );
 }
