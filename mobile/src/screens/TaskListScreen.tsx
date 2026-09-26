@@ -37,6 +37,7 @@ import { useRowContext } from '../components/useRowContext';
 import Card from '../components/Card';
 import Divider from '../components/Divider';
 import DragList from '../components/DragList';
+import VirtualTaskList, { type VirtualTaskListRef } from '../components/VirtualTaskList';
 import SectionHeader from '../components/SectionHeader';
 import QuickAddBar from '../components/QuickAddBar';
 import BulkActionBar from '../components/BulkActionBar';
@@ -57,6 +58,11 @@ import TagPickerSheet from '../components/pickers/TagPickerSheet';
 import { IconDotsHorizontal, IconMenu, IconViewOptions } from '../icons/Icons';
 
 const TITLES = { all: 'All', inbox: 'Inbox', today: 'Today' } as const;
+/**
+ * Native lists only build the rows near the screen; see `VirtualTaskList`. The
+ * web keeps the fully built column, whose drag and hover wiring is DOM-specific.
+ */
+const VIRTUALIZED = Platform.OS !== 'web';
 const GROUP_LAYOUT = LinearTransition.duration(180);
 const GROUP_ENTER = FadeIn.duration(140);
 /**
@@ -107,6 +113,7 @@ export default function TaskListScreen({ mode, filter }: Props) {
 
   // Hosts every group's DragList; passed down so dragging auto-scrolls the page.
   const scrollRef = useAnimatedRef<Animated.ScrollView>();
+  const listRef = useRef<VirtualTaskListRef>(null);
 
   const key = viewKey(mode, filter);
   // getViewOptions normalises a stored preference into a new object. Keep that
@@ -186,6 +193,7 @@ export default function TaskListScreen({ mode, filter }: Props) {
     previousViewKey.current = key;
     closeOpenSwipeRow();
     scrollRef.current?.scrollTo({ y: 0, animated: false });
+    listRef.current?.scrollToOffset({ offset: 0, animated: false });
     setSelectionMode(false);
     setSelectedIds((current) => current.length > 0 ? [] : current);
     setHeaderMenuOpen(false);
@@ -541,6 +549,77 @@ export default function TaskListScreen({ mode, filter }: Props) {
     );
   };
 
+  /**
+   * The same row and divider as `renderTaskCard` and the completed card, for the
+   * virtualized list, which lays them out itself. A group's hide rules follow
+   * the group the row is drawn under, since a task under two tags appears once
+   * in each.
+   */
+  const renderVirtualRow = (
+    task: Task,
+    { groupKey, drag }: { groupKey: string | null; drag?: () => void }
+  ) => {
+    if (groupKey === null) {
+      return (
+        <TaskRow
+          task={task}
+          list={task.listId ? listsById.get(task.listId) : undefined}
+          now={now}
+          selectionMode={selectionMode}
+          active={openTaskId === task.id && !selectedIds.includes(task.id)}
+          showContext={rowContext}
+          selected={selectedIds.includes(task.id)}
+          onPress={() => (selectionMode ? toggleSelected(task.id) : openTask(task.id))}
+          onToggleComplete={() => toggleComplete(task.id)}
+          onToday={() => scheduleToday(task.id)}
+          onLater={() => snoozeTask(task.id)}
+          onDone={() => toggleComplete(task.id)}
+        />
+      );
+    }
+    const hide = groupHide(groupKey);
+    return (
+      <ContextMenuTarget
+        onOpen={(pos) => {
+          setMenuTask(task.id);
+          setMenuAt({ x: pos.x, y: pos.y, width: 0, height: 0 });
+        }}
+      >
+        <TaskRow
+          task={task}
+          list={task.listId ? listsById.get(task.listId) : undefined}
+          now={now}
+          selectionMode={selectionMode}
+          active={highlighted(task.id) && !isSelected(task.id)}
+          handleGutter={canReorder && FINE_POINTER}
+          showContext={rowContext}
+          hideListId={hide.hideListId}
+          hideTag={hide.hideTag}
+          selected={isSelected(task.id)}
+          onPress={() => pressRow(task.id)}
+          onLongPress={drag}
+          onToggleComplete={() => toggleComplete(task.id)}
+          onToday={() => scheduleToday(task.id)}
+          onLater={() => snoozeTask(task.id)}
+          onDone={() => toggleComplete(task.id)}
+        />
+      </ContextMenuTarget>
+    );
+  };
+  const renderVirtualDivider = (task: Task, next: Task, done: boolean) => {
+    const railColor = task.listId ? listsById.get(task.listId)?.color : undefined;
+    if (done) return <Divider railColor={railColor} />;
+    const touching = highlighted(task.id) || highlighted(next.id);
+    const within = isSelected(task.id) && isSelected(next.id);
+    return (
+      <Divider
+        indent={touching ? 0 : undefined}
+        color={within ? colors.selectedRowBg : undefined}
+        railColor={railColor}
+      />
+    );
+  };
+
   return (
     <View style={[styles.screen, { paddingTop: insets.top + 6 }]}>
       {selectionMode ? (
@@ -605,99 +684,127 @@ export default function TaskListScreen({ mode, filter }: Props) {
         </View>
       )}
 
-      <Animated.ScrollView
-        ref={scrollRef}
-        refreshControl={refreshControl}
-        // Scrolling away from an open row is how you dismiss it everywhere else.
-        onScrollBeginDrag={closeOpenSwipeRow}
-        contentContainerStyle={[
-          styles.scrollContent,
-          !DESKTOP_UI && styles.scrollContentFab,
-          FLOATING_TAB_BAR && !wide && { paddingBottom: bottomChrome },
-          wide && styles.paneWide,
-        ]}
-        keyboardShouldPersistTaps="handled"
-      >
-        {active.length === 0 && <Text style={styles.empty}>Nothing here. Nice work.</Text>}
+      {VIRTUALIZED ? (
+        <VirtualTaskList
+          ref={listRef}
+          groups={groups}
+          grouped={grouped}
+          completed={completed}
+          isGroupCollapsed={sections.isGroupCollapsed}
+          toggleGroup={sections.toggleGroup}
+          completedCollapsed={sections.completedCollapsed}
+          toggleCompleted={sections.toggleCompleted}
+          emptyText="Nothing here. Nice work."
+          dragEnabled={canReorder}
+          animateLayout={!switchingView}
+          renderRow={renderVirtualRow}
+          renderDivider={renderVirtualDivider}
+          onReorder={handleReorder}
+          dragCount={DESKTOP_UI ? (id) => (isSelected(id) ? webSelection.length : 1) : undefined}
+          refreshControl={refreshControl}
+          onScrollBeginDrag={closeOpenSwipeRow}
+          contentContainerStyle={[
+            styles.listContent,
+            !DESKTOP_UI && styles.scrollContentFab,
+            FLOATING_TAB_BAR && !wide && { paddingBottom: bottomChrome },
+            wide && styles.paneWide,
+          ]}
+        />
+      ) : (
+        <Animated.ScrollView
+          ref={scrollRef}
+          refreshControl={refreshControl}
+          // Scrolling away from an open row is how you dismiss it everywhere else.
+          onScrollBeginDrag={closeOpenSwipeRow}
+          contentContainerStyle={[
+            styles.scrollContent,
+            !DESKTOP_UI && styles.scrollContentFab,
+            FLOATING_TAB_BAR && !wide && { paddingBottom: bottomChrome },
+            wide && styles.paneWide,
+          ]}
+          keyboardShouldPersistTaps="handled"
+        >
+          {active.length === 0 && <Text style={styles.empty}>Nothing here. Nice work.</Text>}
 
-        {active.length > 0 &&
-          (grouped ? (
-            groups.map((group) => {
-              const collapsed = sections.isGroupCollapsed(group.key);
-              return (
-                <Animated.View
-                  key={group.key}
-                  layout={switchingView ? undefined : GROUP_LAYOUT}
-                  style={styles.group}
-                >
-                  <View style={{ marginHorizontal: 6 }}>
-                    <SectionHeader
-                      label={group.label}
-                      count={group.tasks.length}
-                      color={group.color}
-                      collapsed={collapsed}
-                      onToggle={() => sections.toggleGroup(group.key)}
-                    />
-                  </View>
-                  {!collapsed && (
-                    <Animated.View
-                      entering={switchingView ? undefined : GROUP_ENTER}
-                      layout={switchingView ? undefined : GROUP_LAYOUT}
-                    >
-                      {renderTaskCard(group)}
-                    </Animated.View>
-                  )}
-                </Animated.View>
-              );
-            })
-          ) : (
-            renderTaskCard(groups[0])
-          ))}
-
-        {completed.length > 0 && (
-          <Animated.View layout={switchingView ? undefined : GROUP_LAYOUT}>
-            <View style={{ marginHorizontal: 6 }}>
-              <SectionHeader
-                label={`Completed · ${completed.length}`}
-                collapsed={sections.completedCollapsed}
-                onToggle={sections.toggleCompleted}
-              />
-            </View>
-            {!sections.completedCollapsed && (
-              <Animated.View
-                entering={switchingView ? undefined : GROUP_ENTER}
-                layout={switchingView ? undefined : GROUP_LAYOUT}
-              >
-                <Card style={{ marginHorizontal: 12 }}>
-                  {completed.map((task, i) => (
-                    <View key={task.id}>
-                      <TaskRow
-                        task={task}
-                        list={task.listId ? listsById.get(task.listId) : undefined}
-                        now={now}
-                        selectionMode={selectionMode}
-                        active={openTaskId === task.id && !selectedIds.includes(task.id)}
-                        showContext={rowContext}
-                        selected={selectedIds.includes(task.id)}
-                        onPress={() =>
-                          selectionMode ? toggleSelected(task.id) : openTask(task.id)
-                        }
-                        onToggleComplete={() => toggleComplete(task.id)}
-                        onToday={() => scheduleToday(task.id)}
-                        onLater={() => snoozeTask(task.id)}
-                        onDone={() => toggleComplete(task.id)}
+          {active.length > 0 &&
+            (grouped ? (
+              groups.map((group) => {
+                const collapsed = sections.isGroupCollapsed(group.key);
+                return (
+                  <Animated.View
+                    key={group.key}
+                    layout={switchingView ? undefined : GROUP_LAYOUT}
+                    style={styles.group}
+                  >
+                    <View style={{ marginHorizontal: 6 }}>
+                      <SectionHeader
+                        label={group.label}
+                        count={group.tasks.length}
+                        color={group.color}
+                        collapsed={collapsed}
+                        onToggle={() => sections.toggleGroup(group.key)}
                       />
-                      {i < completed.length - 1 && (
-                        <Divider railColor={task.listId ? listsById.get(task.listId)?.color : undefined} />
-                      )}
                     </View>
-                  ))}
-                </Card>
-              </Animated.View>
-            )}
-          </Animated.View>
-        )}
-      </Animated.ScrollView>
+                    {!collapsed && (
+                      <Animated.View
+                        entering={switchingView ? undefined : GROUP_ENTER}
+                        layout={switchingView ? undefined : GROUP_LAYOUT}
+                      >
+                        {renderTaskCard(group)}
+                      </Animated.View>
+                    )}
+                  </Animated.View>
+                );
+              })
+            ) : (
+              renderTaskCard(groups[0])
+            ))}
+
+          {completed.length > 0 && (
+            <Animated.View layout={switchingView ? undefined : GROUP_LAYOUT}>
+              <View style={{ marginHorizontal: 6 }}>
+                <SectionHeader
+                  label={`Completed · ${completed.length}`}
+                  collapsed={sections.completedCollapsed}
+                  onToggle={sections.toggleCompleted}
+                />
+              </View>
+              {!sections.completedCollapsed && (
+                <Animated.View
+                  entering={switchingView ? undefined : GROUP_ENTER}
+                  layout={switchingView ? undefined : GROUP_LAYOUT}
+                >
+                  <Card style={{ marginHorizontal: 12 }}>
+                    {completed.map((task, i) => (
+                      <View key={task.id}>
+                        <TaskRow
+                          task={task}
+                          list={task.listId ? listsById.get(task.listId) : undefined}
+                          now={now}
+                          selectionMode={selectionMode}
+                          active={openTaskId === task.id && !selectedIds.includes(task.id)}
+                          showContext={rowContext}
+                          selected={selectedIds.includes(task.id)}
+                          onPress={() =>
+                            selectionMode ? toggleSelected(task.id) : openTask(task.id)
+                          }
+                          onToggleComplete={() => toggleComplete(task.id)}
+                          onToday={() => scheduleToday(task.id)}
+                          onLater={() => snoozeTask(task.id)}
+                          onDone={() => toggleComplete(task.id)}
+                        />
+                        {i < completed.length - 1 && (
+                          <Divider railColor={task.listId ? listsById.get(task.listId)?.color : undefined} />
+                        )}
+                      </View>
+                    ))}
+                  </Card>
+                </Animated.View>
+              )}
+            </Animated.View>
+          )}
+        </Animated.ScrollView>
+      )}
 
       {!DESKTOP_UI && canQuickAdd && (
         <AddTaskFab defaults={quickAddDefaults} contextLabel={quickAddLabel} hidden={selectionMode} />
@@ -884,6 +991,14 @@ const useStyles = makeStyles((c) => ({
     flexGrow: 1,
     paddingBottom: 24,
     gap: 12,
+  },
+  /**
+   * `scrollContent` without the gap: the virtualized list's children are its
+   * rows, and the spacing between groups is drawn by their headers instead.
+   */
+  listContent: {
+    flexGrow: 1,
+    paddingBottom: 24,
   },
   /** Clears the floating button so it never covers the last row. */
   scrollContentFab: {
