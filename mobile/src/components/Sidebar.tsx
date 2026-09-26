@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Platform, Pressable, Text, View } from 'react-native';
+import { Platform, Text, View } from 'react-native';
+import Pressable from './HoverPressable';
 import Animated, {
   useAnimatedRef,
   useAnimatedStyle,

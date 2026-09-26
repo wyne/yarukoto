@@ -1,6 +1,6 @@
 import React from 'react';
 import { Platform, Text, View, type StyleProp, type ViewStyle } from 'react-native';
-import MenuView, { type MenuAction, type NativeActionEvent } from '@expo/ui/community/menu';
+import MenuView, { type MenuAction, type NativeActionEvent } from '../NativeMenu';
 import { makeStyles } from '../../theme/styles';
 import { fonts } from '../../theme/typography';
 import { useAccent } from '../../theme/ThemeContext';

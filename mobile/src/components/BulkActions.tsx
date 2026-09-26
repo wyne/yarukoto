@@ -1,5 +1,6 @@
 import React, { useRef, useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
+import Pressable from './HoverPressable';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { makeStyles } from '../theme/styles';
 import { fonts } from '../theme/typography';

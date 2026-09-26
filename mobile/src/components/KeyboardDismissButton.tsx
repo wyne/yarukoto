@@ -1,7 +1,7 @@
 import { Keyboard, Pressable, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
-import { GlassView } from 'expo-glass-effect';
+import ThemedGlassView from './ThemedGlassView';
 import { makeStyles } from '../theme/styles';
-import { useColors, useScheme } from '../theme/ThemeContext';
+import { useColors } from '../theme/ThemeContext';
 import { LIQUID_GLASS } from '../data/platform';
 import { IconChevronDown } from '../icons/Icons';
 
@@ -18,7 +18,6 @@ type Props = {
  */
 export default function KeyboardDismissButton({ style }: Props) {
   const colors = useColors();
-  const scheme = useScheme();
   const styles = useStyles();
   return (
     <View
@@ -32,9 +31,9 @@ export default function KeyboardDismissButton({ style }: Props) {
       onResponderRelease={() => Keyboard.dismiss()}
     >
       {LIQUID_GLASS ? (
-        <GlassView style={styles.glassButton} colorScheme={scheme} isInteractive>
+        <ThemedGlassView style={styles.glassButton} isInteractive>
           <IconChevronDown size={20} color={colors.textPrimary} strokeWidth={2.2} />
-        </GlassView>
+        </ThemedGlassView>
       ) : (
         <Pressable style={styles.fallbackButton} onPress={() => Keyboard.dismiss()}>
           <IconChevronDown size={20} color={colors.textPrimary} strokeWidth={2.2} />

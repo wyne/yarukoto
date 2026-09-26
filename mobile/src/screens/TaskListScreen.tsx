@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
-import { MenuView, type MenuAction } from '@expo/ui/community/menu';
+import { Platform, Pressable, Text, View } from 'react-native';
+import MenuView, { type MenuAction } from '../components/NativeMenu';
 import Animated, {
   FadeIn,
   LinearTransition,
@@ -23,7 +23,7 @@ import { isSameDay, toISODate } from '../data/dateUtils';
 import { QuickAddDefaults } from '../data/TaskContext';
 import { hapticSelect } from '../data/haptics';
 import { useSyncRefresh } from '../data/useSyncRefresh';
-import { FINE_POINTER, WEB_ENTRY } from '../data/platform';
+import { DESKTOP_UI, FINE_POINTER, FLOATING_TAB_BAR } from '../data/platform';
 import { INBOX_GROUP_KEY, TaskGroup, groupTasks, hasArrangement, viewKey } from '../data/viewOptions';
 import { useCollapsedSections } from '../data/uiPrefs';
 import { Task } from '../data/types';
@@ -296,10 +296,14 @@ export default function TaskListScreen({ mode, filter }: Props) {
    * reading the real one leaves no window for the two to disagree — a key
    * released while the window was unfocused, say. Capture phase, so it lands
    * before the press handler asks.
+   *
+   * Web only: it listens on `document`, which the Mac doesn't have. There a
+   * click still opens a row and makes it the anchor; shift-extend and Escape
+   * are not wired up yet.
    */
   const shiftHeld = useRef(false);
   useEffect(() => {
-    if (!WEB_ENTRY) return;
+    if (Platform.OS !== 'web') return;
     const onDown = (e: PointerEvent) => {
       shiftHeld.current = e.shiftKey;
     };
@@ -315,7 +319,7 @@ export default function TaskListScreen({ mode, filter }: Props) {
   }, [clearSelection]);
 
   const isSelected = (id: string) =>
-    WEB_ENTRY ? webSelection.includes(id) : selectedIds.includes(id);
+    DESKTOP_UI ? webSelection.includes(id) : selectedIds.includes(id);
 
   /**
    * Rows drawn with a tint: selected, or the one the surrounding UI is about.
@@ -342,7 +346,7 @@ export default function TaskListScreen({ mode, filter }: Props) {
    */
   const pressRow = (id: string) => {
     closeOpenSwipeRow();
-    if (!WEB_ENTRY) {
+    if (!DESKTOP_UI) {
       if (selectionMode) toggleSelected(id);
       else openTask(id);
       return;
@@ -398,8 +402,10 @@ export default function TaskListScreen({ mode, filter }: Props) {
   // The list scrolls to the screen edge with both the tab bar and the FAB
   // standing on it, so the last row has to come out from under the pair. Applied
   // whether or not the button is up, so entering selection mode — which hides it
-  // — doesn't shift the rows underneath the finger that started it.
-  const bottomChrome = nativeTabBarClearance(insets.bottom) + NATIVE_FAB_CLEARANCE;
+  // — doesn't shift the rows underneath the finger that started it. A narrow Mac
+  // window has the floating tab bar but types into the pinned field, so there
+  // it clears the bar alone.
+  const bottomChrome = nativeTabBarClearance(insets.bottom) + (DESKTOP_UI ? 0 : NATIVE_FAB_CLEARANCE);
   const quickAddLabel =
     filter?.type === 'folder' ? folderLists[0]?.name : filter ? filter.label : mode === 'today' ? 'Today' : undefined;
 
@@ -561,7 +567,7 @@ export default function TaskListScreen({ mode, filter }: Props) {
             <Text style={styles.title}>{filter ? filter.label : TITLES[mode]}</Text>
             <Text style={styles.count}>{active.length}</Text>
           </View>
-          {WEB_ENTRY ? (
+          {DESKTOP_UI ? (
             <Tooltip label="More">
               <GlassIconButton ref={headerMenuBtn} onPress={openHeaderMenu} label="More actions">
                 <IconDotsHorizontal size={22} />
@@ -590,7 +596,7 @@ export default function TaskListScreen({ mode, filter }: Props) {
       )}
 
       {/* Outside the ScrollView so it stays put instead of scrolling away. */}
-      {WEB_ENTRY && !selectionMode && canQuickAdd && (
+      {DESKTOP_UI && !selectionMode && canQuickAdd && (
         <View style={[styles.quickAddBand, wide && styles.paneWide]}>
           <QuickAddBar
             onSubmit={(text) => addTaskFromQuickAdd(text, quickAddDefaults)}
@@ -606,8 +612,8 @@ export default function TaskListScreen({ mode, filter }: Props) {
         onScrollBeginDrag={closeOpenSwipeRow}
         contentContainerStyle={[
           styles.scrollContent,
-          !WEB_ENTRY && styles.scrollContentFab,
-          !WEB_ENTRY && !wide && { paddingBottom: bottomChrome },
+          !DESKTOP_UI && styles.scrollContentFab,
+          FLOATING_TAB_BAR && !wide && { paddingBottom: bottomChrome },
           wide && styles.paneWide,
         ]}
         keyboardShouldPersistTaps="handled"
@@ -693,7 +699,7 @@ export default function TaskListScreen({ mode, filter }: Props) {
         )}
       </Animated.ScrollView>
 
-      {!WEB_ENTRY && canQuickAdd && (
+      {!DESKTOP_UI && canQuickAdd && (
         <AddTaskFab defaults={quickAddDefaults} contextLabel={quickAddLabel} hidden={selectionMode} />
       )}
 
@@ -709,7 +715,7 @@ export default function TaskListScreen({ mode, filter }: Props) {
         />
       )}
 
-      {WEB_ENTRY && headerMenuMounted && (
+      {DESKTOP_UI && headerMenuMounted && (
         <Popover
           visible={headerMenuOpen}
           onClose={() => setHeaderMenuOpen(false)}

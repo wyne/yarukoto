@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
+import Pressable from '../HoverPressable';
 import BottomSheet from '../BottomSheet';
 import type { PopoverAnchor } from '../Popover';
 import { makeStyles } from '../../theme/styles';

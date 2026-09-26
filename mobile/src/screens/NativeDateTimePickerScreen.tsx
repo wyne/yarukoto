@@ -11,6 +11,8 @@ import SheetHeader from '../components/SheetHeader';
 import { useSheetBottomPadding } from '../components/useSheetInsets';
 import DueDateTimeControls from '../components/pickers/DueDateTimeControls';
 import { useDateTimePickerRequest } from '../navigation/DateTimePickerContext';
+import { MAC } from '../data/platform';
+import MacTimeMenus from '../components/pickers/MacTimeMenus';
 import type { RootStackParamList } from '../navigation/types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'DateTimePicker'>;
@@ -68,7 +70,19 @@ export default function NativeDateTimePickerScreen({ navigation, route }: Props)
         onConfirm={apply}
       />
 
-      {Platform.OS === 'ios' ? (
+      {MAC && request.mode === 'time' ? (
+        // The Mac has no wheels: UIKit throws the moment one reaches a window
+        // there, and the compact field that stands in for one takes no input.
+        <View style={styles.macTime}>
+          <MacTimeMenus
+            value={draftTime ?? '09:00'}
+            onChange={(next) => {
+              setDraftDate((current) => current ?? toISODate(new Date()));
+              setDraftTime(next);
+            }}
+          />
+        </View>
+      ) : Platform.OS === 'ios' ? (
         <DateTimePicker
           value={valueForPicker(draftDate, draftTime)}
           mode={request.mode}
@@ -128,6 +142,9 @@ const useStyles = makeStyles((c) => ({
     width: '100%',
     height: 240,
     marginTop: 20,
+  },
+  macTime: {
+    marginTop: 24,
   },
   clearButton: {
     alignSelf: 'center',

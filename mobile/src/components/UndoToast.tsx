@@ -8,7 +8,7 @@ import { useTasks } from '../data/TaskContext';
 import { IconCheckBig } from '../icons/Icons';
 import { useSidebar } from '../navigation/SidebarContext';
 import { nativeTabBarClearance } from '../navigation/nativeTabBarLayout';
-import { WEB_ENTRY } from '../data/platform';
+import { FLOATING_TAB_BAR } from '../data/platform';
 
 const NATIVE_DRIVER = Platform.OS !== 'web';
 
@@ -34,7 +34,7 @@ export default function UndoToast() {
     <View
       style={[
         styles.wrap,
-        { bottom: wide || WEB_ENTRY ? insets.bottom + 20 : nativeTabBarClearance(insets.bottom) },
+        { bottom: wide || !FLOATING_TAB_BAR ? insets.bottom + 20 : nativeTabBarClearance(insets.bottom) },
       ]}
       pointerEvents="box-none"
     >

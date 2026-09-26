@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { Modal, Platform, Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
-import { GlassView } from 'expo-glass-effect';
+import ThemedGlassView from './ThemedGlassView';
 import { LIQUID_GLASS } from '../data/platform';
 import { makeStyles } from '../theme/styles';
 
@@ -116,9 +116,9 @@ export default function Popover({
          * sticker of glass. `isInteractive` stays off: that is for controls that
          * morph under a finger, and this is a surface things sit on.
          */
-        <GlassView glassEffectStyle="regular" style={[styles.card, styles.glassCard, place]}>
+        <ThemedGlassView glassEffectStyle="regular" style={[styles.card, styles.glassCard, place]}>
           {children}
-        </GlassView>
+        </ThemedGlassView>
       ) : (
         <View style={[styles.card, place]}>{children}</View>
       )}

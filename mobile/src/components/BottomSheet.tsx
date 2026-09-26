@@ -2,7 +2,7 @@ import React from 'react';
 import { View, useWindowDimensions } from 'react-native';
 import NativeSheet from './NativeSheet';
 import Popover, { POPOVER_MIN_WIDTH, PopoverAnchor } from './Popover';
-import { WEB_ENTRY } from '../data/platform';
+import { DESKTOP_UI } from '../data/platform';
 import { makeStyles } from '../theme/styles';
 import SheetHeader from './SheetHeader';
 
@@ -81,7 +81,7 @@ export default function BottomSheet({
   const styles = useStyles();
   const { width } = useWindowDimensions();
 
-  if (anchor && WEB_ENTRY && width >= POPOVER_MIN_WIDTH) {
+  if (anchor && DESKTOP_UI && width >= POPOVER_MIN_WIDTH) {
     return (
       <Popover visible={visible} onClose={onClose} anchor={anchor} align="start" width={popoverWidth}>
         <SheetHeader

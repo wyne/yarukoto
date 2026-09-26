@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { Platform, View, ViewProps } from 'react-native';
+import SecondaryClickView from '../../modules/mac-pointer/src/SecondaryClickView';
 
 interface Props extends ViewProps {
   /** Called with the pointer position, in window coordinates. */
@@ -8,11 +9,21 @@ interface Props extends ViewProps {
 }
 
 /**
- * Gives its children a right-click menu on web.
+ * Gives its children a right-click menu wherever there is a right button.
  *
- * React Native has no context-menu gesture and react-native-web drops unknown
- * DOM props, so the listener is attached to the host node directly. Native
- * builds render a plain View and rely on long-press instead.
+ * Web and iOS reach it differently. React Native has no context-menu gesture
+ * and react-native-web drops unknown DOM props, so on web the `contextmenu`
+ * listener is attached to the host node directly — which also catches the
+ * keyboard's menu key and a ctrl-click. On iOS a right-click never reaches
+ * React Native at all (its recognizers accept the primary button only), so the
+ * children sit in a native view that catches it and reports where it landed.
+ * That view only listens on the Mac; see SecondaryClickView.swift for why an
+ * iPad keeps its long-press alone. Android has no right button worth wiring
+ * and renders a plain View.
+ *
+ * Right-click needs no capability check: it is purely additive. A device
+ * without the button never sends it, and one with it gains a menu without
+ * losing anything.
  */
 export default function ContextMenuTarget({ onOpen, children, ...rest }: Props) {
   const ref = useRef<View>(null);
@@ -32,6 +43,14 @@ export default function ContextMenuTarget({ onOpen, children, ...rest }: Props) 
     node.addEventListener('contextmenu', handler);
     return () => node.removeEventListener('contextmenu', handler);
   }, []);
+
+  if (Platform.OS === 'ios') {
+    return (
+      <SecondaryClickView onSecondaryClick={(e) => onOpenRef.current(e.nativeEvent)} {...rest}>
+        {children}
+      </SecondaryClickView>
+    );
+  }
 
   return (
     <View ref={ref} {...rest}>

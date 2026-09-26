@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Keyboard, Platform, Pressable, StyleProp, Text, View, ViewStyle } from 'react-native';
-import MenuView, { type MenuAction, type NativeActionEvent } from '@expo/ui/community/menu';
+import MenuView, { type MenuAction, type NativeActionEvent } from '../NativeMenu';
 import DateTimePicker from '@expo/ui/community/datetime-picker';
 import Picker from '@expo/ui/community/picker';
 import { makeStyles } from '../../theme/styles';
@@ -24,14 +24,22 @@ import {
 import type { TaskReminder } from '../../data/types';
 import { useNativeDateTimePicker } from '../../navigation/DateTimePickerContext';
 import NativeSheet from '../NativeSheet';
+import { MAC } from '../../data/platform';
+import MacTimeMenus from './MacTimeMenus';
 
 const TOGGLE_ID_PREFIX = 'toggle|';
 
 const UNIT_TABS: ReminderOffsetUnit[] = ['day', 'week'];
 const UNIT_TAB_LABELS: Record<ReminderOffsetUnit, string> = { day: 'Day', week: 'Week' };
 
-/** iOS is the only platform whose spinner is a wheel; Material has none. */
-const WHEEL_TIME = Platform.OS === 'ios';
+/**
+ * Whether the time is picked in the sheet itself, beside the offset.
+ *
+ * iOS only: a wheel on a phone or iPad, menus on the Mac. Material's spinner is
+ * a text field rather than a wheel, so elsewhere the time keeps a button through
+ * to the app's own picker screen.
+ */
+const INLINE_TIME = Platform.OS === 'ios';
 
 /**
  * Wheel geometry, gathered here because it is the only lever on the selection
@@ -259,37 +267,61 @@ export default function ReminderQuickMenu({ reminders: rawReminders, dueTime, on
               them, and hands back what it was tagged with — a numeric value
               would come back as its own string and never match an option.
             */}
-            <Picker
-              style={styles.offsetWheel}
-              selectedValue={String(customOffset)}
-              onValueChange={(value) => setCustomOffset(Number(value))}
-            >
-              {offsetOptions.map((option) => (
-                <Picker.Item
-                  key={option.offsetDays}
-                  label={option.label}
-                  value={String(option.offsetDays)}
-                  color={colors.textPrimary}
-                />
-              ))}
-            </Picker>
+            {/*
+              The Mac has no wheels — UIKit throws the moment one reaches a
+              window there, taking the app with it — so it picks the offset and
+              the time from menus instead.
+            */}
+            {MAC ? (
+              <MenuView
+                actions={offsetOptions.map((option) => ({
+                  id: String(option.offsetDays),
+                  title: option.label,
+                  state: option.offsetDays === customOffset ? ('on' as const) : undefined,
+                }))}
+                onPressAction={({ nativeEvent }) => setCustomOffset(Number(nativeEvent.event))}
+              >
+                <View style={styles.timeButton}>
+                  <Text style={[styles.timeButtonText, { color: accent }]}>
+                    {offsetOptions.find((option) => option.offsetDays === customOffset)?.label}
+                  </Text>
+                </View>
+              </MenuView>
+            ) : (
+              <Picker
+                style={styles.offsetWheel}
+                selectedValue={String(customOffset)}
+                onValueChange={(value) => setCustomOffset(Number(value))}
+              >
+                {offsetOptions.map((option) => (
+                  <Picker.Item
+                    key={option.offsetDays}
+                    label={option.label}
+                    value={String(option.offsetDays)}
+                    color={colors.textPrimary}
+                  />
+                ))}
+              </Picker>
+            )}
 
-            {WHEEL_TIME && (
-              <DateTimePicker
-                value={dateForTime(customTime)}
-                mode="time"
-                display="spinner"
-                accentColor={accent}
-                themeVariant={scheme}
-                onValueChange={(_, selected) => setCustomTime(timeFromDate(selected))}
-                style={styles.timeWheel}
-              />
+            {MAC ? (
+              <MacTimeMenus value={customTime} onChange={setCustomTime} />
+            ) : (
+              INLINE_TIME && (
+                <DateTimePicker
+                  value={dateForTime(customTime)}
+                  mode="time"
+                  display="spinner"
+                  accentColor={accent}
+                  themeVariant={scheme}
+                  onValueChange={(_, selected) => setCustomTime(timeFromDate(selected))}
+                  style={styles.timeWheel}
+                />
+              )
             )}
           </View>
 
-          {/* Off iOS the spinner is a text field rather than a wheel, so the
-              time keeps the button through to the app's own picker screen. */}
-          {!WHEEL_TIME && (
+          {!INLINE_TIME && (
             <Pressable
               style={styles.timeButton}
               onPress={pickTime}

@@ -18,6 +18,10 @@
  * Both are driven by the environment: APP_VARIANT (unset = production) picks the
  * native build, and EXPO_BASE_URL (unset = root, what Docker uses) picks the web
  * asset prefix. The Pages workflow sets EXPO_BASE_URL=/<repo>.
+ *
+ * MAC_CATALYST=1 additionally makes the generated iOS project buildable for Mac
+ * Catalyst (see plugins/mac-catalyst). It is off by default because it slows the
+ * phone build down, and it composes with any APP_VARIANT.
  */
 // Everything that differs per variant. `production` is absent on purpose: it
 // falls through to whatever app.json already declares.
@@ -61,6 +65,7 @@ module.exports = ({ config }) => {
       './plugins/local-notifications-only',
       'expo-notifications',
       './plugins/native-glass-keyboard-dismiss',
+      ...(process.env.MAC_CATALYST === '1' ? ['./plugins/mac-catalyst'] : []),
     ],
     ios: {
       ...config.ios,
