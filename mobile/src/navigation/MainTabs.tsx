@@ -30,7 +30,7 @@ import SidebarDrawer from '../components/SidebarDrawer';
 import TaskDetailView from '../components/TaskDetailView';
 import TaskDetailSheet from '../components/TaskDetailSheet';
 import BulkActions from '../components/BulkActions';
-import { WEB_ENTRY } from '../data/platform';
+import { DESKTOP_UI } from '../data/platform';
 import UndoToast from '../components/UndoToast';
 import DragOverlay from '../drag/DragOverlay';
 import { useDragActive } from '../drag/DragContext';
@@ -127,7 +127,7 @@ function Layout() {
   // A selection takes the column over: the actions apply to several tasks, so
   // showing one task's detail beside them would only mislead about what the next
   // click is going to change.
-  const bulk = WEB_ENTRY && selectedIds.length > 0;
+  const bulk = DESKTOP_UI && selectedIds.length > 0;
   const showPane = wide && (bulk || !!openTaskId);
 
   const clampDetailColumnWidth = useCallback(
@@ -150,8 +150,8 @@ function Layout() {
   const detailResizePan = useMemo(
     () =>
       PanResponder.create({
-        onStartShouldSetPanResponder: () => WEB_ENTRY,
-        onMoveShouldSetPanResponder: () => WEB_ENTRY,
+        onStartShouldSetPanResponder: () => DESKTOP_UI,
+        onMoveShouldSetPanResponder: () => DESKTOP_UI,
         onPanResponderGrant: () => {
           resizeStartWidth.current = detailColumnWidthRef.current;
         },
@@ -164,7 +164,7 @@ function Layout() {
   const handleRowLayout = useCallback((event: LayoutChangeEvent) => {
     const nextWidth = event.nativeEvent.layout.width;
     setRowWidth(nextWidth);
-    if (!WEB_ENTRY) return;
+    if (!DESKTOP_UI) return;
     const max = Math.max(DETAIL_COLUMN_MIN_WIDTH, nextWidth - MAIN_CONTENT_MIN_WIDTH - DETAIL_RESIZER_WIDTH);
     if (detailColumnWidthRef.current > max) {
       detailColumnWidthRef.current = max;
@@ -184,7 +184,7 @@ function Layout() {
       </DrawerSwipeArea>
       {showPane && (
         <>
-          {WEB_ENTRY && (
+          {DESKTOP_UI && (
             <View
               style={styles.detailResizer}
               accessibilityRole="adjustable"
@@ -197,8 +197,8 @@ function Layout() {
           <View
             style={[
               styles.detailColumn,
-              !WEB_ENTRY && styles.detailColumnBorder,
-              WEB_ENTRY && { width: detailColumnWidth },
+              !DESKTOP_UI && styles.detailColumnBorder,
+              DESKTOP_UI && { width: detailColumnWidth },
             ]}
           >
             {bulk || !openTaskId ? (

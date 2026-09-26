@@ -7,7 +7,7 @@ import {
   BottomSheetModal,
   BottomSheetScrollView,
 } from '@gorhom/bottom-sheet';
-import { GlassView } from 'expo-glass-effect';
+import ThemedGlassView from '../../components/ThemedGlassView';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { makeStyles } from '../../theme/styles';
 import { priorityColor } from '../../theme/colors';
@@ -107,11 +107,11 @@ export function AddExistingTaskButton({ onPress }: ButtonProps) {
         >
           <Animated.View style={overStyle}>
             {LIQUID_GLASS ? (
-              <GlassView style={styles.glassButton} tintColor={tint} isInteractive={!dragging}>
+              <ThemedGlassView style={styles.glassButton} tintColor={tint} isInteractive={!dragging}>
                 <Text style={styles.glassButtonText}>
                   {dragging ? 'Drag here to cancel' : 'Plan task'}
                 </Text>
-              </GlassView>
+              </ThemedGlassView>
             ) : (
               <View style={[styles.flatButton, { backgroundColor: tint }]}>
                 <Text style={styles.glassButtonText}>

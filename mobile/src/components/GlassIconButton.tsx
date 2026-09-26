@@ -1,6 +1,8 @@
 import { createContext, ReactNode, Ref, useContext } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
-import { GlassContainer, GlassView } from 'expo-glass-effect';
+import { StyleSheet, View } from 'react-native';
+import Pressable from './HoverPressable';
+import { GlassContainer } from 'expo-glass-effect';
+import ThemedGlassView from './ThemedGlassView';
 import { LIQUID_GLASS } from '../data/platform';
 import { useHoverBg } from '../theme/hover';
 
@@ -117,9 +119,9 @@ export default function GlassIconButton({ onPress, label, children, tintColor, d
       accessibilityState={disabled ? { disabled: true } : undefined}
       style={[styles.glassPress, disabled && styles.disabled]}
     >
-      <GlassView style={styles.glassButton} tintColor={tintColor} isInteractive={!disabled}>
+      <ThemedGlassView style={styles.glassButton} tintColor={tintColor} isInteractive={!disabled}>
         {children}
-      </GlassView>
+      </ThemedGlassView>
     </Pressable>
   );
 }
@@ -148,7 +150,7 @@ export function GlassIconMenuLabel({ label, children }: MenuLabelProps) {
 
   return (
     <View pointerEvents="none" accessible accessibilityRole="button" accessibilityLabel={label}>
-      <GlassView style={styles.glassButton}>{children}</GlassView>
+      <ThemedGlassView style={styles.glassButton}>{children}</ThemedGlassView>
     </View>
   );
 }
@@ -171,7 +173,7 @@ export function GlassTextMenuLabel({ label, children, compact = false }: TextMen
 
   return (
     <View pointerEvents="none" accessible accessibilityRole="button" accessibilityLabel={label}>
-      <GlassView style={[styles.glassTextButton, compact && styles.glassTextCompact]}>{children}</GlassView>
+      <ThemedGlassView style={[styles.glassTextButton, compact && styles.glassTextCompact]}>{children}</ThemedGlassView>
     </View>
   );
 }
@@ -200,9 +202,9 @@ export function GlassTextButton({ onPress, label, children, compact = false }: T
       accessibilityRole="button"
       accessibilityLabel={label}
     >
-      <GlassView style={[styles.glassTextButton, compact && styles.glassTextCompact]} isInteractive>
+      <ThemedGlassView style={[styles.glassTextButton, compact && styles.glassTextCompact]} isInteractive>
         {children}
-      </GlassView>
+      </ThemedGlassView>
     </Pressable>
   );
 }
@@ -218,9 +220,9 @@ export function GlassIconButtonGroup({ children, joined = false }: { children: R
 
   if (joined) {
     return (
-      <GlassView style={styles.joinedGroup} isInteractive>
+      <ThemedGlassView style={styles.joinedGroup} isInteractive>
         <JoinedGlassGroupContext.Provider value>{children}</JoinedGlassGroupContext.Provider>
-      </GlassView>
+      </ThemedGlassView>
     );
   }
 

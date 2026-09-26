@@ -3,11 +3,11 @@ import {
   GestureResponderEvent,
   GestureResponderHandlers,
   Platform,
-  Pressable,
   type PressableStateCallbackType,
   Text,
   View,
 } from 'react-native';
+import Pressable from './HoverPressable';
 import { makeStyles } from '../theme/styles';
 import { fonts } from '../theme/typography';
 import { useAccent, useColors } from '../theme/ThemeContext';

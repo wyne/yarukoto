@@ -1,5 +1,6 @@
 import React from 'react';
-import { Pressable, StyleProp, Text, View, ViewStyle } from 'react-native';
+import { StyleProp, Text, View, ViewStyle } from 'react-native';
+import Pressable from './HoverPressable';
 import { makeStyles } from '../theme/styles';
 import { useAccent, useColors } from '../theme/ThemeContext';
 import { fonts } from '../theme/typography';

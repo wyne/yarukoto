@@ -7,7 +7,7 @@ import { fonts } from '../theme/typography';
 import { useAccent, useColors } from '../theme/ThemeContext';
 import { PANE_MAX_WIDTH, useSidebar } from '../navigation/SidebarContext';
 import { NATIVE_TAB_CONTENT_PADDING } from '../navigation/nativeTabBarLayout';
-import { WEB_ENTRY } from '../data/platform';
+import { FLOATING_TAB_BAR } from '../data/platform';
 import { ActivityRevision, createApi } from '../data/api';
 import { useTasks } from '../data/TaskContext';
 import { ListDef, Task } from '../data/types';
@@ -339,7 +339,7 @@ export default function ActivityScreen() {
         scrollEventThrottle={200}
         contentContainerStyle={[
           styles.scroll,
-          !WEB_ENTRY && !wide && styles.scrollMobileTabs,
+          FLOATING_TAB_BAR && !wide && styles.scrollMobileTabs,
           wide && styles.paneWide,
         ]}
       >

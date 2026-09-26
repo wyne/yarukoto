@@ -6,7 +6,7 @@ import { fonts } from '../theme/typography';
 import { useAccent } from '../theme/ThemeContext';
 import { PANE_MAX_WIDTH, useSidebar } from '../navigation/SidebarContext';
 import { NATIVE_TAB_CONTENT_PADDING } from '../navigation/nativeTabBarLayout';
-import { WEB_ENTRY } from '../data/platform';
+import { FLOATING_TAB_BAR } from '../data/platform';
 import { useTasks } from '../data/TaskContext';
 import { getListById, trashedTasks } from '../data/selectors';
 import { formatDueShort } from '../data/dateUtils';
@@ -66,7 +66,7 @@ export default function TrashScreen() {
         refreshControl={refreshControl}
         contentContainerStyle={[
           styles.scroll,
-          !WEB_ENTRY && !wide && styles.scrollMobileTabs,
+          FLOATING_TAB_BAR && !wide && styles.scrollMobileTabs,
           wide && styles.paneWide,
         ]}
       >

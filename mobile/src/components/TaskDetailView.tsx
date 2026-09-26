@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { InputAccessoryView, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, ScrollViewProps, StyleSheet, Text, TextInput, View } from 'react-native';
+import { InputAccessoryView, Keyboard, KeyboardAvoidingView, Platform, ScrollView, ScrollViewProps, StyleSheet, Text, TextInput, View } from 'react-native';
+import Pressable from './HoverPressable';
 import { BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { priorityColor } from '../theme/colors';

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Platform, type StyleProp, type ViewStyle } from 'react-native';
-import MenuView, { type MenuAction, type NativeActionEvent } from '@expo/ui/community/menu';
+import MenuView, { type MenuAction, type NativeActionEvent } from '../NativeMenu';
 import WebDateTimeQuickMenu from './WebDateTimeQuickMenu';
 import { QUICK_TIMES } from './dateTimeQuickOptions';
 

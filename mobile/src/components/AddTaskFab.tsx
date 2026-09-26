@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { makeStyles } from '../theme/styles';
 import { Pressable, StyleSheet, View } from 'react-native';
-import { GlassView } from 'expo-glass-effect';
+import ThemedGlassView from './ThemedGlassView';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAccent } from '../theme/ThemeContext';
 import { PANE_MAX_WIDTH, useSidebar } from '../navigation/SidebarContext';
@@ -58,9 +58,9 @@ export default function AddTaskFab({ defaults, contextLabel, hidden }: Props) {
               // Tinted rather than clear: the button is the one thing on the
               // screen that has to stay findable while the list scrolls under it,
               // and the accent is what makes it findable.
-              <GlassView style={styles.fab} tintColor={accent} isInteractive>
+              <ThemedGlassView style={styles.fab} tintColor={accent} isInteractive>
                 <IconPlusBig size={24} color="#fff" strokeWidth={2.2} />
-              </GlassView>
+              </ThemedGlassView>
             ) : (
               <View style={[styles.fab, styles.fabFlat, { backgroundColor: accent }]}>
                 <IconPlusBig size={24} color="#fff" strokeWidth={2.2} />

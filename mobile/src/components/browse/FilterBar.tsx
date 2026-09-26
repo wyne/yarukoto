@@ -1,5 +1,6 @@
 import React, { useRef, useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { ScrollView, Text, View } from 'react-native';
+import Pressable from '../HoverPressable';
 import { makeStyles } from '../../theme/styles';
 import { useHoverBg } from '../../theme/hover';
 import { fonts } from '../../theme/typography';

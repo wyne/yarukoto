@@ -19,3 +19,29 @@ The full protocol is in the root `AGENTS.md`; the client half of it:
   happened to contain the field.
 
 Local and sample mode have no server to negotiate with and are fully capable.
+
+## Mac Catalyst
+
+The iOS project also builds for the Mac (`npm run mac`; details in the README under
+"Building the Mac app"). A few things follow for code in this directory:
+
+- **`Platform.OS` is `'ios'` on the Mac.** Anything keyed on it treats a desktop with a
+  keyboard and trackpad as a phone. Branch on the capability actually in question —
+  `DESKTOP_UI`, `FINE_POINTER`, `FLOATING_TAB_BAR` in `src/data/platform.ts`, or window
+  width — rather than adding another platform check. `DESKTOP_UI` does **not** mean the
+  DOM exists: code touching `document` or `window` checks `Platform.OS === 'web'` itself.
+- **Hover styling needs `HoverPressable`.** Import `Pressable` from
+  `src/components/HoverPressable` wherever a style reads `hovered` (anything using
+  `useHoverBg` or `hoverable`). React Native's own `Pressable` never sets it on the Mac.
+- **Native menus go through `NativeMenu`** (`src/components/NativeMenu.tsx`), not
+  `@expo/ui/community/menu` directly. On the Mac the library's trigger renders as an
+  empty pop-up button.
+- **No wheel pickers on the Mac.** UIKit throws the moment a `UIPickerView` reaches a
+  window there, which takes the whole app down. That covers `@expo/ui/community/picker`
+  (always a wheel on iOS) and `DateTimePicker` with `display="spinner"`. Branch on `MAC`
+  from `src/data/platform.ts` and use `MacTimeMenus` for a time, or a `NativeMenu` for a
+  choice. (The compact `DateTimePicker` doesn't crash there, but takes no input either.)
+- **A new native dependency has to compile for Catalyst too.** After adding one, run
+  `npm run mac` as well as the phone build; one pod without a Catalyst slice fails
+  the whole Mac build. If it needs a project-level fix, it belongs in
+  `plugins/mac-catalyst`, not in the generated `ios/` folder.

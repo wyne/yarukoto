@@ -1,12 +1,13 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Pressable, Text, View, useWindowDimensions } from 'react-native';
+import { Text, View, useWindowDimensions } from 'react-native';
+import Pressable from './HoverPressable';
 import { makeStyles } from '../theme/styles';
 import { useHoverBg } from '../theme/hover';
 import { fonts } from '../theme/typography';
 import { useAccent } from '../theme/ThemeContext';
 import BottomSheet from './BottomSheet';
 import Popover, { POPOVER_MIN_WIDTH, PopoverAnchor } from './Popover';
-import { WEB_ENTRY } from '../data/platform';
+import { DESKTOP_UI } from '../data/platform';
 import {
   GROUP_BY_OPTIONS,
   GroupBy,
@@ -44,13 +45,13 @@ export default function ViewOptionsSheet({ visible, onClose, value, onChange, on
     wasVisible.current = visible;
   }, [value, visible]);
 
-  const displayedValue = WEB_ENTRY ? value : draft;
+  const displayedValue = DESKTOP_UI ? value : draft;
   const updateValue = (next: ViewOptions) => {
-    if (WEB_ENTRY) onChange(next);
+    if (DESKTOP_UI) onChange(next);
     else setDraft(next);
   };
   const restoreOrder = () => {
-    if (WEB_ENTRY) {
+    if (DESKTOP_UI) {
       onRestore();
       return;
     }
@@ -109,7 +110,7 @@ export default function ViewOptionsSheet({ visible, onClose, value, onChange, on
   // gets a panel tethered to the button instead — and clicking away is the only
   // exit it needs, which retires the Done button with it. A narrow browser keeps
   // the sheet, which is the better shape on a phone.
-  if (WEB_ENTRY && width >= POPOVER_MIN_WIDTH) {
+  if (DESKTOP_UI && width >= POPOVER_MIN_WIDTH) {
     return (
       <Popover visible={visible} onClose={onClose} anchor={anchor ?? null}>
         {body}
@@ -122,7 +123,7 @@ export default function ViewOptionsSheet({ visible, onClose, value, onChange, on
       visible={visible}
       onClose={onClose}
       onDismissed={
-        WEB_ENTRY
+        DESKTOP_UI
           ? undefined
           : () => {
               const next = pendingApply.current;
@@ -136,7 +137,7 @@ export default function ViewOptionsSheet({ visible, onClose, value, onChange, on
       <Pressable
         style={styles.doneBtn}
         onPress={() => {
-          if (!WEB_ENTRY) pendingApply.current = draft;
+          if (!DESKTOP_UI) pendingApply.current = draft;
           onClose();
         }}
       >

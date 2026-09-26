@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Text, View } from 'react-native';
+import { Platform, Text, View } from 'react-native';
 import Animated, { useAnimatedStyle, useDerivedValue, useSharedValue, withTiming } from 'react-native-reanimated';
 import type { SharedValue } from 'react-native-reanimated';
 import type { AnimatedRef } from 'react-native-reanimated';
@@ -301,9 +301,10 @@ function GlassRow({
   const [hovered, setHovered] = useState(false);
 
   // Listened for on the host node: the row's own hover lives on a Pressable
-  // further in, and the handle deliberately sits outside it.
+  // further in, and the handle deliberately sits outside it. On web that means a
+  // DOM listener; native (the Mac) gets pointer events as props instead, below.
   useEffect(() => {
-    if (!handle) return;
+    if (!handle || Platform.OS !== 'web') return;
     const node = ref.current as unknown as HTMLElement | null;
     if (!node?.addEventListener) return;
     const enter = () => setHovered(true);
@@ -320,8 +321,17 @@ function GlassRow({
     opacity: activationAnimationProgress.value * lift.value,
   }));
 
+  // The Mac drags from the handle alone, and the handle only renders while
+  // hovered — so this is what makes rows reorderable there at all.
+  const nativeHover = handle && Platform.OS !== 'web';
+
   return (
-    <View ref={ref} style={[styles.glass, width !== null && { width }]}>
+    <View
+      ref={ref}
+      style={[styles.glass, width !== null && { width }]}
+      onPointerEnter={nativeHover ? () => setHovered(true) : undefined}
+      onPointerLeave={nativeHover ? () => setHovered(false) : undefined}
+    >
       {children}
       {/*
         Outside the row's Pressable on purpose. Nested inside it, a press on the

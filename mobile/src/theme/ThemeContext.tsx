@@ -1,5 +1,5 @@
-import React, { createContext, useCallback, useContext, useMemo, useState } from 'react';
-import { useColorScheme } from 'react-native';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { Appearance, Platform, useColorScheme } from 'react-native';
 import { loadAccent, loadScheme, saveAccent, saveScheme } from '../data/storage';
 import {
   ACCENT_DARK,
@@ -69,6 +69,25 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         ? 'dark'
         : 'light'
       : schemePref;
+
+  /**
+   * Native controls follow the app's scheme, not only the views we draw.
+   *
+   * Menus, date pickers, alerts and glass are UIKit's, and take their light or
+   * dark from the window rather than from our palette. Left alone they follow the
+   * device, so a dark app on a light device opened light menus over dark
+   * screens. Overriding the window's style makes them agree; 'unspecified' for
+   * "system" hands the choice back to the device, which also keeps
+   * useColorScheme() reporting the device rather than our own override.
+   *
+   * iOS only, the Mac included. Web has no native controls to reconcile, and on
+   * Android the same call sets the process-wide night mode, which can recreate
+   * the activity — a different change, for another day.
+   */
+  useEffect(() => {
+    if (Platform.OS !== 'ios') return;
+    Appearance.setColorScheme(!DARK_MODE_READY ? 'light' : schemePref === 'system' ? 'unspecified' : schemePref);
+  }, [schemePref]);
 
   const value = useMemo(
     () => ({

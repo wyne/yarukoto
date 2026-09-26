@@ -185,7 +185,9 @@ export const darkPalette: Palette = {
   accentTintBg: '#20263D',
   selectedRowBg: '#262E4A',
 
-  hoverBg: '#232320',
+  // About as far above the surface as light's hover sits below white. Two
+  // levels up, where it started, was there but couldn't be seen.
+  hoverBg: '#2B2B28',
   heldRowBg: '#33322E',
 
   swipeToday: '#96521C',

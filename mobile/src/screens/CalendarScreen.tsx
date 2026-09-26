@@ -1,6 +1,6 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { LayoutChangeEvent, PanResponder, Pressable, ScrollView, Text, View } from 'react-native';
-import MenuView, { type MenuAction, type NativeActionEvent } from '@expo/ui/community/menu';
+import MenuView, { type MenuAction, type NativeActionEvent } from '../components/NativeMenu';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { makeStyles } from '../theme/styles';
 import { fonts } from '../theme/typography';
@@ -24,7 +24,7 @@ import AddTaskFab from '../components/AddTaskFab';
 import { closeOpenSwipeRow } from '../components/SwipeableRow';
 import { useSyncRefresh } from '../data/useSyncRefresh';
 import GlassIconButton, { GlassIconButtonGroup, GlassTextButton, GlassTextMenuLabel } from '../components/GlassIconButton';
-import { WEB_ENTRY } from '../data/platform';
+import { DESKTOP_UI, FLOATING_TAB_BAR } from '../data/platform';
 import { IconChevronDown, IconChevronLeft, IconChevronRight, IconMenu } from '../icons/Icons';
 import { taskIdsFromDrag, useDragActive, useDragPayload } from '../drag/DragContext';
 import { Measurable } from '../drag/useDropTarget';
@@ -130,8 +130,8 @@ export default function CalendarScreen() {
   const resizePan = useMemo(
     () =>
       PanResponder.create({
-        onStartShouldSetPanResponder: () => WEB_ENTRY,
-        onMoveShouldSetPanResponder: () => WEB_ENTRY,
+        onStartShouldSetPanResponder: () => DESKTOP_UI,
+        onMoveShouldSetPanResponder: () => DESKTOP_UI,
         onPanResponderGrant: () => {
           resizeStartWidth.current = schedulePaneWidthRef.current;
         },
@@ -145,7 +145,7 @@ export default function CalendarScreen() {
     (event: LayoutChangeEvent) => {
       const nextWidth = event.nativeEvent.layout.width;
       setRowWidth(nextWidth);
-      if (!WEB_ENTRY) return;
+      if (!DESKTOP_UI) return;
       const max = Math.max(PLAN_PANE_MIN_WIDTH, nextWidth - CALENDAR_MIN_WIDTH - PANE_RESIZER_WIDTH);
       if (schedulePaneWidthRef.current > max) {
         schedulePaneWidthRef.current = max;
@@ -242,11 +242,12 @@ export default function CalendarScreen() {
   const selectedDateLabel = `${monthShort(selectedDate)} ${selectedDate.getDate()}`;
 
   // Both day views run to the bottom of the screen, under a tab bar and a FAB.
-  // Both are zero where neither exists: a wide layout has no tab bar, and web
-  // pins the QuickAddBar in place of the button.
-  const nativeChrome = !wide && !WEB_ENTRY;
-  const tabBarInset = nativeChrome ? nativeTabBarClearance(insets.bottom) : 0;
-  const fabClearance = nativeChrome ? NATIVE_FAB_CLEARANCE : 0;
+  // Each is zero where it doesn't exist: a wide layout has neither, the web tab
+  // bar doesn't float, and the desktop pins the QuickAddBar in place of the
+  // button. They are separate because a narrow Mac window has the one without
+  // the other.
+  const tabBarInset = !wide && FLOATING_TAB_BAR ? nativeTabBarClearance(insets.bottom) : 0;
+  const fabClearance = !wide && !DESKTOP_UI ? NATIVE_FAB_CLEARANCE : 0;
   const viewLabel = effectiveMode === 'day' ? 'Daily' : effectiveMode === 'week' ? 'Week' : `${rangeDays} days`;
   const sortLabel = sort === 'priority' ? 'Priority' : 'Custom';
   const viewActions: MenuAction[] = [
@@ -286,7 +287,7 @@ export default function CalendarScreen() {
     </View>
   );
 
-  const viewMenu = WEB_ENTRY ? (
+  const viewMenu = DESKTOP_UI ? (
     <GlassTextButton onPress={cycleView} label="Calendar view" compact>
       {menuLabel(viewLabel)}
     </GlassTextButton>
@@ -298,7 +299,7 @@ export default function CalendarScreen() {
     </MenuView>
   );
 
-  const sortMenu = WEB_ENTRY ? (
+  const sortMenu = DESKTOP_UI ? (
     <GlassTextButton onPress={toggleSort} label="Calendar sort" compact>
       {menuLabel(`Sort: ${sortLabel}`)}
     </GlassTextButton>
@@ -347,11 +348,11 @@ export default function CalendarScreen() {
     <View style={[styles.row, { paddingTop: insets.top + 6 }]} onLayout={handleRowLayout}>
       {wide && (
         <SchedulePane
-          width={WEB_ENTRY ? schedulePaneWidth : undefined}
-          showRightBorder={!WEB_ENTRY}
+          width={DESKTOP_UI ? schedulePaneWidth : undefined}
+          showRightBorder={!DESKTOP_UI}
         />
       )}
-      {wide && WEB_ENTRY && (
+      {wide && DESKTOP_UI && (
         <View
           style={styles.paneResizer}
           accessibilityRole="adjustable"
@@ -362,7 +363,7 @@ export default function CalendarScreen() {
         </View>
       )}
 
-      <View style={[styles.calendarCol, wide && WEB_ENTRY && styles.calendarColResizable]}>
+      <View style={[styles.calendarCol, wide && DESKTOP_UI && styles.calendarColResizable]}>
         <View style={styles.header}>
           {!wide && (
             <GlassIconButton onPress={openDrawer} label="Menu">
@@ -438,7 +439,7 @@ export default function CalendarScreen() {
             </View>
             {completedToggle}
 
-            {!wide && WEB_ENTRY && (
+            {!wide && DESKTOP_UI && (
               <View style={styles.quickAdd}>
                 <QuickAddBar
                   onSubmit={(text) => addTaskFromQuickAdd(text, { dueDate: toISODate(selectedDate) })}
@@ -456,7 +457,7 @@ export default function CalendarScreen() {
               // both the bar and the button to get out from under.
               contentContainerStyle={[
                 styles.agenda,
-                nativeChrome && { paddingBottom: tabBarInset + fabClearance },
+                tabBarInset + fabClearance > 0 && { paddingBottom: tabBarInset + fabClearance },
               ]}
               scrollEnabled={!dragging}
             >
@@ -479,7 +480,7 @@ export default function CalendarScreen() {
           </>
         )}
 
-        {!wide && !WEB_ENTRY && (
+        {!wide && !DESKTOP_UI && (
           <>
             <AddExistingTaskButton onPress={openAddExisting} />
             {/* A drag turns the button beside it into the cancel target; the FAB

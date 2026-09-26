@@ -1,6 +1,7 @@
 import React from 'react';
 import { useColors } from '../../theme/ThemeContext';
-import { Pressable, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
+import Pressable from '../HoverPressable';
 import BottomSheet from '../BottomSheet';
 import type { PopoverAnchor } from '../Popover';
 import { priorityColor } from '../../theme/colors';
