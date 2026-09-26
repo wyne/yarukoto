@@ -438,6 +438,14 @@ const Sidebar = React.memo(function Sidebar({ state, navigation, onNavigate }: P
             // Every destination on this screen is a whole view, never a change to
             // part of one — see `taskViewParams`.
             params: screen === 'Tasks' ? taskViewParams(next as NativeTaskViewParams) : next,
+            // Back to the task list already in the stack, rather than a new one
+            // on top. React Navigation 7's `navigate` only reuses the route on
+            // top, so leaving Activity or Trash for a list pushed a second list
+            // screen, which mounted every row from scratch and left the first
+            // copy mounted underneath. Activity and Trash still push: they are
+            // cheap to mount, and popping to one would unmount the list above
+            // it, costing a full remount on the way back.
+            pop: screen === 'Tasks',
           });
         } else {
           (navigation.navigate as (name: string, params?: object) => void)(route, params);
