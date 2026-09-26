@@ -13,7 +13,7 @@ import { fonts } from '../theme/typography';
 import { useAccent, useColors } from '../theme/ThemeContext';
 import { selectionCheckColor } from '../theme/colors';
 import { Task, ListDef } from '../data/types';
-import { formatDueShort, isOverdue } from '../data/dateUtils';
+import { formatDueShort, isOverdue, startOfDay } from '../data/dateUtils';
 import TaskCheckbox from './TaskCheckbox';
 import SwipeableRow from './SwipeableRow';
 import { IconCheckBig, IconGrip, IconNote, IconStar, IconTag } from '../icons/Icons';
@@ -81,8 +81,10 @@ type Handlers = Pick<Props, 'onPress' | 'onLongPress' | 'onToggleComplete' | 'on
  * mounted screen. The parents build their handlers inline and hand over a fresh
  * `now` each render, which would defeat a plain `memo`. This thin wrapper
  * absorbs both: handlers are forwarded through stable functions that call
- * whatever the parent passed last, and `now` only counts when its minute does,
- * which is the finest thing a row shows. The body then skips unless something
+ * whatever the parent passed last, and `now` only counts when its day does —
+ * a row's due label and overdue colour are day-level, and the time it shows is
+ * the task's own. Anything finer would redraw every row on the first change
+ * after each minute ticked over. The body then skips unless something
  * it draws has actually changed.
  */
 export default function TaskRow(props: Props) {
@@ -107,17 +109,17 @@ export default function TaskRow(props: Props) {
       // Whether there is a long press at all changes how the row behaves, so
       // only its identity is hidden, not its presence.
       onLongPress={props.onLongPress ? stable.onLongPress : undefined}
-      minute={Math.floor(now.getTime() / 60000)}
+      today={startOfDay(now).getTime()}
     />
   );
 }
 
-type BodyProps = Omit<Props, 'now'> & { minute: number };
+type BodyProps = Omit<Props, 'now'> & { today: number };
 
 const TaskRowBody = memo(function TaskRowBody({
   task,
   list,
-  minute,
+  today,
   selectionMode,
   selected,
   selectionColor,
@@ -138,7 +140,7 @@ const TaskRowBody = memo(function TaskRowBody({
   onLater,
   onDone,
 }: BodyProps) {
-  const now = new Date(minute * 60000);
+  const now = new Date(today);
   const colors = useColors();
   const styles = useStyles();
   const accent = useAccent();
