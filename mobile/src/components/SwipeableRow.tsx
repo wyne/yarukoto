@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useColors } from '../theme/ThemeContext';
 import { Pressable, Text, View } from 'react-native';
 import ReanimatedSwipeable, {
@@ -110,6 +110,13 @@ export default function SwipeableRow({ children, onToday, onLater, onDone, disab
   // A cross-pane drag is armed by holding the row, and moving off with it is
   // also sideways. The drag wins outright while it is in flight.
   const dragging = useDragActive();
+  // The actions sit behind every row from mount, but are only ever seen once a
+  // row is swiped. Their icons are a few SVGs apiece, which across a long list
+  // made them a large share of what switching to it had to build. The buttons
+  // keep their size so the swipe measures the same; what they show fills in as
+  // the drag starts, well before the first action is uncovered.
+  const [armed, setArmed] = useState(false);
+  const arm = useCallback(() => setArmed(true), []);
 
   const forget = useCallback(() => {
     if (openRow !== rowRef.current) return;
@@ -154,26 +161,26 @@ export default function SwipeableRow({ children, onToday, onLater, onDone, disab
           style={[styles.action, { backgroundColor: colors.swipeToday }]}
           onPress={() => runAction(onToday)}
         >
-          <IconClock size={18} color="#fff" strokeWidth={1.7} />
-          <Text style={styles.actionLabel}>Today</Text>
+          {armed && <IconClock size={18} color="#fff" strokeWidth={1.7} />}
+          {armed && <Text style={styles.actionLabel}>Today</Text>}
         </Pressable>
         <Pressable
           style={[styles.action, { backgroundColor: colors.swipeLater }]}
           onPress={() => runAction(onLater)}
         >
-          <IconCalendarBox size={18} color="#fff" strokeWidth={1.6} />
-          <Text style={styles.actionLabel}>Tmrw</Text>
+          {armed && <IconCalendarBox size={18} color="#fff" strokeWidth={1.6} />}
+          {armed && <Text style={styles.actionLabel}>Tmrw</Text>}
         </Pressable>
         <Pressable
           style={[styles.action, { backgroundColor: colors.swipeDone }]}
           onPress={() => runAction(onDone)}
         >
-          <IconCheckBig size={18} color="#fff" strokeWidth={2} />
-          <Text style={styles.actionLabel}>Done</Text>
+          {armed && <IconCheckBig size={18} color="#fff" strokeWidth={2} />}
+          {armed && <Text style={styles.actionLabel}>Done</Text>}
         </Pressable>
       </View>
     ),
-    [onDone, onLater, onToday, runAction]
+    [armed, onDone, onLater, onToday, runAction]
   );
 
   return (
@@ -186,6 +193,7 @@ export default function SwipeableRow({ children, onToday, onLater, onDone, disab
       dragOffsetFromLeftEdge={NEVER_FROM_LEFT}
       // Nothing lives past the last action, so there is nothing to stretch into.
       overshootRight={false}
+      onSwipeableOpenStartDrag={arm}
       onSwipeableWillOpen={claim}
       onSwipeableWillClose={forget}
       containerStyle={styles.container}
