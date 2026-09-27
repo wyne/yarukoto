@@ -21,8 +21,12 @@ const ACTIONS_WIDTH = ACTION_WIDTH * 3;
 /** How much of the fling's speed counts toward where the row lands. */
 const DRAG_TOSS = 0.05;
 
-/** Settles without bouncing past where it is going. */
-const SPRING = { mass: 2, damping: 1000, stiffness: 700, overshootClamping: true };
+/**
+ * Critically damped: settles in about a quarter second without bouncing past
+ * where it is going. (Gesture-handler's swipeable defaults are damped more than
+ * ten times over, which left a row shut from elsewhere crawling for seconds.)
+ */
+const SPRING = { mass: 1, damping: 40, stiffness: 400, overshootClamping: true };
 
 /**
  * How far the row must be left when the finger lifts for it to stay open. Well
