@@ -50,6 +50,7 @@
     "ios:dev": "APP_VARIANT=development npx expo prebuild --clean && APP_VARIANT=development expo run:ios",
     "install:ipa": "scripts/install-ipa.sh",
     "mac": "scripts/build-mac.sh",
+    "mac:release": "scripts/release-mac.sh",
     "web": "expo start --web"
   },
   "private": true
