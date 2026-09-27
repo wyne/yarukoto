@@ -1,5 +1,6 @@
 import React, { forwardRef, memo, useCallback, useMemo, useReducer, useState } from 'react';
 import { type FlatList, type ListRenderItemInfo, Pressable, type RefreshControlProps, type StyleProp, Text, View, type ViewStyle } from 'react-native';
+import { Gesture } from 'react-native-gesture-handler';
 import { LinearTransition } from 'react-native-reanimated';
 import ReorderableList, {
   type ReorderableListReorderEvent,
@@ -105,6 +106,19 @@ const VirtualTaskList = forwardRef<FlatList<Item>, Props>(function VirtualTaskLi
   ref
 ) {
   const active = groups.reduce((n, g) => n + g.tasks.length, 0);
+
+  // The list's own pan otherwise activates on any movement, which takes the
+  // touch away from a row's swipe and the drawer's edge swipe. With a touch,
+  // it now waits for the long press that starts a drag (TaskRow's is 350 ms)
+  // and gives up if the finger moves first. The Mac's grip starts a drag on
+  // press, so there it keeps activating at once.
+  const panGesture = useMemo(
+    () =>
+      FINE_POINTER
+        ? Gesture.Pan()
+        : Gesture.Pan().activateAfterLongPress(300).failOffsetX([-10, 10]).failOffsetY([-10, 10]),
+    []
+  );
 
   const items = useMemo(() => {
     const out: Item[] = [];
