@@ -107,16 +107,17 @@ const VirtualTaskList = forwardRef<FlatList<Item>, Props>(function VirtualTaskLi
 ) {
   const active = groups.reduce((n, g) => n + g.tasks.length, 0);
 
-  // The list's own pan otherwise activates on any movement, which takes the
-  // touch away from a row's swipe and the drawer's edge swipe. With a touch,
-  // it now waits for the long press that starts a drag (TaskRow's is 350 ms)
-  // and gives up if the finger moves first. The Mac's grip starts a drag on
-  // press, so there it keeps activating at once.
+  // The list's own pan otherwise activates after 10pt of movement in any
+  // direction, which takes the touch from a row's swipe (15pt) and the
+  // drawer's swipe. With a touch it now gives up at 5pt, before its own 10pt
+  // activation can fire, and otherwise activates only once held — after
+  // TaskRow's 350 ms long press has lifted the row. The Mac's grip starts a
+  // drag on press, so there it keeps activating at once.
   const panGesture = useMemo(
     () =>
       FINE_POINTER
         ? Gesture.Pan()
-        : Gesture.Pan().activateAfterLongPress(300).failOffsetX([-10, 10]).failOffsetY([-10, 10]),
+        : Gesture.Pan().activateAfterLongPress(400).failOffsetX([-5, 5]).failOffsetY([-5, 5]),
     []
   );
 
