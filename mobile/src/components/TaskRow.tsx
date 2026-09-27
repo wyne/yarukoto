@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { memo, useEffect, useMemo, useRef, useState } from 'react';
 import {
   GestureResponderEvent,
   GestureResponderHandlers,
@@ -13,7 +13,7 @@ import { fonts } from '../theme/typography';
 import { useAccent, useColors } from '../theme/ThemeContext';
 import { selectionCheckColor } from '../theme/colors';
 import { Task, ListDef } from '../data/types';
-import { formatDueShort, isOverdue } from '../data/dateUtils';
+import { formatDueShort, isOverdue, startOfDay } from '../data/dateUtils';
 import TaskCheckbox from './TaskCheckbox';
 import SwipeableRow from './SwipeableRow';
 import { IconCheckBig, IconGrip, IconNote, IconStar, IconTag } from '../icons/Icons';
@@ -73,10 +73,53 @@ interface Props {
   onDone: () => void;
 }
 
-export default function TaskRow({
+type Handlers = Pick<Props, 'onPress' | 'onLongPress' | 'onToggleComplete' | 'onToday' | 'onLater' | 'onDone'>;
+
+/**
+ * Every row re-renders whenever its parent does, and the parents re-render on
+ * any task change — so without this, editing one task redrew every row on every
+ * mounted screen. The parents build their handlers inline and hand over a fresh
+ * `now` each render, which would defeat a plain `memo`. This thin wrapper
+ * absorbs both: handlers are forwarded through stable functions that call
+ * whatever the parent passed last, and `now` only counts when its day does —
+ * a row's due label and overdue colour are day-level, and the time it shows is
+ * the task's own. Anything finer would redraw every row on the first change
+ * after each minute ticked over. The body then skips unless something
+ * it draws has actually changed.
+ */
+export default function TaskRow(props: Props) {
+  const latest = useRef<Handlers>(props);
+  latest.current = props;
+  const stable = useMemo<Required<Handlers>>(
+    () => ({
+      onPress: () => latest.current.onPress(),
+      onLongPress: (e) => latest.current.onLongPress?.(e),
+      onToggleComplete: () => latest.current.onToggleComplete(),
+      onToday: () => latest.current.onToday(),
+      onLater: () => latest.current.onLater(),
+      onDone: () => latest.current.onDone(),
+    }),
+    []
+  );
+  const { now, ...rest } = props;
+  return (
+    <TaskRowBody
+      {...rest}
+      {...stable}
+      // Whether there is a long press at all changes how the row behaves, so
+      // only its identity is hidden, not its presence.
+      onLongPress={props.onLongPress ? stable.onLongPress : undefined}
+      today={startOfDay(now).getTime()}
+    />
+  );
+}
+
+type BodyProps = Omit<Props, 'now'> & { today: number };
+
+const TaskRowBody = memo(function TaskRowBody({
   task,
   list,
-  now,
+  today,
   selectionMode,
   selected,
   selectionColor,
@@ -96,7 +139,8 @@ export default function TaskRow({
   onToday,
   onLater,
   onDone,
-}: Props) {
+}: BodyProps) {
+  const now = new Date(today);
   const colors = useColors();
   const styles = useStyles();
   const accent = useAccent();
@@ -240,7 +284,7 @@ export default function TaskRow({
       {row}
     </SwipeableRow>
   );
-}
+});
 
 /**
  * Web-only, and spread through `as object` so the native typings don't have to know

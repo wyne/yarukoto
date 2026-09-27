@@ -391,14 +391,23 @@ function applyAction(state: State, action: Action): State {
         folders: action.folders,
         viewPrefs: action.viewPrefs,
       };
-    case 'MERGE':
-      return {
-        ...state,
-        tasks: mergeBatch(state.tasks, action.tasks, mergeDirtyIds),
-        lists: mergeBatch(state.lists, action.lists, mergeDirtyIds),
-        folders: mergeBatch(state.folders, action.folders, mergeDirtyIds),
-        viewPrefs: mergeBatch(state.viewPrefs, action.viewPrefs, mergeDirtyIds),
-      };
+    case 'MERGE': {
+      const tasks = mergeBatch(state.tasks, action.tasks, mergeDirtyIds);
+      const lists = mergeBatch(state.lists, action.lists, mergeDirtyIds);
+      const folders = mergeBatch(state.folders, action.folders, mergeDirtyIds);
+      const viewPrefs = mergeBatch(state.viewPrefs, action.viewPrefs, mergeDirtyIds);
+      // Most pulls come back empty. Handing back the same state lets React bail
+      // out, instead of re-rendering every consumer on each idle sync tick.
+      if (
+        tasks === state.tasks &&
+        lists === state.lists &&
+        folders === state.folders &&
+        viewPrefs === state.viewPrefs
+      ) {
+        return state;
+      }
+      return { ...state, tasks, lists, folders, viewPrefs };
+    }
     default:
       return state;
   }
@@ -522,7 +531,6 @@ interface TaskContextValue {
   /** Complete a task as of a past moment — a notification action taken while
    * the app was not running. No-op if the task moved on since. */
   completeAt: (id: string, at: string) => void;
-  pendingUndo: PendingUndo | null;
   undoComplete: () => void;
   dismissUndo: () => void;
   updateTask: (id: string, patch: Partial<Task>) => void;
@@ -565,8 +573,6 @@ interface TaskContextValue {
   useSampleData: () => void;
   disconnect: () => void;
   removeSavedServer: (url: string) => void;
-  /** Live sync state, for the indicator in the sidebar. Only meaningful in server mode. */
-  syncStatus: SyncStatus;
   /**
    * Runs a sync cycle now and resolves when it settles, for pull-to-refresh.
    * Joins the cycle already in flight rather than starting a second one, and
@@ -576,6 +582,14 @@ interface TaskContextValue {
 }
 
 const TaskContext = createContext<TaskContextValue | null>(null);
+/**
+ * Sync status and the pending undo change on their own clock — the sync status
+ * several times a cycle — and only a couple of small components show them. Kept
+ * out of `TaskContext` so those changes re-render the indicator and the toast,
+ * not every screen that reads tasks.
+ */
+const SyncStatusContext = createContext<SyncStatus | null>(null);
+const PendingUndoContext = createContext<PendingUndo | null>(null);
 
 export function TaskProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(reducer, undefined, initState);
@@ -1040,7 +1054,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     };
 
     const run = async () => {
-      setSyncStatus((s) => ({ ...s, state: 'syncing' }));
+      setSyncStatus((s) => (s.state === 'syncing' ? s : { ...s, state: 'syncing' }));
       try {
         // Re-probe only when the answer is unknown or stale — a feature list that
         // changes on redeploy does not need fetching every few seconds.
@@ -1085,7 +1099,12 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
         }
         const pulled = await pullSince(api, cursorRef.current);
         cursorRef.current = pulled.now;
-        saveServerSnapshot({
+        const pulledAnything =
+          pulled.tasks.length + pulled.lists.length + pulled.folders.length + pulled.viewPrefs.length > 0;
+        // An empty pull only moves the cursor. Rewriting the whole snapshot for
+        // that serializes every task on the JS thread each tick; if the app dies
+        // first, the next launch just pulls from the older cursor again.
+        if (pulledAnything) saveServerSnapshot({
           tasks: stateRef.current.tasks,
           lists: stateRef.current.lists,
           folders: stateRef.current.folders,
@@ -1203,7 +1222,6 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       addTaskFromQuickAdd,
       toggleComplete,
       completeAt,
-      pendingUndo,
       undoComplete,
       dismissUndo,
       updateTask,
@@ -1235,7 +1253,6 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       useSampleData,
       disconnect,
       removeSavedServer,
-      syncStatus,
       syncNow,
     }),
     [
@@ -1244,7 +1261,6 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       addTaskFromQuickAdd,
       toggleComplete,
       completeAt,
-      pendingUndo,
       undoComplete,
       dismissUndo,
       updateTask,
@@ -1276,16 +1292,33 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       useSampleData,
       disconnect,
       removeSavedServer,
-      syncStatus,
       syncNow,
     ]
   );
 
-  return <TaskContext.Provider value={value}>{children}</TaskContext.Provider>;
+  return (
+    <TaskContext.Provider value={value}>
+      <SyncStatusContext.Provider value={syncStatus}>
+        <PendingUndoContext.Provider value={pendingUndo}>{children}</PendingUndoContext.Provider>
+      </SyncStatusContext.Provider>
+    </TaskContext.Provider>
+  );
 }
 
 export function useTasks(): TaskContextValue {
   const ctx = useContext(TaskContext);
   if (!ctx) throw new Error('useTasks must be used within a TaskProvider');
   return ctx;
+}
+
+/** Live sync state, for the sync indicator. Only meaningful in server mode. */
+export function useSyncStatus(): SyncStatus {
+  const status = useContext(SyncStatusContext);
+  if (!status) throw new Error('useSyncStatus must be used within a TaskProvider');
+  return status;
+}
+
+/** The completion the undo toast is offering to reverse, if any. */
+export function usePendingUndo(): PendingUndo | null {
+  return useContext(PendingUndoContext);
 }

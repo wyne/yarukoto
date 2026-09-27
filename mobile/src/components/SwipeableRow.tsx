@@ -1,10 +1,9 @@
-import React, { useCallback, useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useColors } from '../theme/ThemeContext';
-import { Pressable, Text, View } from 'react-native';
-import ReanimatedSwipeable, {
-  type SwipeableMethods,
-} from 'react-native-gesture-handler/ReanimatedSwipeable';
-import { makeMutable } from 'react-native-reanimated';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Animated, { makeMutable, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
+import { scheduleOnRN } from 'react-native-worklets';
 import { makeStyles } from '../theme/styles';
 import { useDragActive } from '../drag/DragContext';
 import { hapticAction } from '../data/haptics';
@@ -17,6 +16,17 @@ import { IconCalendarBox, IconCheckBig, IconClock } from '../icons/Icons';
  * the swipe itself feels exactly as it did.
  */
 const ACTION_WIDTH = 58;
+const ACTIONS_WIDTH = ACTION_WIDTH * 3;
+
+/** How much of the fling's speed counts toward where the row lands. */
+const DRAG_TOSS = 0.05;
+
+/**
+ * Critically damped: settles in about a quarter second without bouncing past
+ * where it is going. (Gesture-handler's swipeable defaults are damped more than
+ * ten times over, which left a row shut from elsewhere crawling for seconds.)
+ */
+const SPRING = { mass: 1, damping: 40, stiffness: 400, overshootClamping: true };
 
 /**
  * How far the row must be left when the finger lifts for it to stay open. Well
@@ -56,7 +66,7 @@ const NEVER_FROM_LEFT = 10000;
  * than context because nothing renders off it — it is only ever read to close
  * the previous row.
  */
-let openRow: SwipeableMethods | null = null;
+let openRow: { close: () => void } | null = null;
 
 /**
  * The same fact as `openRow`, in a form the UI thread can read.
@@ -106,34 +116,86 @@ interface Props {
 export default function SwipeableRow({ children, onToday, onLater, onDone, disabled }: Props) {
   const colors = useColors();
   const styles = useStyles();
-  const rowRef = useRef<SwipeableMethods>(null);
   // A cross-pane drag is armed by holding the row, and moving off with it is
   // also sideways. The drag wins outright while it is in flight.
   const dragging = useDragActive();
 
+  /*
+   * Built by hand rather than on gesture-handler's ReanimatedSwipeable.
+   *
+   * Every row carries one of these, and almost none is ever swiped. The
+   * library's version costs each of them several animated wrappers, a second
+   * gesture for tap-to-close, a layout measurement and four animated styles —
+   * a large share of what building a screenful of rows cost. The actions here
+   * are a fixed width, so nothing needs measuring: a row at rest is one pan
+   * recognizer and two views, and the actions are only built once a swipe
+   * starts, well before the first of them is uncovered.
+   */
+  const translate = useSharedValue(0);
+  const startX = useSharedValue(0);
+  const [armed, setArmed] = useState(false);
+  const [open, setOpen] = useState(false);
+  const self = useRef<{ close: () => void } | null>(null);
+
   const forget = useCallback(() => {
-    if (openRow !== rowRef.current) return;
+    setOpen(false);
+    if (openRow !== self.current) return;
     openRow = null;
     swipeRowOpen.value = false;
   }, []);
+
+  const close = useCallback(() => {
+    translate.value = withSpring(0, SPRING);
+    forget();
+  }, [forget, translate]);
+  self.current ??= { close: () => close() };
 
   // Unmounting while open — completing the task from its own action does exactly
   // this — would otherwise leave the registry pointing at a dead row.
   useEffect(() => forget, [forget]);
 
   const claim = useCallback(() => {
-    if (openRow && openRow !== rowRef.current) openRow.close();
-    openRow = rowRef.current;
+    if (openRow && openRow !== self.current) openRow.close();
+    openRow = self.current;
     swipeRowOpen.value = true;
+    setOpen(true);
   }, []);
+
+  const arm = useCallback(() => setArmed(true), []);
+
+  const pan = useMemo(
+    () =>
+      Gesture.Pan()
+        .enabled(!disabled && !dragging)
+        .activeOffsetX([-EDGE_OFFSET, NEVER_FROM_LEFT])
+        .onStart(() => {
+          startX.value = translate.value;
+          scheduleOnRN(arm);
+        })
+        .onUpdate((e) => {
+          translate.value = Math.min(0, Math.max(-ACTIONS_WIDTH, startX.value + e.translationX));
+        })
+        .onEnd((e) => {
+          // Measured against the finger, not the row, so a throw that has only
+          // covered a little ground but is still moving lands open.
+          const travel = e.translationX + DRAG_TOSS * e.velocityX;
+          const opening = startX.value === 0 ? travel < -OPEN_THRESHOLD : travel < OPEN_THRESHOLD;
+          const to = opening ? -ACTIONS_WIDTH : 0;
+          translate.value = withSpring(to, { ...SPRING, velocity: e.velocityX });
+          scheduleOnRN(opening ? claim : forget);
+        }),
+    [arm, claim, disabled, dragging, forget, startX, translate]
+  );
+
+  const foreground = useAnimatedStyle(() => ({ transform: [{ translateX: translate.value }] }));
 
   // Action first, close second: the tap is a request to do the thing, and
   // nothing about shutting the row should be able to get in the way of it.
-  const runAction = useCallback((fn: () => void) => {
+  const runAction = (fn: () => void) => {
     hapticAction();
     fn();
-    rowRef.current?.close();
-  }, []);
+    close();
+  };
 
   /*
    * React Native's Pressable, not gesture-handler's.
@@ -142,57 +204,42 @@ export default function SwipeableRow({ children, onToday, onLater, onDone, disab
    * and nested inside the swipeable's own pan detector that button never sees
    * the tap: the actions draw, and pressing them does nothing. The
    * responder-system Pressable has no such quarrel with an ancestor recognizer.
-   *
-   * (Gesture-handler deprecates its own TouchableOpacity in favour of its
-   * Pressable, which is what led here. A deprecation notice is not worth a dead
-   * button.)
    */
-  const actions = useCallback(
-    () => (
-      <View style={styles.actionsRow}>
-        <Pressable
-          style={[styles.action, { backgroundColor: colors.swipeToday }]}
-          onPress={() => runAction(onToday)}
-        >
-          <IconClock size={18} color="#fff" strokeWidth={1.7} />
-          <Text style={styles.actionLabel}>Today</Text>
-        </Pressable>
-        <Pressable
-          style={[styles.action, { backgroundColor: colors.swipeLater }]}
-          onPress={() => runAction(onLater)}
-        >
-          <IconCalendarBox size={18} color="#fff" strokeWidth={1.6} />
-          <Text style={styles.actionLabel}>Tmrw</Text>
-        </Pressable>
-        <Pressable
-          style={[styles.action, { backgroundColor: colors.swipeDone }]}
-          onPress={() => runAction(onDone)}
-        >
-          <IconCheckBig size={18} color="#fff" strokeWidth={2} />
-          <Text style={styles.actionLabel}>Done</Text>
-        </Pressable>
-      </View>
-    ),
-    [onDone, onLater, onToday, runAction]
-  );
-
   return (
-    <ReanimatedSwipeable
-      ref={rowRef}
-      enabled={!disabled && !dragging}
-      renderRightActions={actions}
-      rightThreshold={OPEN_THRESHOLD}
-      dragOffsetFromRightEdge={EDGE_OFFSET}
-      dragOffsetFromLeftEdge={NEVER_FROM_LEFT}
-      // Nothing lives past the last action, so there is nothing to stretch into.
-      overshootRight={false}
-      onSwipeableWillOpen={claim}
-      onSwipeableWillClose={forget}
-      containerStyle={styles.container}
-      childrenContainerStyle={styles.foreground}
-    >
-      {children}
-    </ReanimatedSwipeable>
+    <GestureDetector gesture={pan} touchAction="pan-y">
+      <View style={styles.container}>
+        {armed && (
+          <View style={styles.actionsRow}>
+            <Pressable
+              style={[styles.action, { backgroundColor: colors.swipeToday }]}
+              onPress={() => runAction(onToday)}
+            >
+              <IconClock size={18} color="#fff" strokeWidth={1.7} />
+              <Text style={styles.actionLabel}>Today</Text>
+            </Pressable>
+            <Pressable
+              style={[styles.action, { backgroundColor: colors.swipeLater }]}
+              onPress={() => runAction(onLater)}
+            >
+              <IconCalendarBox size={18} color="#fff" strokeWidth={1.6} />
+              <Text style={styles.actionLabel}>Tmrw</Text>
+            </Pressable>
+            <Pressable
+              style={[styles.action, { backgroundColor: colors.swipeDone }]}
+              onPress={() => runAction(onDone)}
+            >
+              <IconCheckBig size={18} color="#fff" strokeWidth={2} />
+              <Text style={styles.actionLabel}>Done</Text>
+            </Pressable>
+          </View>
+        )}
+        <Animated.View style={[styles.foreground, foreground]}>
+          {children}
+          {/* An open row shuts on a tap anywhere on it, instead of opening the task. */}
+          {open && <Pressable style={StyleSheet.absoluteFill} onPress={close} accessibilityLabel="Close actions" />}
+        </Animated.View>
+      </View>
+    </GestureDetector>
   );
 }
 
@@ -200,7 +247,12 @@ const useStyles = makeStyles((c) => ({
   container: {
     backgroundColor: c.chipBg,
   },
+  /** Behind the row, at its trailing edge, uncovered as the row slides away. */
   actionsRow: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
     flexDirection: 'row',
   },
   action: {

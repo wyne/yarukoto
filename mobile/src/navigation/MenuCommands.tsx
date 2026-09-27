@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useIsFocused } from '@react-navigation/native';
 import MacMenu from '../../modules/mac-menu/src/MacMenu';
 import { MAC } from '../data/platform';
-import { useTasks } from '../data/TaskContext';
+import { usePendingUndo, useTasks } from '../data/TaskContext';
 import { navigationRef } from './DateTimePickerContext';
 import { useSidebar } from './SidebarContext';
 
@@ -77,7 +77,8 @@ const UNDO_ACTION_NAME = 'Complete Task';
 /** Mounted once, in the main layout, so it never runs over the first-run screen. */
 export default function MenuCommands() {
   const { openServer } = useSidebar();
-  const { pendingUndo, undoComplete } = useTasks();
+  const { undoComplete } = useTasks();
+  const pendingUndo = usePendingUndo();
 
   const latest = useRef({ openServer, undoComplete });
   latest.current = { openServer, undoComplete };

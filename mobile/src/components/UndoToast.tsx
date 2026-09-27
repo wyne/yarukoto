@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { makeStyles } from '../theme/styles';
 import { fonts } from '../theme/typography';
 import { useAccent } from '../theme/ThemeContext';
-import { useTasks } from '../data/TaskContext';
+import { usePendingUndo, useTasks } from '../data/TaskContext';
 import { IconCheckBig } from '../icons/Icons';
 import { useSidebar } from '../navigation/SidebarContext';
 import { nativeTabBarClearance } from '../navigation/nativeTabBarLayout';
@@ -14,7 +14,8 @@ const NATIVE_DRIVER = Platform.OS !== 'web';
 
 export default function UndoToast() {
   const styles = useStyles();
-  const { pendingUndo, undoComplete } = useTasks();
+  const pendingUndo = usePendingUndo();
+  const { undoComplete } = useTasks();
   const insets = useSafeAreaInsets();
   const accent = useAccent();
   const { wide } = useSidebar();
