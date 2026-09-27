@@ -487,6 +487,17 @@ which only appears on hover, takes pointer enter and leave directly — and matt
 with a fine pointer, rows drag from that handle alone. Tooltips still listen for DOM events and
 stay web-only.
 
+**The menu bar** adds the app's own commands to the one Catalyst provides: File ▸ New Task (⌘N)
+focuses the pinned add field, Edit ▸ Find… (⌘F) goes to Browse and focuses its search, and
+Yarukoto ▸ Settings… (⌘,) opens the settings sheet. On a screen without an add field, New Task
+goes to the Inbox's. Catalyst asks the app delegate to amend the menu, which no module can do, so
+`plugins/mac-catalyst` writes a small override into the generated AppDelegate that hands the
+menu to `mobile/modules/mac-menu`; screens answer commands through `useMenuCommand` in
+`src/navigation/MenuCommands.tsx`. Undo doesn't get a command of its own: completing a task
+registers on the window's undo manager, so the system's Edit ▸ Undo reads "Undo Complete Task"
+and ⌘Z undoes it for as long as the undo toast is up, while a focused text field keeps ⌘Z for its
+typing.
+
 ### Where it stands
 
 The app launches, syncs with a real server, and renders its wide layout. Known gaps:

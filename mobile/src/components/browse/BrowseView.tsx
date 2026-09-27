@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useRef } from 'react';
 import { useColors } from '../../theme/ThemeContext';
 import { ScrollView, Text, TextInput, View } from 'react-native';
 import { makeStyles } from '../../theme/styles';
@@ -16,6 +16,7 @@ import TaskRow from '../TaskRow';
 import { useRowContext } from '../useRowContext';
 import { closeOpenSwipeRow } from '../SwipeableRow';
 import FilterBar from './FilterBar';
+import { useMenuCommand } from '../../navigation/MenuCommands';
 
 interface Props {
   criteria: TaskCriteria;
@@ -43,6 +44,10 @@ export default function BrowseView({ criteria, onCriteriaChange }: Props) {
   const { state, toggleComplete, scheduleToday, snoozeTask } = useTasks();
   const now = new Date();
 
+  // Edit ▸ Find… (⌘F) on the Mac.
+  const searchRef = useRef<TextInput>(null);
+  useMenuCommand('find', () => searchRef.current?.focus());
+
   const tasks = useMemo(
     () => filterTasks(state.tasks, criteria, { lists: state.lists, now }),
     // `now` is a fresh Date every render and would defeat the memo; the date
@@ -65,6 +70,7 @@ export default function BrowseView({ criteria, onCriteriaChange }: Props) {
     <View style={styles.root}>
       <View style={[styles.searchRow, wide && styles.paneWide]}>
         <TextInput
+          ref={searchRef}
           value={criteria.query}
           onChangeText={(query) => onCriteriaChange({ ...criteria, query })}
           placeholder="Search tasks and tags"
