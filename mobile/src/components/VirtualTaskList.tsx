@@ -1,4 +1,4 @@
-import React, { forwardRef, memo, useCallback, useMemo, useState } from 'react';
+import React, { forwardRef, memo, useCallback, useMemo, useReducer, useState } from 'react';
 import { type FlatList, type ListRenderItemInfo, Pressable, type RefreshControlProps, type StyleProp, Text, View, type ViewStyle } from 'react-native';
 import { LinearTransition } from 'react-native-reanimated';
 import ReorderableList, {
@@ -154,16 +154,33 @@ const VirtualTaskList = forwardRef<FlatList<Item>, Props>(function VirtualTaskLi
     return out;
   }, [active, groups, grouped, isGroupCollapsed, completed, completedCollapsed]);
 
+  /**
+   * Re-renders the list without changing its data.
+   *
+   * On a drop the library re-keys the cells it moved and counts on the new
+   * order arriving in the same render to remount them in place. A drop that is
+   * turned away changes no data, so nothing renders, and the lifted row stays
+   * drawn wherever it was let go — over another group's header. Rendering
+   * anyway remounts those cells at rest, which is the snap back.
+   */
+  const [, rejectDrop] = useReducer((n: number) => n + 1, 0);
+
   const handleReorder = ({ from, to }: ReorderableListReorderEvent) => {
     const moving = items[from];
-    if (moving?.kind !== 'task' || moving.groupKey === null) return;
+    if (moving?.kind !== 'task' || moving.groupKey === null) {
+      rejectDrop();
+      return;
+    }
     const groupKey = moving.groupKey;
     // The group's rows are contiguous; find where they start and end.
     let start = from;
     while (start > 0 && sameGroup(items[start - 1], groupKey)) start--;
     let end = from;
     while (end < items.length - 1 && sameGroup(items[end + 1], groupKey)) end++;
-    if (to < start || to > end) return;
+    if (to < start || to > end) {
+      rejectDrop();
+      return;
+    }
 
     const ids = items.slice(start, end + 1).map((item) => (item as Extract<Item, { kind: 'task' }>).task.id);
     const [id] = ids.splice(from - start, 1);
