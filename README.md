@@ -165,6 +165,7 @@ Set these in `docker-compose.yml` or your `.env`.
 | `DATABASE_PATH` | `/data/yarukoto.db` | SQLite file location. |
 | `TRASH_RETENTION_DAYS` | `30` | How long soft-deleted tasks stay restorable before being hard-deleted. |
 | `HISTORY_REVISIONS_PER_TASK` | `50` | Snapshots kept per task. `0` disables history entirely. |
+| `YARUKOTO_TZ` | `TZ`, else the container's zone | IANA zone (`America/New_York`) the task API and AI tools use for "today", weekdays and times. Containers usually run in UTC, so set this. |
 | `WEB_ROOT` | `/app/web` *(set in the image)* | Where the built web client lives. If missing, the server runs API-only and says so in its logs. |
 
 ### TLS
@@ -556,7 +557,7 @@ resizes like one.
 ```
 mobile/    Expo + React Native client (also builds the web UI)
 server/    Fastify + better-sqlite3 API server
-shared/    Task/ListDef/FolderDef types, used by both sides
+shared/    Task/ListDef/FolderDef types and the quick-add parser, used by both sides
 ```
 
 Keeping the types in `shared/` means the client and server can't drift apart silently — the
@@ -599,6 +600,51 @@ All endpoints are under `/api/v1` and require `Authorization: Bearer <token>`, e
 | `GET /sync?since=<iso>` | Changes since a cursor, including trashed rows. Omit `since` for a full hydrate. |
 | `POST /sync` | Upsert tasks/lists/folders/view prefs. Rejects any record older than the stored copy and returns the authoritative version. |
 | `GET /tasks/:id/history` | Revisions for one task, newest first. |
+| `GET /tasks` | Search tasks: `status` (`open`, `completed`, `all`, `trash`), `listId` (or `inbox`), `tag`, `dueFrom`, `dueTo`, `q`, `limit`. |
+| `GET /tasks/:id` | One task. |
+| `POST /tasks` | Create a task from fields, or from quick-add `text` (`"pay rent fri 6pm #home !high ~Admin"`). |
+| `PATCH /tasks/:id` | Change only the fields sent. `dueDate: null` clears the date, its time and its reminders. |
+| `DELETE /tasks/:id` | Move to Trash. `POST /tasks/:id/restore` brings it back. |
+| `POST /tasks/:id/complete` | Check off with a device timestamp; a stale tap loses to a later edit. Used by notification actions. |
+| `GET /lists` | Every list, with its id. |
+
+The `/tasks` routes are for scripts and tools, not the app: each one reads the stored row, merges
+only what it was sent, and writes history, so a caller never has to hold a whole task the way
+`POST /sync` requires. The app picks the change up on its next pull.
+
+### AI assistants (MCP)
+
+The server also speaks the [Model Context Protocol](https://modelcontextprotocol.io) at `/mcp`
+(Streamable HTTP, same bearer token), so an AI client can list, add, edit, schedule, complete and
+delete tasks. It sits outside `/api/v1` because MCP clients are configured with one URL.
+
+Claude Code:
+
+```bash
+claude mcp add --transport http yarukoto https://todo.example.com/mcp \
+  --header "Authorization: Bearer $YARUKOTO_TOKEN"
+```
+
+Claude Desktop, through the `mcp-remote` bridge in `claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "yarukoto": {
+      "command": "npx",
+      "args": ["mcp-remote", "https://todo.example.com/mcp", "--header", "Authorization: Bearer YOUR_TOKEN"]
+    }
+  }
+}
+```
+
+Tools: `list_lists`, `list_tasks`, `get_task`, `create_task` (takes quick-add text), `update_task`,
+`schedule_task`, `complete_task`, `delete_task` (to Trash) and `restore_task`. Relative dates
+resolve in `YARUKOTO_TZ`, and any call can pass its own `timeZone`.
+
+The token grants full access, so the same caveat as the app applies: put the server behind HTTPS
+before pointing a client at it from outside your network. claude.ai's custom connectors expect
+OAuth, which the server doesn't offer yet.
 
 ### Feature Compatibility
 

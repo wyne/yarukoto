@@ -1,81 +1,111 @@
-import { FastifyInstance } from 'fastify';
+import { FastifyInstance, FastifyReply } from 'fastify';
 import Database from 'better-sqlite3';
-import { Task } from '../../../shared/types';
-import { TaskRow, recordRevision, taskFromRow } from '../model';
+import { env } from '../env';
+import { wallClockNow } from '../clock';
+import {
+  CreateInput,
+  TaskFilter,
+  TaskInput,
+  TaskServiceError,
+  TaskStatus,
+  completeTaskAt,
+  createTask,
+  getTask,
+  listLists,
+  listTasks,
+  restoreTask,
+  trashTask,
+  updateTask,
+} from '../taskService';
 
 interface CompleteBody {
   /** ISO timestamp of the tap, from the device's clock. */
   completedAt?: string;
 }
 
+interface ListQuery {
+  status?: TaskStatus;
+  /** A list id, or 'inbox' for unfiled tasks. */
+  listId?: string;
+  tag?: string;
+  dueFrom?: string;
+  dueTo?: string;
+  q?: string;
+  limit?: string;
+}
+
 /**
- * Single-field mutations that exist for one caller: the iOS notification action
- * handler, which runs in Swift with no access to the app's sync client.
+ * Field-level task routes, for callers that are not a syncing client: scripts,
+ * a CLI, and (through the same service) the MCP tools in `../mcp.ts`. The app
+ * itself never calls these — it syncs whole rows through `/sync` — so they carry
+ * no `SERVER_FEATURES` id: there is no client UI to gate and no field to strip.
  *
- * `POST /sync` is unusable from there. It upserts *whole rows*, so a caller has
- * to hold the complete task — and, worse, has to reimplement the feature
- * negotiation in `pushDirty`, where getting it wrong silently destroys stored
- * fields. Native code cannot read AsyncStorage cleanly enough to hold the row,
- * and duplicating negotiation logic in a second language is exactly the drift
- * the protocol in AGENTS.md exists to prevent.
- *
- * So the notification path gets an endpoint that needs no row and no
- * negotiation: a task id, a timestamp, one column. Android does not use it —
- * its headless task boots the real JS bundle and goes through `pushDirty` like
- * everything else.
- *
- * Deliberately not behind a `SERVER_FEATURES` id. There is nothing to negotiate:
- * an older server 404s, and the client falls back to queueing the action for its
- * next foreground sync, which is where the action was headed anyway. The
- * protocol guards against *stripped fields on a whole-row upsert*, and this
- * endpoint writes no rows.
+ * `POST /tasks/:id/complete` predates the rest and exists for the iOS
+ * notification action handler, which runs in Swift with no access to the app's
+ * sync client. It keeps its own device-clock semantics; see `completeTaskAt`.
+ * An older server 404s it, and the client falls back to queueing the action for
+ * its next foreground sync, which is where the action was headed anyway.
  */
 export function registerTaskRoutes(app: FastifyInstance, db: Database.Database): void {
-  app.post<{ Params: { id: string }; Body: CompleteBody }>(
-    '/api/v1/tasks/:id/complete',
-    async (request, reply) => {
-      const { id } = request.params;
-      const completedAt = request.body?.completedAt ?? new Date().toISOString();
-
-      if (Number.isNaN(Date.parse(completedAt))) {
-        reply.code(400).send({ error: 'bad_completed_at' });
-        return;
-      }
-
-      const row = db.prepare('SELECT * FROM tasks WHERE id = ?').get(id) as TaskRow | undefined;
-      if (!row || row.deleted_at) {
-        reply.code(404).send({ error: 'not_found' });
-        return;
-      }
-
-      // The same last-write-wins guard `upsertTask` applies. A notification can
-      // sit on the lock screen for hours, so by the time it is tapped the task
-      // may already have been edited elsewhere; that later edit wins, and the
-      // stale completion is dropped rather than resurrected.
-      if (row.updated_at >= completedAt) {
-        reply.send({ task: taskFromRow(row), applied: false });
-        return;
-      }
-
-      const task: Task = { ...taskFromRow(row), completed: true, completedAt, updatedAt: completedAt };
-
-      db.transaction(() => {
-        db.prepare(
-          `UPDATE tasks
-           SET completed = 1, completed_at = @completedAt, updated_at = @updatedAt, server_updated_at = @serverUpdatedAt
-           WHERE id = @id`
-        ).run({
-          id,
-          completedAt,
-          updatedAt: completedAt,
-          // Server clock, not the device's — this is what pull cursors compare
-          // against, so it has to come from here even though `updated_at` does not.
-          serverUpdatedAt: new Date().toISOString(),
-        });
-        recordRevision(db, task, 'update');
-      })();
-
-      reply.send({ task, applied: true });
+  app.get<{ Querystring: ListQuery }>('/api/v1/tasks', async (request, reply) => {
+    const q = request.query;
+    const filter: TaskFilter = {
+      status: q.status,
+      listId: q.listId === 'inbox' ? null : q.listId,
+      tag: q.tag,
+      dueFrom: q.dueFrom,
+      dueTo: q.dueTo,
+      query: q.q,
+      limit: q.limit ? Number(q.limit) : undefined,
+    };
+    if (filter.status && !['open', 'completed', 'all', 'trash'].includes(filter.status)) {
+      reply.code(400).send({ error: 'bad_request', message: 'status must be open, completed, all or trash' });
+      return;
     }
-  );
+    await respond(reply, () => ({ tasks: listTasks(db, filter) }));
+  });
+
+  app.get<{ Params: { id: string } }>('/api/v1/tasks/:id', async (request, reply) => {
+    await respond(reply, () => ({ task: getTask(db, request.params.id) }));
+  });
+
+  app.post<{ Body: CreateInput }>('/api/v1/tasks', async (request, reply) => {
+    await respond(reply, () => {
+      reply.code(201);
+      return { task: createTask(db, request.body ?? {}, wallClockNow(env.timeZone)) };
+    });
+  });
+
+  app.patch<{ Params: { id: string }; Body: TaskInput }>('/api/v1/tasks/:id', async (request, reply) => {
+    await respond(reply, () => ({ task: updateTask(db, request.params.id, request.body ?? {}) }));
+  });
+
+  app.delete<{ Params: { id: string } }>('/api/v1/tasks/:id', async (request, reply) => {
+    await respond(reply, () => ({ task: trashTask(db, request.params.id) }));
+  });
+
+  app.post<{ Params: { id: string } }>('/api/v1/tasks/:id/restore', async (request, reply) => {
+    await respond(reply, () => ({ task: restoreTask(db, request.params.id) }));
+  });
+
+  app.post<{ Params: { id: string }; Body: CompleteBody }>('/api/v1/tasks/:id/complete', async (request, reply) => {
+    const completedAt = request.body?.completedAt ?? new Date().toISOString();
+    await respond(reply, () => completeTaskAt(db, request.params.id, completedAt));
+  });
+
+  app.get('/api/v1/lists', async (_request, reply) => {
+    reply.send({ lists: listLists(db) });
+  });
+}
+
+async function respond(reply: FastifyReply, run: () => unknown): Promise<void> {
+  try {
+    reply.send(run());
+  } catch (err) {
+    if (err instanceof TaskServiceError) {
+      reply.code(err.code === 'not_found' ? 404 : 400).send({ error: err.code, message: err.message });
+      return;
+    }
+    throw err;
+  }
 }
