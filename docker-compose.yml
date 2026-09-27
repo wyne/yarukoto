@@ -17,6 +17,8 @@ services:
       DATABASE_PATH: /data/yarukoto.db
       TRASH_RETENTION_DAYS: 30
       HISTORY_REVISIONS_PER_TASK: 50
+      # Your zone, so AI tools and the task API know when "today" is.
+      YARUKOTO_TZ: ${YARUKOTO_TZ:-UTC}
     volumes:
       - ./data:/data
     healthcheck:

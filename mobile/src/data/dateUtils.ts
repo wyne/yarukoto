@@ -1,29 +1,12 @@
+import { addDays, startOfDay, toISODate } from '../../../shared/dates';
+
+export { addDays, startOfDay, toISODate };
+
 const DAY_MS = 24 * 60 * 60 * 1000;
 const WEEKDAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MONTH_SHORT = [
   'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
 ];
-
-export function startOfDay(d: Date): Date {
-  const out = new Date(d);
-  out.setHours(0, 0, 0, 0);
-  return out;
-}
-
-/**
- * Counted in calendar days, not in 24-hour blocks.
- *
- * A day is 23 or 25 hours across a daylight-saving change, so adding multiples
- * of DAY_MS drifts an hour either side of midnight and lands twice on the same
- * date: buildMonthGrid walks 42 days from one start, and a month spanning the
- * autumn change produced the 1st twice and dropped the last day — which React
- * saw as two children with the same key.
- */
-export function addDays(d: Date, n: number): Date {
-  const out = startOfDay(d);
-  out.setDate(out.getDate() + n);
-  return out;
-}
 
 export function addMonths(d: Date, n: number): Date {
   return new Date(d.getFullYear(), d.getMonth() + n, 1);
@@ -36,13 +19,6 @@ export function startOfWeek(d: Date): Date {
 
 export function addWeeks(d: Date, n: number): Date {
   return addDays(d, n * 7);
-}
-
-export function toISODate(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
 }
 
 export function fromISODate(iso: string): Date {

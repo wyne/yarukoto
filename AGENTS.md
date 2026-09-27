@@ -81,7 +81,7 @@ best-effort by nature, because a phone out of signal cannot reach a server.
 
 ### Why completion has its own endpoint
 
-`POST /api/v1/tasks/:id/complete` exists for these handlers alone, and is a
+`POST /api/v1/tasks/:id/complete` exists for these handlers, and is a
 deliberate exception to "backend features are negotiated through `SERVER_FEATURES`".
 
 `POST /sync` upserts **whole rows**. Using it from a notification handler would mean
@@ -102,3 +102,19 @@ which is a fact about one phone's notifications rather than about the task, so i
 lives in device-local storage and is rebuilt into scheduled notifications by the same
 reconciler that owns reminders — one authority over both prefixes, because two would
 each cancel the other's work.
+
+## Task API and MCP
+
+`server/src/taskService.ts` is the one place non-client callers write tasks: the REST
+`/api/v1/tasks` routes, the MCP tools at `/mcp` (`server/src/mcp.ts`), and the
+notification complete endpoint. It exists for the same reason that endpoint does —
+a caller that doesn't hold the whole row must never go through `POST /sync`. Each
+write reads the stored row, merges only the fields it was given, and goes through
+`upsertTask`, so history and pull cursors see it like any synced edit.
+
+None of this is negotiated through `SERVER_FEATURES`: the app never calls these
+routes, so there is no UI to gate and no field to strip.
+
+Relative dates ("today", "fri") resolve in `YARUKOTO_TZ` via `wallClockNow`, never
+in the server process's own zone, which in a container is usually UTC. The quick-add
+parser lives in `shared/` so both sides read the same syntax.
