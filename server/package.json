@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc -p tsconfig.json",
+    "test": "YARUKOTO_TOKEN=test node --import tsx --test test/*.test.ts",
     "start": "node dist/server/src/index.js"
   },
   "dependencies": {
