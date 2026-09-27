@@ -403,9 +403,11 @@ a menu bar. The wide layout — pinned sidebar, list, and task pane side by side
 cd mobile
 npm run mac              # prebuild with Catalyst on, then a Release build for the Mac
 npm run mac -- --open    # ...and launch it
+npm run mac:release      # sign, notarize, staple, and package a website download
 ```
 
-It prints the path to the finished app under `mobile/ios/build/catalyst/`. `APP_VARIANT` works as
+The development command prints the path to the finished app under `mobile/ios/build/catalyst/`.
+`APP_VARIANT` works as
 it does for the phone (`APP_VARIANT=preview npm run mac`), so variants can sit side by side on a
 Mac too.
 
@@ -432,6 +434,27 @@ producing. The plugin's Podfile edits anchor on text in Expo's template and fail
 it changes, rather than quietly generating a project that won't build for the Mac.
 
 EAS Build has no Catalyst target, so Mac builds are local-only.
+
+### Signed direct-download releases
+
+`npm run mac:release` creates a Developer ID-signed archive and disk image, submits the DMG to
+Apple's notary service, staples the accepted ticket, verifies it with Gatekeeper, and writes a DMG plus SHA-256
+checksum under `mobile/dist/macos/<version>-<build>/`. It reads the signing identity from the
+login keychain and the notarization credential from the `yarukoto-notary` keychain profile; neither
+secret lives in the repository.
+
+The version defaults to `expo.version` in `app.json`. The build number defaults to a UTC timestamp so
+successive local releases increase naturally. Either can be made explicit:
+
+```bash
+cd mobile
+MAC_VERSION=1.0.1 MAC_BUILD_NUMBER=2026092701 npm run mac:release
+```
+
+Set `APPLE_TEAM_ID` or `NOTARY_PROFILE` only when using a different Apple team or keychain profile.
+The release prebuild also enables App Sandbox, outgoing network connections, and the hardened runtime
+for Catalyst. The existing `NSLocalNetworkUsageDescription` and `NSAllowsLocalNetworking` entries
+remain responsible for the user-facing LAN prompt and LAN HTTP exception.
 
 ### Desktop input on the Mac
 
@@ -502,9 +525,8 @@ typing.
 
 The app launches, syncs with a real server, and renders its wide layout. Known gaps:
 
-- **Unsigned.** The build runs on the machine that built it. Handing it to anyone else means
-  signing with a Developer ID and notarizing it, or shipping through the Mac App Store; neither is
-  set up yet.
+- **Development builds are unsigned.** `npm run mac` stays fast and local. Use
+  `npm run mac:release` for a Developer ID-signed and notarized website download.
 - **A server on your LAN needs Local Network permission** — including a public-looking hostname
   that split DNS resolves to a private address. macOS drops the connection until Yarukoto is on in
   System Settings → Privacy & Security → Local Network, and the app shows "Could not reach the

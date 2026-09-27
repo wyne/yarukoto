@@ -103,6 +103,10 @@ function withCatalystAppTarget(config) {
       // project-level ones don't, and are left alone.
       if (!buildSettings?.PRODUCT_BUNDLE_IDENTIFIER) continue;
       buildSettings.SUPPORTS_MACCATALYST = 'YES';
+      // Developer ID distribution and notarization expect the hardened
+      // runtime. Xcode adds it when Catalyst is enabled interactively, but this
+      // project enables Catalyst from a config plugin instead.
+      buildSettings.ENABLE_HARDENED_RUNTIME = 'YES';
     }
 
     return modConfig;
@@ -136,7 +140,10 @@ function withMenuBarAppDelegate(config) {
     if (!reactImport.test(contents) || !classDecl.test(contents)) {
       throw new Error('mac-catalyst: expected `import React` and `class AppDelegate: ExpoAppDelegate {` in the AppDelegate; Expo\'s template has changed.');
     }
-    contents = contents.replace(reactImport, (line) => `${line}import MacMenu\n`);
+    // Expo 57's generated provider imports autolinked modules as `internal`.
+    // Match that access level so Swift 6 does not reject the same module being
+    // imported with two different implicit access levels in one target.
+    contents = contents.replace(reactImport, (line) => `${line}internal import MacMenu\n`);
     contents = contents.replace(
       classDecl,
       `$1  ${MENU_MARKER}\n` +
