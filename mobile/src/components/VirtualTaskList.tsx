@@ -247,6 +247,7 @@ const VirtualTaskList = forwardRef<FlatList<Item>, Props>(function VirtualTaskLi
       keyExtractor={keyExtractor}
       renderItem={renderItem}
       onReorder={handleReorder}
+      panGesture={panGesture}
       dragEnabled={dragEnabled}
       shouldUpdateActiveItem={!!dragCount}
       itemLayoutAnimation={animateLayout ? LAYOUT : undefined}
