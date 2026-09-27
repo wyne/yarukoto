@@ -85,8 +85,23 @@ export function elapsedShort(now: Date, iso: string): string {
 /** The same value as a sentence, for places with room to spell it out. */
 export function lastSyncedLabel(now: Date, iso?: string): string {
   if (!iso) return 'Not synced yet';
+  const synced = new Date(iso);
+  if (Number.isNaN(synced.getTime())) return 'Last synced';
+  const time = synced.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  const sameDay =
+    synced.getFullYear() === now.getFullYear() &&
+    synced.getMonth() === now.getMonth() &&
+    synced.getDate() === now.getDate();
+  const date = sameDay
+    ? 'today'
+    : synced.toLocaleDateString(undefined, {
+        month: 'short',
+        day: 'numeric',
+        year: synced.getFullYear() === now.getFullYear() ? undefined : 'numeric',
+      });
   const elapsed = elapsedShort(now, iso);
-  return elapsed === 'now' ? 'Last synced just now' : `Last synced ${elapsed} ago`;
+  const stamp = `Synced ${date} at ${time}`;
+  return elapsed === 'now' ? stamp : `${stamp} · ${elapsed} ago`;
 }
 
 export function formatTime24to12(hhmm: string): string {
