@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ACCENT_OPTIONS, AccentColor, DEFAULT_ACCENT, SchemePref } from '../theme/colors';
+import { SnoozedReminder } from './notificationActions';
 import { FolderDef, ListDef, SERVER_FEATURES, ServerFeature, Task, ViewPref } from './types';
 import {
   DUE_FILTERS,
@@ -46,6 +47,7 @@ const DIRTY_IDS_KEY = 'yarukoto.dirtyIds';
 const BROWSE_KEY = 'yarukoto.browseCriteria';
 const SCHEME_KEY = 'yarukoto.scheme';
 const FIRST_TAB_VIEW_KEY = 'yarukoto.firstTabViews';
+const SNOOZES_KEY = 'yarukoto.snoozedReminders';
 
 const ALL_KEYS = [
   URL_KEY,
@@ -61,6 +63,7 @@ const ALL_KEYS = [
   BROWSE_KEY,
   SCHEME_KEY,
   FIRST_TAB_VIEW_KEY,
+  SNOOZES_KEY,
 ];
 
 const SERVER_SNAPSHOT_SCHEMA = 1;
@@ -556,4 +559,29 @@ export function saveDirtyIds(ids: string[]): void {
 
 export function clearDirtyIds(): void {
   remove(DIRTY_IDS_KEY);
+}
+
+/**
+ * Reminders pushed forward on this device.
+ *
+ * Device-local on purpose, and not synced: a snooze says "not on this screen,
+ * not yet", which is a statement about one phone's notifications rather than
+ * about the task. Syncing it would also drag it through the feature-negotiation
+ * protocol for no gain — there is nothing on the server to negotiate with.
+ */
+export function loadSnoozes(): SnoozedReminder[] {
+  const stored = readJson<unknown>(SNOOZES_KEY);
+  if (!Array.isArray(stored)) return [];
+  return stored.flatMap((entry) => {
+    if (!entry || typeof entry !== 'object') return [];
+    const snooze = entry as Record<string, unknown>;
+    if (typeof snooze.taskId !== 'string' || typeof snooze.reminderId !== 'string') return [];
+    if (typeof snooze.fireAt !== 'string' || Number.isNaN(Date.parse(snooze.fireAt))) return [];
+    return [{ taskId: snooze.taskId, reminderId: snooze.reminderId, fireAt: snooze.fireAt }];
+  });
+}
+
+export function saveSnoozes(snoozes: SnoozedReminder[]): void {
+  if (snoozes.length === 0) remove(SNOOZES_KEY);
+  else writeJson(SNOOZES_KEY, snoozes);
 }

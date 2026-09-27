@@ -36,6 +36,7 @@ import {
   saveToken,
 } from './storage';
 import { ApiError, createApi } from './api';
+import { setNativeCredentials } from '../../modules/notification-actions/src/NotificationActionsModule';
 import { Outbox, SyncStatus, hasServerFeature, mergeBatch, pullSince, pushDirty } from './sync';
 import { activeFolders, activeLists } from './selectors';
 import { Ordered, applyOrders, computeOrders, reorderRows } from './ordering';
@@ -59,6 +60,7 @@ interface State {
 type Action =
   | { type: 'ADD_TASK'; task: Task }
   | { type: 'TOGGLE_COMPLETE'; id: string }
+  | { type: 'COMPLETE_AT'; id: string; at: string }
   | { type: 'UPDATE_TASK'; id: string; patch: Partial<Task> }
   | { type: 'DELETE_TASKS'; ids: string[] }
   | { type: 'RESTORE_TASKS'; ids: string[] }
@@ -178,6 +180,25 @@ function applyAction(state: State, action: Action): State {
         tasks: state.tasks.map((t) =>
           t.id === action.id
             ? { ...t, completed: !t.completed, completedAt: !t.completed ? new Date().toISOString() : undefined }
+            : t
+        ),
+      };
+    /**
+     * Completing a task at a stated time rather than now — a notification's
+     * "Mark done", which may have been tapped hours before the app next ran.
+     *
+     * Carrying the real time matters for more than tidiness. `updatedAt` is what
+     * last-write-wins compares, so stamping the drain time instead would let a
+     * tap from this morning outrank an edit made on another device this
+     * afternoon. The guard below is the same one the server applies, so both
+     * sides reach the same answer about which change is older.
+     */
+    case 'COMPLETE_AT':
+      return {
+        ...state,
+        tasks: state.tasks.map((t) =>
+          t.id === action.id && !t.completed && t.updatedAt < action.at
+            ? { ...t, completed: true, completedAt: action.at, updatedAt: action.at }
             : t
         ),
       };
@@ -407,8 +428,10 @@ function reducer(state: State, action: Action): State {
   const next = applyAction(state, action);
   if (next === state) return next;
   // Rows from the server already carry their true updatedAt; restamping them
-  // here would make every pull look like a fresh local edit.
-  if (action.type === 'HYDRATE' || action.type === 'MERGE') return next;
+  // here would make every pull look like a fresh local edit. COMPLETE_AT is
+  // exempt for the same reason in reverse — it sets the timestamp deliberately,
+  // to the moment the notification was actually tapped.
+  if (action.type === 'HYDRATE' || action.type === 'MERGE' || action.type === 'COMPLETE_AT') return next;
 
   const now = new Date().toISOString();
   const stamp = <T extends { id: string; updatedAt: string }>(before: T[], after: T[]): T[] => {
@@ -496,6 +519,9 @@ interface TaskContextValue {
   supportsFeature: (feature: ServerFeature) => boolean;
   addTaskFromQuickAdd: (text: string, defaults?: QuickAddDefaults) => void;
   toggleComplete: (id: string) => void;
+  /** Complete a task as of a past moment — a notification action taken while
+   * the app was not running. No-op if the task moved on since. */
+  completeAt: (id: string, at: string) => void;
   pendingUndo: PendingUndo | null;
   undoComplete: () => void;
   dismissUndo: () => void;
@@ -678,6 +704,23 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       setPendingUndo(task && !task.completed ? { taskId: id, title: task.title, token: Date.now() } : null);
     },
     [state.tasks, ding, markDirty]
+  );
+
+  /**
+   * Folds a "Mark done" taken on a notification into app state.
+   *
+   * No sound and no undo toast, unlike toggleComplete: by the time this runs the
+   * tap may be hours old and the user is not necessarily looking at the app.
+   * Marking dirty is what carries it to the server on the next push — harmless
+   * when the native handler already got it there, since the row is identical and
+   * the server's own last-write-wins makes the repeat a no-op.
+   */
+  const completeAt = useCallback(
+    (id: string, at: string) => {
+      dispatch({ type: 'COMPLETE_AT', id, at });
+      markDirty([id]);
+    },
+    [markDirty]
   );
 
   const dismissUndo = useCallback(() => setPendingUndo(null), []);
@@ -1117,6 +1160,20 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     };
   }, [state.mode, state.serverUrl, state.token]);
 
+  /**
+   * Keeps the native notification handler's copy of the connection current.
+   *
+   * It cannot read this from AsyncStorage — that is React Native's own on-disk
+   * format on iOS, and reaching into it from Swift would bind the handler to an
+   * implementation detail. Clearing on disconnect matters as much as setting:
+   * a stale token left behind would have a notification tap posting a completed
+   * task to a server the user has since walked away from.
+   */
+  useEffect(() => {
+    if (state.mode === 'server') setNativeCredentials(state.serverUrl, state.token);
+    else setNativeCredentials(null, null);
+  }, [state.mode, state.serverUrl, state.token]);
+
   useEffect(() => {
     if (state.mode !== 'server') return;
     saveServerSnapshot({
@@ -1145,6 +1202,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       supportsFeature,
       addTaskFromQuickAdd,
       toggleComplete,
+      completeAt,
       pendingUndo,
       undoComplete,
       dismissUndo,
@@ -1185,6 +1243,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       supportsFeature,
       addTaskFromQuickAdd,
       toggleComplete,
+      completeAt,
       pendingUndo,
       undoComplete,
       dismissUndo,

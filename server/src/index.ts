@@ -8,6 +8,7 @@ import { requireAuth } from './auth';
 import { registerHealthRoute } from './routes/health';
 import { registerSyncRoutes } from './routes/sync';
 import { registerHistoryRoutes } from './routes/history';
+import { registerTaskRoutes } from './routes/tasks';
 import { scheduleRetention } from './retention';
 import { buildInfo } from './version';
 
@@ -28,6 +29,7 @@ async function main() {
     instance.addHook('onRequest', requireAuth);
     registerSyncRoutes(instance, db);
     registerHistoryRoutes(instance, db);
+    registerTaskRoutes(instance, db);
     done();
   });
 
