@@ -21,7 +21,6 @@ CREATE TABLE tasks (
   priority TEXT NOT NULL DEFAULT 'none',
   due_date TEXT,
   due_time TEXT,
-  reminders TEXT NOT NULL DEFAULT '[]',
   list_id TEXT,
   tags TEXT NOT NULL DEFAULT '[]',
   subtasks TEXT NOT NULL DEFAULT '[]',
