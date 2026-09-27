@@ -55,11 +55,18 @@
     "mac": "scripts/build-mac.sh",
     "mac:release": "scripts/release-mac.sh",
     "test": "TZ=America/New_York jest --runInBand --no-watchman",
+    "test:coverage": "TZ=America/New_York jest --runInBand --no-watchman --coverage --coverageReporters=text --coverageReporters=json-summary",
     "typecheck": "tsc --noEmit",
     "web": "expo start --web"
   },
   "jest": {
-    "preset": "jest-expo"
+    "preset": "jest-expo",
+    "collectCoverageFrom": [
+      "App.tsx",
+      "src/**/*.{ts,tsx}",
+      "!src/**/*.d.ts"
+    ],
+    "coverageDirectory": "coverage"
   },
   "private": true
 }
