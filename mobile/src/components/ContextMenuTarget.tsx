@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { Platform, View, ViewProps } from 'react-native';
 import SecondaryClickView from '../../modules/mac-pointer/src/SecondaryClickView';
+import { MAC } from '../data/platform';
 
 interface Props extends ViewProps {
   /** Called with the pointer position, in window coordinates. */
@@ -17,9 +18,10 @@ interface Props extends ViewProps {
  * keyboard's menu key and a ctrl-click. On iOS a right-click never reaches
  * React Native at all (its recognizers accept the primary button only), so the
  * children sit in a native view that catches it and reports where it landed.
- * That view only listens on the Mac; see SecondaryClickView.swift for why an
- * iPad keeps its long-press alone. Android has no right button worth wiring
- * and renders a plain View.
+ * That view only listens on the Mac (see SecondaryClickView.swift for why an
+ * iPad keeps its long-press alone), so it is only mounted there. A phone, an
+ * iPad and Android have no right button worth wiring and get the children as
+ * they are.
  *
  * Right-click needs no capability check: it is purely additive. A device
  * without the button never sends it, and one with it gains a menu without
@@ -43,6 +45,13 @@ export default function ContextMenuTarget({ onOpen, children, ...rest }: Props) 
     node.addEventListener('contextmenu', handler);
     return () => node.removeEventListener('contextmenu', handler);
   }, []);
+
+  // Only the Mac has a right button to listen for. Everywhere else native, the
+  // wrapper would be one more view per task row for nothing, so the children
+  // stand in for it unless the caller styled it.
+  if (Platform.OS !== 'web' && !MAC) {
+    return Object.keys(rest).length === 0 ? <>{children}</> : <View {...rest}>{children}</View>;
+  }
 
   if (Platform.OS === 'ios') {
     return (
