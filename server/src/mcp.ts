@@ -9,6 +9,8 @@ import { toISODate } from '../../shared/dates';
 import { isValidTimeZone, wallClockNow } from './clock';
 import { env } from './env';
 import { buildInfo } from './version';
+import { OWNER_VIEWER, Viewer } from './access';
+import { viewerOf } from './viewer';
 import {
   PRIORITIES,
   TaskServiceError,
@@ -36,7 +38,7 @@ import {
  */
 export function registerMcpRoutes(app: FastifyInstance, db: Database.Database): void {
   app.post('/mcp', async (request, reply) => {
-    const server = buildMcpServer(db);
+    const server = buildMcpServer(db, viewerOf(request));
     const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true });
     reply.hijack();
     reply.raw.on('close', () => {
@@ -60,7 +62,7 @@ const timeZoneArg = z
 
 const idArg = z.string().describe('Task id, as returned by list_tasks or create_task');
 
-export function buildMcpServer(db: Database.Database): McpServer {
+export function buildMcpServer(db: Database.Database, viewer: Viewer = OWNER_VIEWER): McpServer {
   const server = new McpServer(
     { name: 'yarukoto', version: buildInfo.version },
     {
@@ -78,7 +80,7 @@ export function buildMcpServer(db: Database.Database): McpServer {
       description: 'Every list, with its id. Tasks whose listId is null are in the Inbox.',
       annotations: { readOnlyHint: true },
     },
-    async () => ok({ lists: listLists(db).map(({ id, name, folderId }) => ({ id, name, folderId })) })
+    async () => ok({ lists: listLists(db, viewer).map(({ id, name, folderId }) => ({ id, name, folderId })) })
   );
 
   server.registerTool(
@@ -111,7 +113,7 @@ export function buildMcpServer(db: Database.Database): McpServer {
           dueTo: args.dueTo,
           query: args.query,
           limit: args.limit,
-        });
+        }, viewer);
         return { today, count: tasks.length, tasks: tasks.map(summarize) };
       })
   );
@@ -123,7 +125,7 @@ export function buildMcpServer(db: Database.Database): McpServer {
       description: 'Filters the user has saved in the app, such as "Due today", with their ids and criteria.',
       annotations: { readOnlyHint: true },
     },
-    async () => ok({ filters: listSavedFilters(db).map(({ id, name, criteria }) => ({ id, name, criteria })) })
+    async () => ok({ filters: listSavedFilters(db, viewer).map(({ id, name, criteria }) => ({ id, name, criteria })) })
   );
 
   server.registerTool(
@@ -140,7 +142,7 @@ export function buildMcpServer(db: Database.Database): McpServer {
     async (args) =>
       run(() => {
         const now = wallClockNow(zone(args.timeZone));
-        const { filter, tasks } = savedFilterTasks(db, args.id, now);
+        const { filter, tasks } = savedFilterTasks(db, args.id, now, viewer);
         return { today: toISODate(now), filter: filter.name, count: tasks.length, tasks: tasks.map(summarize) };
       })
   );
@@ -153,7 +155,7 @@ export function buildMcpServer(db: Database.Database): McpServer {
       inputSchema: { id: idArg },
       annotations: { readOnlyHint: true },
     },
-    async ({ id }) => run(() => ({ task: getTask(db, id) }))
+    async ({ id }) => run(() => ({ task: getTask(db, id, viewer) }))
   );
 
   server.registerTool(
@@ -191,7 +193,8 @@ export function buildMcpServer(db: Database.Database): McpServer {
             listId: args.listId,
             tags: args.tags,
           },
-          today
+          today,
+          viewer
         );
         return { task: summarize(task) };
       })
@@ -215,7 +218,7 @@ export function buildMcpServer(db: Database.Database): McpServer {
       annotations: { idempotentHint: true },
     },
     async ({ id, priority, ...fields }) =>
-      run(() => ({ task: summarize(updateTask(db, id, { ...fields, priority: priority as Task['priority'] | undefined })) }))
+      run(() => ({ task: summarize(updateTask(db, id, { ...fields, priority: priority as Task['priority'] | undefined }, viewer)) }))
   );
 
   server.registerTool(
@@ -238,7 +241,7 @@ export function buildMcpServer(db: Database.Database): McpServer {
         const today = wallClockNow(zone(timeZone));
         const dueDate = date === null ? null : resolveDate(date, today);
         const dueTime = time === undefined ? undefined : time === null ? null : resolveTime(time);
-        return { task: summarize(updateTask(db, id, { dueDate, dueTime })) };
+        return { task: summarize(updateTask(db, id, { dueDate, dueTime }, viewer)) };
       })
   );
 
@@ -250,7 +253,7 @@ export function buildMcpServer(db: Database.Database): McpServer {
       inputSchema: { id: idArg, completed: z.boolean().optional().describe('Defaults to true') },
       annotations: { idempotentHint: true },
     },
-    async ({ id, completed }) => run(() => ({ task: summarize(updateTask(db, id, { completed: completed ?? true })) }))
+    async ({ id, completed }) => run(() => ({ task: summarize(updateTask(db, id, { completed: completed ?? true }, viewer)) }))
   );
 
   server.registerTool(
@@ -262,7 +265,7 @@ export function buildMcpServer(db: Database.Database): McpServer {
       inputSchema: { id: idArg },
       annotations: { destructiveHint: true, idempotentHint: true },
     },
-    async ({ id }) => run(() => ({ task: summarize(trashTask(db, id)) }))
+    async ({ id }) => run(() => ({ task: summarize(trashTask(db, id, viewer)) }))
   );
 
   server.registerTool(
@@ -273,7 +276,7 @@ export function buildMcpServer(db: Database.Database): McpServer {
       inputSchema: { id: idArg },
       annotations: { idempotentHint: true },
     },
-    async ({ id }) => run(() => ({ task: summarize(restoreTask(db, id)) }))
+    async ({ id }) => run(() => ({ task: summarize(restoreTask(db, id, viewer)) }))
   );
 
   return server;

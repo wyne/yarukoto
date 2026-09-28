@@ -1,11 +1,15 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import Fastify from 'fastify';
+import Database from 'better-sqlite3';
 import { requireAuth } from '../src/auth';
+import { runMigrations } from '../src/db';
 
 async function buildApp() {
+  const db = new Database(':memory:');
+  runMigrations(db);
   const app = Fastify();
-  app.addHook('onRequest', requireAuth);
+  app.addHook('onRequest', requireAuth(db));
   app.get('/private', async () => ({ ok: true }));
   await app.ready();
   return app;

@@ -10,6 +10,7 @@ import { registerSyncRoutes } from './routes/sync';
 import { registerHistoryRoutes } from './routes/history';
 import { registerTaskRoutes } from './routes/tasks';
 import { registerMcpRoutes } from './mcp';
+import { registerHouseholdRoutes, registerPairingRoutes } from './routes/household';
 import { scheduleRetention } from './retention';
 import { buildInfo } from './version';
 
@@ -24,10 +25,15 @@ async function main() {
   // on a different origin than the server itself.
   await app.register(fastifyCors, { origin: true });
 
+  // Declared up front so every request object has the same shape; the auth
+  // hook fills it in.
+  app.decorateRequest('viewer', null as never);
   registerHealthRoute(app);
+  registerPairingRoutes(app, db);
 
   app.register((instance, _opts, done) => {
-    instance.addHook('onRequest', requireAuth);
+    instance.addHook('onRequest', requireAuth(db));
+    registerHouseholdRoutes(instance, db);
     registerSyncRoutes(instance, db);
     registerHistoryRoutes(instance, db);
     registerTaskRoutes(instance, db);

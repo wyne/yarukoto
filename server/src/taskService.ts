@@ -13,6 +13,7 @@ import {
   taskFromRow,
   upsertTask,
 } from './model';
+import { OWNER_VIEWER, Viewer, listVisibleSql, taskVisibleSql, viewerParams, viewerUserId } from './access';
 
 /**
  * Field-level task writes, for callers that are not a syncing client: the REST
@@ -24,6 +25,10 @@ import {
  * stored row, changes only the fields it was given, and writes the merged row
  * back through `upsertTask`, so history and the pull cursor behave exactly as
  * they do for a synced edit. Clients pick the change up on their next pull.
+ *
+ * Every function takes the `Viewer` it acts for and sees only what they may
+ * (see `access.ts`). The default is the household owner — the env token — which
+ * is what every caller was before households; routes always pass the request's.
  */
 
 export const PRIORITIES: readonly Priority[] = ['none', 'low', 'medium', 'high'];
@@ -64,6 +69,8 @@ export interface TaskInput {
   listId?: string | null;
   tags?: string[];
   completed?: boolean;
+  /** A household member's id; null clears it. */
+  assigneeId?: string | null;
 }
 
 export interface CreateInput extends TaskInput {
@@ -79,15 +86,17 @@ const HHMM = /^([01]\d|2[0-3]):[0-5]\d$/;
 const DEFAULT_LIMIT = 100;
 const MAX_LIMIT = 500;
 
-export function getTask(db: Database.Database, id: string): Task {
-  const row = db.prepare('SELECT * FROM tasks WHERE id = ?').get(id) as TaskRow | undefined;
+export function getTask(db: Database.Database, id: string, viewer: Viewer = OWNER_VIEWER): Task {
+  const row = db
+    .prepare(`SELECT * FROM tasks WHERE id = @id AND ${taskVisibleSql(viewer)}`)
+    .get({ ...viewerParams(viewer), id }) as TaskRow | undefined;
   if (!row) throw new TaskServiceError('not_found', `No task with id ${id}`);
   return taskFromRow(row);
 }
 
-export function listTasks(db: Database.Database, filter: TaskFilter = {}): Task[] {
-  const where: string[] = [];
-  const params: Record<string, unknown> = {};
+export function listTasks(db: Database.Database, filter: TaskFilter = {}, viewer: Viewer = OWNER_VIEWER): Task[] {
+  const where: string[] = [taskVisibleSql(viewer)];
+  const params: Record<string, unknown> = { ...viewerParams(viewer) };
   const status = filter.status ?? 'open';
 
   if (status === 'trash') where.push('deleted_at IS NOT NULL');
@@ -128,17 +137,32 @@ export function listTasks(db: Database.Database, filter: TaskFilter = {}): Task[
   return rows.map(taskFromRow);
 }
 
-export function listLists(db: Database.Database): ListDef[] {
-  const rows = db.prepare('SELECT * FROM lists WHERE deleted_at IS NULL ORDER BY order_key').all() as ListRow[];
-  return rows.map(listFromRow);
+export function listLists(db: Database.Database, viewer: Viewer = OWNER_VIEWER): ListDef[] {
+  const rows = db
+    .prepare(`SELECT * FROM lists WHERE deleted_at IS NULL AND ${listVisibleSql(viewer)} ORDER BY order_key`)
+    .all(viewerParams(viewer)) as ListRow[];
+  return rows.map((row) => listFromRow(row, viewerUserId(viewer)));
 }
 
 /** `today` is the user's wall-clock date, for resolving the quick-add text. */
-export function listSavedFilters(db: Database.Database): SavedFilter[] {
-  const rows = db
-    .prepare('SELECT * FROM saved_filters WHERE deleted_at IS NULL ORDER BY order_key')
-    .all() as SavedFilterRow[];
-  return rows.map(savedFilterFromRow);
+/**
+ * A person's own saved filters. A household integration sees everyone's —
+ * each still evaluated over shared lists only — since a filter is how someone
+ * says "show this on the kitchen dashboard", and the integration belongs to no
+ * one in particular. A removed person's filters go with them.
+ */
+export function listSavedFilters(db: Database.Database, viewer: Viewer = OWNER_VIEWER): SavedFilter[] {
+  return (savedFilterRows(db, viewer).all(viewerParams(viewer)) as SavedFilterRow[]).map(savedFilterFromRow);
+}
+
+function savedFilterRows(db: Database.Database, viewer: Viewer, byId = false) {
+  const scope =
+    viewer.kind === 'household'
+      ? 'owner_id IN (SELECT id FROM users WHERE deleted_at IS NULL)'
+      : 'owner_id = @viewerId';
+  return db.prepare(
+    `SELECT * FROM saved_filters WHERE deleted_at IS NULL AND ${scope}${byId ? ' AND id = @id' : ''} ORDER BY order_key`
+  );
 }
 
 /**
@@ -151,19 +175,28 @@ export function listSavedFilters(db: Database.Database): SavedFilter[] {
 export function savedFilterTasks(
   db: Database.Database,
   id: string,
-  now: Date
+  now: Date,
+  viewer: Viewer = OWNER_VIEWER
 ): { filter: SavedFilter; tasks: Task[] } {
-  const row = db.prepare('SELECT * FROM saved_filters WHERE id = ? AND deleted_at IS NULL').get(id) as
-    | SavedFilterRow
-    | undefined;
+  const params = { ...viewerParams(viewer), id };
+  const row = savedFilterRows(db, viewer, true).get(params) as SavedFilterRow | undefined;
   if (!row) throw new TaskServiceError('not_found', `No saved filter with id ${id}`);
   const filter = savedFilterFromRow(row);
-  const tasks = (db.prepare('SELECT * FROM tasks WHERE deleted_at IS NULL').all() as TaskRow[]).map(taskFromRow);
-  const lists = (db.prepare('SELECT * FROM lists').all() as ListRow[]).map(listFromRow);
+  const tasks = (
+    db.prepare(`SELECT * FROM tasks WHERE deleted_at IS NULL AND ${taskVisibleSql(viewer)}`).all(params) as TaskRow[]
+  ).map(taskFromRow);
+  const lists = (
+    db.prepare(`SELECT * FROM lists WHERE ${listVisibleSql(viewer)}`).all(params) as ListRow[]
+  ).map((r) => listFromRow(r, viewerUserId(viewer)));
   return { filter, tasks: filterTasks(tasks, filter.criteria, { lists, now }) };
 }
 
-export function createTask(db: Database.Database, input: CreateInput, today: Date): Task {
+export function createTask(
+  db: Database.Database,
+  input: CreateInput,
+  today: Date,
+  viewer: Viewer = OWNER_VIEWER
+): Task {
   const parsed = input.text ? parseQuickAdd(input.text, today) : undefined;
   const title = (input.title ?? parsed?.title ?? '').trim();
   if (!title) throw new TaskServiceError('bad_request', 'A task needs a title');
@@ -171,7 +204,7 @@ export function createTask(db: Database.Database, input: CreateInput, today: Dat
   let listId = input.listId;
   if (listId === undefined && parsed?.listName) {
     const name = parsed.listName.toLowerCase();
-    listId = listLists(db).find((l) => l.name.toLowerCase() === name)?.id;
+    listId = listLists(db, viewer).find((l) => l.name.toLowerCase() === name)?.id;
     if (listId === undefined) {
       throw new TaskServiceError('bad_request', `No list named "${parsed.listName}"`);
     }
@@ -195,26 +228,39 @@ export function createTask(db: Database.Database, input: CreateInput, today: Dat
     // The same key the app gives a new task, so it lands on top like one typed in.
     order: -Date.now(),
   };
-  const task = applyInput(db, base, { ...input, title, listId }, now);
-  return runWrite(db, task, 'create');
+  const task = applyInput(db, base, { ...input, title, listId }, now, viewer);
+  // An integration has no Inbox, so its tasks have to go somewhere it can see.
+  if (viewer.kind === 'household' && task.listId === null) {
+    throw new TaskServiceError('bad_request', 'An integration must put a task in a shared list');
+  }
+  return runWrite(db, task, 'create', viewerUserId(viewer));
 }
 
-export function updateTask(db: Database.Database, id: string, input: TaskInput): Task {
-  const current = getTask(db, id);
+export function updateTask(db: Database.Database, id: string, input: TaskInput, viewer: Viewer = OWNER_VIEWER): Task {
+  const current = getTask(db, id, viewer);
   if (current.deletedAt) throw new TaskServiceError('bad_request', 'Task is in the trash; restore it first');
   const updatedAt = stampAfter(current.updatedAt);
-  return runWrite(db, applyInput(db, { ...current, updatedAt }, input, updatedAt), 'update');
+  const next = applyInput(db, { ...current, updatedAt }, input, updatedAt, viewer);
+  if (viewer.kind === 'household' && next.listId === null) {
+    throw new TaskServiceError('bad_request', 'An integration must keep a task in a shared list');
+  }
+  const task = runWrite(db, next, 'update');
+  // Filed into the Inbox means filed into the mover's, as in sync.
+  if (current.listId !== null && task.listId === null && viewer.kind === 'user') {
+    db.prepare('UPDATE tasks SET owner_id = ? WHERE id = ?').run(viewer.userId, id);
+  }
+  return task;
 }
 
-export function trashTask(db: Database.Database, id: string): Task {
-  const current = getTask(db, id);
+export function trashTask(db: Database.Database, id: string, viewer: Viewer = OWNER_VIEWER): Task {
+  const current = getTask(db, id, viewer);
   if (current.deletedAt) return current;
   const updatedAt = stampAfter(current.updatedAt);
   return runWrite(db, { ...current, deletedAt: updatedAt, updatedAt }, 'delete');
 }
 
-export function restoreTask(db: Database.Database, id: string): Task {
-  const current = getTask(db, id);
+export function restoreTask(db: Database.Database, id: string, viewer: Viewer = OWNER_VIEWER): Task {
+  const current = getTask(db, id, viewer);
   if (!current.deletedAt) return current;
   const updatedAt = stampAfter(current.updatedAt);
   return runWrite(db, { ...current, deletedAt: undefined, updatedAt }, 'restore');
@@ -226,11 +272,16 @@ export function restoreTask(db: Database.Database, id: string): Task {
  * forced through: a notification can sit on the lock screen for hours, and a
  * completion that old should not undo whatever happened to the task since.
  */
-export function completeTaskAt(db: Database.Database, id: string, completedAt: string): { task: Task; applied: boolean } {
+export function completeTaskAt(
+  db: Database.Database,
+  id: string,
+  completedAt: string,
+  viewer: Viewer = OWNER_VIEWER
+): { task: Task; applied: boolean } {
   if (Number.isNaN(Date.parse(completedAt))) {
     throw new TaskServiceError('bad_request', 'completedAt is not a timestamp');
   }
-  const current = getTask(db, id);
+  const current = getTask(db, id, viewer);
   if (current.deletedAt) throw new TaskServiceError('not_found', `No task with id ${id}`);
   if (current.updatedAt >= completedAt) return { task: current, applied: false };
 
@@ -253,8 +304,13 @@ export function completeTaskAt(db: Database.Database, id: string, completedAt: s
   return { task, applied: true };
 }
 
-function runWrite(db: Database.Database, task: Task, op: 'create' | 'update' | 'delete' | 'restore'): Task {
-  return db.transaction(() => upsertTask(db, task, op))();
+function runWrite(
+  db: Database.Database,
+  task: Task,
+  op: 'create' | 'update' | 'delete' | 'restore',
+  ownerId: string | null = null
+): Task {
+  return db.transaction(() => upsertTask(db, task, op, ownerId))();
 }
 
 /**
@@ -269,7 +325,7 @@ function stampAfter(previous: string): string {
   return new Date(Number.isNaN(prev) || now > prev ? now : prev + 1).toISOString();
 }
 
-function applyInput(db: Database.Database, task: Task, input: TaskInput, stamp: string): Task {
+function applyInput(db: Database.Database, task: Task, input: TaskInput, stamp: string, viewer: Viewer): Task {
   const out: Task = { ...task };
 
   if (input.title !== undefined) {
@@ -301,10 +357,16 @@ function applyInput(db: Database.Database, task: Task, input: TaskInput, stamp: 
   }
   if (out.dueTime && !out.dueDate) throw new TaskServiceError('bad_request', 'dueTime needs a dueDate');
   if (input.listId !== undefined) {
-    if (input.listId !== null && !listLists(db).some((l) => l.id === input.listId)) {
+    if (input.listId !== null && !listLists(db, viewer).some((l) => l.id === input.listId)) {
       throw new TaskServiceError('bad_request', `No list with id ${input.listId}`);
     }
     out.listId = input.listId;
+  }
+  if (input.assigneeId !== undefined) {
+    if (input.assigneeId !== null && !db.prepare('SELECT 1 FROM users WHERE id = ? AND deleted_at IS NULL').get(input.assigneeId)) {
+      throw new TaskServiceError('bad_request', `No household member with id ${input.assigneeId}`);
+    }
+    out.assigneeId = input.assigneeId;
   }
   if (input.tags !== undefined) out.tags = input.tags;
   out.tags = Array.from(new Set(out.tags.map(normalizeTag).filter(Boolean)));

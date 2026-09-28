@@ -11,7 +11,7 @@ export type Priority = 'none' | 'low' | 'medium' | 'high';
  * mobile hides the UI but keeps sending the field, since a wrongly stripped field
  * is unrecoverable and a wrongly hidden row is not. See AGENTS.md.
  */
-export const SERVER_FEATURES = ['taskReminders', 'savedFilters'] as const;
+export const SERVER_FEATURES = ['taskReminders', 'savedFilters', 'household'] as const;
 export type ServerFeature = (typeof SERVER_FEATURES)[number];
 
 export interface Subtask {
@@ -47,8 +47,14 @@ export interface Task extends Synced {
   dueTime?: string;
   /** Relative reminders anchored to dueDate. Missing means none. */
   reminders?: TaskReminder[];
-  /** null = Inbox (unfiled). */
+  /** null = Inbox (unfiled), which only the task's owner sees. */
   listId: string | null;
+  /**
+   * Who in the household the task is for, on a shared list. Absent means
+   * "not sent" and leaves the stored value alone; `null` clears it. Gated
+   * behind the `household` feature.
+   */
+  assigneeId?: string | null;
   tags: string[];
   subtasks: Subtask[];
   completed: boolean;
@@ -75,6 +81,14 @@ export interface ListDef extends Synced {
    * Fractional like `Task.order`, for the same reason.
    */
   order: number;
+  /**
+   * Visible to everyone in the household, not just its owner. Absent means "not
+   * sent" — an app build from before households — and the server keeps what it
+   * has rather than unsharing the list. Gated behind the `household` feature.
+   */
+  shared?: boolean;
+  /** Set by the server, never by a client: who owns the list. */
+  ownerId?: string;
 }
 
 export interface FolderDef extends Synced {
@@ -128,4 +142,26 @@ export interface SavedFilter extends Synced {
   criteria: TaskCriteria;
   /** Position among the saved filters. Fractional like `Task.order`. */
   order: number;
+}
+
+export type HouseholdRole = 'admin' | 'member';
+
+/** A person in the household. Removed people keep their rows, with `deletedAt`. */
+export interface HouseholdMember {
+  id: string;
+  name: string;
+  role: HouseholdRole;
+  createdAt: string;
+  deletedAt?: string;
+}
+
+/** A signed-in device. `userId` null is a household integration (Home Assistant). */
+export interface HouseholdDevice {
+  id: string;
+  userId: string | null;
+  name: string;
+  kind: 'app' | 'integration';
+  createdAt: string;
+  lastSeenAt?: string;
+  revokedAt?: string;
 }
