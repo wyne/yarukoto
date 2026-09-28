@@ -43,13 +43,23 @@ export function taskViewParams(view: NativeTaskViewParams): NativeTaskViewParams
   return { listId: undefined, folderId: undefined, tag: undefined, view: undefined, ...view };
 }
 
+/**
+ * Browse opened on a saved filter, from the nav. `at` distinguishes two presses
+ * of the same row, so choosing a filter again re-applies it after the chips
+ * were changed rather than being read as nothing new.
+ */
+export interface BrowseParams {
+  savedFilterId?: string;
+  at?: number;
+}
+
 export type MainTabParamList = {
   AllTab: undefined;
   InboxTab: InboxParams | undefined;
   TodayTab: undefined;
   CalendarTab: undefined;
   ActivityTab: undefined;
-  BrowseTab: undefined;
+  BrowseTab: BrowseParams | undefined;
   TrashTab: undefined;
 };
 

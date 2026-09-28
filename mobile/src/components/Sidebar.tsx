@@ -28,7 +28,8 @@ import {
   tasksDueByToday,
   trashedTasks,
 } from '../data/selectors';
-import { InboxParams, NativeTaskViewParams, taskViewParams } from '../navigation/types';
+import { BrowseParams, InboxParams, NativeTaskViewParams, taskViewParams } from '../navigation/types';
+import { filterTasks } from '../data/taskFilter';
 import { useSidebar } from '../navigation/SidebarContext';
 import NavContextMenu, { NavMenuTarget } from './NavContextMenu';
 import ContextMenuTarget from './ContextMenuTarget';
@@ -46,6 +47,7 @@ import {
   IconChevronLeft,
   IconChevronRight,
   IconClock,
+  IconFilter,
   IconFolder,
   IconInboxTray,
   IconPlus,
@@ -109,7 +111,7 @@ export type SidebarNavigationProps =
   | Pick<NativeBottomTabBarProps, 'state' | 'navigation'>;
 
 /** What a press asked for, in the same terms the selection is decided in. */
-type PendingRow = { kind: 'route' | 'list' | 'folder' | 'tag'; value: string };
+type PendingRow = { kind: 'route' | 'list' | 'folder' | 'tag' | 'savedFilter'; value: string };
 
 type Props = SidebarNavigationProps & {
   /** Runs a navigation after the drawer has finished closing. */
@@ -187,7 +189,7 @@ const Sidebar = React.memo(function Sidebar({ state, navigation, onNavigate }: P
   const collapsed = wide && collapsedPref;
   const insets = useSafeAreaInsets();
   const { height: winHeight } = useWindowDimensions();
-  const { state: data, reorderList, reorderFolder } = useTasks();
+  const { state: data, reorderList, reorderFolder, supportsFeature } = useTasks();
   const rows = useMemo(
     () => flattenTree(data.folders, data.lists, { collapsed: collapsedFolders }),
     [data.folders, data.lists, collapsedFolders]
@@ -356,6 +358,21 @@ const Sidebar = React.memo(function Sidebar({ state, navigation, onNavigate }: P
    */
   const counts = useMemo(() => listCounts(data.tasks), [data.tasks]);
   const tags = useMemo(() => tagCounts(data.tasks), [data.tasks]);
+  /**
+   * Saved filters with what each one matches now. Counted like the rows above
+   * it — the question the row asks, answered — which means running each filter
+   * once per change to the tasks, not once per render.
+   */
+  const savedFilters = useMemo(() => {
+    const now = new Date();
+    return data.savedFilters
+      .filter((f) => !f.deletedAt)
+      .sort((a, b) => a.order - b.order)
+      .map((filter) => ({
+        filter,
+        count: filterTasks(data.tasks, filter.criteria, { lists: data.lists, now }).length,
+      }));
+  }, [data.savedFilters, data.tasks, data.lists]);
   const viewCounts = useMemo<Record<string, number | null>>(() => {
     const now = new Date();
     return {
@@ -411,9 +428,11 @@ const Sidebar = React.memo(function Sidebar({ state, navigation, onNavigate }: P
       // Recorded here rather than at the eight call sites: this is the funnel
       // every destination already passes through, and the params it is handed
       // are the same ones the selection is later read back out of.
-      const asked = params as InboxParams | undefined;
+      const asked = params as (InboxParams & BrowseParams) | undefined;
       setPending(
-        asked?.listId
+        asked?.savedFilterId
+          ? { kind: 'savedFilter', value: asked.savedFilterId }
+          : asked?.listId
           ? { kind: 'list', value: asked.listId }
           : asked?.folderId
             ? { kind: 'folder', value: asked.folderId }
@@ -472,7 +491,15 @@ const Sidebar = React.memo(function Sidebar({ state, navigation, onNavigate }: P
   const openList = useCallback((id: string) => openFilter({ listId: id }), [openFilter]);
   const openFolder = useCallback((id: string) => openFilter({ folderId: id }), [openFilter]);
   const openTag = useCallback((tag: string) => openFilter({ tag }), [openFilter]);
-  const filterActive = (type: 'list' | 'folder' | 'tag', value: string) => {
+  // A saved filter is a question for Browse, not a view of the Inbox tab.
+  const openSavedFilter = useCallback(
+    (id: string) => go('BrowseTab', { savedFilterId: id, at: Date.now() } satisfies BrowseParams),
+    [go]
+  );
+  const browseFilterId =
+    current.name === 'BrowseTab' ? (current.params as BrowseParams | undefined)?.savedFilterId : undefined;
+  const filterActive = (type: 'list' | 'folder' | 'tag' | 'savedFilter', value: string) => {
+    if (type === 'savedFilter') return browseFilterId === value;
     if (native ? !onListTab || nativeListScreen !== 'Tasks' : !onInbox) return false;
     if (type === 'list') return inboxParams?.listId === value;
     if (type === 'folder') return inboxParams?.folderId === value;
@@ -494,6 +521,8 @@ const Sidebar = React.memo(function Sidebar({ state, navigation, onNavigate }: P
     // On native a filter is a view of the *first* tab, so the Inbox tab being up
     // is the whole question; `filtered` there describes a different tab.
     if (route === 'InboxTab') return native ? onInbox : onInbox && !filtered;
+    // Browse showing a saved filter is that filter's row, not the Browse row.
+    if (route === 'BrowseTab') return current.name === route && !browseFilterId;
     return current.name === route;
   };
 
@@ -671,6 +700,32 @@ const Sidebar = React.memo(function Sidebar({ state, navigation, onNavigate }: P
               <IconPlus size={17} color={colors.textTertiary} />
               <Text style={styles.newLabel}>New folder</Text>
             </Pressable>
+          </View>
+        )}
+
+        {savedFilters.length > 0 && !collapsed && supportsFeature('savedFilters') && (
+          <View>
+            <Text style={styles.sectionLabel}>Filters</Text>
+            {savedFilters.map(({ filter, count }) => {
+              const active = showActive('savedFilter', filter.id);
+              return (
+                <Pressable
+                  key={filter.id}
+                  style={hoverBg([styles.row, active && { backgroundColor: colors.selectedRowBg }], active)}
+                  onPress={() => openSavedFilter(filter.id)}
+                  accessibilityLabel={`Saved filter ${filter.name}`}
+                >
+                  <IconFilter size={18} color={active ? accent : colors.textTertiary} />
+                  <Text
+                    style={[styles.rowLabel, active && { color: accent, fontFamily: fonts.sansSemiBold }]}
+                    numberOfLines={1}
+                  >
+                    {filter.name}
+                  </Text>
+                  <Text style={styles.rowCount}>{count}</Text>
+                </Pressable>
+              );
+            })}
           </View>
         )}
 

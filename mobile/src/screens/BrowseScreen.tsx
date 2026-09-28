@@ -1,10 +1,13 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { makeStyles } from '../theme/styles';
 import { fonts } from '../theme/typography';
 import { PANE_MAX_WIDTH, useSidebar } from '../navigation/SidebarContext';
-import { TaskCriteria } from '../data/taskFilter';
+import { TaskCriteria, sameCriteria } from '../data/taskFilter';
+import { useTasks } from '../data/TaskContext';
+import { BrowseParams } from '../navigation/types';
 import { loadBrowseCriteria, saveBrowseCriteria } from '../data/storage';
 import BrowseView from '../components/browse/BrowseView';
 import GlassIconButton from '../components/GlassIconButton';
@@ -32,10 +35,51 @@ export default function BrowseScreen() {
    * remembering is safe to do silently.
    */
   const [criteria, setCriteriaState] = useState<TaskCriteria>(loadBrowseCriteria);
+  const { state } = useTasks();
+  const params = useRoute().params as BrowseParams | undefined;
+  const navigation = useNavigation();
+
   const setCriteria = useCallback((next: TaskCriteria) => {
     setCriteriaState(next);
     saveBrowseCriteria(next);
   }, []);
+
+  /**
+   * A press on a saved filter in the nav. Applied once per press — `at` is what
+   * tells two presses apart — and only once the filter is known, since a cold
+   * start can route here before the snapshot's filters have been read.
+   */
+  const applied = useRef<string | null>(null);
+  /** Criteria the last press applied, until a render has caught up with them. */
+  const applying = useRef<TaskCriteria | null>(null);
+  useEffect(() => {
+    if (!params?.savedFilterId || params.at === undefined) return;
+    const key = `${params.savedFilterId}@${params.at}`;
+    if (applied.current === key) return;
+    const filter = state.savedFilters.find((f) => f.id === params.savedFilterId && !f.deletedAt);
+    if (!filter) return;
+    applied.current = key;
+    applying.current = filter.criteria;
+    setCriteria(filter.criteria);
+  }, [params?.savedFilterId, params?.at, state.savedFilters, setCriteria]);
+
+  /**
+   * Keeps the route saying which saved filter is on screen, if any, so the nav
+   * highlights that filter's row rather than Browse's: changing the chips away
+   * from one clears it, and landing on one — by its chip, or by saving what is
+   * already asked — sets it. Held off while a press from the nav is still to be
+   * applied, so the old criteria cannot clear the filter it is about to show.
+   */
+  useEffect(() => {
+    const pressed = params?.savedFilterId && params.at !== undefined ? `${params.savedFilterId}@${params.at}` : null;
+    if (pressed && applied.current !== pressed) return;
+    if (applying.current) {
+      if (criteria !== applying.current) return;
+      applying.current = null;
+    }
+    const match = state.savedFilters.find((f) => !f.deletedAt && sameCriteria(f.criteria, criteria));
+    if (match?.id !== params?.savedFilterId) navigation.setParams({ savedFilterId: match?.id } as never);
+  }, [criteria, state.savedFilters, params?.savedFilterId, params?.at, navigation]);
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top + 6 }]}>
