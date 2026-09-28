@@ -1,3 +1,5 @@
+import type { TaskCriteria } from './taskFilter';
+
 export type Priority = 'none' | 'low' | 'medium' | 'high';
 
 /**
@@ -9,7 +11,7 @@ export type Priority = 'none' | 'low' | 'medium' | 'high';
  * mobile hides the UI but keeps sending the field, since a wrongly stripped field
  * is unrecoverable and a wrongly hidden row is not. See AGENTS.md.
  */
-export const SERVER_FEATURES = ['taskReminders'] as const;
+export const SERVER_FEATURES = ['taskReminders', 'savedFilters'] as const;
 export type ServerFeature = (typeof SERVER_FEATURES)[number];
 
 export interface Subtask {
@@ -108,4 +110,22 @@ export interface ViewPref extends Synced {
    * here is sorted by the comparator, exactly as before.
    */
   arrangements?: Record<string, Record<string, Record<string, number>>>;
+}
+
+/**
+ * A Browse question kept under a name, so it can be asked again in one tap and
+ * read by callers outside the app — `GET /api/v1/filters/:id/tasks`, which is
+ * what a Home Assistant to-do entity polls.
+ *
+ * The criteria are stored as asked, not as results: "due today" means today
+ * whenever it is evaluated, on whichever side evaluates it. Gated behind the
+ * `savedFilters` feature id, since an older server has nowhere to keep one.
+ */
+export interface SavedFilter extends Synced {
+  /** `sf-` prefixed, so it cannot collide with another record in the outbox. */
+  id: string;
+  name: string;
+  criteria: TaskCriteria;
+  /** Position among the saved filters. Fractional like `Task.order`. */
+  order: number;
 }

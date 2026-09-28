@@ -16,6 +16,7 @@ import TaskRow from '../TaskRow';
 import { useRowContext } from '../useRowContext';
 import { closeOpenSwipeRow } from '../SwipeableRow';
 import FilterBar from './FilterBar';
+import SavedFilterBar from './SavedFilterBar';
 import { useMenuCommand } from '../../navigation/MenuCommands';
 
 interface Props {
@@ -83,6 +84,7 @@ export default function BrowseView({ criteria, onCriteriaChange }: Props) {
       </View>
 
       <View style={wide && styles.paneWide}>
+        <SavedFilterBar criteria={criteria} onChange={onCriteriaChange} />
         <FilterBar criteria={criteria} onChange={onCriteriaChange} />
       </View>
 

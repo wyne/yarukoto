@@ -1,5 +1,5 @@
 import { FolderDef, GroupBy, ListDef, Priority, SortBy, Task, ViewPref } from './types';
-import { fromISODate, startOfDay } from './dateUtils';
+import { DueBucket, dueBucket } from '../../../shared/dates';
 import { orderedLists } from './selectors';
 
 export type { GroupBy, SortBy };
@@ -161,8 +161,6 @@ interface GroupContext {
   now: Date;
 }
 
-const DAY_MS = 24 * 60 * 60 * 1000;
-
 /**
  * Which stretch of time a task's due date falls in.
  *
@@ -171,14 +169,18 @@ const DAY_MS = 24 * 60 * 60 * 1000;
  * implementations of "is this overdue" would eventually disagree.
  */
 export function dateBucket(t: Task, now: Date): { key: string; label: string } {
-  if (!t.dueDate) return { key: 'nodate', label: 'No date' };
-  const diff = Math.round((startOfDay(fromISODate(t.dueDate)).getTime() - startOfDay(now).getTime()) / DAY_MS);
-  if (diff < 0) return { key: 'overdue', label: 'Overdue' };
-  if (diff === 0) return { key: 'today', label: 'Today' };
-  if (diff === 1) return { key: 'tomorrow', label: 'Tomorrow' };
-  if (diff <= 7) return { key: 'week', label: 'Next 7 days' };
-  return { key: 'later', label: 'Later' };
+  const key = dueBucket(t.dueDate, now);
+  return { key, label: DATE_BUCKET_LABELS[key] };
 }
+
+const DATE_BUCKET_LABELS: Record<DueBucket, string> = {
+  overdue: 'Overdue',
+  today: 'Today',
+  tomorrow: 'Tomorrow',
+  week: 'Next 7 days',
+  later: 'Later',
+  nodate: 'No date',
+};
 
 const DATE_BUCKET_ORDER = ['overdue', 'today', 'tomorrow', 'week', 'later', 'nodate'];
 

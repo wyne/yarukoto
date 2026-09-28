@@ -1,8 +1,18 @@
 import crypto from 'node:crypto';
 import Database from 'better-sqlite3';
-import { ListDef, Priority, Task } from '../../shared/types';
+import { ListDef, Priority, SavedFilter, Task } from '../../shared/types';
 import { parseQuickAdd } from '../../shared/quickAdd';
-import { ListRow, TaskRow, listFromRow, recordRevision, taskFromRow, upsertTask } from './model';
+import { filterTasks } from '../../shared/taskFilter';
+import {
+  ListRow,
+  SavedFilterRow,
+  TaskRow,
+  listFromRow,
+  recordRevision,
+  savedFilterFromRow,
+  taskFromRow,
+  upsertTask,
+} from './model';
 
 /**
  * Field-level task writes, for callers that are not a syncing client: the REST
@@ -124,6 +134,35 @@ export function listLists(db: Database.Database): ListDef[] {
 }
 
 /** `today` is the user's wall-clock date, for resolving the quick-add text. */
+export function listSavedFilters(db: Database.Database): SavedFilter[] {
+  const rows = db
+    .prepare('SELECT * FROM saved_filters WHERE deleted_at IS NULL ORDER BY order_key')
+    .all() as SavedFilterRow[];
+  return rows.map(savedFilterFromRow);
+}
+
+/**
+ * The tasks a saved filter admits right now, in the app's own order.
+ *
+ * Evaluated with the shared `filterTasks`, not translated to SQL, so a filter
+ * cannot mean one thing on the phone and another here. `now` must already read
+ * as the user's wall clock (`wallClockNow`), since "today" is a calendar day.
+ */
+export function savedFilterTasks(
+  db: Database.Database,
+  id: string,
+  now: Date
+): { filter: SavedFilter; tasks: Task[] } {
+  const row = db.prepare('SELECT * FROM saved_filters WHERE id = ? AND deleted_at IS NULL').get(id) as
+    | SavedFilterRow
+    | undefined;
+  if (!row) throw new TaskServiceError('not_found', `No saved filter with id ${id}`);
+  const filter = savedFilterFromRow(row);
+  const tasks = (db.prepare('SELECT * FROM tasks WHERE deleted_at IS NULL').all() as TaskRow[]).map(taskFromRow);
+  const lists = (db.prepare('SELECT * FROM lists').all() as ListRow[]).map(listFromRow);
+  return { filter, tasks: filterTasks(tasks, filter.criteria, { lists, now }) };
+}
+
 export function createTask(db: Database.Database, input: CreateInput, today: Date): Task {
   const parsed = input.text ? parseQuickAdd(input.text, today) : undefined;
   const title = (input.title ?? parsed?.title ?? '').trim();

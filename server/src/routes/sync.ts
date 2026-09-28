@@ -1,14 +1,16 @@
 import { FastifyInstance } from 'fastify';
 import Database from 'better-sqlite3';
-import { FolderDef, ListDef, Task, ViewPref } from '../../../shared/types';
+import { FolderDef, ListDef, SavedFilter, Task, ViewPref } from '../../../shared/types';
 import { env } from '../env';
 import {
   FolderRow,
   ListRow,
+  SavedFilterRow,
   TaskRow,
   ViewPrefRow,
   folderFromRow,
   listFromRow,
+  savedFilterFromRow,
   taskFromRow,
   upsertTask,
   viewPrefFromRow,
@@ -19,6 +21,7 @@ interface SyncPushBody {
   lists?: ListDef[];
   folders?: FolderDef[];
   viewPrefs?: ViewPref[];
+  savedFilters?: SavedFilter[];
 }
 
 export function registerSyncRoutes(app: FastifyInstance, db: Database.Database): void {
@@ -52,17 +55,23 @@ export function registerSyncRoutes(app: FastifyInstance, db: Database.Database):
     const viewPrefs = (
       db.prepare('SELECT * FROM view_prefs WHERE updated_at > ? ORDER BY updated_at').all(cursor) as ViewPrefRow[]
     ).map(viewPrefFromRow);
+    const savedFilters = (
+      db
+        .prepare('SELECT * FROM saved_filters WHERE server_updated_at > ? ORDER BY server_updated_at')
+        .all(cursor) as SavedFilterRow[]
+    ).map(savedFilterFromRow);
 
-    reply.send({ now, tasks, lists, folders, viewPrefs });
+    reply.send({ now, tasks, lists, folders, viewPrefs, savedFilters });
   });
 
   app.post<{ Body: SyncPushBody }>('/api/v1/sync', async (request, reply) => {
-    const { tasks = [], lists = [], folders = [], viewPrefs = [] } = request.body ?? {};
+    const { tasks = [], lists = [], folders = [], viewPrefs = [], savedFilters = [] } = request.body ?? {};
 
     const acceptedTasks: Task[] = [];
     const acceptedLists: ListDef[] = [];
     const acceptedFolders: FolderDef[] = [];
     const acceptedViewPrefs: ViewPref[] = [];
+    const acceptedSavedFilters: SavedFilter[] = [];
 
     const run = db.transaction(() => {
       for (const task of tasks) {
@@ -87,6 +96,9 @@ export function registerSyncRoutes(app: FastifyInstance, db: Database.Database):
       for (const pref of viewPrefs) {
         acceptedViewPrefs.push(upsertViewPref(db, pref));
       }
+      for (const filter of savedFilters) {
+        acceptedSavedFilters.push(upsertSavedFilter(db, filter));
+      }
     });
     run();
 
@@ -96,6 +108,7 @@ export function registerSyncRoutes(app: FastifyInstance, db: Database.Database):
       lists: acceptedLists,
       folders: acceptedFolders,
       viewPrefs: acceptedViewPrefs,
+      savedFilters: acceptedSavedFilters,
     });
   });
 }
@@ -159,4 +172,31 @@ function upsertFolder(db: Database.Database, folder: FolderDef): FolderDef {
        deleted_at = excluded.deleted_at, server_updated_at = excluded.server_updated_at`
   ).run({ ...folder, deletedAt: folder.deletedAt ?? null, serverUpdatedAt: new Date().toISOString() });
   return folder;
+}
+
+function upsertSavedFilter(db: Database.Database, filter: SavedFilter): SavedFilter {
+  const existing = db.prepare('SELECT updated_at FROM saved_filters WHERE id = ?').get(filter.id) as
+    | { updated_at: string }
+    | undefined;
+  if (existing && existing.updated_at >= filter.updatedAt) {
+    return savedFilterFromRow(db.prepare('SELECT * FROM saved_filters WHERE id = ?').get(filter.id) as SavedFilterRow);
+  }
+  // Same silent-bind caveat as upsertList above.
+  db.prepare(
+    `INSERT INTO saved_filters (id, name, criteria, order_key, updated_at, deleted_at, server_updated_at)
+     VALUES (@id, @name, @criteria, @order, @updatedAt, @deletedAt, @serverUpdatedAt)
+     ON CONFLICT(id) DO UPDATE SET name = excluded.name, criteria = excluded.criteria,
+       order_key = excluded.order_key, updated_at = excluded.updated_at,
+       deleted_at = excluded.deleted_at, server_updated_at = excluded.server_updated_at`
+  ).run({
+    id: filter.id,
+    name: filter.name,
+    criteria: JSON.stringify(filter.criteria ?? {}),
+    order: filter.order ?? 0,
+    updatedAt: filter.updatedAt,
+    deletedAt: filter.deletedAt ?? null,
+    serverUpdatedAt: new Date().toISOString(),
+  });
+  // Read back so criteria are normalised the way a pull would see them.
+  return savedFilterFromRow(db.prepare('SELECT * FROM saved_filters WHERE id = ?').get(filter.id) as SavedFilterRow);
 }

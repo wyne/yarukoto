@@ -15,7 +15,9 @@ import {
   createTask,
   getTask,
   listLists,
+  listSavedFilters,
   listTasks,
+  savedFilterTasks,
   restoreTask,
   trashTask,
   updateTask,
@@ -111,6 +113,35 @@ export function buildMcpServer(db: Database.Database): McpServer {
           limit: args.limit,
         });
         return { today, count: tasks.length, tasks: tasks.map(summarize) };
+      })
+  );
+
+  server.registerTool(
+    'list_saved_filters',
+    {
+      title: 'List saved filters',
+      description: 'Filters the user has saved in the app, such as "Due today", with their ids and criteria.',
+      annotations: { readOnlyHint: true },
+    },
+    async () => ok({ filters: listSavedFilters(db).map(({ id, name, criteria }) => ({ id, name, criteria })) })
+  );
+
+  server.registerTool(
+    'saved_filter_tasks',
+    {
+      title: 'Tasks in a saved filter',
+      description: 'The tasks a saved filter matches right now, evaluated exactly as the app evaluates it.',
+      inputSchema: {
+        id: z.string().describe('Saved filter id, as returned by list_saved_filters'),
+        timeZone: timeZoneArg,
+      },
+      annotations: { readOnlyHint: true },
+    },
+    async (args) =>
+      run(() => {
+        const now = wallClockNow(zone(args.timeZone));
+        const { filter, tasks } = savedFilterTasks(db, args.id, now);
+        return { today: toISODate(now), filter: filter.name, count: tasks.length, tasks: tasks.map(summarize) };
       })
   );
 

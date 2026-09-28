@@ -1,16 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ACCENT_OPTIONS, AccentColor, DEFAULT_ACCENT, SchemePref } from '../theme/colors';
 import { SnoozedReminder } from './notificationActions';
-import { FolderDef, ListDef, SERVER_FEATURES, ServerFeature, Task, ViewPref } from './types';
-import {
-  DUE_FILTERS,
-  DueFilter,
-  EMPTY_CRITERIA,
-  STATUS_FILTERS,
-  StatusFilter,
-  TaskCriteria,
-  isEmptyCriteria,
-} from './taskFilter';
+import { FolderDef, ListDef, SERVER_FEATURES, SavedFilter, ServerFeature, Task, ViewPref } from './types';
+import { EMPTY_CRITERIA, TaskCriteria, isEmptyCriteria, normalizeCriteria } from './taskFilter';
 
 /**
  * Persistence for the server connection — which mode the app is in, the server
@@ -354,14 +346,6 @@ export function saveCollapsedFolders(ids: string[]): void {
   else writeJson(FOLDERS_KEY, ids);
 }
 
-function stringArray(value: unknown): string[] {
-  return Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : [];
-}
-
-function dueFilters(values: unknown[]): DueFilter[] {
-  return values.filter((d): d is DueFilter => DUE_FILTERS.includes(d as DueFilter));
-}
-
 /**
  * What Browse was last asked.
  *
@@ -370,29 +354,12 @@ function dueFilters(values: unknown[]): DueFilter[] {
  * narrowed by something typed on a laptop would be a puzzle rather than a
  * convenience.
  *
- * Validated a field at a time, like the plan prefs. A value this build has
- * never heard of falls back on its own without taking the rest of the criteria
- * with it — the ids are not checked here, because whether a list still exists
- * is a question for the screen, which has the lists.
+ * Validated a field at a time by `normalizeCriteria`, the same check a synced
+ * saved filter goes through.
  */
 export function loadBrowseCriteria(): TaskCriteria {
-  const stored = readJson<Partial<TaskCriteria>>(BROWSE_KEY);
-  if (!stored) return EMPTY_CRITERIA;
-  return {
-    query: typeof stored.query === 'string' ? stored.query : EMPTY_CRITERIA.query,
-    listIds: stringArray(stored.listIds),
-    folderIds: stringArray(stored.folderIds),
-    tags: stringArray(stored.tags),
-    // Filtered rather than rejected wholesale, so a build that knew a stretch
-    // this one doesn't still restores the stretches they have in common. A bare
-    // string is what builds before this filter went multi-valued wrote; `any`
-    // was one of those values and is spelled as no selection now, so it falls
-    // out of `DUE_FILTERS` here without needing a case of its own.
-    due: dueFilters(Array.isArray(stored.due) ? stored.due : [stored.due]),
-    status: STATUS_FILTERS.includes(stored.status as StatusFilter)
-      ? (stored.status as StatusFilter)
-      : EMPTY_CRITERIA.status,
-  };
+  const stored = readJson<unknown>(BROWSE_KEY);
+  return stored ? normalizeCriteria(stored) : EMPTY_CRITERIA;
 }
 
 export function saveBrowseCriteria(criteria: TaskCriteria): void {
@@ -489,6 +456,7 @@ export interface ServerSnapshot {
   lists: ListDef[];
   folders: FolderDef[];
   viewPrefs: ViewPref[];
+  savedFilters: SavedFilter[];
   /** What the connected server last advertised. Absent means never probed. */
   serverFeatures?: ServerFeature[];
   cursor?: string;
@@ -529,6 +497,9 @@ export function loadServerSnapshot(): ServerSnapshot | null {
     lists: stored.lists as ListDef[],
     folders: stored.folders as FolderDef[],
     viewPrefs: stored.viewPrefs as ViewPref[],
+    // Optional, unlike the collections above: a snapshot written before saved
+    // filters existed is still a good snapshot, just one without any.
+    savedFilters: isRecordArray(stored.savedFilters) ? (stored.savedFilters as SavedFilter[]) : [],
     serverFeatures: parseServerFeatures(stored.serverFeatures),
     cursor: typeof stored.cursor === 'string' ? stored.cursor : undefined,
     savedAt: typeof stored.savedAt === 'string' ? stored.savedAt : new Date(0).toISOString(),

@@ -115,6 +115,12 @@ write reads the stored row, merges only the fields it was given, and goes throug
 None of this is negotiated through `SERVER_FEATURES`: the app never calls these
 routes, so there is no UI to gate and no field to strip.
 
+Saved filters are the one synced record these routes read but never write:
+`GET /api/v1/filters/:id/tasks` evaluates the stored criteria with the shared
+`filterTasks` (`shared/taskFilter.ts`), not with SQL, so a filter admits the same
+tasks on the server as it does in the app. Keep it that way — a second
+implementation of "due today" would drift from the first.
+
 Relative dates ("today", "fri") resolve in `YARUKOTO_TZ` via `wallClockNow`, never
 in the server process's own zone, which in a container is usually UTC. The quick-add
 parser lives in `shared/` so both sides read the same syntax.

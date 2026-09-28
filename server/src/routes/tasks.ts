@@ -2,6 +2,7 @@ import { FastifyInstance, FastifyReply } from 'fastify';
 import Database from 'better-sqlite3';
 import { env } from '../env';
 import { wallClockNow } from '../clock';
+import { toISODate } from '../../../shared/dates';
 import {
   CreateInput,
   TaskFilter,
@@ -12,7 +13,9 @@ import {
   createTask,
   getTask,
   listLists,
+  listSavedFilters,
   listTasks,
+  savedFilterTasks,
   restoreTask,
   trashTask,
   updateTask,
@@ -95,6 +98,20 @@ export function registerTaskRoutes(app: FastifyInstance, db: Database.Database):
 
   app.get('/api/v1/lists', async (_request, reply) => {
     reply.send({ lists: listLists(db) });
+  });
+
+  // Saved filters are written only by the app, through /sync; these two read
+  // them for callers that cannot evaluate criteria themselves, such as Home
+  // Assistant polling one filter as a to-do list.
+  app.get('/api/v1/filters', async (_request, reply) => {
+    reply.send({ filters: listSavedFilters(db) });
+  });
+
+  app.get<{ Params: { id: string } }>('/api/v1/filters/:id/tasks', async (request, reply) => {
+    await respond(reply, () => {
+      const now = wallClockNow(env.timeZone);
+      return { today: toISODate(now), ...savedFilterTasks(db, request.params.id, now) };
+    });
   });
 }
 

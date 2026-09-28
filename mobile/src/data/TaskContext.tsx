@@ -2,11 +2,12 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useR
 import { AppState } from 'react-native';
 import { setAudioModeAsync, useAudioPlayer } from 'expo-audio';
 import { buildSampleData } from './sampleData';
-import { FolderDef, ListDef, Priority, SERVER_FEATURES, ServerFeature, Task, ViewPref } from './types';
+import { FolderDef, ListDef, Priority, SERVER_FEATURES, SavedFilter, ServerFeature, Task, ViewPref } from './types';
+import { TaskCriteria } from './taskFilter';
 import { addDays, toISODate } from './dateUtils';
 import { parseQuickAdd } from './quickAdd';
 import { normalizeTaskPatch } from './reminders';
-import { newFolderId, newListId, newSubtaskId, newTaskId } from './ids';
+import { newFolderId, newListId, newSavedFilterId, newSubtaskId, newTaskId } from './ids';
 import {
   Arrangements,
   DEFAULT_VIEW_OPTIONS,
@@ -55,6 +56,8 @@ interface State {
    * Views without a record use the default.
    */
   viewPrefs: ViewPref[];
+  /** Named Browse questions, synced behind the `savedFilters` feature. */
+  savedFilters: SavedFilter[];
 }
 
 type Action =
@@ -81,11 +84,21 @@ type Action =
   | { type: 'DELETE_LIST'; id: string }
   | { type: 'DELETE_FOLDER'; id: string }
   | { type: 'SET_VIEW_OPTIONS'; key: string; options: ViewOptions }
+  | { type: 'ADD_SAVED_FILTER'; filter: SavedFilter }
+  | { type: 'UPDATE_SAVED_FILTER'; id: string; patch: Partial<Pick<SavedFilter, 'name' | 'criteria'>> }
+  | { type: 'DELETE_SAVED_FILTER'; id: string }
   | { type: 'CONNECT'; serverUrl: string; token: string }
   | { type: 'USE_SAMPLE_DATA'; data: ReturnType<typeof buildSampleData> }
   | { type: 'DISCONNECT' }
-  | { type: 'HYDRATE'; tasks: Task[]; lists: ListDef[]; folders: FolderDef[]; viewPrefs: ViewPref[] }
-  | { type: 'MERGE'; tasks: Task[]; lists: ListDef[]; folders: FolderDef[]; viewPrefs: ViewPref[] };
+  | { type: 'HYDRATE' | 'MERGE' } & Collections;
+
+interface Collections {
+  tasks: Task[];
+  lists: ListDef[];
+  folders: FolderDef[];
+  viewPrefs: ViewPref[];
+  savedFilters: SavedFilter[];
+}
 
 
 /**
@@ -367,6 +380,21 @@ function applyAction(state: State, action: Action): State {
           arrangements: action.options.arrangements,
         })),
       };
+    case 'ADD_SAVED_FILTER':
+      return { ...state, savedFilters: [...state.savedFilters, action.filter] };
+    case 'UPDATE_SAVED_FILTER':
+      return {
+        ...state,
+        savedFilters: state.savedFilters.map((f) => (f.id === action.id ? { ...f, ...action.patch } : f)),
+      };
+    case 'DELETE_SAVED_FILTER': {
+      // Soft, like every synced record, so other devices learn it is gone.
+      const now = new Date().toISOString();
+      return {
+        ...state,
+        savedFilters: state.savedFilters.map((f) => (f.id === action.id ? { ...f, deletedAt: now } : f)),
+      };
+    }
     case 'CONNECT':
       // Server data arrives via sync; nothing is seeded locally.
       return {
@@ -378,11 +406,22 @@ function applyAction(state: State, action: Action): State {
         lists: [],
         folders: [],
         viewPrefs: [],
+        savedFilters: [],
       };
     case 'USE_SAMPLE_DATA':
-      return { ...state, mode: 'sample', serverUrl: '', token: '', viewPrefs: [], ...action.data };
+      return { ...state, mode: 'sample', serverUrl: '', token: '', viewPrefs: [], savedFilters: [], ...action.data };
     case 'DISCONNECT':
-      return { ...state, mode: 'none', serverUrl: '', token: '', tasks: [], lists: [], folders: [], viewPrefs: [] };
+      return {
+        ...state,
+        mode: 'none',
+        serverUrl: '',
+        token: '',
+        tasks: [],
+        lists: [],
+        folders: [],
+        viewPrefs: [],
+        savedFilters: [],
+      };
     case 'HYDRATE':
       return {
         ...state,
@@ -390,23 +429,26 @@ function applyAction(state: State, action: Action): State {
         lists: action.lists,
         folders: action.folders,
         viewPrefs: action.viewPrefs,
+        savedFilters: action.savedFilters,
       };
     case 'MERGE': {
       const tasks = mergeBatch(state.tasks, action.tasks, mergeDirtyIds);
       const lists = mergeBatch(state.lists, action.lists, mergeDirtyIds);
       const folders = mergeBatch(state.folders, action.folders, mergeDirtyIds);
       const viewPrefs = mergeBatch(state.viewPrefs, action.viewPrefs, mergeDirtyIds);
+      const savedFilters = mergeBatch(state.savedFilters, action.savedFilters, mergeDirtyIds);
       // Most pulls come back empty. Handing back the same state lets React bail
       // out, instead of re-rendering every consumer on each idle sync tick.
       if (
         tasks === state.tasks &&
         lists === state.lists &&
         folders === state.folders &&
-        viewPrefs === state.viewPrefs
+        viewPrefs === state.viewPrefs &&
+        savedFilters === state.savedFilters
       ) {
         return state;
       }
-      return { ...state, tasks, lists, folders, viewPrefs };
+      return { ...state, tasks, lists, folders, viewPrefs, savedFilters };
     }
     default:
       return state;
@@ -455,6 +497,7 @@ function reducer(state: State, action: Action): State {
     lists: stamp(state.lists, next.lists),
     folders: stamp(state.folders, next.folders),
     viewPrefs: stamp(state.viewPrefs, next.viewPrefs),
+    savedFilters: stamp(state.savedFilters, next.savedFilters),
   };
 }
 
@@ -466,12 +509,13 @@ function initState(): State {
   const cached = mode === 'server' ? loadServerSnapshot() : null;
   const seeded =
     mode === 'sample'
-      ? { ...buildSampleData(new Date()), viewPrefs: [] }
+      ? { ...buildSampleData(new Date()), viewPrefs: [], savedFilters: [] }
       : {
           tasks: cached?.tasks ?? [],
           lists: cached?.lists ?? [],
           folders: cached?.folders ?? [],
           viewPrefs: cached?.viewPrefs ?? [],
+          savedFilters: cached?.savedFilters ?? [],
         };
   return {
     ...seeded,
@@ -567,6 +611,10 @@ interface TaskContextValue {
   deleteFolder: (folderId: string) => void;
   getViewOptions: (key: string) => ViewOptions;
   setViewOptions: (key: string, options: ViewOptions) => void;
+  /** Keeps a Browse question under a name; appended after the others. */
+  addSavedFilter: (name: string, criteria: TaskCriteria) => void;
+  updateSavedFilter: (id: string, patch: Partial<Pick<SavedFilter, 'name' | 'criteria'>>) => void;
+  deleteSavedFilter: (id: string) => void;
   /** Validates against the server before committing; throws ApiError on failure. */
   connect: (serverUrl: string, token: string) => Promise<void>;
   /** Load the sample dataset and work entirely offline. */
@@ -976,6 +1024,35 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     },
     [markDirty]
   );
+  const addSavedFilter = useCallback(
+    (name: string, criteria: TaskCriteria) => {
+      const live = state.savedFilters.filter((f) => !f.deletedAt);
+      const filter: SavedFilter = {
+        id: newSavedFilterId(),
+        name,
+        criteria,
+        order: live.length ? Math.max(...live.map((f) => f.order)) + 1 : 0,
+        updatedAt: new Date().toISOString(),
+      };
+      dispatch({ type: 'ADD_SAVED_FILTER', filter });
+      markDirty([filter.id]);
+    },
+    [state.savedFilters, markDirty]
+  );
+  const updateSavedFilter = useCallback(
+    (id: string, patch: Partial<Pick<SavedFilter, 'name' | 'criteria'>>) => {
+      dispatch({ type: 'UPDATE_SAVED_FILTER', id, patch });
+      markDirty([id]);
+    },
+    [markDirty]
+  );
+  const deleteSavedFilter = useCallback(
+    (id: string) => {
+      dispatch({ type: 'DELETE_SAVED_FILTER', id });
+      markDirty([id]);
+    },
+    [markDirty]
+  );
   const connect = useCallback(async (serverUrl: string, token: string) => {
     const url = serverUrl.replace(/\/+$/, '');
     const api = createApi(url, token);
@@ -1003,6 +1080,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       lists: batch.lists,
       folders: batch.folders,
       viewPrefs: batch.viewPrefs,
+      savedFilters: batch.savedFilters,
     });
   }, []);
   const useSampleData = useCallback(() => {
@@ -1094,13 +1172,19 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
               lists: pushed.lists,
               folders: pushed.folders,
               viewPrefs: pushed.viewPrefs,
+              savedFilters: pushed.savedFilters,
             });
           }
         }
         const pulled = await pullSince(api, cursorRef.current);
         cursorRef.current = pulled.now;
         const pulledAnything =
-          pulled.tasks.length + pulled.lists.length + pulled.folders.length + pulled.viewPrefs.length > 0;
+          pulled.tasks.length +
+            pulled.lists.length +
+            pulled.folders.length +
+            pulled.viewPrefs.length +
+            pulled.savedFilters.length >
+          0;
         // An empty pull only moves the cursor. Rewriting the whole snapshot for
         // that serializes every task on the JS thread each tick; if the app dies
         // first, the next launch just pulls from the older cursor again.
@@ -1109,6 +1193,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
           lists: stateRef.current.lists,
           folders: stateRef.current.folders,
           viewPrefs: stateRef.current.viewPrefs,
+          savedFilters: stateRef.current.savedFilters,
           serverFeatures: features ?? undefined,
           cursor: cursorRef.current,
         });
@@ -1119,6 +1204,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
           lists: pulled.lists,
           folders: pulled.folders,
           viewPrefs: pulled.viewPrefs,
+          savedFilters: pulled.savedFilters,
         });
 
         // Anything marked dirty *during* the request is still queued, so this is
@@ -1200,10 +1286,11 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       lists: state.lists,
       folders: state.folders,
       viewPrefs: state.viewPrefs,
+      savedFilters: state.savedFilters,
       serverFeatures: serverFeatures ?? undefined,
       cursor: cursorRef.current,
     });
-  }, [state.mode, state.tasks, state.lists, state.folders, state.viewPrefs, serverFeatures]);
+  }, [state.mode, state.tasks, state.lists, state.folders, state.viewPrefs, state.savedFilters, serverFeatures]);
 
   const syncNow = useCallback(() => cycleRef.current?.() ?? Promise.resolve(), []);
   // Two questions, two opposite safe answers. Offering a capability we have not
@@ -1249,6 +1336,9 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       deleteFolder,
       getViewOptions,
       setViewOptions,
+      addSavedFilter,
+      updateSavedFilter,
+      deleteSavedFilter,
       connect,
       useSampleData,
       disconnect,
@@ -1288,6 +1378,9 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       deleteFolder,
       getViewOptions,
       setViewOptions,
+      addSavedFilter,
+      updateSavedFilter,
+      deleteSavedFilter,
       connect,
       useSampleData,
       disconnect,
