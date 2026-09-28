@@ -16,6 +16,7 @@ export function runRetention(db: Database.Database): void {
     db.prepare('DELETE FROM lists WHERE deleted_at IS NOT NULL AND deleted_at < ?').run(cutoff);
     db.prepare('DELETE FROM folders WHERE deleted_at IS NOT NULL AND deleted_at < ?').run(cutoff);
     db.prepare('DELETE FROM view_prefs WHERE deleted_at IS NOT NULL AND deleted_at < ?').run(cutoff);
+    db.prepare('DELETE FROM saved_filters WHERE deleted_at IS NOT NULL AND deleted_at < ?').run(cutoff);
   });
   run();
 }

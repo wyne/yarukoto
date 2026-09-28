@@ -1,5 +1,16 @@
 import Database from 'better-sqlite3';
-import { FolderDef, GROUP_BY_VALUES, GroupBy, ListDef, SORT_BY_VALUES, SortBy, Task, ViewPref } from '../../shared/types';
+import {
+  FolderDef,
+  GROUP_BY_VALUES,
+  GroupBy,
+  ListDef,
+  SORT_BY_VALUES,
+  SavedFilter,
+  SortBy,
+  Task,
+  ViewPref,
+} from '../../shared/types';
+import { normalizeCriteria } from '../../shared/taskFilter';
 import { env } from './env';
 
 export interface TaskRow {
@@ -45,6 +56,15 @@ export interface ViewPrefRow {
   group_by: string;
   sort_by: string;
   arrangements: string;
+  updated_at: string;
+  deleted_at: string | null;
+}
+
+export interface SavedFilterRow {
+  id: string;
+  name: string;
+  criteria: string;
+  order_key: number;
   updated_at: string;
   deleted_at: string | null;
 }
@@ -154,6 +174,24 @@ export function viewPrefFromRow(row: ViewPrefRow): ViewPref {
     groupBy: asGroupBy(row.group_by),
     sortBy: asSortBy(row.sort_by),
     arrangements: asArrangements(row.arrangements),
+    updatedAt: row.updated_at,
+    deletedAt: row.deleted_at ?? undefined,
+  };
+}
+
+/** Unparseable criteria degrade to "everything", the same spirit as `asArrangements`. */
+export function savedFilterFromRow(row: SavedFilterRow): SavedFilter {
+  let criteria: unknown;
+  try {
+    criteria = JSON.parse(row.criteria || '{}');
+  } catch {
+    criteria = {};
+  }
+  return {
+    id: row.id,
+    name: row.name,
+    criteria: normalizeCriteria(criteria),
+    order: row.order_key,
     updatedAt: row.updated_at,
     deletedAt: row.deleted_at ?? undefined,
   };

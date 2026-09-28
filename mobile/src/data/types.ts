@@ -12,4 +12,5 @@ export type {
   GroupBy,
   SortBy,
   ViewPref,
+  SavedFilter,
 } from '../../../shared/types';

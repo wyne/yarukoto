@@ -1,5 +1,5 @@
 import { Api, ApiError, SyncBatch } from './api';
-import { FolderDef, ListDef, SERVER_FEATURES, ServerFeature, Task, ViewPref } from './types';
+import { FolderDef, ListDef, SERVER_FEATURES, SavedFilter, ServerFeature, Task, ViewPref } from './types';
 
 export { ApiError };
 
@@ -68,6 +68,7 @@ interface Collections {
   lists: ListDef[];
   folders: FolderDef[];
   viewPrefs: ViewPref[];
+  savedFilters: SavedFilter[];
 }
 
 export function hasServerFeature(features: readonly ServerFeature[], feature: ServerFeature): boolean {
@@ -105,15 +106,28 @@ export async function pushDirty(
   const lists = state.lists.filter((l) => outbox.has(l.id));
   const folders = state.folders.filter((f) => outbox.has(f.id));
   const viewPrefs = state.viewPrefs.filter((v) => outbox.has(v.id));
+  const savedFilters = state.savedFilters.filter((f) => outbox.has(f.id));
+  // A whole collection rather than a field, so there is no row for an older
+  // server to overwrite: it would ignore the key. It is left off anyway when the
+  // server has said it cannot keep them, and cleared from the outbox with the
+  // rest, since there is no later push that could succeed where this one didn't.
+  const sendFilters = hasServerFeature(supportedFeatures, 'savedFilters');
 
-  if (tasks.length + lists.length + folders.length + viewPrefs.length === 0) return null;
+  if (tasks.length + lists.length + folders.length + viewPrefs.length + savedFilters.length === 0) return null;
 
-  const result = await api.push({ tasks, lists, folders, viewPrefs });
+  const result = await api.push({
+    tasks,
+    lists,
+    folders,
+    viewPrefs,
+    ...(sendFilters && savedFilters.length > 0 ? { savedFilters } : {}),
+  });
   outbox.clear([
     ...tasks.map((t) => t.id),
     ...lists.map((l) => l.id),
     ...folders.map((f) => f.id),
     ...viewPrefs.map((v) => v.id),
+    ...savedFilters.map((f) => f.id),
   ]);
   return result;
 }

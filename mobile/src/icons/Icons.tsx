@@ -252,6 +252,17 @@ export function IconBell({ size = 18, color: colorProp, strokeWidth = 1.6 }: Ico
   );
 }
 
+/** A funnel, for saved filters. */
+export function IconFilter({ size = 18, color: colorProp, strokeWidth = 1.6 }: IconProps) {
+  const c = useColors();
+  const color = colorProp ?? c.textSecondary;
+  return (
+    <Svg width={size} height={size} viewBox="0 0 18 18" fill="none">
+      <Path d="M2.5 3.5h13L10.5 9.5v5l-3-1.5v-3.5L2.5 3.5z" stroke={color} strokeWidth={strokeWidth} strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
 export function IconTag({ size = 18, color: colorProp, strokeWidth = 1.6 }: IconProps) {
   const c = useColors();
   const color = colorProp ?? c.textSecondary;

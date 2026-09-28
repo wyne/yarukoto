@@ -1,4 +1,4 @@
-import { FolderDef, ListDef, SERVER_FEATURES, ServerFeature, Task, ViewPref } from './types';
+import { FolderDef, ListDef, SERVER_FEATURES, SavedFilter, ServerFeature, Task, ViewPref } from './types';
 
 export class ApiError extends Error {
   status: number;
@@ -14,6 +14,7 @@ export interface SyncBatch {
   lists: ListDef[];
   folders: FolderDef[];
   viewPrefs: ViewPref[];
+  savedFilters: SavedFilter[];
 }
 
 export interface SyncPush {
@@ -21,6 +22,7 @@ export interface SyncPush {
   lists?: ListDef[];
   folders?: FolderDef[];
   viewPrefs?: ViewPref[];
+  savedFilters?: SavedFilter[];
 }
 
 export interface ActivityRevision {
@@ -69,11 +71,12 @@ export function createApi(serverUrl: string, token: string): Api {
     return res.json();
   }
 
-  // A server older than view-option syncing answers without a `viewPrefs` key at
-  // all; filling it in here keeps every caller downstream working with a real array.
+  // A server older than view-option or saved-filter syncing answers without that
+  // key at all; filling it in here keeps every caller downstream working with a
+  // real array.
   async function syncRequest(path: string, init?: RequestInit): Promise<SyncBatch> {
     const batch = await request(path, init);
-    return { ...batch, viewPrefs: batch.viewPrefs ?? [] };
+    return { ...batch, viewPrefs: batch.viewPrefs ?? [], savedFilters: batch.savedFilters ?? [] };
   }
 
   return {

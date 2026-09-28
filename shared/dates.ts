@@ -32,3 +32,30 @@ export function toISODate(d: Date): string {
   const day = String(d.getDate()).padStart(2, '0');
   return `${y}-${m}-${day}`;
 }
+
+/** 'YYYY-MM-DD' as local midnight — never `new Date(iso)`, which reads it as UTC. */
+export function fromISODate(iso: string): Date {
+  // Indexed rather than destructured: the app's Babel would compile a
+  // destructure here to a runtime helper that cannot resolve from shared/.
+  const parts = iso.split('-').map(Number);
+  return new Date(parts[0], parts[1] - 1, parts[2]);
+}
+
+export type DueBucket = 'overdue' | 'today' | 'tomorrow' | 'week' | 'later' | 'nodate';
+
+/**
+ * Which stretch of time a due date falls in, relative to `now`.
+ *
+ * Shared because the app groups by these stretches and filters by them, and the
+ * server evaluates saved filters with them: "overdue" has to mean one thing on
+ * both sides, and two implementations would eventually disagree.
+ */
+export function dueBucket(dueDate: string | undefined, now: Date): DueBucket {
+  if (!dueDate) return 'nodate';
+  const diff = Math.round((startOfDay(fromISODate(dueDate)).getTime() - startOfDay(now).getTime()) / 86400000);
+  if (diff < 0) return 'overdue';
+  if (diff === 0) return 'today';
+  if (diff === 1) return 'tomorrow';
+  if (diff <= 7) return 'week';
+  return 'later';
+}
