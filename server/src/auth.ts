@@ -58,6 +58,19 @@ export function resolveToken(db: Database.Database, token: string): Viewer | nul
     : { kind: 'household', deviceId: row.id };
 }
 
+/**
+ * Why a token that resolved to no one was refused, for the client to tell its
+ * person. `signed_out` means the token was real once — its device was signed
+ * out, or its person removed — so signing in again is the only fix. Anything
+ * else is `unauthorized`, which may just be a server started with a different
+ * access token.
+ */
+function rejection(db: Database.Database, token: string): 'signed_out' | 'unauthorized' {
+  if (!token) return 'unauthorized';
+  const known = db.prepare('SELECT 1 FROM devices WHERE token_hash = ?').get(hashToken(token));
+  return known ? 'signed_out' : 'unauthorized';
+}
+
 /** An `onRequest` hook that rejects anything without a valid bearer token. */
 export function requireAuth(db: Database.Database) {
   return (request: FastifyRequest, reply: FastifyReply, done: (err?: Error) => void): void => {
@@ -65,7 +78,7 @@ export function requireAuth(db: Database.Database) {
     const [scheme, token] = header.split(' ');
     const viewer = scheme === 'Bearer' && token ? resolveToken(db, token) : null;
     if (!viewer) {
-      reply.code(401).send({ error: 'unauthorized' });
+      reply.code(401).send({ error: rejection(db, scheme === 'Bearer' ? (token ?? '') : '') });
       return;
     }
     request.viewer = viewer;

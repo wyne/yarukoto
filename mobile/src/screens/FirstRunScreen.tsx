@@ -4,10 +4,15 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { makeStyles } from '../theme/styles';
 import { fonts } from '../theme/typography';
 import { useAccent, useColors } from '../theme/ThemeContext';
-import { ApiError, useTasks } from '../data/TaskContext';
+import { ApiError, useSyncStatus, useTasks } from '../data/TaskContext';
+import { JoinLink, codeFromPairingLink, createApi, parseJoinLink } from '../data/api';
+import { confirmAsync } from '../data/confirm';
+import { claimJoinLink, useJoinLink, useSignIn } from '../navigation/joinLinks';
 import { SavedServer, loadSavedServers } from '../data/storage';
 import { IconCheckBig, IconLock, IconServer, IconShield } from '../icons/Icons';
 import Sheet from '../components/Sheet';
+import PairingPanel from '../components/household/PairingPanel';
+import QrScanner, { CAN_SCAN } from '../components/household/QrScanner';
 
 /**
  * When the web build is served by its own API server (the normal docker-compose
@@ -39,14 +44,70 @@ export default function FirstRunScreen() {
   const styles = useStyles();
   const accent = useAccent();
   const insets = useSafeAreaInsets();
-  const { connect, useSampleData, removeSavedServer } = useTasks();
+  const { state, signedOut, disconnect, useSampleData, removeSavedServer } = useTasks();
+  const { pending } = useSyncStatus();
+  const signIn = useSignIn();
   const sameOriginServer = useSameOriginServer();
-  const [serverUrl, setServerUrl] = useState('https://todo.selfhost.dev');
+  /** Signed out of a server this device is still connected to, rather than never signed in. */
+  const signedOutOf = state.mode === 'server' && signedOut ? state.serverUrl : null;
+  const [serverUrl, setServerUrl] = useState(signedOutOf ?? 'https://todo.selfhost.dev');
   const [token, setToken] = useState('');
   const [connecting, setConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [helpOpen, setHelpOpen] = useState(false);
   const [savedServers, setSavedServers] = useState<SavedServer[]>([]);
+  /**
+   * A code approved from a signed-in device is the everyday way in; the
+   * server's own token is for the very first sign-in, when nobody is signed in
+   * to approve anything, and for servers from before households.
+   */
+  const [method, setMethod] = useState<'code' | 'token'>('code');
+  /** The server a code is being shown for, while the pairing panel is up. */
+  const [pairingUrl, setPairingUrl] = useState<string | null>(null);
+  /** The server a scanned QR is signing in to, while that is under way. */
+  const [joiningUrl, setJoiningUrl] = useState<string | null>(null);
+  const [scanning, setScanning] = useState(false);
+
+  const join = async (link: JoinLink) => {
+    setError(null);
+    setPairingUrl(null);
+    setJoiningUrl(link.serverUrl);
+    try {
+      await signIn(link.serverUrl, await claimJoinLink(link));
+    } catch (err) {
+      setServerUrl(link.serverUrl);
+      setError(err instanceof ApiError ? err.message : 'Something went wrong signing in.');
+    } finally {
+      setJoiningUrl(null);
+    }
+  };
+  useJoinLink(join);
+
+  const handleScan = (data: string): string | null => {
+    const link = parseJoinLink(data);
+    if (!link) {
+      return codeFromPairingLink(data)
+        ? 'That QR is for approving a new device. On the signed-in device, choose Show a QR to scan instead.'
+        : 'That isn’t a Yarukoto sign-in QR.';
+    }
+    setScanning(false);
+    join(link);
+    return null;
+  };
+
+  const handleDisconnect = async () => {
+    if (pending > 0) {
+      const one = pending === 1;
+      const ok = await confirmAsync(
+        'Disconnect?',
+        `${one ? '1 change on this device hasn’t' : `${pending} changes on this device haven’t`} synced and will be discarded.`,
+        'Disconnect',
+        true
+      );
+      if (!ok) return;
+    }
+    disconnect();
+  };
 
   useEffect(() => {
     setSavedServers(loadSavedServers());
@@ -66,7 +127,7 @@ export default function FirstRunScreen() {
     setError(null);
     setConnecting(true);
     try {
-      await connect(url, tok);
+      await signIn(url, tok);
     } catch (err) {
       setError(
         err instanceof ApiError
@@ -77,6 +138,36 @@ export default function FirstRunScreen() {
       );
     } finally {
       setConnecting(false);
+    }
+  };
+
+  const handleSignInWithCode = async () => {
+    const url = (sameOriginServer ?? serverUrl).trim().replace(/\/+$/, '');
+    if (!sameOriginServer && !/^https?:\/\/.+/i.test(url)) {
+      setError('Enter a full server URL, starting with http:// or https://');
+      return;
+    }
+    setError(null);
+    setConnecting(true);
+    const info = await createApi(url, '').health();
+    setConnecting(false);
+    if (!info) {
+      setError('Could not reach the server.');
+    } else if (!info.features.includes('household')) {
+      setMethod('token');
+      setError("This server doesn't support sign-in codes yet. Enter its access token instead.");
+    } else {
+      setPairingUrl(url);
+    }
+  };
+
+  const handleApproved = async (tok: string) => {
+    if (!pairingUrl) return;
+    try {
+      if (!(await signIn(pairingUrl, tok))) setPairingUrl(null);
+    } catch (err) {
+      setPairingUrl(null);
+      setError(err instanceof ApiError ? err.message : 'Something went wrong signing in.');
     }
   };
 
@@ -95,53 +186,126 @@ export default function FirstRunScreen() {
         <View style={styles.logo}>
           <IconCheckBig size={28} color={accent} strokeWidth={3} />
         </View>
-        <Text style={styles.appName}>Yarukoto</Text>
+        <Text style={styles.appName}>{signedOutOf ? 'Signed out' : 'Yarukoto'}</Text>
         <Text style={styles.tagline}>
-          {sameOriginServer
-            ? 'This page is served by your Yarukoto server. Enter its access token to get started.'
-            : 'Your tasks, on your server. Point Yarukoto at your instance to get started.'}
+          {signedOutOf
+            ? signedOut === 'signed_out'
+              ? `This device was signed out of ${signedOutOf}. Sign in again to pick up where you left off.`
+              : `${signedOutOf} no longer accepts this device's sign-in. Sign in again to pick up where you left off.`
+            : sameOriginServer
+              ? 'This page is served by your Yarukoto server. Sign in to get started.'
+              : 'Your tasks, on your server. Point Yarukoto at your instance to get started.'}
         </Text>
+        {signedOutOf && (
+          <Text style={styles.scanHint}>
+            {pending > 0
+              ? `Your tasks are still on this device, including ${pending === 1 ? '1 change' : `${pending} changes`} waiting to sync.`
+              : 'Your tasks are still on this device.'}
+          </Text>
+        )}
+        {Platform.OS !== 'web' && !CAN_SCAN && (
+          <Text style={styles.scanHint}>
+            Already signed in somewhere else? Open Settings there, show a QR under Household, and scan it with this
+            device's camera.
+          </Text>
+        )}
+        {CAN_SCAN && !joiningUrl && !pairingUrl && (
+          <>
+            <Pressable style={[styles.connectBtn, styles.scanBtn]} onPress={() => setScanning(true)}>
+              <Text style={styles.connectText}>Scan QR code</Text>
+            </Pressable>
+            <Text style={styles.scanHint}>
+              Signed in on another device? Open Settings there, show a QR under Household, and scan it.
+            </Text>
+          </>
+        )}
 
-        <View style={styles.form}>
-          {!sameOriginServer && (
-            <View style={styles.field}>
-              <IconServer />
-              <TextInput
-                value={serverUrl}
-                onChangeText={setServerUrl}
-                placeholder="https://your-server.example.com"
-                placeholderTextColor={colors.textFaint}
-                style={styles.fieldInput}
-                autoCapitalize="none"
-                autoCorrect={false}
-                keyboardType="url"
-              />
-            </View>
-          )}
-          <View style={styles.field}>
-            <IconLock />
-            <TextInput
-              value={token}
-              onChangeText={setToken}
-              placeholder="Access token"
-              placeholderTextColor={colors.textFaint}
-              style={styles.fieldInput}
-              secureTextEntry
-              autoCapitalize="none"
-            />
+        {joiningUrl ? (
+          <View style={styles.joining}>
+            <ActivityIndicator color={accent} />
+            <Text style={styles.joiningText} numberOfLines={2}>
+              Signing in to {joiningUrl}…
+            </Text>
           </View>
-          {error && <Text style={styles.error}>{error}</Text>}
-          <Pressable style={styles.connectBtn} onPress={() => handleConnect()} disabled={connecting}>
-            {connecting ? <ActivityIndicator color="#fff" /> : <Text style={styles.connectText}>Connect</Text>}
-          </Pressable>
-        </View>
+        ) : pairingUrl ? (
+          <PairingPanel serverUrl={pairingUrl} onApproved={handleApproved} onCancel={() => setPairingUrl(null)} />
+        ) : (
+          <View style={styles.form}>
+            {!sameOriginServer && (
+              <View style={styles.field}>
+                <IconServer />
+                <TextInput
+                  value={serverUrl}
+                  onChangeText={setServerUrl}
+                  placeholder="https://your-server.example.com"
+                  placeholderTextColor={colors.textFaint}
+                  style={styles.fieldInput}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  keyboardType="url"
+                />
+              </View>
+            )}
+            {method === 'token' && (
+              <View style={styles.field}>
+                <IconLock />
+                <TextInput
+                  value={token}
+                  onChangeText={setToken}
+                  placeholder="Access token"
+                  placeholderTextColor={colors.textFaint}
+                  style={styles.fieldInput}
+                  secureTextEntry
+                  autoCapitalize="none"
+                />
+              </View>
+            )}
+            {error && <Text style={styles.error}>{error}</Text>}
+            <Pressable
+              style={styles.connectBtn}
+              onPress={() => (method === 'code' ? handleSignInWithCode() : handleConnect())}
+              disabled={connecting}
+            >
+              {connecting ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.connectText}>{method === 'code' ? 'Sign in with a code' : 'Connect'}</Text>
+              )}
+            </Pressable>
+            <Pressable
+              onPress={() => {
+                setError(null);
+                setMethod(method === 'code' ? 'token' : 'code');
+              }}
+              hitSlop={6}
+            >
+              <Text style={styles.methodSwitch}>
+                {method === 'code' ? (
+                  <>
+                    Setting up, or an older server? <Text style={{ color: accent }}>Use an access token</Text>
+                  </>
+                ) : (
+                  <Text style={{ color: accent }}>Sign in with a code instead</Text>
+                )}
+              </Text>
+            </Pressable>
+          </View>
+        )}
 
         <View style={styles.trustRow}>
           <IconShield />
           <Text style={styles.trustText}>Your data never leaves your server.</Text>
         </View>
 
-        {savedServers.length > 0 && (
+        {signedOutOf && (
+          <Pressable onPress={handleDisconnect} hitSlop={6} style={styles.disconnect}>
+            <Text style={styles.methodSwitch}>
+              Or <Text style={{ color: accent }}>disconnect from this server</Text>
+            </Text>
+          </Pressable>
+        )}
+
+        {!signedOutOf && savedServers.length > 0 && (
           <>
             <View style={styles.orRow}>
               <View style={styles.orLine} />
@@ -163,18 +327,22 @@ export default function FirstRunScreen() {
           </>
         )}
 
-        <View style={styles.orRow}>
-          <View style={styles.orLine} />
-          <Text style={styles.orText}>or</Text>
-          <View style={styles.orLine} />
-        </View>
+        {!signedOutOf && (
+          <>
+            <View style={styles.orRow}>
+              <View style={styles.orLine} />
+              <Text style={styles.orText}>or</Text>
+              <View style={styles.orLine} />
+            </View>
 
-        <Pressable style={styles.sampleBtn} onPress={useSampleData}>
-          <Text style={[styles.sampleText, { color: accent }]}>Explore with sample data</Text>
-        </Pressable>
-        <Text style={styles.sampleHint}>
-          No server needed. Everything stays on this device and resets when you reload.
-        </Text>
+            <Pressable style={styles.sampleBtn} onPress={useSampleData}>
+              <Text style={[styles.sampleText, { color: accent }]}>Explore with sample data</Text>
+            </Pressable>
+            <Text style={styles.sampleHint}>
+              No server needed. Everything stays on this device and resets when you reload.
+            </Text>
+          </>
+        )}
 
         <View style={{ flex: 1.4 }} />
         <Pressable onPress={() => setHelpOpen(true)} style={{ paddingBottom: Math.max(24, insets.bottom) }}>
@@ -184,10 +352,20 @@ export default function FirstRunScreen() {
         </Pressable>
       </View>
 
+      {CAN_SCAN && (
+        <QrScanner
+          visible={scanning}
+          onClose={() => setScanning(false)}
+          title="Scan the sign-in QR"
+          onScan={handleScan}
+        />
+      )}
+
       <Sheet visible={helpOpen} onClose={() => setHelpOpen(false)} title="Self-hosting Yarukoto">
         <Text style={styles.helpText}>
           Yarukoto talks to a small self-hosted server that stores your tasks, lists and tags. Deploy the server
-          anywhere you like, then enter its URL and an access token here to connect this app to it. Nothing is
+          anywhere you like, then enter its URL here. The first time, sign in with the server's access token;
+          after that, each new device signs in with a code that someone already signed in approves. Nothing is
           sent anywhere else.
         </Text>
       </Sheet>
@@ -264,6 +442,38 @@ const useStyles = makeStyles((c) => ({
     fontFamily: fonts.sansSemiBold,
     fontSize: 16,
     color: c.inverseText,
+  },
+  scanHint: {
+    marginTop: 10,
+    fontFamily: fonts.sansRegular,
+    fontSize: 14,
+    lineHeight: 19,
+    color: c.textTertiary,
+  },
+  scanBtn: {
+    marginTop: 20,
+  },
+  disconnect: {
+    marginTop: 14,
+  },
+  joining: {
+    marginTop: 28,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  joiningText: {
+    flex: 1,
+    fontFamily: fonts.sansRegular,
+    fontSize: 15,
+    color: c.textSecondary,
+  },
+  methodSwitch: {
+    marginTop: 4,
+    textAlign: 'center',
+    fontFamily: fonts.sansRegular,
+    fontSize: 13.5,
+    color: c.textTertiary,
   },
   trustRow: {
     flexDirection: 'row',

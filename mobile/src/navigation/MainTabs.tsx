@@ -35,6 +35,8 @@ import UndoToast from '../components/UndoToast';
 import DragOverlay from '../drag/DragOverlay';
 import { useDragActive } from '../drag/DragContext';
 import ServerSheet from '../components/pickers/ServerSheet';
+import PairLinkHandler from './PairLinkHandler';
+import JoinLinkHandler from './JoinLinkHandler';
 import NavSheets from '../components/sidebar/NavSheets';
 import TaskReminderNotifications from './TaskReminderNotifications';
 import MenuCommands from './MenuCommands';
@@ -117,7 +119,7 @@ export default function MainTabs() {
  */
 function Layout() {
   const styles = useStyles();
-  const { wide, openDrawer, drawerProgress, serverOpen, closeServer } = useSidebar();
+  const { wide, openDrawer, drawerProgress, serverOpen, serverPairCode, closeServer } = useSidebar();
   const { openTaskId, closeTask } = useDetail();
   const { selectedIds } = useSelection();
   const [rowWidth, setRowWidth] = useState(0);
@@ -211,7 +213,9 @@ function Layout() {
         </>
       )}
       {!wide && <TaskDetailSheet />}
-      <ServerSheet visible={serverOpen} onClose={closeServer} />
+      <ServerSheet visible={serverOpen} onClose={closeServer} pairCode={serverPairCode} />
+      <PairLinkHandler />
+      <JoinLinkHandler />
       <NavSheets />
       <DragOverlay />
       <TaskReminderNotifications />

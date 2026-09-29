@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, Text, View, useWindowDimensions } from 'react-native';
 import Sheet from '../Sheet';
 import SyncIndicator from '../SyncIndicator';
 import { ACCENT_OPTIONS, SchemePref } from '../../theme/colors';
@@ -9,6 +9,7 @@ import { useColors, useTheme } from '../../theme/ThemeContext';
 import { useSyncStatus, useTasks } from '../../data/TaskContext';
 import { ServerInfo, createApi } from '../../data/api';
 import { lastSyncedLabel } from '../../data/dateUtils';
+import HouseholdSection from '../household/HouseholdSection';
 
 /** e.g. "v1.0.0 · 366ba58" — enough to tell two builds apart at a glance. */
 function buildLabel(info: ServerInfo): string {
@@ -23,9 +24,14 @@ function formatBuiltAt(iso: string): string {
   return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
+/** As in ListPickerSheet: how tall the sheet may grow before it scrolls instead. */
+const MAX_HEIGHT_RATIO = 0.85;
+
 interface Props {
   visible: boolean;
   onClose: () => void;
+  /** A sign-in code from a scanned QR, handed on to the Household section. */
+  pairCode?: string | null;
 }
 
 const SCHEME_OPTIONS: Array<{ value: SchemePref; label: string }> = [
@@ -39,13 +45,14 @@ const SCHEME_OPTIONS: Array<{ value: SchemePref; label: string }> = [
  * place: disconnecting returns to the first-run screen, which is where a URL and
  * token get entered.
  */
-export default function ServerSheet({ visible, onClose }: Props) {
+export default function ServerSheet({ visible, onClose, pairCode }: Props) {
   const colors = useColors();
   const styles = useStyles();
   const { state, disconnect } = useTasks();
   const syncStatus = useSyncStatus();
   const { accent, setAccent, schemePref, setSchemePref } = useTheme();
   const [info, setInfo] = useState<ServerInfo | null | undefined>(undefined);
+  const { height } = useWindowDimensions();
 
   // Which build the server is running, re-read on every open so it reflects a
   // deploy that happened while the app stayed put. /health needs no token, so this
@@ -70,7 +77,15 @@ export default function ServerSheet({ visible, onClose }: Props) {
   const sample = state.mode === 'sample';
 
   return (
-    <Sheet visible={visible} onClose={onClose} title={sample ? 'Sample data' : 'Settings'}>
+    // Scrolls: with the household section it runs well past a phone's height.
+    <Sheet
+      visible={visible}
+      onClose={onClose}
+      title={sample ? 'Sample data' : 'Settings'}
+      scroll
+      keyboard
+      maxHeight={Math.round(height * MAX_HEIGHT_RATIO)}
+    >
       {sample && (
         <Text style={styles.sampleNote}>
           You're exploring with sample data. Leaving it takes you back to the connect screen, where you can point
@@ -141,6 +156,9 @@ export default function ServerSheet({ visible, onClose }: Props) {
           <Text style={styles.changeNote}>
             To connect to a different server, disconnect and enter the new details on the connect screen.
           </Text>
+          <View style={{ marginTop: 18 }}>
+            <HouseholdSection visible={visible} initialCode={pairCode} />
+          </View>
         </>
       )}
 

@@ -404,3 +404,16 @@ export function IconChevronRight({ size = 14, color: colorProp, strokeWidth = 1.
     </Svg>
   );
 }
+
+/** Two people: a list shared with the household. */
+export function IconPeople({ size = 16, color: colorProp, strokeWidth = 1.5 }: IconProps) {
+  const c = useColors();
+  const color = colorProp ?? c.textTertiary;
+  return (
+    <Svg width={size} height={size} viewBox="0 0 16 16" fill="none">
+      <Circle cx={6} cy={5.75} r={2.5} stroke={color} strokeWidth={strokeWidth} />
+      <Path d="M1.5 13.75c.5-2.35 2.2-3.75 4.5-3.75s4 1.4 4.5 3.75" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" />
+      <Path d="M10.5 3.4a2.5 2.5 0 010 4.7M12.25 10.4c1.1.6 1.9 1.75 2.25 3.35" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" />
+    </Svg>
+  );
+}

@@ -7,7 +7,8 @@ import { registerHouseholdRoutes, registerPairingRoutes } from '../src/routes/ho
 import { registerHistoryRoutes } from '../src/routes/history';
 import { registerSyncRoutes } from '../src/routes/sync';
 import { registerTaskRoutes } from '../src/routes/tasks';
-import { PAIRING_TTL_MS, startPairing, pollPairing } from '../src/household';
+import { OWNER_VIEWER } from '../src/access';
+import { PAIRING_TTL_MS, approvePairing, describeHousehold, startPairing, pollPairing } from '../src/household';
 import { authedApp, OWNER_AUTH } from './helpers';
 
 const T0 = '2026-09-01T00:00:00.000Z';
@@ -256,7 +257,12 @@ test('a device can be signed out, and a member may only sign out their own', asy
   assert.equal(cannotInvite.statusCode, 403);
 
   await h.app.inject({ headers: alex.auth, method: 'DELETE', url: `/api/v1/devices/${alex.deviceId}` });
-  assert.equal((await h.app.inject({ headers: alex.auth, method: 'GET', url: '/api/v1/me' })).statusCode, 401);
+  const signedOut = await h.app.inject({ headers: alex.auth, method: 'GET', url: '/api/v1/me' });
+  assert.equal(signedOut.statusCode, 401);
+  // A token the server once issued says so, where a stranger's does not.
+  assert.deepEqual(signedOut.json(), { error: 'signed_out' });
+  const stranger = await h.app.inject({ headers: { authorization: 'Bearer nope' }, method: 'GET', url: '/api/v1/me' });
+  assert.deepEqual(stranger.json(), { error: 'unauthorized' });
 });
 
 test('a household integration sees shared lists only, and cannot sync', async () => {
@@ -310,4 +316,46 @@ test('pairing codes expire, and a wrong secret never yields a token', async () =
     payload: { code: started.code },
   });
   assert.equal(late.statusCode, 404);
+});
+
+test('a sign-in approved for a QR nobody scanned leaves no device behind once it expires', async () => {
+  const h = await household();
+  const now = Date.now();
+  // Approved up front, as "Show a QR to scan" does, and never claimed.
+  const shown = startPairing(h.db, 'Phone', now);
+  const { device } = approvePairing(h.db, OWNER_VIEWER, shown.code, { as: 'self' }, now);
+  assert.ok(describeHousehold(h.db, OWNER_VIEWER).devices.some((d) => d.id === device.id));
+
+  // A claimed one, by contrast, is a real device and stays.
+  const scanned = await h.pair(OWNER_AUTH, 'self');
+  await h.app.inject({ headers: scanned.auth, method: 'GET', url: '/api/v1/me' });
+
+  startPairing(h.db, 'Later', now + PAIRING_TTL_MS + 1);
+  const ids = describeHousehold(h.db, OWNER_VIEWER).devices.map((d) => d.id);
+  assert.ok(!ids.includes(device.id));
+  assert.ok(ids.includes(scanned.deviceId));
+});
+
+test('signing out and removing work without a request body', async () => {
+  const h = await household();
+  const phone = await h.pair(OWNER_AUTH, 'self');
+  const alex = await h.pair(OWNER_AUTH, 'member', 'Alex');
+  // What the app sends: no body, and no JSON content type claiming one.
+  assert.equal((await h.app.inject({ headers: OWNER_AUTH, method: 'DELETE', url: `/api/v1/devices/${phone.deviceId}` })).statusCode, 200);
+  assert.equal((await h.app.inject({ headers: OWNER_AUTH, method: 'DELETE', url: `/api/v1/users/${alex.member.id}` })).statusCode, 200);
+  assert.equal(
+    (await h.app.inject({ headers: OWNER_AUTH, method: 'POST', url: `/api/v1/users/${alex.member.id}/restore` })).statusCode,
+    200
+  );
+});
+
+test('an empty body labelled as JSON is read as no body, as older app builds send it', async () => {
+  const h = await household();
+  const phone = await h.pair(OWNER_AUTH, 'self');
+  const json = { ...OWNER_AUTH, 'content-type': 'application/json' };
+  const signOut = await h.app.inject({ headers: json, method: 'DELETE', url: `/api/v1/devices/${phone.deviceId}` });
+  assert.equal(signOut.statusCode, 200);
+  // A body that is there but broken is still refused.
+  const broken = await h.app.inject({ headers: json, method: 'POST', url: '/api/v1/pair/approve', payload: '{nope' });
+  assert.equal(broken.statusCode, 400);
 });

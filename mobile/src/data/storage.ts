@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ACCENT_OPTIONS, AccentColor, DEFAULT_ACCENT, SchemePref } from '../theme/colors';
 import { SnoozedReminder } from './notificationActions';
+import { Household, parseHousehold } from './household';
 import { FolderDef, ListDef, SERVER_FEATURES, SavedFilter, ServerFeature, Task, ViewPref } from './types';
 import { EMPTY_CRITERIA, TaskCriteria, isEmptyCriteria, normalizeCriteria } from './taskFilter';
 
@@ -459,6 +460,8 @@ export interface ServerSnapshot {
   savedFilters: SavedFilter[];
   /** What the connected server last advertised. Absent means never probed. */
   serverFeatures?: ServerFeature[];
+  /** Who was signed in, so a cold start knows whose reminders are whose. */
+  household?: Household;
   cursor?: string;
   savedAt: string;
 }
@@ -501,6 +504,7 @@ export function loadServerSnapshot(): ServerSnapshot | null {
     // filters existed is still a good snapshot, just one without any.
     savedFilters: isRecordArray(stored.savedFilters) ? (stored.savedFilters as SavedFilter[]) : [],
     serverFeatures: parseServerFeatures(stored.serverFeatures),
+    household: parseHousehold(stored.household),
     cursor: typeof stored.cursor === 'string' ? stored.cursor : undefined,
     savedAt: typeof stored.savedAt === 'string' ? stored.savedAt : new Date(0).toISOString(),
   };

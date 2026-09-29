@@ -11,11 +11,13 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function RootNavigator() {
   const colors = useColors();
-  const { state } = useTasks();
+  const { state, signedOut } = useTasks();
 
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
-      {state.mode === 'none' ? (
+      {/* Signed out is the sign-in screen again, pointed at the same server,
+          with everything on this device kept until someone signs back in. */}
+      {state.mode === 'none' || signedOut ? (
         <Stack.Screen name="FirstRun" component={FirstRunScreen} />
       ) : (
         <>
