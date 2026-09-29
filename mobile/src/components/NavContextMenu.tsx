@@ -4,9 +4,9 @@ import Popover, { PopoverAnchor } from './Popover';
 import { ChipRow, MenuDivider, MenuRow, SectionLabel } from './menu/MenuItems';
 import { LIST_COLORS } from '../theme/colors';
 import { makeStyles } from '../theme/styles';
-import { useTasks } from '../data/TaskContext';
+import { ownsList, useTasks } from '../data/TaskContext';
 import { confirmDestructive } from '../data/confirm';
-import { IconCheckBig, IconNote, IconPlus, IconTrash } from '../icons/Icons';
+import { IconCheckBig, IconLock, IconNote, IconPeople, IconPlus, IconTrash } from '../icons/Icons';
 
 /**
  * Whichever kind of nav row was held, by id rather than by value.
@@ -53,7 +53,7 @@ interface Props {
  */
 export default function NavContextMenu({ target, at, onClose, onRename, onNewList, inline, bounds }: Props) {
   const styles = useStyles();
-  const { state, setListColor, deleteList, deleteFolder } = useTasks();
+  const { state, household, setListColor, setListShared, deleteList, deleteFolder } = useTasks();
   if (!target) return null;
 
   const folder =
@@ -95,6 +95,7 @@ export default function NavContextMenu({ target, at, onClose, onRename, onNewLis
   }
 
   if (!list) return null;
+  const owned = ownsList(list, household);
   const taskCount = state.tasks.filter((t) => t.listId === list.id && !t.deletedAt).length;
   const confirmDelete = () => {
     // Say what happens to the tasks — "delete list" is otherwise ambiguous about
@@ -132,8 +133,20 @@ export default function NavContextMenu({ target, at, onClose, onRename, onNewLis
           directions and to the root as well, which a picker could not express
           as cleanly. */}
       <MenuRow icon={<IconNote size={16} />} label="Rename…" onPress={run(onRename)} />
-      <MenuDivider />
-      <MenuRow icon={<IconTrash size={16} />} label="Delete list" destructive onPress={confirmDelete} />
+      {household && owned && (
+        <MenuRow
+          icon={list.shared ? <IconLock size={16} /> : <IconPeople size={16} />}
+          label={list.shared ? 'Make private' : 'Share with household'}
+          onPress={run(() => setListShared(list.id, !list.shared))}
+        />
+      )}
+      {/* Someone else's shared list is theirs to delete, not everyone's. */}
+      {owned && (
+        <>
+          <MenuDivider />
+          <MenuRow icon={<IconTrash size={16} />} label="Delete list" destructive onPress={confirmDelete} />
+        </>
+      )}
     </Popover>
   );
 }

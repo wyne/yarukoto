@@ -5,9 +5,11 @@ import { makeStyles } from '../theme/styles';
 import { fonts } from '../theme/typography';
 import { useAccent, useColors } from '../theme/ThemeContext';
 import { ApiError, useTasks } from '../data/TaskContext';
+import { createApi } from '../data/api';
 import { SavedServer, loadSavedServers } from '../data/storage';
 import { IconCheckBig, IconLock, IconServer, IconShield } from '../icons/Icons';
 import Sheet from '../components/Sheet';
+import PairingPanel from '../components/household/PairingPanel';
 
 /**
  * When the web build is served by its own API server (the normal docker-compose
@@ -47,6 +49,14 @@ export default function FirstRunScreen() {
   const [error, setError] = useState<string | null>(null);
   const [helpOpen, setHelpOpen] = useState(false);
   const [savedServers, setSavedServers] = useState<SavedServer[]>([]);
+  /**
+   * A code approved from a signed-in device is the everyday way in; the
+   * server's own token is for the very first sign-in, when nobody is signed in
+   * to approve anything, and for servers from before households.
+   */
+  const [method, setMethod] = useState<'code' | 'token'>('code');
+  /** The server a code is being shown for, while the pairing panel is up. */
+  const [pairingUrl, setPairingUrl] = useState<string | null>(null);
 
   useEffect(() => {
     setSavedServers(loadSavedServers());
@@ -80,6 +90,36 @@ export default function FirstRunScreen() {
     }
   };
 
+  const handleSignInWithCode = async () => {
+    const url = (sameOriginServer ?? serverUrl).trim().replace(/\/+$/, '');
+    if (!sameOriginServer && !/^https?:\/\/.+/i.test(url)) {
+      setError('Enter a full server URL, starting with http:// or https://');
+      return;
+    }
+    setError(null);
+    setConnecting(true);
+    const info = await createApi(url, '').health();
+    setConnecting(false);
+    if (!info) {
+      setError('Could not reach the server.');
+    } else if (!info.features.includes('household')) {
+      setMethod('token');
+      setError("This server doesn't support sign-in codes yet. Enter its access token instead.");
+    } else {
+      setPairingUrl(url);
+    }
+  };
+
+  const handleApproved = async (tok: string) => {
+    if (!pairingUrl) return;
+    try {
+      await connect(pairingUrl, tok);
+    } catch (err) {
+      setPairingUrl(null);
+      setError(err instanceof ApiError ? err.message : 'Something went wrong signing in.');
+    }
+  };
+
   const handleForgetServer = (url: string) => {
     removeSavedServer(url);
     setSavedServers(loadSavedServers());
@@ -98,43 +138,74 @@ export default function FirstRunScreen() {
         <Text style={styles.appName}>Yarukoto</Text>
         <Text style={styles.tagline}>
           {sameOriginServer
-            ? 'This page is served by your Yarukoto server. Enter its access token to get started.'
+            ? 'This page is served by your Yarukoto server. Sign in to get started.'
             : 'Your tasks, on your server. Point Yarukoto at your instance to get started.'}
         </Text>
 
-        <View style={styles.form}>
-          {!sameOriginServer && (
-            <View style={styles.field}>
-              <IconServer />
-              <TextInput
-                value={serverUrl}
-                onChangeText={setServerUrl}
-                placeholder="https://your-server.example.com"
-                placeholderTextColor={colors.textFaint}
-                style={styles.fieldInput}
-                autoCapitalize="none"
-                autoCorrect={false}
-                keyboardType="url"
-              />
-            </View>
-          )}
-          <View style={styles.field}>
-            <IconLock />
-            <TextInput
-              value={token}
-              onChangeText={setToken}
-              placeholder="Access token"
-              placeholderTextColor={colors.textFaint}
-              style={styles.fieldInput}
-              secureTextEntry
-              autoCapitalize="none"
-            />
+        {pairingUrl ? (
+          <PairingPanel serverUrl={pairingUrl} onApproved={handleApproved} onCancel={() => setPairingUrl(null)} />
+        ) : (
+          <View style={styles.form}>
+            {!sameOriginServer && (
+              <View style={styles.field}>
+                <IconServer />
+                <TextInput
+                  value={serverUrl}
+                  onChangeText={setServerUrl}
+                  placeholder="https://your-server.example.com"
+                  placeholderTextColor={colors.textFaint}
+                  style={styles.fieldInput}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  keyboardType="url"
+                />
+              </View>
+            )}
+            {method === 'token' && (
+              <View style={styles.field}>
+                <IconLock />
+                <TextInput
+                  value={token}
+                  onChangeText={setToken}
+                  placeholder="Access token"
+                  placeholderTextColor={colors.textFaint}
+                  style={styles.fieldInput}
+                  secureTextEntry
+                  autoCapitalize="none"
+                />
+              </View>
+            )}
+            {error && <Text style={styles.error}>{error}</Text>}
+            <Pressable
+              style={styles.connectBtn}
+              onPress={() => (method === 'code' ? handleSignInWithCode() : handleConnect())}
+              disabled={connecting}
+            >
+              {connecting ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.connectText}>{method === 'code' ? 'Sign in with a code' : 'Connect'}</Text>
+              )}
+            </Pressable>
+            <Pressable
+              onPress={() => {
+                setError(null);
+                setMethod(method === 'code' ? 'token' : 'code');
+              }}
+              hitSlop={6}
+            >
+              <Text style={styles.methodSwitch}>
+                {method === 'code' ? (
+                  <>
+                    Setting up, or an older server? <Text style={{ color: accent }}>Use an access token</Text>
+                  </>
+                ) : (
+                  <Text style={{ color: accent }}>Sign in with a code instead</Text>
+                )}
+              </Text>
+            </Pressable>
           </View>
-          {error && <Text style={styles.error}>{error}</Text>}
-          <Pressable style={styles.connectBtn} onPress={() => handleConnect()} disabled={connecting}>
-            {connecting ? <ActivityIndicator color="#fff" /> : <Text style={styles.connectText}>Connect</Text>}
-          </Pressable>
-        </View>
+        )}
 
         <View style={styles.trustRow}>
           <IconShield />
@@ -187,7 +258,8 @@ export default function FirstRunScreen() {
       <Sheet visible={helpOpen} onClose={() => setHelpOpen(false)} title="Self-hosting Yarukoto">
         <Text style={styles.helpText}>
           Yarukoto talks to a small self-hosted server that stores your tasks, lists and tags. Deploy the server
-          anywhere you like, then enter its URL and an access token here to connect this app to it. Nothing is
+          anywhere you like, then enter its URL here. The first time, sign in with the server's access token;
+          after that, each new device signs in with a code that someone already signed in approves. Nothing is
           sent anywhere else.
         </Text>
       </Sheet>
@@ -264,6 +336,13 @@ const useStyles = makeStyles((c) => ({
     fontFamily: fonts.sansSemiBold,
     fontSize: 16,
     color: c.inverseText,
+  },
+  methodSwitch: {
+    marginTop: 4,
+    textAlign: 'center',
+    fontFamily: fonts.sansRegular,
+    fontSize: 13.5,
+    color: c.textTertiary,
   },
   trustRow: {
     flexDirection: 'row',

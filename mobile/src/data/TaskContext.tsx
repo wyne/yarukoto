@@ -2,7 +2,17 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useR
 import { AppState } from 'react-native';
 import { setAudioModeAsync, useAudioPlayer } from 'expo-audio';
 import { buildSampleData } from './sampleData';
-import { FolderDef, ListDef, Priority, SERVER_FEATURES, SavedFilter, ServerFeature, Task, ViewPref } from './types';
+import {
+  FolderDef,
+  HouseholdMember,
+  ListDef,
+  Priority,
+  SERVER_FEATURES,
+  SavedFilter,
+  ServerFeature,
+  Task,
+  ViewPref,
+} from './types';
 import { TaskCriteria } from './taskFilter';
 import { addDays, toISODate } from './dateUtils';
 import { parseQuickAdd } from './quickAdd';
@@ -37,8 +47,11 @@ import {
   saveToken,
 } from './storage';
 import { ApiError, createApi } from './api';
+import { Household, householdFrom, ownsList } from './household';
+export { ownsList } from './household';
+export type { Household } from './household';
 import { setNativeCredentials } from '../../modules/notification-actions/src/NotificationActionsModule';
-import { Outbox, SyncStatus, hasServerFeature, mergeBatch, pullSince, pushDirty } from './sync';
+import { Outbox, SyncStatus, dropRemoved, hasServerFeature, mergeBatch, pullSince, pushDirty } from './sync';
 import { activeFolders, activeLists } from './selectors';
 import { Ordered, applyOrders, computeOrders, reorderRows } from './ordering';
 export { ApiError } from './api';
@@ -90,7 +103,8 @@ type Action =
   | { type: 'CONNECT'; serverUrl: string; token: string }
   | { type: 'USE_SAMPLE_DATA'; data: ReturnType<typeof buildSampleData> }
   | { type: 'DISCONNECT' }
-  | { type: 'HYDRATE' | 'MERGE' } & Collections;
+  | ({ type: 'HYDRATE' } & Collections)
+  | ({ type: 'MERGE'; removed?: { tasks: string[]; lists: string[] } } & Collections);
 
 interface Collections {
   tasks: Task[];
@@ -432,8 +446,8 @@ function applyAction(state: State, action: Action): State {
         savedFilters: action.savedFilters,
       };
     case 'MERGE': {
-      const tasks = mergeBatch(state.tasks, action.tasks, mergeDirtyIds);
-      const lists = mergeBatch(state.lists, action.lists, mergeDirtyIds);
+      const tasks = dropRemoved(mergeBatch(state.tasks, action.tasks, mergeDirtyIds), action.removed?.tasks ?? []);
+      const lists = dropRemoved(mergeBatch(state.lists, action.lists, mergeDirtyIds), action.removed?.lists ?? []);
       const folders = mergeBatch(state.folders, action.folders, mergeDirtyIds);
       const viewPrefs = mergeBatch(state.viewPrefs, action.viewPrefs, mergeDirtyIds);
       const savedFilters = mergeBatch(state.savedFilters, action.savedFilters, mergeDirtyIds);
@@ -570,6 +584,12 @@ interface TaskContextValue {
   state: State;
   /** True when the current local mode/server supports an optional feature. */
   supportsFeature: (feature: ServerFeature) => boolean;
+  /** The signed-in person and their household, when the server has households. */
+  household: Household | null;
+  /** Re-reads the household now — after inviting or removing someone. */
+  refreshHousehold: () => Promise<void>;
+  /** Shares a list with everyone in the household, or makes it private again. Owner only. */
+  setListShared: (listId: string, shared: boolean) => void;
   addTaskFromQuickAdd: (text: string, defaults?: QuickAddDefaults) => void;
   toggleComplete: (id: string) => void;
   /** Complete a task as of a past moment — a notification action taken while
@@ -605,7 +625,10 @@ interface TaskContextValue {
   setListColor: (listId: string, color: string) => void;
   renameList: (listId: string, name: string) => void;
   renameFolder: (folderId: string, name: string) => void;
-  /** Soft-deletes the list; its tasks fall back to Inbox rather than being lost. */
+  /**
+   * Soft-deletes the list; its tasks fall back to Inbox rather than being lost.
+   * Only the list's owner may; for anyone else this does nothing.
+   */
   deleteList: (listId: string) => void;
   /** Soft-deletes the folder and its lists; their tasks fall back to Inbox. */
   deleteFolder: (folderId: string) => void;
@@ -639,6 +662,7 @@ const TaskContext = createContext<TaskContextValue | null>(null);
 const SyncStatusContext = createContext<SyncStatus | null>(null);
 const PendingUndoContext = createContext<PendingUndo | null>(null);
 
+
 export function TaskProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(reducer, undefined, initState);
   // `null` means "not probed yet", which is deliberately not the same as `[]`.
@@ -649,6 +673,13 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     const mode = loadMode();
     return mode === 'server' ? (loadServerSnapshot()?.serverFeatures ?? null) : [...SERVER_FEATURES];
   });
+  const [household, setHousehold] = useState<Household | null>(() =>
+    loadMode() === 'server' ? (loadServerSnapshot()?.household ?? null) : null
+  );
+  const householdRef = useRef(household);
+  useEffect(() => {
+    householdRef.current = household;
+  }, [household]);
   const ding = useAudioPlayer(require('../../assets/sounds/ding.wav'));
 
   // A completion ding should sound even with the phone in silent mode.
@@ -962,6 +993,15 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     },
     [markDirty]
   );
+  const setListShared = useCallback(
+    (listId: string, shared: boolean) => {
+      const list = state.lists.find((l) => l.id === listId);
+      if (!list || !ownsList(list, household)) return;
+      dispatch({ type: 'UPDATE_LIST', id: listId, patch: { shared } });
+      markDirty([listId]);
+    },
+    [state.lists, household, markDirty]
+  );
   const renameList = useCallback(
     (listId: string, name: string) => {
       dispatch({ type: 'UPDATE_LIST', id: listId, patch: { name } });
@@ -981,12 +1021,16 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
   // stayed pointing at it on every other device.
   const deleteList = useCallback(
     (listId: string) => {
+      // The server refuses it too; stopping here keeps the tasks from being
+      // moved into this person's Inbox on the way to a refusal.
+      const list = state.lists.find((l) => l.id === listId);
+      if (list && !ownsList(list, household)) return;
       const moved = state.tasks.filter((t) => t.listId === listId).map((t) => t.id);
       const prefs = viewPrefIdsForLists(state.viewPrefs, [listId]);
       dispatch({ type: 'DELETE_LIST', id: listId });
       markDirty([listId, ...moved, ...prefs]);
     },
-    [state.tasks, state.viewPrefs, markDirty]
+    [state.lists, state.tasks, state.viewPrefs, household, markDirty]
   );
   const deleteFolder = useCallback(
     (folderId: string) => {
@@ -1062,6 +1106,9 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     // A full hydrate doubles as validation: a bad URL or token throws ApiError
     // here, before anything is persisted or the UI leaves FirstRun.
     const batch = await api.pull(undefined);
+    // Best-effort: a sign-in that worked should not fail over the household,
+    // and the sync loop asks again.
+    const who = info?.features.includes('household') ? await api.me().catch(() => null) : null;
 
     saveServerUrl(url);
     saveToken(token);
@@ -1072,6 +1119,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     clearDirtyIds();
     featuresProbedAtRef.current = info ? Date.now() : 0;
     setServerFeatures(info?.features ?? null);
+    setHousehold(who ? householdFrom(who) : null);
 
     dispatch({ type: 'CONNECT', serverUrl: url, token });
     dispatch({
@@ -1091,6 +1139,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     clearDirtyIds();
     saveMode('sample');
     setServerFeatures([...SERVER_FEATURES]);
+    setHousehold(null);
     dispatch({ type: 'USE_SAMPLE_DATA', data: buildSampleData(new Date()) });
   }, []);
   const disconnect = useCallback(() => {
@@ -1101,6 +1150,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     clearDirtyIds();
     saveMode('none');
     setServerFeatures([...SERVER_FEATURES]);
+    setHousehold(null);
     dispatch({ type: 'DISCONNECT' });
   }, []);
   const removeSavedServer = useCallback((url: string) => {
@@ -1139,6 +1189,14 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
         let features = serverFeaturesRef.current;
         if (features === null || Date.now() - featuresProbedAtRef.current >= FEATURE_PROBE_MS) {
           const info = await api.health();
+          // Who is in the household changes about as rarely as the feature list,
+          // so it rides the same slow timer. A failure keeps what was known.
+          if (info?.features.includes('household')) {
+            const who = await api.me().catch(() => null);
+            if (who) setHousehold(householdFrom(who));
+          } else if (info) {
+            setHousehold(null);
+          }
           if (info) {
             const next = info.features;
             featuresProbedAtRef.current = Date.now();
@@ -1178,12 +1236,18 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
         }
         const pulled = await pullSince(api, cursorRef.current);
         cursorRef.current = pulled.now;
+        const removedIds = [...pulled.removed.tasks, ...pulled.removed.lists];
+        if (removedIds.length > 0) {
+          outboxRef.current.clear(removedIds);
+          saveDirtyIds(outboxRef.current.toArray());
+        }
         const pulledAnything =
           pulled.tasks.length +
             pulled.lists.length +
             pulled.folders.length +
             pulled.viewPrefs.length +
-            pulled.savedFilters.length >
+            pulled.savedFilters.length +
+            removedIds.length >
           0;
         // An empty pull only moves the cursor. Rewriting the whole snapshot for
         // that serializes every task on the JS thread each tick; if the app dies
@@ -1195,6 +1259,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
           viewPrefs: stateRef.current.viewPrefs,
           savedFilters: stateRef.current.savedFilters,
           serverFeatures: features ?? undefined,
+          household: householdRef.current ?? undefined,
           cursor: cursorRef.current,
         });
         setMergeDirtyIds(outboxRef.current.snapshot());
@@ -1205,6 +1270,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
           folders: pulled.folders,
           viewPrefs: pulled.viewPrefs,
           savedFilters: pulled.savedFilters,
+          removed: pulled.removed,
         });
 
         // Anything marked dirty *during* the request is still queued, so this is
@@ -1288,11 +1354,29 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       viewPrefs: state.viewPrefs,
       savedFilters: state.savedFilters,
       serverFeatures: serverFeatures ?? undefined,
+      household: household ?? undefined,
       cursor: cursorRef.current,
     });
-  }, [state.mode, state.tasks, state.lists, state.folders, state.viewPrefs, state.savedFilters, serverFeatures]);
+  }, [
+    state.mode,
+    state.tasks,
+    state.lists,
+    state.folders,
+    state.viewPrefs,
+    state.savedFilters,
+    serverFeatures,
+    household,
+  ]);
 
   const syncNow = useCallback(() => cycleRef.current?.() ?? Promise.resolve(), []);
+  const refreshHousehold = useCallback(async () => {
+    if (state.mode !== 'server') return;
+    const who = await createApi(state.serverUrl, state.token).me().catch(() => null);
+    if (who) setHousehold(householdFrom(who));
+  }, [state.mode, state.serverUrl, state.token]);
+  // Only against a server that has said it keeps households: an answer cached
+  // from before it was downgraded must not keep offering sharing.
+  const visibleHousehold = state.mode === 'server' && hasServerFeature(serverFeatures ?? [], 'household') ? household : null;
   // Two questions, two opposite safe answers. Offering a capability we have not
   // confirmed is merely wrong on screen and fixes itself on the next probe, so an
   // unknown server hides it. Stripping a field off a push is *not* recoverable —
@@ -1306,6 +1390,9 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     () => ({
       state,
       supportsFeature,
+      household: visibleHousehold,
+      refreshHousehold,
+      setListShared,
       addTaskFromQuickAdd,
       toggleComplete,
       completeAt,
@@ -1348,6 +1435,9 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     [
       state,
       supportsFeature,
+      visibleHousehold,
+      refreshHousehold,
+      setListShared,
       addTaskFromQuickAdd,
       toggleComplete,
       completeAt,
@@ -1415,3 +1505,4 @@ export function useSyncStatus(): SyncStatus {
 export function usePendingUndo(): PendingUndo | null {
   return useContext(PendingUndoContext);
 }
+

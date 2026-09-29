@@ -69,7 +69,10 @@ interface SidebarValue {
   toggleCollapsed: () => void;
   /** Server sheet lives at the Layout level so it survives the drawer closing. */
   serverOpen: boolean;
-  openServer: () => void;
+  /** `pairCode` opens it ready to approve a sign-in from a scanned QR. */
+  openServer: (pairCode?: string) => void;
+  /** The code the server sheet was last opened to approve, if any. */
+  serverPairCode: string | null;
   closeServer: () => void;
   /**
    * The nav's own sheets, up here for the same reason the server sheet is.
@@ -99,6 +102,7 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const [serverOpen, setServerOpen] = useState(false);
+  const [serverPairCode, setServerPairCode] = useState<string | null>(null);
   const [navSheet, setNavSheet] = useState<NavSheet | null>(null);
   const drawerProgress = useSharedValue(0);
 
@@ -158,7 +162,12 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
       collapsed,
       toggleCollapsed: () => setCollapsed((v) => !v),
       serverOpen,
-      openServer: () => { dismissDrawer(); setServerOpen(true); },
+      openServer: (pairCode?: string) => {
+        dismissDrawer();
+        setServerPairCode(pairCode ?? null);
+        setServerOpen(true);
+      },
+      serverPairCode,
       closeServer: () => setServerOpen(false),
       navSheet,
       // Closes the nav on the way, as the server sheet does: you have left it to
@@ -166,7 +175,7 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
       openNavSheet: (sheet: NavSheet) => { dismissDrawer(); setNavSheet(sheet); },
       closeNavSheet: () => setNavSheet(null),
     }),
-    [wide, openDrawer, drawerProgress, dismissDrawer, collapsed, serverOpen, navSheet]
+    [wide, openDrawer, drawerProgress, dismissDrawer, collapsed, serverOpen, serverPairCode, navSheet]
   );
 
   const drawerState = useMemo<DrawerStateValue>(

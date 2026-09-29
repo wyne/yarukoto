@@ -12,7 +12,7 @@ const filter: SavedFilter = {
 };
 
 function fakeApi(sent: SyncPush[]): Api {
-  const empty: SyncBatch = { now: '', tasks: [], lists: [], folders: [], viewPrefs: [], savedFilters: [] };
+  const empty: SyncBatch = { now: '', tasks: [], lists: [], folders: [], viewPrefs: [], savedFilters: [], removed: { tasks: [], lists: [] } };
   return {
     health: async () => null,
     pull: async () => empty,
@@ -21,7 +21,7 @@ function fakeApi(sent: SyncPush[]): Api {
       return empty;
     },
     activity: async () => [],
-  };
+  } as Partial<Api> as Api;
 }
 
 async function push(features: readonly ServerFeature[]) {

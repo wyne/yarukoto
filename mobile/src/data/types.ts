@@ -13,4 +13,7 @@ export type {
   SortBy,
   ViewPref,
   SavedFilter,
+  HouseholdDevice,
+  HouseholdMember,
+  HouseholdRole,
 } from '../../../shared/types';

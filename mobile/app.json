@@ -4,6 +4,7 @@
     "slug": "yarukoto",
     "version": "1.0.0",
     "orientation": "portrait",
+    "scheme": "yarukoto",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
     "ios": {

@@ -9,6 +9,7 @@ import { useColors, useTheme } from '../../theme/ThemeContext';
 import { useSyncStatus, useTasks } from '../../data/TaskContext';
 import { ServerInfo, createApi } from '../../data/api';
 import { lastSyncedLabel } from '../../data/dateUtils';
+import HouseholdSection from '../household/HouseholdSection';
 
 /** e.g. "v1.0.0 · 366ba58" — enough to tell two builds apart at a glance. */
 function buildLabel(info: ServerInfo): string {
@@ -26,6 +27,8 @@ function formatBuiltAt(iso: string): string {
 interface Props {
   visible: boolean;
   onClose: () => void;
+  /** A sign-in code from a scanned QR, handed on to the Household section. */
+  pairCode?: string | null;
 }
 
 const SCHEME_OPTIONS: Array<{ value: SchemePref; label: string }> = [
@@ -39,7 +42,7 @@ const SCHEME_OPTIONS: Array<{ value: SchemePref; label: string }> = [
  * place: disconnecting returns to the first-run screen, which is where a URL and
  * token get entered.
  */
-export default function ServerSheet({ visible, onClose }: Props) {
+export default function ServerSheet({ visible, onClose, pairCode }: Props) {
   const colors = useColors();
   const styles = useStyles();
   const { state, disconnect } = useTasks();
@@ -141,6 +144,9 @@ export default function ServerSheet({ visible, onClose }: Props) {
           <Text style={styles.changeNote}>
             To connect to a different server, disconnect and enter the new details on the connect screen.
           </Text>
+          <View style={{ marginTop: 18 }}>
+            <HouseholdSection visible={visible} initialCode={pairCode} />
+          </View>
         </>
       )}
 

@@ -4,7 +4,12 @@ import { Alert, Platform } from 'react-native';
  * Alert.alert is a no-op on react-native-web, which would leave destructive
  * actions silently dead in the browser. Fall back to the native dialog there.
  */
-export function confirmDestructive(title: string, message: string, onConfirm: () => void): void {
+export function confirmDestructive(
+  title: string,
+  message: string,
+  onConfirm: () => void,
+  confirmLabel = 'Delete'
+): void {
   if (Platform.OS === 'web') {
     // eslint-disable-next-line no-alert
     if (window.confirm(message ? `${title}\n\n${message}` : title)) onConfirm();
@@ -12,6 +17,6 @@ export function confirmDestructive(title: string, message: string, onConfirm: ()
   }
   Alert.alert(title, message, [
     { text: 'Cancel', style: 'cancel' },
-    { text: 'Delete', style: 'destructive', onPress: onConfirm },
+    { text: confirmLabel, style: 'destructive', onPress: onConfirm },
   ]);
 }

@@ -50,6 +50,7 @@ import {
   IconFilter,
   IconFolder,
   IconInboxTray,
+  IconPeople,
   IconPlus,
   IconSettings,
   IconStack,
@@ -757,7 +758,7 @@ const Sidebar = React.memo(function Sidebar({ state, navigation, onNavigate }: P
 
       <Pressable
         style={hoverBg([styles.footer, collapsed && styles.footerCollapsed, { paddingBottom: Math.max(12, insets.bottom) }])}
-        onPress={openServer}
+        onPress={() => openServer()}
         accessibilityLabel="Server settings"
       >
         <SyncIndicator
@@ -989,7 +990,7 @@ const ListRow = React.memo(function ListRow({
       )}
       onPress={() => onPress(list.id)}
       onPressIn={(e) => onPressIn(rowKey, { x: e.nativeEvent.pageX, y: e.nativeEvent.pageY })}
-      accessibilityLabel={list.name}
+      accessibilityLabel={list.shared ? `${list.name}, shared` : list.name}
     >
       {rail ? (
         <View style={[styles.letterBadge, { backgroundColor: list.color }]}>
@@ -1010,6 +1011,7 @@ const ListRow = React.memo(function ListRow({
           >
             {list.name}
           </Text>
+          {list.shared && <IconPeople size={14} color={colors.textFaint} />}
           {count > 0 && <Text style={styles.rowCount}>{count}</Text>}
         </>
       )}

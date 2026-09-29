@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { useColors } from '../../theme/ThemeContext';
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, Switch, Text, View } from 'react-native';
 import Sheet from '../Sheet';
 import NativeOwnedTextInput from '../NativeOwnedTextInput';
 import { LIST_COLORS } from '../../theme/colors';
 import { makeStyles } from '../../theme/styles';
 import { fonts } from '../../theme/typography';
-import { useTasks } from '../../data/TaskContext';
+import { ownsList, useTasks } from '../../data/TaskContext';
+import { memberName } from '../../data/household';
 import { ListDef } from '../../data/types';
 import { confirmDestructive } from '../../data/confirm';
 import { IconCheckBig } from '../../icons/Icons';
@@ -21,7 +22,7 @@ interface Props {
 export default function ListOptionsSheet({ list, onClose }: Props) {
   const colors = useColors();
   const styles = useStyles();
-  const { state, setListColor, renameList, deleteList } = useTasks();
+  const { state, household, setListColor, setListShared, renameList, deleteList } = useTasks();
   const [name, setName] = useState('');
 
   useEffect(() => {
@@ -30,6 +31,8 @@ export default function ListOptionsSheet({ list, onClose }: Props) {
 
   if (!list) return <Sheet visible={false} onClose={onClose} title="List" children={null} />;
 
+  const owned = ownsList(list, household);
+  const ownerName = owned ? null : memberName(household, list.ownerId);
   const taskCount = state.tasks.filter((t) => t.listId === list.id && !t.deletedAt).length;
   const trimmed = name.trim();
   const renamed = trimmed && trimmed !== list.name;
@@ -84,6 +87,33 @@ export default function ListOptionsSheet({ list, onClose }: Props) {
         })}
       </View>
 
+      {household && (
+        <>
+          <Text style={[styles.label, { marginTop: 18 }]}>Household</Text>
+          {owned ? (
+            <View style={styles.shareRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.shareTitle}>Share with household</Text>
+                <Text style={styles.shareHint}>
+                  {list.shared
+                    ? 'Everyone in the household sees and edits this list.'
+                    : 'Only you see this list.'}
+                </Text>
+              </View>
+              <Switch
+                value={!!list.shared}
+                onValueChange={(shared) => setListShared(list.id, shared)}
+                accessibilityLabel="Share with household"
+              />
+            </View>
+          ) : (
+            <Text style={styles.shareHint}>
+              {ownerName ? `Shared by ${ownerName}.` : 'Shared with you.'} Only they can make it private or delete it.
+            </Text>
+          )}
+        </>
+      )}
+
       <Pressable
         style={[styles.saveBtn, !renamed && styles.saveBtnDisabled]}
         onPress={commitRename}
@@ -92,9 +122,11 @@ export default function ListOptionsSheet({ list, onClose }: Props) {
         <Text style={styles.saveText}>{renamed ? 'Save name' : 'Done'}</Text>
       </Pressable>
 
-      <Pressable style={styles.deleteBtn} onPress={confirmDelete}>
-        <Text style={styles.deleteText}>Delete list</Text>
-      </Pressable>
+      {owned && (
+        <Pressable style={styles.deleteBtn} onPress={confirmDelete}>
+          <Text style={styles.deleteText}>Delete list</Text>
+        </Pressable>
+      )}
     </Sheet>
   );
 }
@@ -135,6 +167,23 @@ const useStyles = makeStyles((c) => ({
   swatchActive: {
     borderWidth: 2,
     borderColor: c.textPrimary,
+  },
+  shareRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  shareTitle: {
+    fontFamily: fonts.sansRegular,
+    fontSize: 16,
+    color: c.textPrimary,
+  },
+  shareHint: {
+    marginTop: 2,
+    fontFamily: fonts.sansRegular,
+    fontSize: 13,
+    lineHeight: 17,
+    color: c.textTertiary,
   },
   saveBtn: {
     marginTop: 20,

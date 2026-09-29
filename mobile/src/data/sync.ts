@@ -83,8 +83,23 @@ export function hasServerFeature(features: readonly ServerFeature[], feature: Se
  * feature set is unknown, callers should pass every feature rather than none.
  */
 function taskForFeatures(task: Task, features: readonly ServerFeature[]): Task {
-  if (hasServerFeature(features, 'taskReminders')) return task;
-  const { reminders: _unsupported, ...compatible } = task;
+  let out = task;
+  if (!hasServerFeature(features, 'taskReminders')) {
+    const { reminders: _unsupported, ...compatible } = out;
+    out = compatible;
+  }
+  if (!hasServerFeature(features, 'household')) {
+    const { assigneeId: _unsupported, ...compatible } = out;
+    out = compatible;
+  }
+  return out;
+}
+
+/** `ownerId` is the server's to set, so it never goes back up either way. */
+function listForFeatures(list: ListDef, features: readonly ServerFeature[]): ListDef {
+  const { ownerId: _serverSet, ...rest } = list;
+  if (hasServerFeature(features, 'household')) return rest;
+  const { shared: _unsupported, ...compatible } = rest;
   return compatible;
 }
 
@@ -103,7 +118,7 @@ export async function pushDirty(
   const tasks = state.tasks
     .filter((t) => outbox.has(t.id) && !heldTaskIds.has(t.id))
     .map((task) => taskForFeatures(task, supportedFeatures));
-  const lists = state.lists.filter((l) => outbox.has(l.id));
+  const lists = state.lists.filter((l) => outbox.has(l.id)).map((list) => listForFeatures(list, supportedFeatures));
   const folders = state.folders.filter((f) => outbox.has(f.id));
   const viewPrefs = state.viewPrefs.filter((v) => outbox.has(v.id));
   const savedFilters = state.savedFilters.filter((f) => outbox.has(f.id));
@@ -143,6 +158,21 @@ export async function pullSince(api: Api, since: string | undefined): Promise<Sy
     }
     throw err;
   }
+}
+
+/**
+ * Drops rows the server says this person can no longer see.
+ *
+ * Unlike `mergeBatch`, a pending local edit does not protect a row: the server
+ * discards pushes to rows the pusher cannot see, so keeping it would only leave
+ * an edit that can never land. The caller clears these ids from the outbox too,
+ * or they would sit there as "pending" forever.
+ */
+export function dropRemoved<T extends { id: string }>(local: T[], removedIds: readonly string[]): T[] {
+  if (removedIds.length === 0) return local;
+  const gone = new Set(removedIds);
+  const kept = local.filter((r) => !gone.has(r.id));
+  return kept.length === local.length ? local : kept;
 }
 
 /**
