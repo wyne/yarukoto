@@ -5,8 +5,9 @@ import { makeStyles } from '../../theme/styles';
 import { fonts } from '../../theme/typography';
 import { useAccent, useColors } from '../../theme/ThemeContext';
 import { useTasks } from '../../data/TaskContext';
-import { ApiError, ApproveAs, HouseholdView, createApi, createPairingApi, joinLink } from '../../data/api';
+import { ApiError, ApproveAs, HouseholdView, codeFromPairingLink, createApi, createPairingApi, joinLink, parseJoinLink } from '../../data/api';
 import QrCode from './QrCode';
+import QrScanner, { CAN_SCAN } from './QrScanner';
 import { confirmDestructive } from '../../data/confirm';
 import { HouseholdDevice, HouseholdMember } from '../../data/types';
 
@@ -59,6 +60,7 @@ export default function HouseholdSection({ visible, initialCode }: Props) {
   const [view, setView] = useState<HouseholdView | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [code, setCode] = useState('');
+  const [scanning, setScanning] = useState(false);
   const [approveFor, setApproveFor] = useState<ApproveFor>('self');
   const [newName, setNewName] = useState('');
   const [approving, setApproving] = useState(false);
@@ -175,7 +177,9 @@ export default function HouseholdSection({ visible, initialCode }: Props) {
     }
   };
 
-  const approve = async () => {
+  /** Approves the typed code, or one just read off the other device's QR. */
+  const approve = async (scanned?: string) => {
+    const value = scanned ?? code;
     const how = approveAs();
     if (how.as === 'member' && !how.name) {
       setApproveMessage({ ok: false, text: 'Give the new person a name.' });
@@ -184,7 +188,7 @@ export default function HouseholdSection({ visible, initialCode }: Props) {
     setApproving(true);
     setApproveMessage(null);
     try {
-      const result = await api.approvePairing(code, how);
+      const result = await api.approvePairing(value, how);
       setCode('');
       setNewName('');
       setApproveFor('self');
@@ -350,12 +354,36 @@ export default function HouseholdSection({ visible, initialCode }: Props) {
         />
         <Pressable
           style={[styles.approveBtn, (!code.trim() || approving) && styles.approveBtnDisabled]}
-          onPress={approve}
+          onPress={() => approve()}
           disabled={!code.trim() || approving}
         >
           {approving ? <ActivityIndicator color="#fff" /> : <Text style={styles.approveText}>Approve</Text>}
         </Pressable>
       </View>
+      {CAN_SCAN && (
+        <Pressable onPress={() => setScanning(true)} hitSlop={6} style={{ marginTop: 8 }}>
+          <Text style={[styles.action, { color: accent }]}>Scan its QR instead</Text>
+        </Pressable>
+      )}
+      {CAN_SCAN && (
+        <QrScanner
+          visible={scanning}
+          onClose={() => setScanning(false)}
+          title="Scan the new device's QR"
+          onScan={(data) => {
+            const scannedCode = codeFromPairingLink(data);
+            if (!scannedCode) {
+              return parseJoinLink(data)
+                ? 'That QR signs a new phone in. Scan the one the new device shows instead.'
+                : 'That isn’t a Yarukoto sign-in QR.';
+            }
+            setScanning(false);
+            setCode(scannedCode);
+            approve(scannedCode);
+            return null;
+          }}
+        />
+      )}
       {approveMessage && (
         <Text style={[styles.note, { color: approveMessage.ok ? colors.success : colors.priorityHigh }]}>
           {approveMessage.text}

@@ -46,7 +46,7 @@ import {
   saveServerSnapshot,
   saveToken,
 } from './storage';
-import { ApiError, createApi } from './api';
+import { ApiError, SignedOutReason, createApi, signedOutReason } from './api';
 import { Household, householdFrom, ownsList } from './household';
 export { ownsList } from './household';
 export type { Household } from './household';
@@ -101,6 +101,7 @@ type Action =
   | { type: 'UPDATE_SAVED_FILTER'; id: string; patch: Partial<Pick<SavedFilter, 'name' | 'criteria'>> }
   | { type: 'DELETE_SAVED_FILTER'; id: string }
   | { type: 'CONNECT'; serverUrl: string; token: string }
+  | { type: 'SET_TOKEN'; token: string }
   | { type: 'USE_SAMPLE_DATA'; data: ReturnType<typeof buildSampleData> }
   | { type: 'DISCONNECT' }
   | ({ type: 'HYDRATE' } & Collections)
@@ -409,6 +410,9 @@ function applyAction(state: State, action: Action): State {
         savedFilters: state.savedFilters.map((f) => (f.id === action.id ? { ...f, deletedAt: now } : f)),
       };
     }
+    case 'SET_TOKEN':
+      // Signing back in as the same person: everything already here stays.
+      return { ...state, token: action.token };
     case 'CONNECT':
       // Server data arrives via sync; nothing is seeded locally.
       return {
@@ -640,6 +644,25 @@ interface TaskContextValue {
   deleteSavedFilter: (id: string) => void;
   /** Validates against the server before committing; throws ApiError on failure. */
   connect: (serverUrl: string, token: string) => Promise<void>;
+  /**
+   * Why the server stopped accepting this device, or null while it does. Set by
+   * the sync loop on a 401, which then stops; the data and unsynced edits stay.
+   */
+  signedOut: SignedOutReason | null;
+  /**
+   * Sign in with a new token while already connected, or signed out.
+   *
+   * The same person on the same server keeps everything on this device,
+   * unsynced edits included, which then push under the new token. Anyone or
+   * anywhere else starts afresh, and when that would drop unsynced edits this
+   * resolves `confirm` with how many, unless `discard` says the caller already
+   * asked. Throws ApiError when the token doesn't work.
+   */
+  signInAgain: (
+    serverUrl: string,
+    token: string,
+    options?: { discard?: boolean }
+  ) => Promise<{ status: 'done' } | { status: 'confirm'; pending: number }>;
   /** Load the sample dataset and work entirely offline. */
   useSampleData: () => void;
   disconnect: () => void;
@@ -712,6 +735,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
   const cursorRef = useRef<string | undefined>(loadServerSnapshot()?.cursor);
 
   const [syncStatus, setSyncStatus] = useState<SyncStatus>({ state: 'syncing', pending: 0 });
+  const [signedOut, setSignedOut] = useState<SignedOutReason | null>(null);
 
   // The sync loop is created and torn down by the effect below; this is how
   // anything outside it asks for a cycle. Null whenever there is no loop —
@@ -1121,6 +1145,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     setServerFeatures(info?.features ?? null);
     setHousehold(who ? householdFrom(who) : null);
 
+    setSignedOut(null);
     dispatch({ type: 'CONNECT', serverUrl: url, token });
     dispatch({
       type: 'HYDRATE',
@@ -1140,6 +1165,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     saveMode('sample');
     setServerFeatures([...SERVER_FEATURES]);
     setHousehold(null);
+    setSignedOut(null);
     dispatch({ type: 'USE_SAMPLE_DATA', data: buildSampleData(new Date()) });
   }, []);
   const disconnect = useCallback(() => {
@@ -1151,8 +1177,39 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     saveMode('none');
     setServerFeatures([...SERVER_FEATURES]);
     setHousehold(null);
+    setSignedOut(null);
     dispatch({ type: 'DISCONNECT' });
   }, []);
+  const signInAgain = useCallback<TaskContextValue['signInAgain']>(
+    async (serverUrl, token, options) => {
+      const url = serverUrl.replace(/\/+$/, '');
+      const current = stateRef.current;
+      if (current.mode === 'server' && current.serverUrl === url) {
+        const api = createApi(url, token);
+        const info = await api.health();
+        // A server without households has one person, so any working token
+        // there is the same person. Otherwise, ask it who this token is.
+        const who = info?.features.includes('household') ? await api.me() : null;
+        if (!who) await api.pull(new Date().toISOString());
+        // Nobody cached (an env-token sign-in before households) can't be
+        // told apart from the new person, so it counts as the same.
+        const before = householdRef.current?.me?.id;
+        if (!who || before === undefined || who.member?.id === before) {
+          saveToken(token);
+          addSavedServer(url, token);
+          if (who) setHousehold(householdFrom(who));
+          setSignedOut(null);
+          dispatch({ type: 'SET_TOKEN', token });
+          return { status: 'done' };
+        }
+      }
+      const pending = outboxRef.current.size;
+      if (pending > 0 && !options?.discard) return { status: 'confirm', pending };
+      await connect(url, token);
+      return { status: 'done' };
+    },
+    [connect]
+  );
   const removeSavedServer = useCallback((url: string) => {
     removeSavedServerStorage(url);
   }, []);
@@ -1165,6 +1222,8 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     if (state.mode !== 'server') return;
     const api = createApi(state.serverUrl, state.token);
     let cancelled = false;
+    /** Set once the server refuses this token. */
+    let stopped = false;
     let inFlight: Promise<void> | null = null;
     let timer: ReturnType<typeof setTimeout>;
 
@@ -1285,14 +1344,20 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
         // Local edits stay queued either way; the next tick retries. A rejected
         // token is called out separately because, unlike being offline, waiting
         // will never fix it.
-        const unauthorized = err instanceof ApiError && err.status === 401;
+        const reason = signedOutReason(err);
         setSyncStatus((s) => ({
           ...s,
-          state: unauthorized ? 'unauthorized' : 'offline',
+          state: reason ? 'unauthorized' : 'offline',
           pending: outboxRef.current.size,
         }));
+        if (reason) {
+          // Retrying a refused token only repeats the refusal. The loop stays
+          // down until a new token restarts it.
+          stopped = true;
+          setSignedOut(reason);
+        }
       }
-      if (!cancelled) timer = setTimeout(cycle, nextDelay());
+      if (!cancelled && !stopped) timer = setTimeout(cycle, nextDelay());
     };
 
     /**
@@ -1301,7 +1366,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
      * spinner until the real work settles either way.
      */
     const cycle = (): Promise<void> => {
-      if (cancelled) return Promise.resolve();
+      if (cancelled || stopped) return Promise.resolve();
       if (!inFlight) {
         // The run re-arms the timer when it settles, so a cycle asked for early
         // replaces the pending tick instead of being chased by it.
@@ -1427,6 +1492,8 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       updateSavedFilter,
       deleteSavedFilter,
       connect,
+      signedOut,
+      signInAgain,
       useSampleData,
       disconnect,
       removeSavedServer,
@@ -1472,6 +1539,8 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       updateSavedFilter,
       deleteSavedFilter,
       connect,
+      signedOut,
+      signInAgain,
       useSampleData,
       disconnect,
       removeSavedServer,

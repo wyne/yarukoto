@@ -257,7 +257,12 @@ test('a device can be signed out, and a member may only sign out their own', asy
   assert.equal(cannotInvite.statusCode, 403);
 
   await h.app.inject({ headers: alex.auth, method: 'DELETE', url: `/api/v1/devices/${alex.deviceId}` });
-  assert.equal((await h.app.inject({ headers: alex.auth, method: 'GET', url: '/api/v1/me' })).statusCode, 401);
+  const signedOut = await h.app.inject({ headers: alex.auth, method: 'GET', url: '/api/v1/me' });
+  assert.equal(signedOut.statusCode, 401);
+  // A token the server once issued says so, where a stranger's does not.
+  assert.deepEqual(signedOut.json(), { error: 'signed_out' });
+  const stranger = await h.app.inject({ headers: { authorization: 'Bearer nope' }, method: 'GET', url: '/api/v1/me' });
+  assert.deepEqual(stranger.json(), { error: 'unauthorized' });
 });
 
 test('a household integration sees shared lists only, and cannot sync', async () => {

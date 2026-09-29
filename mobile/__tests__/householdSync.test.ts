@@ -1,4 +1,4 @@
-import { Api, SyncBatch, SyncPush, createApi, codeFromPairingLink, joinLink, pairingLink, parseJoinLink } from '../src/data/api';
+import { Api, SyncBatch, SyncPush, createApi, codeFromPairingLink, joinLink, pairingLink, parseJoinLink, signedOutReason } from '../src/data/api';
 import { Outbox, dropRemoved, pushDirty } from '../src/data/sync';
 import { Household, ownsList, parseHousehold } from '../src/data/household';
 import { ListDef, ServerFeature, Task } from '../src/data/types';
@@ -135,4 +135,30 @@ test('a request without a body claims no JSON content type', async () => {
   }
   expect(calls[0].headers).not.toHaveProperty('Content-Type');
   expect(calls[1].headers).toHaveProperty('Content-Type', 'application/json');
+});
+
+test('a refused token says whether the device was signed out or just not recognised', async () => {
+  const realFetch = global.fetch;
+  const refuse = (body: unknown) =>
+    (global.fetch = (async () => ({ ok: false, status: 401, json: async () => body }) as Response) as typeof fetch);
+  const reasonFor = async () => {
+    try {
+      await createApi('http://server', 'tok').me();
+      return null;
+    } catch (err) {
+      return signedOutReason(err);
+    }
+  };
+  try {
+    refuse({ error: 'signed_out' });
+    expect(await reasonFor()).toBe('signed_out');
+    refuse({ error: 'unauthorized' });
+    expect(await reasonFor()).toBe('rejected');
+    // A server from before the distinction, or a proxy, may say nothing at all.
+    global.fetch = (async () => ({ ok: false, status: 401, json: async () => Promise.reject(new Error('html')) }) as Response) as typeof fetch;
+    expect(await reasonFor()).toBe('rejected');
+  } finally {
+    global.fetch = realFetch;
+  }
+  expect(signedOutReason(new Error('offline'))).toBeNull();
 });

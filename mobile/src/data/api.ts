@@ -12,10 +12,25 @@ import {
 
 export class ApiError extends Error {
   status: number;
-  constructor(status: number, message: string) {
+  /** The server's own `error` code, when it sent one. */
+  code?: string;
+  constructor(status: number, message: string, code?: string) {
     super(message);
     this.status = status;
+    this.code = code;
   }
+}
+
+/**
+ * Why the server refused this device's token. `signed_out` is final: the
+ * device was signed out or its person removed. `rejected` is a token the
+ * server doesn't know, which may be a server restarted with a new access token.
+ */
+export type SignedOutReason = 'signed_out' | 'rejected';
+
+export function signedOutReason(err: unknown): SignedOutReason | null {
+  if (!(err instanceof ApiError) || err.status !== 401) return null;
+  return err.code === 'signed_out' ? 'signed_out' : 'rejected';
 }
 
 export interface SyncBatch {
@@ -127,7 +142,15 @@ export function createApi(serverUrl: string, token: string): Api {
     } catch {
       throw new ApiError(0, 'Could not reach the server.');
     }
-    if (res.status === 401) throw new ApiError(401, 'That token was rejected by the server.');
+    if (res.status === 401) {
+      const body = await res.json().catch(() => null);
+      const code = body && typeof body.error === 'string' ? body.error : undefined;
+      throw new ApiError(
+        401,
+        code === 'signed_out' ? 'This device was signed out.' : 'That token was rejected by the server.',
+        code
+      );
+    }
     if (!res.ok) throw new ApiError(res.status, await errorMessage(res));
     return res.json();
   }

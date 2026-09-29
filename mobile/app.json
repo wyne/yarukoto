@@ -55,7 +55,16 @@
           }
         }
       ],
-      "expo-system-ui"
+      "expo-system-ui",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Yarukoto uses the camera to scan sign-in QR codes from your other devices.",
+          "microphonePermission": false,
+          "recordAudioAndroid": false,
+          "barcodeScannerEnabled": true
+        }
+      ]
     ],
     "extra": {
       "eas": {

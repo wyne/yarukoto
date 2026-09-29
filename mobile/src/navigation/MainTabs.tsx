@@ -36,6 +36,7 @@ import DragOverlay from '../drag/DragOverlay';
 import { useDragActive } from '../drag/DragContext';
 import ServerSheet from '../components/pickers/ServerSheet';
 import PairLinkHandler from './PairLinkHandler';
+import JoinLinkHandler from './JoinLinkHandler';
 import NavSheets from '../components/sidebar/NavSheets';
 import TaskReminderNotifications from './TaskReminderNotifications';
 import MenuCommands from './MenuCommands';
@@ -214,6 +215,7 @@ function Layout() {
       {!wide && <TaskDetailSheet />}
       <ServerSheet visible={serverOpen} onClose={closeServer} pairCode={serverPairCode} />
       <PairLinkHandler />
+      <JoinLinkHandler />
       <NavSheets />
       <DragOverlay />
       <TaskReminderNotifications />
