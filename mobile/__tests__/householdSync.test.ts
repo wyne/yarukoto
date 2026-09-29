@@ -1,4 +1,4 @@
-import { Api, SyncBatch, SyncPush, codeFromPairingLink, joinLink, pairingLink, parseJoinLink } from '../src/data/api';
+import { Api, SyncBatch, SyncPush, createApi, codeFromPairingLink, joinLink, pairingLink, parseJoinLink } from '../src/data/api';
 import { Outbox, dropRemoved, pushDirty } from '../src/data/sync';
 import { Household, ownsList, parseHousehold } from '../src/data/household';
 import { ListDef, ServerFeature, Task } from '../src/data/types';
@@ -117,4 +117,22 @@ test('a join QR carries the server and the sign-in, and survives awkward charact
   expect(parseJoinLink('yarukoto://join?server=ftp://x&pairing=p&secret=s')).toBeNull();
   expect(parseJoinLink('yarukoto://join?server=http://x&pairing=p')).toBeNull();
   expect(parseJoinLink(pairingLink('ABCD-2345'))).toBeNull();
+});
+
+test('a request without a body claims no JSON content type', async () => {
+  const calls: RequestInit[] = [];
+  const realFetch = global.fetch;
+  global.fetch = (async (_url: string, init: RequestInit) => {
+    calls.push(init);
+    return { ok: true, status: 200, json: async () => ({ device: {}, member: {} }) } as Response;
+  }) as typeof fetch;
+  try {
+    const api = createApi('http://server', 'tok');
+    await api.revokeDevice('d-1');
+    await api.renameMember('u-1', 'Alex');
+  } finally {
+    global.fetch = realFetch;
+  }
+  expect(calls[0].headers).not.toHaveProperty('Content-Type');
+  expect(calls[1].headers).toHaveProperty('Content-Type', 'application/json');
 });

@@ -105,8 +105,21 @@ function cleanName(name: unknown, fallback: string): string {
   return trimmed || fallback;
 }
 
+/**
+ * Drops pairings past their time, and with them any device an approval made
+ * for a pairing nobody claimed. The token for such a device only ever lived on
+ * the pairing row, so once that is gone the device can never sign in: left in
+ * place it would sit in the list as a phone that was never there. An approved
+ * sign-in-by-QR that nobody scanned is exactly this.
+ */
 function purgeExpired(db: Database.Database, now: number): void {
-  db.prepare('DELETE FROM pairings WHERE expires_at < ?').run(new Date(now).toISOString());
+  const cutoff = new Date(now).toISOString();
+  const unclaimed = db
+    .prepare("SELECT token FROM pairings WHERE expires_at < ? AND status = 'approved' AND token IS NOT NULL")
+    .all(cutoff) as { token: string }[];
+  const dropDevice = db.prepare('DELETE FROM devices WHERE token_hash = ? AND last_seen_at IS NULL');
+  for (const { token } of unclaimed) dropDevice.run(hashToken(token));
+  db.prepare('DELETE FROM pairings WHERE expires_at < ?').run(cutoff);
 }
 
 // ---- Pairing ---------------------------------------------------------------
@@ -273,6 +286,7 @@ export function describeHousehold(
   viewer: Viewer
 ): { members: HouseholdMember[]; devices: HouseholdDevice[] } {
   if (viewer.kind !== 'user') throw new HouseholdError('forbidden', 'Integrations cannot manage the household');
+  purgeExpired(db, Date.now());
   if (isAdmin(viewer)) {
     return {
       members: (db.prepare('SELECT * FROM users ORDER BY created_at').all() as UserRow[]).map(memberFromRow),

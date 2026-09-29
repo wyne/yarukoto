@@ -202,12 +202,16 @@ export default function HouseholdSection({ visible, initialCode }: Props) {
   };
 
   const act = (run: () => Promise<unknown>) => async () => {
+    let failure: string | null = null;
     try {
       await run();
     } catch (err) {
-      setLoadError(err instanceof ApiError ? err.message : 'That did not work.');
+      failure = err instanceof ApiError ? err.message : 'That did not work.';
     }
     await Promise.all([load(), refreshHousehold()]);
+    // After the reload, which clears the error line when it succeeds: a failed
+    // sign-out must not vanish the moment the list redraws.
+    if (failure) setLoadError(failure);
   };
 
   const confirmRemove = (member: HouseholdMember) =>

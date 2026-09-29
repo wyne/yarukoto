@@ -116,7 +116,13 @@ export function createApi(serverUrl: string, token: string): Api {
     try {
       res = await fetch(`${base}${path}`, {
         ...init,
-        headers: { ...(init?.headers ?? {}), Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        // Content-Type only with a body: the server refuses an empty body that
+        // claims to be JSON, which is every DELETE and bare POST.
+        headers: {
+          ...(init?.headers ?? {}),
+          Authorization: `Bearer ${token}`,
+          ...(init?.body !== undefined ? { 'Content-Type': 'application/json' } : {}),
+        },
       });
     } catch {
       throw new ApiError(0, 'Could not reach the server.');
