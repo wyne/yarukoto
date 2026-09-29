@@ -23,6 +23,9 @@ const APPROVE_OPTIONS: Array<{ value: ApproveFor; label: string }> = [
   { value: 'integration', label: 'Integration' },
 ];
 
+/** How often a shown QR checks whether it has been scanned. */
+const INVITE_CHECK_MS = 2000;
+
 /** The id migration 008 gives the household's first admin, who cannot be removed. */
 const OWNER_ID = 'u-owner';
 
@@ -59,7 +62,13 @@ export default function HouseholdSection({ visible, initialCode }: Props) {
   const [newName, setNewName] = useState('');
   const [approving, setApproving] = useState(false);
   const [approveMessage, setApproveMessage] = useState<{ ok: boolean; text: string } | null>(null);
-  const [invite, setInvite] = useState<{ link: string; expiresAt: string } | null>(null);
+  const [invite, setInvite] = useState<{
+    link: string;
+    expiresAt: string;
+    /** The device the approval created, which the scanning phone will sign in as. */
+    deviceId: string;
+    deviceName: string;
+  } | null>(null);
   const [inviting, setInviting] = useState(false);
 
   const me = household?.me ?? null;
@@ -85,6 +94,42 @@ export default function HouseholdSection({ visible, initialCode }: Props) {
       setApproveMessage(null);
     }
   }, [visible, initialCode]);
+
+  /**
+   * Notices the scan. This device cannot poll the pairing (that would claim the
+   * token itself), but the device the approval created is already in the list
+   * and gets a last-seen time on its first request: that is the phone arriving.
+   */
+  useEffect(() => {
+    if (!visible || !invite) return;
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout>;
+    const check = async () => {
+      const next = await createApi(state.serverUrl, state.token)
+        .household()
+        .catch(() => null);
+      if (cancelled) return;
+      const arrived = next?.devices.find((d) => d.id === invite.deviceId && d.lastSeenAt);
+      if (next && arrived) {
+        setView(next);
+        setInvite(null);
+        setApproveMessage({ ok: true, text: `"${invite.deviceName}" is signed in.` });
+        refreshHousehold();
+        return;
+      }
+      if (Date.parse(invite.expiresAt) < Date.now()) {
+        setInvite(null);
+        setApproveMessage({ ok: false, text: 'That QR expired before anyone scanned it.' });
+        return;
+      }
+      timer = setTimeout(check, INVITE_CHECK_MS);
+    };
+    timer = setTimeout(check, INVITE_CHECK_MS);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [visible, invite, state.serverUrl, state.token, refreshHousehold]);
 
   if (!household || !me) return null;
 
@@ -115,8 +160,13 @@ export default function HouseholdSection({ visible, initialCode }: Props) {
       const pairing = await createPairingApi(state.serverUrl).start(
         how.as === 'member' ? `${how.name}'s phone` : 'Phone'
       );
-      await api.approvePairing(pairing.code, how);
-      setInvite({ link: joinLink(state.serverUrl, pairing), expiresAt: pairing.expiresAt });
+      const approved = await api.approvePairing(pairing.code, how);
+      setInvite({
+        link: joinLink(state.serverUrl, pairing),
+        expiresAt: pairing.expiresAt,
+        deviceId: approved.device.id,
+        deviceName: approved.device.name,
+      });
     } catch (err) {
       setApproveMessage({ ok: false, text: err instanceof ApiError ? err.message : 'Could not make a QR.' });
     } finally {
