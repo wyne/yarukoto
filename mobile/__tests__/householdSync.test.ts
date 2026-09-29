@@ -155,7 +155,7 @@ test('a refused token says whether the device was signed out or just not recogni
     refuse({ error: 'unauthorized' });
     expect(await reasonFor()).toBe('rejected');
     // A server from before the distinction, or a proxy, may say nothing at all.
-    global.fetch = (async () => ({ ok: false, status: 401, json: async () => Promise.reject(new Error('html')) }) as Response) as typeof fetch;
+    global.fetch = (async () => ({ ok: false, status: 401, json: async () => Promise.reject(new Error('html')) }) as unknown as Response) as typeof fetch;
     expect(await reasonFor()).toBe('rejected');
   } finally {
     global.fetch = realFetch;
