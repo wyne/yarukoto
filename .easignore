@@ -1,0 +1,42 @@
+# What EAS leaves out of a build archive. When this file exists EAS reads it
+# *instead of* .gitignore, so everything .gitignore keeps out has to be
+# repeated here, or a build would pack up the database and env files too.
+
+# ---- From .gitignore ----
+node_modules/
+.expo/
+/data/
+server/data/
+.env
+*.env
+*.tsbuildinfo
+server/dist/
+coverage/
+
+# ---- From mobile/.gitignore ----
+mobile/dist/
+mobile/web-build/
+mobile/expo-env.d.ts
+.kotlin/
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+.metro-health-check*
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+.DS_Store
+*.pem
+.env*.local
+mobile/ios/
+mobile/android/
+*.ipa
+
+# ---- Only here: git tracks these, a build has no use for them ----
+# Agent worktrees are whole checkouts of the repo, and can run to gigabytes.
+.claude/
+# The web export the server serves, rebuilt by `expo export`.
+/web/

@@ -8,3 +8,5 @@ server/data/
 *.tsbuildinfo
 server/dist/
 coverage/
+# The web export a local server serves (`expo export --output-dir ../web`).
+/web/
