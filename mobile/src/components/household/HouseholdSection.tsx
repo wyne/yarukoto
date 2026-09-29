@@ -4,7 +4,8 @@ import { makeStyles } from '../../theme/styles';
 import { fonts } from '../../theme/typography';
 import { useAccent, useColors } from '../../theme/ThemeContext';
 import { useTasks } from '../../data/TaskContext';
-import { ApiError, ApproveAs, HouseholdView, createApi } from '../../data/api';
+import { ApiError, ApproveAs, HouseholdView, createApi, createPairingApi, joinLink } from '../../data/api';
+import QrCode from './QrCode';
 import { confirmDestructive } from '../../data/confirm';
 import { HouseholdDevice, HouseholdMember } from '../../data/types';
 
@@ -24,6 +25,11 @@ const APPROVE_OPTIONS: Array<{ value: ApproveFor; label: string }> = [
 
 /** The id migration 008 gives the household's first admin, who cannot be removed. */
 const OWNER_ID = 'u-owner';
+
+function formatClock(iso: string): string {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? 'it expires' : d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+}
 
 function seenLabel(device: HouseholdDevice): string {
   const iso = device.lastSeenAt ?? device.createdAt;
@@ -53,6 +59,8 @@ export default function HouseholdSection({ visible, initialCode }: Props) {
   const [newName, setNewName] = useState('');
   const [approving, setApproving] = useState(false);
   const [approveMessage, setApproveMessage] = useState<{ ok: boolean; text: string } | null>(null);
+  const [invite, setInvite] = useState<{ link: string; expiresAt: string } | null>(null);
+  const [inviting, setInviting] = useState(false);
 
   const me = household?.me ?? null;
   const admin = me?.role === 'admin';
@@ -83,9 +91,41 @@ export default function HouseholdSection({ visible, initialCode }: Props) {
   const nameOf = (id: string | null) =>
     id === null ? 'Integration' : (view?.members.find((m) => m.id === id)?.name ?? 'Someone');
 
+  const approveAs = (): ApproveAs =>
+    approveFor === 'member'
+      ? { as: 'member', name: newName.trim() }
+      : approveFor === 'integration'
+        ? { as: 'integration' }
+        : { as: 'self' };
+
+  /**
+   * Starts a pairing on the new phone's behalf and approves it on the spot, so
+   * the QR can carry the finished sign-in. This device never polls it: a poll
+   * is what claims the token, and it belongs to whoever scans.
+   */
+  const showInvite = async () => {
+    const how = approveAs();
+    if (how.as === 'member' && !how.name) {
+      setApproveMessage({ ok: false, text: 'Give the new person a name.' });
+      return;
+    }
+    setInviting(true);
+    setApproveMessage(null);
+    try {
+      const pairing = await createPairingApi(state.serverUrl).start(
+        how.as === 'member' ? `${how.name}'s phone` : 'Phone'
+      );
+      await api.approvePairing(pairing.code, how);
+      setInvite({ link: joinLink(state.serverUrl, pairing), expiresAt: pairing.expiresAt });
+    } catch (err) {
+      setApproveMessage({ ok: false, text: err instanceof ApiError ? err.message : 'Could not make a QR.' });
+    } finally {
+      setInviting(false);
+    }
+  };
+
   const approve = async () => {
-    const how: ApproveAs =
-      approveFor === 'member' ? { as: 'member', name: newName.trim() } : approveFor === 'integration' ? { as: 'integration' } : { as: 'self' };
+    const how = approveAs();
     if (how.as === 'member' && !how.name) {
       setApproveMessage({ ok: false, text: 'Give the new person a name.' });
       return;
@@ -153,8 +193,91 @@ export default function HouseholdSection({ visible, initialCode }: Props) {
         </Text>
       )}
 
-      <Text style={styles.subLabel}>Approve a sign-in</Text>
-      <View style={styles.approveRow}>
+      <Text style={styles.subLabel}>Add a device</Text>
+      {admin && (
+        <View style={styles.segment} accessibilityRole="radiogroup">
+          {APPROVE_OPTIONS.map((option) => {
+            const selected = option.value === approveFor;
+            return (
+              <Pressable
+                key={option.value}
+                onPress={() => {
+                  setApproveFor(option.value);
+                  setInvite(null);
+                }}
+                style={[styles.segmentOption, selected && styles.segmentSelected]}
+                accessibilityRole="radio"
+                accessibilityState={{ checked: selected }}
+              >
+                <Text style={[styles.segmentText, selected && styles.segmentTextSelected]}>{option.label}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      )}
+      {admin && approveFor === 'member' && (
+        <TextInput
+          value={newName}
+          onChangeText={(text) => {
+            setNewName(text);
+            setInvite(null);
+          }}
+          placeholder="Their name"
+          placeholderTextColor={colors.textFaint}
+          style={[styles.input, { marginTop: 8 }]}
+          accessibilityLabel="New person's name"
+        />
+      )}
+
+      {/* A phone has a camera, so it scans: this device shows everything it
+          needs, server address included. An integration has no camera and
+          is added by the code it shows instead. */}
+      {approveFor !== 'integration' &&
+        (invite ? (
+          <View style={styles.inviteBox}>
+            <View style={styles.qrFrame}>
+              <QrCode value={invite.link} size={188} color="#111" background="#fff" />
+            </View>
+            <Text style={styles.inviteHelp}>
+              Scan this with the new phone's camera. It opens Yarukoto and signs in, with nothing to type. It works
+              once, until {formatClock(invite.expiresAt)}.
+            </Text>
+            <Text style={styles.note}>
+              No camera? On the new device choose Sign in with a code instead, and enter its code below.
+            </Text>
+            <Pressable
+              onPress={() => {
+                setInvite(null);
+                load();
+                refreshHousehold();
+              }}
+              hitSlop={6}
+            >
+              <Text style={[styles.action, { color: accent }]}>Done</Text>
+            </Pressable>
+          </View>
+        ) : (
+          <Pressable
+            style={[styles.primaryBtn, inviting && styles.approveBtnDisabled]}
+            onPress={showInvite}
+            disabled={inviting}
+          >
+            {inviting ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.approveText}>
+                {approveFor === 'member' ? 'Show a QR for them to scan' : 'Show a QR to scan'}
+              </Text>
+            )}
+          </Pressable>
+        ))}
+
+      <Text style={styles.note}>
+        {approveFor === 'integration'
+          ? 'Enter the code Home Assistant shows. An integration sees only shared lists.'
+          : 'Or, if the new device is showing a code, enter it here:'}
+      </Text>
+      <View style={[styles.approveRow, { marginTop: 6 }]}>
         <TextInput
           value={code}
           onChangeText={(text) => {
@@ -176,37 +299,6 @@ export default function HouseholdSection({ visible, initialCode }: Props) {
           {approving ? <ActivityIndicator color="#fff" /> : <Text style={styles.approveText}>Approve</Text>}
         </Pressable>
       </View>
-      {admin && (
-        <View style={styles.segment} accessibilityRole="radiogroup">
-          {APPROVE_OPTIONS.map((option) => {
-            const selected = option.value === approveFor;
-            return (
-              <Pressable
-                key={option.value}
-                onPress={() => setApproveFor(option.value)}
-                style={[styles.segmentOption, selected && styles.segmentSelected]}
-                accessibilityRole="radio"
-                accessibilityState={{ checked: selected }}
-              >
-                <Text style={[styles.segmentText, selected && styles.segmentTextSelected]}>{option.label}</Text>
-              </Pressable>
-            );
-          })}
-        </View>
-      )}
-      {admin && approveFor === 'member' && (
-        <TextInput
-          value={newName}
-          onChangeText={setNewName}
-          placeholder="Their name"
-          placeholderTextColor={colors.textFaint}
-          style={[styles.input, { marginTop: 8 }]}
-          accessibilityLabel="New person's name"
-        />
-      )}
-      {admin && approveFor === 'integration' && (
-        <Text style={styles.note}>An integration such as Home Assistant sees only shared lists.</Text>
-      )}
       {approveMessage && (
         <Text style={[styles.note, { color: approveMessage.ok ? colors.success : colors.priorityHigh }]}>
           {approveMessage.text}
@@ -242,8 +334,7 @@ export default function HouseholdSection({ visible, initialCode }: Props) {
         ))}
       {admin && (
         <Text style={styles.note}>
-          To add someone, have them open Yarukoto on their phone and choose Sign in with a code, then approve it
-          above as a new person.
+          To add someone, choose New person above, enter their name, and have them scan the QR with their phone.
         </Text>
       )}
 
@@ -336,6 +427,35 @@ const useStyles = makeStyles((c) => ({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: c.inverseSurface,
+  },
+  primaryBtn: {
+    marginTop: 10,
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    backgroundColor: c.inverseSurface,
+  },
+  inviteBox: {
+    marginTop: 10,
+    padding: 14,
+    alignItems: 'center',
+    gap: 10,
+    borderWidth: 1,
+    borderColor: c.border,
+    borderRadius: 10,
+    backgroundColor: c.surface,
+  },
+  qrFrame: {
+    padding: 6,
+    borderRadius: 8,
+    backgroundColor: '#fff',
+  },
+  inviteHelp: {
+    textAlign: 'center',
+    fontFamily: fonts.sansRegular,
+    fontSize: 14,
+    lineHeight: 19,
+    color: c.textSecondary,
   },
   approveBtnDisabled: {
     backgroundColor: c.textFaint,

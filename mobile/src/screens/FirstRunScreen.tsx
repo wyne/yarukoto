@@ -1,11 +1,11 @@
-import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, Text, TextInput, View } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, KeyboardAvoidingView, Linking, Platform, Pressable, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { makeStyles } from '../theme/styles';
 import { fonts } from '../theme/typography';
 import { useAccent, useColors } from '../theme/ThemeContext';
 import { ApiError, useTasks } from '../data/TaskContext';
-import { createApi } from '../data/api';
+import { JoinLink, createApi, createPairingApi, parseJoinLink } from '../data/api';
 import { SavedServer, loadSavedServers } from '../data/storage';
 import { IconCheckBig, IconLock, IconServer, IconShield } from '../icons/Icons';
 import Sheet from '../components/Sheet';
@@ -36,6 +36,35 @@ function useSameOriginServer(): string | null | undefined {
   return origin;
 }
 
+/**
+ * Join links already acted on. The launch URL is replayed every time this
+ * screen mounts, so without this, disconnecting would sign straight back in —
+ * or, the link having been used, show its failure again.
+ */
+const handledJoinLinks = new Set<string>();
+
+/**
+ * Signing in by scanning: a signed-in device shows a `yarukoto://join` QR, the
+ * phone's camera opens the app with it, and this claims the sign-in it carries.
+ */
+function useJoinLink(onJoin: (link: JoinLink) => void): void {
+  const onJoinRef = useRef(onJoin);
+  onJoinRef.current = onJoin;
+  useEffect(() => {
+    if (Platform.OS === 'web') return;
+    const open = (url: string | null) => {
+      if (!url || handledJoinLinks.has(url)) return;
+      const link = parseJoinLink(url);
+      if (!link) return;
+      handledJoinLinks.add(url);
+      onJoinRef.current(link);
+    };
+    Linking.getInitialURL().then(open).catch(() => {});
+    const subscription = Linking.addEventListener('url', ({ url }) => open(url));
+    return () => subscription.remove();
+  }, []);
+}
+
 export default function FirstRunScreen() {
   const colors = useColors();
   const styles = useStyles();
@@ -57,6 +86,30 @@ export default function FirstRunScreen() {
   const [method, setMethod] = useState<'code' | 'token'>('code');
   /** The server a code is being shown for, while the pairing panel is up. */
   const [pairingUrl, setPairingUrl] = useState<string | null>(null);
+  /** The server a scanned QR is signing in to, while that is under way. */
+  const [joiningUrl, setJoiningUrl] = useState<string | null>(null);
+
+  useJoinLink(async (link) => {
+    setError(null);
+    setPairingUrl(null);
+    setJoiningUrl(link.serverUrl);
+    try {
+      const result = await createPairingApi(link.serverUrl).poll(link.pairing);
+      if (result.status !== 'approved') throw new ApiError(0, 'That QR has not been approved yet.');
+      await connect(link.serverUrl, result.token);
+    } catch (err) {
+      setServerUrl(link.serverUrl);
+      setError(
+        err instanceof ApiError && err.status === 404
+          ? 'That QR was already used or has expired. Show a new one on the signed-in device.'
+          : err instanceof ApiError
+            ? err.message
+            : 'Something went wrong signing in.'
+      );
+    } finally {
+      setJoiningUrl(null);
+    }
+  });
 
   useEffect(() => {
     setSavedServers(loadSavedServers());
@@ -141,8 +194,21 @@ export default function FirstRunScreen() {
             ? 'This page is served by your Yarukoto server. Sign in to get started.'
             : 'Your tasks, on your server. Point Yarukoto at your instance to get started.'}
         </Text>
+        {Platform.OS !== 'web' && (
+          <Text style={styles.scanHint}>
+            Already signed in somewhere else? Open Settings there, show a QR under Household, and scan it with this
+            phone's camera.
+          </Text>
+        )}
 
-        {pairingUrl ? (
+        {joiningUrl ? (
+          <View style={styles.joining}>
+            <ActivityIndicator color={accent} />
+            <Text style={styles.joiningText} numberOfLines={2}>
+              Signing in to {joiningUrl}…
+            </Text>
+          </View>
+        ) : pairingUrl ? (
           <PairingPanel serverUrl={pairingUrl} onApproved={handleApproved} onCancel={() => setPairingUrl(null)} />
         ) : (
           <View style={styles.form}>
@@ -336,6 +402,25 @@ const useStyles = makeStyles((c) => ({
     fontFamily: fonts.sansSemiBold,
     fontSize: 16,
     color: c.inverseText,
+  },
+  scanHint: {
+    marginTop: 10,
+    fontFamily: fonts.sansRegular,
+    fontSize: 14,
+    lineHeight: 19,
+    color: c.textTertiary,
+  },
+  joining: {
+    marginTop: 28,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  joiningText: {
+    flex: 1,
+    fontFamily: fonts.sansRegular,
+    fontSize: 15,
+    color: c.textSecondary,
   },
   methodSwitch: {
     marginTop: 4,

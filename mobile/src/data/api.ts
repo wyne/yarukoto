@@ -227,7 +227,7 @@ export function createPairingApi(serverUrl: string) {
 
   return {
     start: (name: string): Promise<Pairing> => post('/api/v1/pair/start', { name }),
-    poll: (pairing: Pairing): Promise<PairingPoll> =>
+    poll: (pairing: Pick<Pairing, 'pairingId' | 'secret'>): Promise<PairingPoll> =>
       post('/api/v1/pair/poll', { pairingId: pairing.pairingId, secret: pairing.secret }),
   };
 }
@@ -238,6 +238,54 @@ export function createPairingApi(serverUrl: string) {
  */
 export function pairingLink(code: string): string {
   return `yarukoto://pair?code=${encodeURIComponent(code)}`;
+}
+
+/**
+ * A sign-in handed *to* a new phone: the signed-in device started a pairing
+ * and approved it itself, and shows this so the phone can claim the token by
+ * scanning, with nothing to type — not even the server address.
+ *
+ * It carries a live credential for the pairing's few minutes, single use, the
+ * same trade a messaging app's "link a device" QR makes.
+ */
+export interface JoinLink {
+  serverUrl: string;
+  pairing: Pick<Pairing, 'pairingId' | 'secret'>;
+}
+
+export function joinLink(serverUrl: string, pairing: Pick<Pairing, 'pairingId' | 'secret'>): string {
+  const e = encodeURIComponent;
+  return `yarukoto://join?server=${e(serverUrl)}&pairing=${e(pairing.pairingId)}&secret=${e(pairing.secret)}`;
+}
+
+/**
+ * Query parameters by hand: React Native's `URLSearchParams` has, in some
+ * versions, a constructor and no `get`.
+ */
+function queryParams(query: string): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const part of query.split('&')) {
+    const eq = part.indexOf('=');
+    if (eq <= 0) continue;
+    try {
+      out[decodeURIComponent(part.slice(0, eq))] = decodeURIComponent(part.slice(eq + 1).replace(/\+/g, ' '));
+    } catch {
+      // A malformed escape makes this one parameter unreadable, not the link.
+    }
+  }
+  return out;
+}
+
+/** A scanned join link's contents, or null for any other URL. */
+export function parseJoinLink(url: string): JoinLink | null {
+  const match = /^yarukoto:\/\/join\?(.*)$/i.exec(url);
+  if (!match) return null;
+  const params = queryParams(match[1].split('#')[0]);
+  const serverUrl = params.server;
+  const pairingId = params.pairing;
+  const secret = params.secret;
+  if (!serverUrl || !/^https?:\/\//i.test(serverUrl) || !pairingId || !secret) return null;
+  return { serverUrl, pairing: { pairingId, secret } };
 }
 
 /** The code out of a scanned sign-in link, or null for any other URL. */

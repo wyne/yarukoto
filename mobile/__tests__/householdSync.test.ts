@@ -1,4 +1,4 @@
-import { Api, SyncBatch, SyncPush, codeFromPairingLink, pairingLink } from '../src/data/api';
+import { Api, SyncBatch, SyncPush, codeFromPairingLink, joinLink, pairingLink, parseJoinLink } from '../src/data/api';
 import { Outbox, dropRemoved, pushDirty } from '../src/data/sync';
 import { Household, ownsList, parseHousehold } from '../src/data/household';
 import { ListDef, ServerFeature, Task } from '../src/data/types';
@@ -106,4 +106,15 @@ test('a sign-in QR round-trips its code, and other links are ignored', () => {
   expect(codeFromPairingLink(pairingLink('K7QM-3XPA'))).toBe('K7QM-3XPA');
   expect(codeFromPairingLink('yarukoto://other?code=K7QM-3XPA')).toBeNull();
   expect(codeFromPairingLink('https://example.com/pair?code=K7QM-3XPA')).toBeNull();
+});
+
+test('a join QR carries the server and the sign-in, and survives awkward characters', () => {
+  const link = joinLink('http://192.168.86.145:8080', { pairingId: 'p-1', secret: 'a+b/c=d_e-f' });
+  expect(parseJoinLink(link)).toEqual({
+    serverUrl: 'http://192.168.86.145:8080',
+    pairing: { pairingId: 'p-1', secret: 'a+b/c=d_e-f' },
+  });
+  expect(parseJoinLink('yarukoto://join?server=ftp://x&pairing=p&secret=s')).toBeNull();
+  expect(parseJoinLink('yarukoto://join?server=http://x&pairing=p')).toBeNull();
+  expect(parseJoinLink(pairingLink('ABCD-2345'))).toBeNull();
 });
