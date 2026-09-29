@@ -343,3 +343,14 @@ test('signing out and removing work without a request body', async () => {
     200
   );
 });
+
+test('an empty body labelled as JSON is read as no body, as older app builds send it', async () => {
+  const h = await household();
+  const phone = await h.pair(OWNER_AUTH, 'self');
+  const json = { ...OWNER_AUTH, 'content-type': 'application/json' };
+  const signOut = await h.app.inject({ headers: json, method: 'DELETE', url: `/api/v1/devices/${phone.deviceId}` });
+  assert.equal(signOut.statusCode, 200);
+  // A body that is there but broken is still refused.
+  const broken = await h.app.inject({ headers: json, method: 'POST', url: '/api/v1/pair/approve', payload: '{nope' });
+  assert.equal(broken.statusCode, 400);
+});

@@ -12,6 +12,7 @@ import { registerTaskRoutes } from './routes/tasks';
 import { registerMcpRoutes } from './mcp';
 import { registerHouseholdRoutes, registerPairingRoutes } from './routes/household';
 import { scheduleRetention } from './retention';
+import { acceptEmptyJson } from './http';
 import { buildInfo } from './version';
 
 async function main() {
@@ -19,6 +20,7 @@ async function main() {
   scheduleRetention(db);
 
   const app = Fastify({ logger: true });
+  acceptEmptyJson(app);
 
   // Auth is the real boundary (a bearer token), so CORS just needs to not get in
   // the way of browser clients — including the Expo web dev server, which runs

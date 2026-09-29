@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, Text, View } from 'react-native';
+import NativeOwnedTextInput from '../NativeOwnedTextInput';
 import { makeStyles } from '../../theme/styles';
 import { fonts } from '../../theme/typography';
 import { useAccent, useColors } from '../../theme/ThemeContext';
@@ -270,7 +271,8 @@ export default function HouseholdSection({ visible, initialCode }: Props) {
         </View>
       )}
       {admin && approveFor === 'member' && (
-        <TextInput
+        <NativeOwnedTextInput
+          sheet
           value={newName}
           onChangeText={(text) => {
             setNewName(text);
@@ -332,7 +334,8 @@ export default function HouseholdSection({ visible, initialCode }: Props) {
           : 'Or, if the new device is showing a code, enter it here:'}
       </Text>
       <View style={[styles.approveRow, { marginTop: 6 }]}>
-        <TextInput
+        <NativeOwnedTextInput
+          sheet
           value={code}
           onChangeText={(text) => {
             setCode(text);
