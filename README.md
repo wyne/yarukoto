@@ -606,7 +606,28 @@ All endpoints are under `/api/v1` and require `Authorization: Bearer <token>`, e
 | `PATCH /tasks/:id` | Change only the fields sent. `dueDate: null` clears the date, its time and its reminders. |
 | `DELETE /tasks/:id` | Move to Trash. `POST /tasks/:id/restore` brings it back. |
 | `POST /tasks/:id/complete` | Check off with a device timestamp; a stale tap loses to a later edit. Used by notification actions. |
-| `GET /lists` | Every list, with its id. |
+| `GET /lists` | Every list the caller can see, with its id. |
+| `GET /filters` | Saved filters. `GET /filters/:id/tasks` evaluates one now, exactly as the app does. |
+| `POST /pair/start` | *(no token)* Begin signing in a device: returns a short `code` to show and a `secret` to poll with. |
+| `POST /pair/poll` | *(no token)* `{ pairingId, secret }` → `pending`, or the device's own token once approved. |
+| `POST /pair/approve` | Approve a code `as` `self` (another device of yours), `member` (a new person, with `name`; admin only) or `integration` (Home Assistant; admin only). |
+| `GET /me` | Who the token belongs to, and everyone in the household. |
+| `GET /household` | People and devices. An admin sees everyone's, including removed people. |
+| `PATCH /users/:id` | Rename yourself (or anyone, as an admin). |
+| `DELETE /users/:id` | Remove a person (admin). Soft: they are signed out and their things hidden. `POST /users/:id/restore` brings them back with everything. |
+| `DELETE /devices/:id` | Sign a device out. Your own, or anyone's as an admin. |
+
+### Household
+
+`YARUKOTO_TOKEN` is the household's owner, an admin, so existing setups keep working unchanged
+and everything they already hold starts out private to the owner. Everyone else signs in by code,
+with no passwords: a device calls `/pair/start` and shows the code, someone already signed in
+approves it, and the device's next `/pair/poll` receives a token of its own, revocable from
+`/household`.
+
+A list is private to its owner until it is shared; tasks follow their list, and the Inbox is
+always per person. A household integration sees shared lists only. Every endpoint, sync and MCP
+included, applies the same rule.
 
 The `/tasks` routes are for scripts and tools, not the app: each one reads the stored row, merges
 only what it was sent, and writes history, so a caller never has to hold a whole task the way
@@ -772,8 +793,8 @@ For the reason not to use `sqlite3 .backup` here, see the warning above.
 Worth knowing before you rely on it. For what's planned about them — and what's simply not built
 yet — see [ROADMAP.md](ROADMAP.md).
 
-- **One shared token, no user accounts.** Anyone with the token has full access. This is a
-  personal-instance design, not multi-tenant.
+- **One household per server.** People in it get their own accounts and private lists, but it
+  is not multi-tenant: the owner's `YARUKOTO_TOKEN` is an admin credential, so keep it secret.
 - **Concurrent reorders can fight.** Task ordering is a single global value under last-write-wins,
   so two devices reordering the same list simultaneously can produce an interleaving neither chose.
   Everything else merges cleanly per record.

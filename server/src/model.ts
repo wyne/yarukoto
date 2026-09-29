@@ -30,6 +30,9 @@ export interface TaskRow {
   order_key: number;
   updated_at: string;
   deleted_at: string | null;
+  /** NULL for a task an integration created straight into a shared list. */
+  owner_id: string | null;
+  assignee_id: string | null;
 }
 
 export interface ListRow {
@@ -41,6 +44,8 @@ export interface ListRow {
   order_key: number;
   updated_at: string;
   deleted_at: string | null;
+  owner_id: string;
+  shared: number;
 }
 
 export interface FolderRow {
@@ -110,6 +115,7 @@ export function taskFromRow(row: TaskRow): Task {
     listId: row.list_id,
     tags: JSON.parse(row.tags),
     subtasks: JSON.parse(row.subtasks),
+    ...(row.assignee_id ? { assigneeId: row.assignee_id } : {}),
     completed: !!row.completed,
     completedAt: row.completed_at ?? undefined,
     createdAt: row.created_at,
@@ -119,13 +125,21 @@ export function taskFromRow(row: TaskRow): Task {
   };
 }
 
-export function listFromRow(row: ListRow): ListDef {
+/**
+ * `viewerId` is who the list is being shown to. Someone else's shared list sits
+ * at the root of their nav: its folder is the owner's, which they cannot see,
+ * and a list pointing at a folder the client doesn't have would vanish from it.
+ */
+export function listFromRow(row: ListRow, viewerId?: string | null): ListDef {
+  const foreign = viewerId !== undefined && row.owner_id !== viewerId;
   return {
     id: row.id,
     name: row.name,
     color: row.color,
-    folderId: row.folder_id,
+    folderId: foreign ? null : row.folder_id,
     order: row.order_key,
+    shared: !!row.shared,
+    ownerId: row.owner_id,
     updatedAt: row.updated_at,
     deletedAt: row.deleted_at ?? undefined,
   };
@@ -197,7 +211,18 @@ export function savedFilterFromRow(row: SavedFilterRow): SavedFilter {
   };
 }
 
-export function upsertTask(db: Database.Database, task: Task, op: 'create' | 'update' | 'delete' | 'restore'): Task {
+/**
+ * `ownerId` applies only when the row is new: a task's owner never changes
+ * after it is created, whoever edits it later. `assigneeId` is written only
+ * when the incoming task carries the key at all — a client from before
+ * households omits it, and must not unassign the task by doing so.
+ */
+export function upsertTask(
+  db: Database.Database,
+  task: Task,
+  op: 'create' | 'update' | 'delete' | 'restore',
+  ownerId: string | null = null
+): Task {
   const existing = db.prepare('SELECT updated_at FROM tasks WHERE id = ?').get(task.id) as { updated_at: string } | undefined;
   if (existing && existing.updated_at >= task.updatedAt) {
     const row = db.prepare('SELECT * FROM tasks WHERE id = ?').get(task.id) as TaskRow;
@@ -205,9 +230,10 @@ export function upsertTask(db: Database.Database, task: Task, op: 'create' | 'up
   }
 
   db.prepare(
-    `INSERT INTO tasks (id, title, notes, priority, due_date, due_time, reminders, list_id, tags, subtasks, completed, completed_at, created_at, order_key, updated_at, deleted_at, server_updated_at)
-     VALUES (@id, @title, @notes, @priority, @dueDate, @dueTime, @reminders, @listId, @tags, @subtasks, @completed, @completedAt, @createdAt, @order, @updatedAt, @deletedAt, @serverUpdatedAt)
+    `INSERT INTO tasks (id, title, notes, priority, due_date, due_time, reminders, list_id, tags, subtasks, completed, completed_at, created_at, order_key, updated_at, deleted_at, server_updated_at, owner_id, assignee_id)
+     VALUES (@id, @title, @notes, @priority, @dueDate, @dueTime, @reminders, @listId, @tags, @subtasks, @completed, @completedAt, @createdAt, @order, @updatedAt, @deletedAt, @serverUpdatedAt, @ownerId, @assigneeId)
      ON CONFLICT(id) DO UPDATE SET
+       assignee_id = CASE WHEN @hasAssignee THEN excluded.assignee_id ELSE tasks.assignee_id END,
        title = excluded.title, notes = excluded.notes, priority = excluded.priority,
        due_date = excluded.due_date, due_time = excluded.due_time, reminders = excluded.reminders, list_id = excluded.list_id,
        tags = excluded.tags, subtasks = excluded.subtasks, completed = excluded.completed,
@@ -233,6 +259,9 @@ export function upsertTask(db: Database.Database, task: Task, op: 'create' | 'up
     deletedAt: task.deletedAt ?? null,
     // Server clock, not the client's — this is what cursors compare against.
     serverUpdatedAt: new Date().toISOString(),
+    ownerId,
+    assigneeId: task.assigneeId ?? null,
+    hasAssignee: Object.prototype.hasOwnProperty.call(task, 'assigneeId') ? 1 : 0,
   });
 
   // A task can be changed again before its first sync. The record outbox then

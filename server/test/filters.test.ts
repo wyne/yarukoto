@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import Database from 'better-sqlite3';
-import Fastify from 'fastify';
+import { authedApp, OWNER_AUTH } from './helpers';
 import { SavedFilter, Task } from '../../shared/types';
 import { EMPTY_CRITERIA } from '../../shared/taskFilter';
 import { toISODate } from '../../shared/dates';
@@ -47,7 +47,7 @@ function filter(id: string, fields: Partial<SavedFilter> = {}): SavedFilter {
 }
 
 async function syncApp(db: Database.Database) {
-  const app = Fastify();
+  const app = authedApp(db);
   registerSyncRoutes(app, db);
   registerTaskRoutes(app, db);
   await app.ready();
@@ -62,16 +62,16 @@ test('saved filters round-trip through sync and honour last-write-wins', async (
     name: 'Due today',
     criteria: { ...EMPTY_CRITERIA, due: ['today', 'overdue'], tags: ['home'] },
   });
-  const pushed = await app.inject({ method: 'POST', url: '/api/v1/sync', payload: { savedFilters: [today] } });
+  const pushed = await app.inject({ headers: OWNER_AUTH, method: 'POST', url: '/api/v1/sync', payload: { savedFilters: [today] } });
   assert.deepEqual(pushed.json().savedFilters, [today]);
 
   const stale = { ...today, name: 'Older', updatedAt: '2026-08-01T00:00:00.000Z' };
-  const rejected = await app.inject({ method: 'POST', url: '/api/v1/sync', payload: { savedFilters: [stale] } });
+  const rejected = await app.inject({ headers: OWNER_AUTH, method: 'POST', url: '/api/v1/sync', payload: { savedFilters: [stale] } });
   assert.equal(rejected.json().savedFilters[0].name, 'Due today');
 
-  const pulled = (await app.inject({ method: 'GET', url: '/api/v1/sync' })).json();
+  const pulled = (await app.inject({ headers: OWNER_AUTH, method: 'GET', url: '/api/v1/sync' })).json();
   assert.deepEqual(pulled.savedFilters, [today]);
-  const later = (await app.inject({ method: 'GET', url: `/api/v1/sync?since=${pulled.now}` })).json();
+  const later = (await app.inject({ headers: OWNER_AUTH, method: 'GET', url: `/api/v1/sync?since=${pulled.now}` })).json();
   assert.deepEqual(later.savedFilters, []);
 });
 
@@ -82,7 +82,7 @@ test('criteria a newer client wrote are normalised rather than passed through', 
     ...filter('sf-odd'),
     criteria: { query: 7, listIds: ['l-a', 3], due: ['today', 'someday'], status: 'snoozed', extra: true },
   };
-  const pushed = await app.inject({ method: 'POST', url: '/api/v1/sync', payload: { savedFilters: [odd] } });
+  const pushed = await app.inject({ headers: OWNER_AUTH, method: 'POST', url: '/api/v1/sync', payload: { savedFilters: [odd] } });
   assert.deepEqual(pushed.json().savedFilters[0].criteria, {
     ...EMPTY_CRITERIA,
     listIds: ['l-a'],
@@ -92,11 +92,12 @@ test('criteria a newer client wrote are normalised rather than passed through', 
 
 test('savedFilterTasks evaluates criteria with the shared matcher', () => {
   const db = openDb();
-  const app = Fastify();
+  const app = authedApp(db);
   registerSyncRoutes(app, db);
   // Sunday 27 Sep 2026, noon.
   const now = new Date(2026, 8, 27, 12);
   return app.inject({
+    headers: OWNER_AUTH,
     method: 'POST',
     url: '/api/v1/sync',
     payload: {
@@ -128,6 +129,7 @@ test('GET /filters lists live filters and /filters/:id/tasks resolves today in Y
   const app = await syncApp(db);
   const today = toISODate(wallClockNow(env.timeZone));
   await app.inject({
+    headers: OWNER_AUTH,
     method: 'POST',
     url: '/api/v1/sync',
     payload: {
@@ -140,13 +142,13 @@ test('GET /filters lists live filters and /filters/:id/tasks resolves today in Y
     },
   });
 
-  const listed = (await app.inject({ method: 'GET', url: '/api/v1/filters' })).json();
+  const listed = (await app.inject({ headers: OWNER_AUTH, method: 'GET', url: '/api/v1/filters' })).json();
   assert.deepEqual(
     listed.filters.map((f: SavedFilter) => f.id),
     ['sf-a', 'sf-b']
   );
 
-  const res = (await app.inject({ method: 'GET', url: '/api/v1/filters/sf-a/tasks' })).json();
+  const res = (await app.inject({ headers: OWNER_AUTH, method: 'GET', url: '/api/v1/filters/sf-a/tasks' })).json();
   assert.equal(res.today, today);
   assert.equal(res.filter.name, 'Today');
   assert.deepEqual(
@@ -154,6 +156,6 @@ test('GET /filters lists live filters and /filters/:id/tasks resolves today in Y
     ['t-a']
   );
 
-  const missing = await app.inject({ method: 'GET', url: '/api/v1/filters/sf-x/tasks' });
+  const missing = await app.inject({ headers: OWNER_AUTH, method: 'GET', url: '/api/v1/filters/sf-x/tasks' });
   assert.equal(missing.statusCode, 404);
 });

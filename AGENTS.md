@@ -124,3 +124,20 @@ implementation of "due today" would drift from the first.
 Relative dates ("today", "fri") resolve in `YARUKOTO_TZ` via `wallClockNow`, never
 in the server process's own zone, which in a container is usually UTC. The quick-add
 parser lives in `shared/` so both sides read the same syntax.
+
+## Household
+
+People, devices and sign-in live in `server/src/household.ts`; who can see what lives in
+`server/src/access.ts`, and nowhere else. Every read that can return a task or list — sync,
+the task API, MCP, history, saved filters — filters with `taskVisibleSql` / `listVisibleSql`,
+and every write checks against them. Don't restate the rule in a route.
+
+`YARUKOTO_TOKEN` is the owner (`u-owner`, an admin), so a client that predates households
+keeps working exactly as before. For the same reason the server treats a missing `shared` on a
+list, or a missing `assigneeId` on a task, as "not sent" and keeps the stored value: an older
+build's whole-row push must not unshare a list or unassign a task.
+
+When a write changes who can see a row without changing the row itself — sharing a list,
+removing or restoring a person — bump `server_updated_at` on every affected row. That is what
+puts them in the next pull, where they come back as rows to some people and as `removed` ids to
+others. Nothing is ever hard-deleted for visibility; removing a person hides, never destroys.

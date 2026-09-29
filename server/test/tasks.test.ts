@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import Database from 'better-sqlite3';
-import Fastify from 'fastify';
+import { authedApp, OWNER_AUTH } from './helpers';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { Task } from '../../shared/types';
@@ -125,31 +125,31 @@ test('wallClockNow reads the date in the requested zone', () => {
 
 test('REST routes create, patch, trash and restore', async () => {
   const db = openDb();
-  const app = Fastify();
+  const app = authedApp(db);
   registerTaskRoutes(app, db);
   await app.ready();
 
-  const created = await app.inject({ method: 'POST', url: '/api/v1/tasks', payload: { title: 'buy milk', tags: ['#Food'] } });
+  const created = await app.inject({ headers: OWNER_AUTH, method: 'POST', url: '/api/v1/tasks', payload: { title: 'buy milk', tags: ['#Food'] } });
   assert.equal(created.statusCode, 201);
   const task = created.json().task as Task;
   assert.deepEqual(task.tags, ['food']);
 
-  const patched = await app.inject({ method: 'PATCH', url: `/api/v1/tasks/${task.id}`, payload: { notes: '2%' } });
+  const patched = await app.inject({ headers: OWNER_AUTH, method: 'PATCH', url: `/api/v1/tasks/${task.id}`, payload: { notes: '2%' } });
   assert.equal(patched.json().task.notes, '2%');
   assert.equal(patched.json().task.title, 'buy milk');
 
-  const bad = await app.inject({ method: 'PATCH', url: `/api/v1/tasks/${task.id}`, payload: { priority: 'urgent' } });
+  const bad = await app.inject({ headers: OWNER_AUTH, method: 'PATCH', url: `/api/v1/tasks/${task.id}`, payload: { priority: 'urgent' } });
   assert.equal(bad.statusCode, 400);
 
-  const missing = await app.inject({ method: 'GET', url: '/api/v1/tasks/t-nope' });
+  const missing = await app.inject({ headers: OWNER_AUTH, method: 'GET', url: '/api/v1/tasks/t-nope' });
   assert.equal(missing.statusCode, 404);
 
-  await app.inject({ method: 'DELETE', url: `/api/v1/tasks/${task.id}` });
-  assert.equal((await app.inject({ method: 'GET', url: '/api/v1/tasks' })).json().tasks.length, 0);
-  await app.inject({ method: 'POST', url: `/api/v1/tasks/${task.id}/restore` });
-  assert.equal((await app.inject({ method: 'GET', url: '/api/v1/tasks?listId=inbox' })).json().tasks.length, 1);
+  await app.inject({ headers: OWNER_AUTH, method: 'DELETE', url: `/api/v1/tasks/${task.id}` });
+  assert.equal((await app.inject({ headers: OWNER_AUTH, method: 'GET', url: '/api/v1/tasks' })).json().tasks.length, 0);
+  await app.inject({ headers: OWNER_AUTH, method: 'POST', url: `/api/v1/tasks/${task.id}/restore` });
+  assert.equal((await app.inject({ headers: OWNER_AUTH, method: 'GET', url: '/api/v1/tasks?listId=inbox' })).json().tasks.length, 1);
 
-  const lists = await app.inject({ method: 'GET', url: '/api/v1/lists' });
+  const lists = await app.inject({ headers: OWNER_AUTH, method: 'GET', url: '/api/v1/lists' });
   assert.deepEqual(lists.json().lists.map((l: { name: string }) => l.name), ['Admin']);
 
   await app.close();
@@ -157,19 +157,20 @@ test('REST routes create, patch, trash and restore', async () => {
 
 test('the notification complete endpoint still drops a stale tap', async () => {
   const db = openDb();
-  const app = Fastify();
+  const app = authedApp(db);
   registerTaskRoutes(app, db);
   await app.ready();
 
   const task = createTask(db, { title: 'stale' }, sunday);
   const stale = await app.inject({
+    headers: OWNER_AUTH,
     method: 'POST',
     url: `/api/v1/tasks/${task.id}/complete`,
     payload: { completedAt: '2000-01-01T00:00:00.000Z' },
   });
   assert.equal(stale.json().applied, false);
 
-  const fresh = await app.inject({ method: 'POST', url: `/api/v1/tasks/${task.id}/complete`, payload: {} });
+  const fresh = await app.inject({ headers: OWNER_AUTH, method: 'POST', url: `/api/v1/tasks/${task.id}/complete`, payload: {} });
   assert.equal(fresh.json().applied, true);
   assert.equal(fresh.json().task.completed, true);
 
@@ -251,11 +252,11 @@ test('MCP tools cover create, schedule, complete, delete and restore', async () 
 
 test('MCP answers over HTTP at /mcp', async () => {
   const db = openDb();
-  const app = Fastify();
+  const app = authedApp(db);
   registerMcpRoutes(app, db);
   await app.ready();
 
-  const headers = { accept: 'application/json, text/event-stream', 'content-type': 'application/json' };
+  const headers = { ...OWNER_AUTH, accept: 'application/json, text/event-stream', 'content-type': 'application/json' };
   const init = await app.inject({
     method: 'POST',
     url: '/mcp',
@@ -280,7 +281,7 @@ test('MCP answers over HTTP at /mcp', async () => {
   assert.equal(JSON.parse(call.json().result.content[0].text).task.title, 'over http');
   assert.equal(listTasks(db).length, 1);
 
-  const get = await app.inject({ method: 'GET', url: '/mcp' });
+  const get = await app.inject({ headers: OWNER_AUTH, method: 'GET', url: '/mcp' });
   assert.equal(get.statusCode, 405);
 
   await app.close();

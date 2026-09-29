@@ -2,6 +2,7 @@ import { FastifyInstance, FastifyReply } from 'fastify';
 import Database from 'better-sqlite3';
 import { env } from '../env';
 import { wallClockNow } from '../clock';
+import { viewerOf } from '../viewer';
 import { toISODate } from '../../../shared/dates';
 import {
   CreateInput,
@@ -65,52 +66,52 @@ export function registerTaskRoutes(app: FastifyInstance, db: Database.Database):
       reply.code(400).send({ error: 'bad_request', message: 'status must be open, completed, all or trash' });
       return;
     }
-    await respond(reply, () => ({ tasks: listTasks(db, filter) }));
+    await respond(reply, () => ({ tasks: listTasks(db, filter, viewerOf(request)) }));
   });
 
   app.get<{ Params: { id: string } }>('/api/v1/tasks/:id', async (request, reply) => {
-    await respond(reply, () => ({ task: getTask(db, request.params.id) }));
+    await respond(reply, () => ({ task: getTask(db, request.params.id, viewerOf(request)) }));
   });
 
   app.post<{ Body: CreateInput }>('/api/v1/tasks', async (request, reply) => {
     await respond(reply, () => {
       reply.code(201);
-      return { task: createTask(db, request.body ?? {}, wallClockNow(env.timeZone)) };
+      return { task: createTask(db, request.body ?? {}, wallClockNow(env.timeZone), viewerOf(request)) };
     });
   });
 
   app.patch<{ Params: { id: string }; Body: TaskInput }>('/api/v1/tasks/:id', async (request, reply) => {
-    await respond(reply, () => ({ task: updateTask(db, request.params.id, request.body ?? {}) }));
+    await respond(reply, () => ({ task: updateTask(db, request.params.id, request.body ?? {}, viewerOf(request)) }));
   });
 
   app.delete<{ Params: { id: string } }>('/api/v1/tasks/:id', async (request, reply) => {
-    await respond(reply, () => ({ task: trashTask(db, request.params.id) }));
+    await respond(reply, () => ({ task: trashTask(db, request.params.id, viewerOf(request)) }));
   });
 
   app.post<{ Params: { id: string } }>('/api/v1/tasks/:id/restore', async (request, reply) => {
-    await respond(reply, () => ({ task: restoreTask(db, request.params.id) }));
+    await respond(reply, () => ({ task: restoreTask(db, request.params.id, viewerOf(request)) }));
   });
 
   app.post<{ Params: { id: string }; Body: CompleteBody }>('/api/v1/tasks/:id/complete', async (request, reply) => {
     const completedAt = request.body?.completedAt ?? new Date().toISOString();
-    await respond(reply, () => completeTaskAt(db, request.params.id, completedAt));
+    await respond(reply, () => completeTaskAt(db, request.params.id, completedAt, viewerOf(request)));
   });
 
-  app.get('/api/v1/lists', async (_request, reply) => {
-    reply.send({ lists: listLists(db) });
+  app.get('/api/v1/lists', async (request, reply) => {
+    reply.send({ lists: listLists(db, viewerOf(request)) });
   });
 
   // Saved filters are written only by the app, through /sync; these two read
   // them for callers that cannot evaluate criteria themselves, such as Home
   // Assistant polling one filter as a to-do list.
-  app.get('/api/v1/filters', async (_request, reply) => {
-    reply.send({ filters: listSavedFilters(db) });
+  app.get('/api/v1/filters', async (request, reply) => {
+    reply.send({ filters: listSavedFilters(db, viewerOf(request)) });
   });
 
   app.get<{ Params: { id: string } }>('/api/v1/filters/:id/tasks', async (request, reply) => {
     await respond(reply, () => {
       const now = wallClockNow(env.timeZone);
-      return { today: toISODate(now), ...savedFilterTasks(db, request.params.id, now) };
+      return { today: toISODate(now), ...savedFilterTasks(db, request.params.id, now, viewerOf(request)) };
     });
   });
 }
