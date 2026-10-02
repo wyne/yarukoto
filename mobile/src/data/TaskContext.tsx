@@ -1016,8 +1016,9 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     [markDirty]
   );
   // The usual midpoint changes one task. When a gap runs out of precision,
-  // computeOrders renumbers the whole collection; using that same change map for
-  // both the reducer and the outbox ensures every respaced task reaches the server.
+  // computeOrders renumbers the whole collection. Compute against the same
+  // render-time snapshot that supplied prevId/nextId, then give one change map
+  // to both the reducer and outbox so their affected rows cannot drift apart.
   const reorderTasks = useCallback(
     (ids: string[], prevId: string | null, nextId: string | null) => {
       const orders = changedOrders(state.tasks, computeOrders(state.tasks, ids, prevId, nextId));
