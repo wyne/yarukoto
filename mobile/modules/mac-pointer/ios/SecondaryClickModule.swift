@@ -30,6 +30,18 @@ public final class KeyCommandsModule: Module {
       Prop("keys") { (view: KeyCommandsView, keys: [String]) in
         view.keys = keys
       }
+
+      Prop("active") { (view: KeyCommandsView, active: Bool?) in
+        view.active = active ?? true
+      }
+
+      Prop("focusable") { (view: KeyCommandsView, focusable: Bool?) in
+        view.focusable = focusable ?? false
+      }
+
+      Prop("focusKey") { (view: KeyCommandsView, focusKey: Int?) in
+        view.focusKey = focusKey ?? 0
+      }
     }
   }
 }

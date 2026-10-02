@@ -10,7 +10,7 @@ import { useTasks } from '../data/TaskContext';
 import { activeFolders, activeLists, tagCounts } from '../data/selectors';
 import { MAC } from '../data/platform';
 import { rankPaletteItems } from '../data/paletteSearch';
-import { COMMANDS, CommandId, formatShortcut, paletteTitle } from '../navigation/commands';
+import { COMMANDS, CommandId, displayShortcut, formatShortcut, paletteTitle } from '../navigation/commands';
 import { dispatchCommand, useAvailableCommands } from '../navigation/MenuCommands';
 import { navigationRef } from '../navigation/DateTimePickerContext';
 import { tabNavigation } from '../navigation/destinations';
@@ -83,6 +83,7 @@ export default function CommandPalette({ visible, onClose }: Props) {
     if (!visible) return;
     setQuery('');
     setIndex(0);
+    scrollY.current = 0;
   }, [visible]);
 
   const entries = useMemo<Entry[]>(() => {
@@ -96,7 +97,7 @@ export default function CommandPalette({ visible, onClose }: Props) {
       if (def.hiddenFromPalette || !available.has(def.id)) continue;
       // Only a key that works here is worth teaching: the web leaves some to
       // the browser.
-      const shortcut = def.shortcut && (MAC || def.web) ? def.shortcut : undefined;
+      const shortcut = displayShortcut(def, !MAC);
       out.push({
         key: `c:${def.id}`,
         title: paletteTitle(def),
@@ -136,11 +137,23 @@ export default function CommandPalette({ visible, onClose }: Props) {
   const results = useMemo(() => rankPaletteItems(entries, query), [entries, query]);
   const selected = Math.min(index, Math.max(0, results.length - 1));
 
-  // Keep the chosen row in sight as the arrows walk past the edge.
-  useEffect(() => {
-    const top = selected * ROW_HEIGHT;
-    listRef.current?.scrollTo({ y: Math.max(0, top - ROW_HEIGHT * (MAX_ROWS - 1)), animated: false });
-  }, [selected]);
+  /**
+   * Where the list is scrolled to, as it last reported. Tracked rather than
+   * asked for, because the arrows need it to scroll only as far as the next row
+   * — and only the arrows scroll: a row chosen by the pointer is already in
+   * sight, and pulling the list to it would fight the wheel that brought it.
+   */
+  const scrollY = useRef(0);
+  const reveal = (i: number) => {
+    const top = i * ROW_HEIGHT;
+    const viewport = ROW_HEIGHT * MAX_ROWS;
+    let y = scrollY.current;
+    if (top < y) y = top;
+    else if (top + ROW_HEIGHT > y + viewport) y = top + ROW_HEIGHT - viewport;
+    else return;
+    scrollY.current = y;
+    listRef.current?.scrollTo({ y, animated: false });
+  };
 
   /**
    * Closes, then runs. A command acting on the list, or focusing a field, has to
@@ -156,7 +169,9 @@ export default function CommandPalette({ visible, onClose }: Props) {
 
   const move = (delta: number) => {
     if (results.length === 0) return;
-    setIndex((selected + delta + results.length) % results.length);
+    const next = (selected + delta + results.length) % results.length;
+    setIndex(next);
+    reveal(next);
   };
 
   const field = (
@@ -166,6 +181,7 @@ export default function CommandPalette({ visible, onClose }: Props) {
       onChangeText={(text) => {
         setQuery(text);
         setIndex(0);
+        reveal(0);
       }}
       placeholder="Go to or do…"
       placeholderTextColor={colors.textFaint}
@@ -202,6 +218,10 @@ export default function CommandPalette({ visible, onClose }: Props) {
       <ScrollView
         ref={listRef}
         style={{ maxHeight: ROW_HEIGHT * MAX_ROWS }}
+        onScroll={(e) => {
+          scrollY.current = e.nativeEvent.contentOffset.y;
+        }}
+        scrollEventThrottle={16}
         keyboardShouldPersistTaps="always"
       >
         {results.length === 0 && <Text style={styles.empty}>Nothing matches.</Text>}

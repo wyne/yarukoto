@@ -520,9 +520,7 @@ stay web-only.
 | File | New Task — the pinned add field, or the Inbox's on a screen without one | ⌘N |
 | Edit | Find… — Browse's search | ⌘F |
 | View | Command Menu… | ⌘K |
-| Task | Open Task | ↩ |
-| Task | Next / Previous Task | ↓ / ↑ |
-| Task | Add Next / Previous to Selection | ⇧↓ / ⇧↑ |
+| Task | Open Task | ⌘O, or ↩ in the list |
 | Task | Mark as Done | ⌘↩ |
 | Task | Due Today / Due Tomorrow / Remove Due Date | ⌘T / ⌥⌘T / — |
 | Task | Priority ▸ High, Medium, Low, None | ⌥⌘1, 2, 3, 0 |
@@ -530,9 +528,15 @@ stay web-only.
 
 The Task menu works on the list's cursor: the row last clicked or arrowed to, which keeps its tint.
 With a selection it works on all of it. Format is removed, since nothing here styles text. A
-command nothing on screen can answer is dimmed; a Task command also dims while a popover or dialog
-is up, and one on a plain key (↩, ↑, ↓) while a text field has focus, which hands the key back to
-the field.
+command nothing on screen can answer is dimmed, and a Task command also while a popover or dialog
+is up.
+
+**The list's own keys** — ↑ and ↓ to move the cursor, ⇧↑ and ⇧↓ to select, ↩ to open, Escape to
+deselect — are not in the menu bar, and can't be: AppKit tries a menu key equivalent before
+anything focused hears the key, so a plain ↩ there would take Return from every text field.
+Instead the list holds them itself, through `KeyCommandsView` in `mobile/modules/mac-pointer`,
+taking the keyboard when it appears, when you click in it, and when a dialog closes. A field
+focused anywhere else keeps every key.
 
 The **command menu** (⌘K) searches every view, list, folder, tag and saved filter, and every
 command something on screen can answer, with each one's key beside it — so it doubles as the way

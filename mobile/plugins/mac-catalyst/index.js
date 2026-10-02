@@ -141,8 +141,7 @@ const MENU_MARKER = '// mac-catalyst plugin: menu bar';
  * override no module can supply, and a menu command's action has to be answered
  * by something in the responder chain, which the delegate ends. So the delegate
  * gets both, each forwarding to MacMenuBar, where the menu is actually defined,
- * and a `canPerformAction` that lets MacMenuBar dim a command — which is also
- * what hands a plain key like Return back to a focused text field. The action's
+ * and a `canPerformAction` that lets MacMenuBar dim a command. The action's
  * name is the one MacMenuBar.action looks up.
  *
  * Anchored on Expo's template, and throws if that changes, like the Podfile edit.

@@ -1,7 +1,10 @@
 import {
   COMMANDS,
   KeyEventLike,
+  LIST_KEYS,
+  displayShortcut,
   formatShortcut,
+  keyName,
   keyInputOf,
   matchesShortcut,
   paletteTitle,
@@ -24,17 +27,25 @@ describe('the command list', () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 
-  test('no two commands share a shortcut', () => {
-    const shortcuts = COMMANDS.filter((c) => c.shortcut).map(
-      (c) => `${[...c.shortcut!.modifiers].sort().join('+')}:${c.shortcut!.input}`
-    );
-    expect(new Set(shortcuts).size).toBe(shortcuts.length);
+  test('no two commands share a key', () => {
+    const keys = COMMANDS.flatMap((c) => [c.shortcut, ...(c.listKeys ?? [])])
+      .filter((k): k is NonNullable<typeof k> => !!k)
+      .map(keyName);
+    expect(new Set(keys).size).toBe(keys.length);
   });
 
-  test('a plain key only ever acts on the list, where a focused field takes it back', () => {
+  test('the menu bar holds no plain key, which would take it from every focused field', () => {
     for (const c of COMMANDS) {
-      const plain = c.shortcut && !c.shortcut.modifiers.some((m) => m !== 'shift');
-      if (plain) expect(c.list).toBe(true);
+      if (c.shortcut) expect(c.shortcut.modifiers).toContain('command');
+    }
+  });
+
+  test('every list key acts on the list, and is answered by it', () => {
+    for (const c of COMMANDS) {
+      for (const k of c.listKeys ?? []) {
+        expect(c.list).toBe(true);
+        expect(LIST_KEYS.get(keyName(k))).toBe(c.id);
+      }
     }
   });
 
@@ -43,6 +54,15 @@ describe('the command list', () => {
     expect(paletteTitle(high)).toBe('Priority: High');
     expect(paletteTitle(COMMANDS.find((c) => c.id === 'settings')!)).toBe('Settings');
   });
+});
+
+test('the command menu shows the menu key, else the list key', () => {
+  const open = COMMANDS.find((c) => c.id === 'openTask')!;
+  expect(keyName(displayShortcut(open, false)!)).toBe('command+o');
+  const today = COMMANDS.find((c) => c.id === 'dueToday')!;
+  // ⌘T is the browser's, so the web has nothing to show.
+  expect(displayShortcut(today, true)).toBeUndefined();
+  expect(keyName({ input: 'down', modifiers: ['shift'] })).toBe('shift+down');
 });
 
 describe('formatShortcut', () => {
@@ -76,15 +96,20 @@ describe('matching DOM keys', () => {
   });
 
   test('extra modifiers make a different shortcut', () => {
-    expect(webCommandFor(key('ArrowDown', 'ArrowDown'))?.id).toBe('nextTask');
-    expect(webCommandFor(key('ArrowDown', 'ArrowDown', { shiftKey: true }))?.id).toBe('selectNext');
+    expect(webCommandFor(key('ArrowDown', 'ArrowDown'))?.def.id).toBe('nextTask');
+    expect(webCommandFor(key('ArrowDown', 'ArrowDown', { shiftKey: true }))?.def.id).toBe('selectNext');
     expect(webCommandFor(key('ArrowDown', 'ArrowDown', { metaKey: true }))).toBeUndefined();
+  });
+
+  test('says whether a key was a plain list key, which a focused field keeps', () => {
+    expect(webCommandFor(key('Enter', 'Enter'))).toMatchObject({ listKey: true });
+    expect(webCommandFor(key('o', 'KeyO', { metaKey: true }))).toMatchObject({ listKey: false });
   });
 
   test('leaves the browser its own keys', () => {
     // ⌘N and ⌘T open a window and a tab before a page hears them.
     expect(webCommandFor(key('n', 'KeyN', { metaKey: true }))).toBeUndefined();
     expect(webCommandFor(key('t', 'KeyT', { metaKey: true }))).toBeUndefined();
-    expect(webCommandFor(key('k', 'KeyK', { metaKey: true }))?.id).toBe('commandMenu');
+    expect(webCommandFor(key('k', 'KeyK', { metaKey: true }))?.def.id).toBe('commandMenu');
   });
 });

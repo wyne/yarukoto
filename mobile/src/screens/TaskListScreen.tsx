@@ -35,6 +35,7 @@ import { useSelection } from '../navigation/SelectionContext';
 import { useCommand } from '../navigation/MenuCommands';
 import { rangeBetween, stepCursor } from '../data/listCursor';
 import TaskRow from '../components/TaskRow';
+import ListKeys from '../components/ListKeys';
 import { useRowContext } from '../components/useRowContext';
 import Card from '../components/Card';
 import Divider from '../components/Divider';
@@ -309,27 +310,22 @@ export default function TaskListScreen({ mode, filter }: Props) {
    *
    * Web only: it listens on `document`, which the Mac doesn't have. There a
    * click still opens a row and makes it the anchor, and ⇧↑ and ⇧↓ extend a
-   * selection from it (see `extendTo`); shift-click and Escape are not wired
-   * up yet.
+   * selection from it (see `extendTo`); shift-click is not wired up yet.
    */
   const shiftHeld = useRef(false);
   /** The moving end of a keyboard selection; see `extendTo`. */
   const head = useRef<string | null>(null);
+  /** Bumped to hand the keyboard to the list, on the Mac; see ListKeys. */
+  const [keyFocus, setKeyFocus] = useState(0);
+  const claimKeyboard = () => setKeyFocus((n) => n + 1);
   useEffect(() => {
     if (Platform.OS !== 'web') return;
     const onDown = (e: PointerEvent) => {
       shiftHeld.current = e.shiftKey;
     };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') clearSelection();
-    };
     document.addEventListener('pointerdown', onDown, true);
-    document.addEventListener('keydown', onKey);
-    return () => {
-      document.removeEventListener('pointerdown', onDown, true);
-      document.removeEventListener('keydown', onKey);
-    };
-  }, [clearSelection]);
+    return () => document.removeEventListener('pointerdown', onDown, true);
+  }, []);
 
   const isSelected = (id: string) =>
     DESKTOP_UI ? webSelection.includes(id) : selectedIds.includes(id);
@@ -359,6 +355,7 @@ export default function TaskListScreen({ mode, filter }: Props) {
    */
   const pressRow = (id: string) => {
     closeOpenSwipeRow();
+    claimKeyboard();
     if (!DESKTOP_UI) {
       if (selectionMode) toggleSelected(id);
       else openTask(id);
@@ -464,6 +461,7 @@ export default function TaskListScreen({ mode, filter }: Props) {
   useCommand('selectNext', () => extendTo(1), hasRows);
   useCommand('selectPrevious', () => extendTo(-1), hasRows);
   useCommand('openTask', () => cursor && openTask(cursor), keyboardList && !!cursor);
+  useCommand('deselect', clearSelection, keyboardList && webSelection.length > 0);
   useCommand(
     'completeTask',
     () =>
@@ -800,6 +798,7 @@ export default function TaskListScreen({ mode, filter }: Props) {
         </View>
       )}
 
+      <ListKeys focusKey={keyFocus}>
       {VIRTUALIZED ? (
         <VirtualTaskList
           ref={listRef}
@@ -922,6 +921,7 @@ export default function TaskListScreen({ mode, filter }: Props) {
           )}
         </Animated.ScrollView>
       )}
+      </ListKeys>
 
       {!DESKTOP_UI && canQuickAdd && (
         <AddTaskFab defaults={quickAddDefaults} contextLabel={quickAddLabel} hidden={selectionMode} />

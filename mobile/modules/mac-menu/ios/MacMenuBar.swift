@@ -44,11 +44,6 @@ public enum MacMenuBar {
     let modifiers: UIKeyModifierFlags
     /// Acts on the task list; see `canPerform`.
     let list: Bool
-
-    /// No ⌘, ⌥ or ⌃: a key a text field would otherwise have typed or moved by.
-    var plainKey: Bool {
-      input != nil && modifiers.isDisjoint(with: [.command, .alternate, .control])
-    }
   }
 
   private static var specs: [Spec] = []
@@ -132,11 +127,12 @@ public enum MacMenuBar {
   /**
    * Whether one of our commands can run, or nil when `action` isn't ours.
    *
-   * Dimmed when nothing on screen answers it. A task-list command is also dimmed
-   * while a popover or dialog is up, so a key pressed there never reaches the
-   * list behind it; and one on a plain key — ↑, ↓, Return — while a text field
-   * has focus, so typing keeps its keys. A dimmed key equivalent isn't consumed,
-   * which is what hands those keys back to the field.
+   * Dimmed when nothing on screen answers it, and a task-list command also
+   * while a popover or dialog is up, so its key can't reach the list behind.
+   * (JS refuses those too, in dispatchCommand; this is what draws it dimmed.)
+   *
+   * None of these is on a plain key — those belong to the list itself, through
+   * KeyCommandsView — so a focused text field needs no special case here.
    */
   public static func canPerform(_ action: Selector, withSender sender: Any?) -> Bool? {
     guard action == Self.action else { return nil }
@@ -146,10 +142,7 @@ public enum MacMenuBar {
       return true
     }
     guard enabled.contains(id) else { return false }
-    if spec.list {
-      if keyWindow()?.rootViewController?.presentedViewController != nil { return false }
-      if spec.plainKey && firstResponder() is UITextInput { return false }
-    }
+    if spec.list, keyWindow()?.rootViewController?.presentedViewController != nil { return false }
     return true
   }
 
@@ -272,26 +265,5 @@ public enum MacMenuBar {
       .compactMap { $0 as? UIWindowScene }
       .flatMap(\.windows)
       .first(where: \.isKeyWindow)
-  }
-
-  /// Set by `UIResponder.macMenuCaptureFirstResponder`; read straight after.
-  fileprivate static weak var captured: UIResponder?
-
-  /**
-   * Whatever has focus. UIKit doesn't say, but an action sent to nil goes to the
-   * first responder, and that one records itself.
-   */
-  private static func firstResponder() -> UIResponder? {
-    captured = nil
-    UIApplication.shared.sendAction(
-      #selector(UIResponder.macMenuCaptureFirstResponder(_:)), to: nil, from: nil, for: nil
-    )
-    return captured
-  }
-}
-
-extension UIResponder {
-  @objc fileprivate func macMenuCaptureFirstResponder(_ sender: Any?) {
-    MacMenuBar.captured = self
   }
 }

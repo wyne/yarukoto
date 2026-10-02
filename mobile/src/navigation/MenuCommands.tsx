@@ -6,7 +6,7 @@ import { DESKTOP_UI, MAC } from '../data/platform';
 import { usePendingUndo, useTasks } from '../data/TaskContext';
 import { anyLayerOpen } from '../components/openLayers';
 import CommandPalette from '../components/CommandPalette';
-import { COMMANDS, CommandId, webCommandFor } from './commands';
+import { COMMANDS, CommandId, commandDef, webCommandFor } from './commands';
 import { navigationRef } from './DateTimePickerContext';
 import { useSidebar } from './SidebarContext';
 
@@ -73,6 +73,9 @@ export function useAvailableCommands(): ReadonlySet<CommandId> {
 
 /** Runs a command. False when nothing could answer it. */
 export function dispatchCommand(id: CommandId): boolean {
+  // A key pressed in a popover or dialog is about that layer, never the list
+  // behind it — whichever route it came by.
+  if (commandDef(id).list && anyLayerOpen()) return false;
   const stack = handlers.get(id);
   if (stack?.length) {
     stack[stack.length - 1]();
@@ -151,10 +154,11 @@ export default function MenuCommands() {
   useEffect(() => {
     if (!MAC || !MacMenu) return;
     MacMenu.setCommands(
-      COMMANDS.map((c) => ({
+      // Only what has a place in the menus; list movement doesn't.
+      COMMANDS.filter((c) => c.menu).map((c) => ({
         id: c.id,
         title: c.title,
-        menu: c.menu,
+        menu: c.menu!,
         group: c.group,
         submenu: c.submenu,
         input: c.shortcut?.input,
@@ -179,15 +183,12 @@ export default function MenuCommands() {
     const onKey = (e: KeyboardEvent) => {
       // Held arrows repeat, as they do in any list; nothing else should.
       if (e.defaultPrevented || (e.repeat && !e.key.startsWith('Arrow'))) return;
-      const def = webCommandFor(e);
-      if (!def) return;
-      if (def.list) {
-        if (anyLayerOpen()) return;
-        // A plain key belongs to the field being typed in; one with ⌘ or ⌥ is
-        // a command whatever has focus, as it is in the Mac's menu bar.
-        const plain = !def.shortcut!.modifiers.some((m) => m === 'command' || m === 'option');
-        if (plain && typingIn(e.target)) return;
-      }
+      const match = webCommandFor(e);
+      if (!match) return;
+      // A plain list key belongs to the field being typed in; a shortcut with
+      // ⌘ is a command whatever has focus, as it is in the Mac's menu bar.
+      if (match.listKey && typingIn(e.target)) return;
+      const { def } = match;
       if (dispatchCommand(def.id)) e.preventDefault();
     };
     document.addEventListener('keydown', onKey);

@@ -46,7 +46,9 @@ The iOS project also builds for the Mac (`npm run mac`; details in the README un
   The Mac menu bar (`modules/mac-menu`) and the command menu (⌘K) are both built from that list,
   so a new command is one entry there plus a `useCommand` — nothing native to add. A command
   nothing has registered is dimmed in the menu and left out of ⌘K, so pass `enabled` false when
-  there is nothing for it to act on.
+  there is nothing for it to act on. **Never give a menu command a plain key** (no ⌘): a menu
+  key equivalent fires before any focused field hears the key. Plain keys go in `listKeys`,
+  which the task list answers itself (`src/components/ListKeys.tsx`).
 - **A new native dependency has to compile for Catalyst too.** After adding one, run
   `npm run mac` as well as the phone build; one pod without a Catalyst slice fails
   the whole Mac build. If it needs a project-level fix, it belongs in

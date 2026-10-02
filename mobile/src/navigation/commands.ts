@@ -45,26 +45,37 @@ export type CommandId =
   | 'priorityMedium'
   | 'priorityLow'
   | 'priorityNone'
-  | 'deleteTask';
+  | 'deleteTask'
+  | 'deselect';
 
 export interface CommandDef {
   id: CommandId;
   title: string;
-  menu: MenuPlacement;
+  /** Left out of the menu bar when absent, as list movement is in every Mac app. */
+  menu?: MenuPlacement;
   /** Commands sharing a group sit together between separators. */
   group: string;
   /** Drawn as a submenu of this name inside its group. */
   submenu?: string;
+  /** The menu bar's key for it, which works whatever has focus. Always has ⌘. */
   shortcut?: Shortcut;
   /**
-   * Acts on the task list in front. Off while a dialog or popover is up, so a
-   * key pressed in one never reaches the list behind it, and — for a key with
-   * no ⌘, ⌥ or ⌃ — while a text field has focus, so typing keeps its keys.
+   * Plain keys — ↑, ↓, Return, Escape — answered by the task list itself while
+   * it has focus, rather than by the menu bar. A key equivalent in the menu bar
+   * fires before anything focused hears the key, so a plain one there would
+   * take Return from every text field and ↑ from the command menu. Held by the
+   * list instead, a field or a dialog that has focus keeps them.
+   */
+  listKeys?: Shortcut[];
+  /**
+   * Acts on the task list in front. Never runs while a dialog or popover is up,
+   * so a key pressed in one can't reach the list behind it.
    */
   list?: boolean;
   /**
-   * The web build answers this shortcut too. Only keys a browser lets a page
-   * have: ⌘N and ⌘T open windows and tabs before any page hears them.
+   * The web build answers `shortcut` too. Only keys a browser lets a page have:
+   * ⌘N and ⌘T open windows and tabs before any page hears them. `listKeys` it
+   * always answers.
    */
   web?: boolean;
   /** Left out of the command menu: moving a cursor means nothing from a search box. */
@@ -86,11 +97,12 @@ export const COMMANDS: readonly CommandDef[] = [
 
   { id: 'commandMenu', title: 'Command Menu…', menu: 'view', group: 'commandMenu', shortcut: cmd('k'), web: true, hiddenFromPalette: true },
 
-  { id: 'openTask', title: 'Open Task', menu: 'task', group: 'open', shortcut: plain('return'), list: true, web: true },
-  { id: 'nextTask', title: 'Next Task', menu: 'task', group: 'move', shortcut: plain('down'), list: true, web: true, hiddenFromPalette: true },
-  { id: 'previousTask', title: 'Previous Task', menu: 'task', group: 'move', shortcut: plain('up'), list: true, web: true, hiddenFromPalette: true },
-  { id: 'selectNext', title: 'Add Next to Selection', menu: 'task', group: 'move', shortcut: plain('down', 'shift'), list: true, web: true, hiddenFromPalette: true },
-  { id: 'selectPrevious', title: 'Add Previous to Selection', menu: 'task', group: 'move', shortcut: plain('up', 'shift'), list: true, web: true, hiddenFromPalette: true },
+  { id: 'openTask', title: 'Open Task', menu: 'task', group: 'open', shortcut: cmd('o'), listKeys: [plain('return')], list: true, web: true },
+  { id: 'nextTask', title: 'Next Task', group: 'move', listKeys: [plain('down')], list: true, hiddenFromPalette: true },
+  { id: 'previousTask', title: 'Previous Task', group: 'move', listKeys: [plain('up')], list: true, hiddenFromPalette: true },
+  { id: 'selectNext', title: 'Add Next to Selection', group: 'move', listKeys: [plain('down', 'shift')], list: true, hiddenFromPalette: true },
+  { id: 'selectPrevious', title: 'Add Previous to Selection', group: 'move', listKeys: [plain('up', 'shift')], list: true, hiddenFromPalette: true },
+  { id: 'deselect', title: 'Deselect', group: 'move', listKeys: [plain('escape')], list: true, hiddenFromPalette: true },
 
   { id: 'completeTask', title: 'Mark as Done', menu: 'task', group: 'complete', shortcut: cmd('return'), list: true, web: true, keywords: 'complete check finish' },
 
@@ -202,7 +214,31 @@ export function matchesShortcut(shortcut: Shortcut, event: KeyEventLike): boolea
   return wants('option') === event.altKey && wants('shift') === event.shiftKey;
 }
 
-/** The command a DOM key event asks for, among those the web answers. */
-export function webCommandFor(event: KeyEventLike): CommandDef | undefined {
-  return COMMANDS.find((c) => c.web && c.shortcut && matchesShortcut(c.shortcut, event));
+/**
+ * The command a DOM key event asks for, among those the web answers, and
+ * whether it came as one of the list's plain keys — which a field being typed
+ * in keeps for itself.
+ */
+export function webCommandFor(event: KeyEventLike): { def: CommandDef; listKey: boolean } | undefined {
+  for (const def of COMMANDS) {
+    if (def.web && def.shortcut && matchesShortcut(def.shortcut, event)) return { def, listKey: false };
+    if (def.listKeys?.some((k) => matchesShortcut(k, event))) return { def, listKey: true };
+  }
+  return undefined;
+}
+
+/** A list key as KeyCommandsView names it: `shift+down`, `return`. */
+export function keyName(shortcut: Shortcut): string {
+  return [...MODIFIER_ORDER.filter((m) => shortcut.modifiers.includes(m)), shortcut.input].join('+');
+}
+
+/** Every plain key the task list answers, by `keyName`, and what it runs. */
+export const LIST_KEYS: ReadonlyMap<string, CommandId> = new Map(
+  COMMANDS.flatMap((def) => (def.listKeys ?? []).map((k) => [keyName(k), def.id] as const))
+);
+
+/** The key the command menu shows for a command: its menu shortcut, else its list key. */
+export function displayShortcut(def: CommandDef, web: boolean): Shortcut | undefined {
+  if (def.shortcut && (!web || def.web)) return def.shortcut;
+  return def.listKeys?.[0];
 }
