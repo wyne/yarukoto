@@ -70,6 +70,7 @@ export function buildSampleData(now: Date): SampleData {
       priority: 'high',
       tags: ['home'],
       dueDate: iso(-1),
+      repeat: { rule: 'FREQ=MONTHLY;INTERVAL=1', from: 'due' },
     }),
     base({
       title: 'Renew SSL cert',
@@ -113,6 +114,14 @@ export function buildSampleData(now: Date): SampleData {
       listId: 'l-home',
       completed: true,
       completedAt: stamp,
+    }),
+    base({
+      title: 'Take out the bins',
+      listId: 'l-home',
+      tags: ['home'],
+      dueDate: iso(1),
+      dueTime: '19:00',
+      repeat: { rule: 'FREQ=WEEKLY;INTERVAL=1', from: 'due' },
     }),
 
     // Engineering

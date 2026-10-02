@@ -170,7 +170,8 @@ export function taskPatchForReminders(
 
 export function normalizeTaskPatch<T extends Partial<Task>>(patch: T): T {
   if (Object.prototype.hasOwnProperty.call(patch, 'dueDate') && patch.dueDate === undefined) {
-    return { ...patch, dueTime: undefined, reminders: undefined };
+    // A repeat counts from the date, so it goes with it, as reminders do.
+    return { ...patch, dueTime: undefined, reminders: undefined, repeat: null };
   }
   if (Object.prototype.hasOwnProperty.call(patch, 'reminders')) {
     const reminders = normalizeReminders(patch.reminders);

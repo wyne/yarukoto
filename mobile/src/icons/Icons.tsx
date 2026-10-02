@@ -417,3 +417,17 @@ export function IconPeople({ size = 16, color: colorProp, strokeWidth = 1.5 }: I
     </Svg>
   );
 }
+
+/** Two arrows chasing round — a repeating task. */
+export function IconRepeat({ size = 18, color: colorProp, strokeWidth = 1.6 }: IconProps) {
+  const c = useColors();
+  const color = colorProp ?? c.textPrimary;
+  return (
+    <Svg width={size} height={size} viewBox="0 0 18 18" fill="none">
+      <Path d="M3.5 8.5V7.5a3 3 0 0 1 3-3h8" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M12.5 2.5l2 2-2 2" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M14.5 9.5v1a3 3 0 0 1-3 3h-8" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M5.5 15.5l-2-2 2-2" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}

@@ -1,5 +1,6 @@
-import { Priority } from './types';
+import { Priority, TaskRepeat } from './types';
 import { addDays, toISODate } from './dates';
+import { firstOccurrenceOnOrAfter, parseRepeatPhrase } from './recurrence';
 
 export interface ParsedQuickAdd {
   title: string;
@@ -9,6 +10,8 @@ export interface ParsedQuickAdd {
   tags: string[];
   /** Raw name from a ~list token, resolved to a list by the caller. */
   listName?: string;
+  /** From "every …" — present only when one was typed. */
+  repeat?: TaskRepeat;
 }
 
 const WEEKDAYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
@@ -71,7 +74,20 @@ export function parseQuickAdd(input: string, now: Date = new Date()): ParsedQuic
   let dueTime: string | undefined;
   let listName: string | undefined;
 
-  for (const raw of tokens) {
+  let repeat: TaskRepeat | undefined;
+
+  for (let index = 0; index < tokens.length; index++) {
+    const raw = tokens[index];
+    // "every mon, wed" — only behind "every", so a title like "weekly report"
+    // keeps its words. The phrase parser refuses anything that isn't a repeat.
+    if (!repeat && /^every!?$/i.test(raw)) {
+      const phrase = parseRepeatPhrase(tokens.slice(index));
+      if (phrase) {
+        repeat = phrase.repeat;
+        index += phrase.wordCount - 1;
+        continue;
+      }
+    }
     if (raw.startsWith('#') && raw.length > 1) {
       tags.push(raw.slice(1).toLowerCase());
       continue;
@@ -102,14 +118,18 @@ export function parseQuickAdd(input: string, now: Date = new Date()): ParsedQuic
       continue;
     }
     const time = matchTime(lower);
-    if (time && (dueDate || tokens.some((t) => matchWeekday(t.toLowerCase()) !== null || ['today', 'tomorrow', 'tmrw'].includes(t.toLowerCase())))) {
+    if (time && (dueDate || repeat || tokens.some((t) => matchWeekday(t.toLowerCase()) !== null || ['today', 'tomorrow', 'tmrw'].includes(t.toLowerCase())))) {
       dueTime = time;
       continue;
     }
     titleParts.push(raw);
   }
 
-  return {
+  // A repeat needs a date to count from: the first day it falls on, as
+  // TickTick does for "every monday" typed on a Friday.
+  if (repeat && !dueDate) dueDate = firstOccurrenceOnOrAfter(repeat, toISODate(now));
+
+  const parsed: ParsedQuickAdd = {
     title: titleParts.join(' '),
     priority,
     dueDate,
@@ -117,4 +137,6 @@ export function parseQuickAdd(input: string, now: Date = new Date()): ParsedQuic
     tags,
     listName,
   };
+  if (repeat) parsed.repeat = repeat;
+  return parsed;
 }

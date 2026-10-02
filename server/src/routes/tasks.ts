@@ -18,6 +18,7 @@ import {
   listTasks,
   savedFilterTasks,
   restoreTask,
+  skipTask,
   trashTask,
   updateTask,
 } from '../taskService';
@@ -90,6 +91,10 @@ export function registerTaskRoutes(app: FastifyInstance, db: Database.Database):
 
   app.post<{ Params: { id: string } }>('/api/v1/tasks/:id/restore', async (request, reply) => {
     await respond(reply, () => ({ task: restoreTask(db, request.params.id, viewerOf(request)) }));
+  });
+
+  app.post<{ Params: { id: string } }>('/api/v1/tasks/:id/skip', async (request, reply) => {
+    await respond(reply, () => ({ task: skipTask(db, request.params.id, viewerOf(request)) }));
   });
 
   app.post<{ Params: { id: string }; Body: CompleteBody }>('/api/v1/tasks/:id/complete', async (request, reply) => {

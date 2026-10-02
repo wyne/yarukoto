@@ -11,7 +11,7 @@ export type Priority = 'none' | 'low' | 'medium' | 'high';
  * mobile hides the UI but keeps sending the field, since a wrongly stripped field
  * is unrecoverable and a wrongly hidden row is not. See AGENTS.md.
  */
-export const SERVER_FEATURES = ['taskReminders', 'savedFilters', 'household'] as const;
+export const SERVER_FEATURES = ['taskReminders', 'savedFilters', 'household', 'taskRepeat'] as const;
 export type ServerFeature = (typeof SERVER_FEATURES)[number];
 
 export interface Subtask {
@@ -26,6 +26,23 @@ export interface TaskReminder {
   offsetDays: number;
   /** 24h 'HH:mm' in the device's local time. */
   time: string;
+}
+
+/**
+ * How a task comes back after it is completed, modelled on TickTick's.
+ *
+ * `rule` is an RFC 5545 RRULE body — `FREQ=WEEKLY;INTERVAL=1;BYDAY=MO,WE` — the
+ * same notation TickTick stores, so an imported rule survives as written. See
+ * `shared/recurrence.ts` for the subset that is understood.
+ */
+export interface TaskRepeat {
+  rule: string;
+  /**
+   * `due`: the next date follows the rule from the current due date, the way a
+   * calendar repeats. `completion`: it is counted from the day the task is
+   * actually done, for chores whose clock restarts when you do them.
+   */
+  from: 'due' | 'completion';
 }
 
 /** Fields every synced record carries, so last-write-wins has something to compare. */
@@ -47,6 +64,12 @@ export interface Task extends Synced {
   dueTime?: string;
   /** Relative reminders anchored to dueDate. Missing means none. */
   reminders?: TaskReminder[];
+  /**
+   * Repeats on completion; needs a dueDate, like reminders. Absent means "not
+   * sent" and leaves the stored value alone — a build from before repeats must
+   * not stop someone else's — while `null` clears it. Gated behind `taskRepeat`.
+   */
+  repeat?: TaskRepeat | null;
   /** null = Inbox (unfiled), which only the task's owner sees. */
   listId: string | null;
   /**

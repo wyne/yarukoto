@@ -16,7 +16,7 @@ import { Task, ListDef } from '../data/types';
 import { formatDueShort, isOverdue, startOfDay } from '../data/dateUtils';
 import TaskCheckbox from './TaskCheckbox';
 import SwipeableRow from './SwipeableRow';
-import { IconCheckBig, IconGrip, IconNote, IconStar, IconTag } from '../icons/Icons';
+import { IconCheckBig, IconGrip, IconNote, IconRepeat, IconStar, IconTag } from '../icons/Icons';
 
 interface Props {
   task: Task;
@@ -244,6 +244,11 @@ const TaskRowBody = memo(function TaskRowBody({
               <Text style={styles.metaMuted}>{tagCount}</Text>
             </View>
           )}
+          {dueLabel && !!task.repeat && (
+            <View accessible accessibilityLabel="Repeats" style={styles.repeatMeta}>
+              <IconRepeat size={12} color={overdue ? colors.priorityHigh : colors.textTertiary} strokeWidth={1.6} />
+            </View>
+          )}
           {dueLabel && (
             <Text style={[overdue ? styles.metaOverdue : styles.metaMuted, styles.metaDue]} numberOfLines={1}>
               {dueLabel}
@@ -357,6 +362,10 @@ const useStyles = makeStyles((c) => ({
   },
   notesMeta: {
     flexShrink: 0,
+  },
+  repeatMeta: {
+    flexShrink: 0,
+    marginRight: -5,
   },
   metaRow: {
     flexDirection: 'row',

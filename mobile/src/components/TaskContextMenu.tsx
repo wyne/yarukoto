@@ -9,7 +9,7 @@ import { hoverable } from '../theme/hover';
 import { Priority, Task } from '../data/types';
 import { addDays, toISODate } from '../data/dateUtils';
 import Popover, { PopoverAnchor } from './Popover';
-import { IconCheckBig, IconStack, IconTag, IconTrash } from '../icons/Icons';
+import { IconCheckBig, IconRepeat, IconStack, IconTag, IconTrash } from '../icons/Icons';
 
 interface Props {
   task: Task | null;
@@ -21,6 +21,8 @@ interface Props {
   onMove: () => void;
   onTags: () => void;
   onToggleComplete: () => void;
+  /** Present for an open repeating task: on to its next date, as TickTick's Skip. */
+  onSkip?: () => void;
   onDelete: () => void;
 }
 
@@ -56,6 +58,7 @@ export default function TaskContextMenu({
   onMove,
   onTags,
   onToggleComplete,
+  onSkip,
   onDelete,
 }: Props) {
   const colors = useColors();
@@ -124,6 +127,9 @@ export default function TaskContextMenu({
         label={task.completed ? 'Mark as not done' : 'Mark as done'}
         onPress={run(onToggleComplete)}
       />
+      {onSkip && !!task.repeat && !task.completed && (
+        <Row icon={<IconRepeat size={16} color={colors.textSecondary} />} label="Skip this occurrence" onPress={run(onSkip)} />
+      )}
       <Row icon={<IconStack size={16} />} label="Move to…" onPress={run(onMove)} />
       <Row icon={<IconTag size={16} />} label="Tags…" onPress={run(onTags)} />
 

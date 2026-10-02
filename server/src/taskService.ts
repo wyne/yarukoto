@@ -1,7 +1,17 @@
 import crypto from 'node:crypto';
 import Database from 'better-sqlite3';
-import { ListDef, Priority, SavedFilter, Task } from '../../shared/types';
+import { ListDef, Priority, SavedFilter, Task, TaskRepeat } from '../../shared/types';
 import { parseQuickAdd } from '../../shared/quickAdd';
+import { toISODate } from '../../shared/dates';
+import {
+  completeRepeating,
+  firstOccurrenceOnOrAfter,
+  normalizeRepeat,
+  parseRepeatPhrase,
+  skipRepeating,
+} from '../../shared/recurrence';
+import { env } from './env';
+import { wallClockNow } from './clock';
 import { filterTasks } from '../../shared/taskFilter';
 import {
   ListRow,
@@ -71,6 +81,12 @@ export interface TaskInput {
   completed?: boolean;
   /** A household member's id; null clears it. */
   assigneeId?: string | null;
+  /**
+   * How it repeats: `{ rule, from }`, an RRULE ("FREQ=WEEKLY;BYDAY=MO"), or a
+   * phrase ("every weekday", "every! 3 days"). Null stops it. A repeat on a task
+   * with no date starts it on the rule's first day from today.
+   */
+  repeat?: TaskRepeat | string | null;
 }
 
 export interface CreateInput extends TaskInput {
@@ -219,6 +235,7 @@ export function createTask(
     dueDate: parsed?.dueDate,
     dueTime: parsed?.dueTime,
     reminders: [],
+    repeat: parsed?.repeat ?? null,
     listId: null,
     tags: parsed?.tags ?? [],
     subtasks: [],
@@ -243,6 +260,19 @@ export function updateTask(db: Database.Database, id: string, input: TaskInput, 
   const next = applyInput(db, { ...current, updatedAt }, input, updatedAt, viewer);
   if (viewer.kind === 'household' && next.listId === null) {
     throw new TaskServiceError('bad_request', 'An integration must keep a task in a shared list');
+  }
+  // Checking off a repeating task moves it to its next date and keeps the
+  // occurrence as a completed copy — what the app does, so Home Assistant or an
+  // AI ticking it off leaves the same rows behind as a tap on the phone.
+  const rolled =
+    input.completed === true && !current.completed
+      ? completeRepeating({ ...next, completed: false, completedAt: undefined }, updatedAt, todayISO())
+      : null;
+  if (rolled) {
+    return db.transaction(() => {
+      upsertTask(db, rolled.occurrence, 'create', occurrenceOwner(db, id));
+      return upsertTask(db, rolled.series, 'update');
+    })();
   }
   const task = runWrite(db, next, 'update');
   // Filed into the Inbox means filed into the mover's, as in sync.
@@ -285,6 +315,18 @@ export function completeTaskAt(
   if (current.deletedAt) throw new TaskServiceError('not_found', `No task with id ${id}`);
   if (current.updatedAt >= completedAt) return { task: current, applied: false };
 
+  // The occurrence's id is derived from the series and its date, so when the
+  // app later folds in the same tap it writes these same two rows, not a second
+  // copy and a second step forward.
+  const rolled = completeRepeating(current, completedAt, toISODate(wallClockNow(env.timeZone, new Date(completedAt))));
+  if (rolled) {
+    const series = db.transaction(() => {
+      upsertTask(db, rolled.occurrence, 'create', occurrenceOwner(db, id));
+      return upsertTask(db, rolled.series, 'update');
+    })();
+    return { task: series, applied: true };
+  }
+
   const task: Task = { ...current, completed: true, completedAt, updatedAt: completedAt };
   db.transaction(() => {
     db.prepare(
@@ -302,6 +344,51 @@ export function completeTaskAt(
     recordRevision(db, task, 'update');
   })();
   return { task, applied: true };
+}
+
+/** TickTick's "Skip": on to the next date, with no completed copy left behind. */
+export function skipTask(db: Database.Database, id: string, viewer: Viewer = OWNER_VIEWER): Task {
+  const current = getTask(db, id, viewer);
+  if (current.deletedAt) throw new TaskServiceError('bad_request', 'Task is in the trash; restore it first');
+  const skipped = skipRepeating(current, stampAfter(current.updatedAt), todayISO());
+  if (!skipped) throw new TaskServiceError('bad_request', 'Only an open repeating task with another date to go can be skipped');
+  return runWrite(db, skipped, 'update');
+}
+
+/** The completed copy belongs to whoever owns the series, as if it had always been there. */
+function occurrenceOwner(db: Database.Database, seriesId: string): string | null {
+  const row = db.prepare('SELECT owner_id FROM tasks WHERE id = ?').get(seriesId) as { owner_id: string | null } | undefined;
+  return row?.owner_id ?? null;
+}
+
+/** The user's calendar date, in YARUKOTO_TZ rather than the container's zone. */
+function todayISO(): string {
+  return toISODate(wallClockNow(env.timeZone));
+}
+
+/**
+ * A repeat as a caller may give it — an object, an RRULE, or a phrase — read
+ * into the stored form. Anything unreadable is refused rather than dropped, so
+ * a typo doesn't silently leave a task that never comes back.
+ */
+export function readRepeat(value: TaskRepeat | string): TaskRepeat {
+  if (typeof value === 'string') {
+    const text = value.trim();
+    if (/^(RRULE:)?FREQ=/i.test(text)) {
+      const repeat = normalizeRepeat({ rule: text, from: 'due' });
+      if (repeat) return repeat;
+    } else {
+      // "weekday" means the same as "every weekday".
+      const given = text.split(/\s+/);
+      const words = /^(every!?|daily|weekly|monthly|yearly|annually)$/i.test(given[0]) ? given : ['every'].concat(given);
+      const phrase = parseRepeatPhrase(words);
+      if (phrase && phrase.wordCount === words.length) return phrase.repeat;
+    }
+    throw new TaskServiceError('bad_request', `Can't read "${value}" as a repeat; try "every weekday", "every 2 weeks" or an RRULE`);
+  }
+  const repeat = normalizeRepeat(value);
+  if (!repeat) throw new TaskServiceError('bad_request', 'repeat needs a rule (an RRULE such as FREQ=WEEKLY;BYDAY=MO) and from: due or completion');
+  return repeat;
 }
 
 function runWrite(
@@ -346,7 +433,13 @@ function applyInput(db: Database.Database, task: Task, input: TaskInput, stamp: 
     if (!out.dueDate) {
       out.dueTime = undefined;
       out.reminders = [];
+      out.repeat = null;
     }
+  }
+  if (input.repeat !== undefined) {
+    out.repeat = input.repeat === null ? null : readRepeat(input.repeat);
+    // "every monday" on a task with no date starts on the first Monday.
+    if (out.repeat && !out.dueDate) out.dueDate = firstOccurrenceOnOrAfter(out.repeat, todayISO());
   }
   if (input.dueTime !== undefined) {
     if (input.dueTime === null) out.dueTime = undefined;

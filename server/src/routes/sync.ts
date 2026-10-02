@@ -1,7 +1,10 @@
 import { FastifyInstance, FastifyReply } from 'fastify';
 import Database from 'better-sqlite3';
 import { FolderDef, ListDef, SavedFilter, Task, ViewPref } from '../../../shared/types';
+import { toISODate } from '../../../shared/dates';
+import { completeRepeating } from '../../../shared/recurrence';
 import { env } from '../env';
+import { wallClockNow } from '../clock';
 import { Viewer, listVisibleSql, taskVisibleSql, viewerParams } from '../access';
 import { viewerOf } from '../viewer';
 import {
@@ -190,6 +193,11 @@ function pushTask(db: Database.Database, task: Task, viewer: PersonViewer): Task
     task = { ...task, assigneeId: null };
   }
   const op = !existing ? 'create' : task.deletedAt ? 'delete' : existing.deleted_at ? 'restore' : 'update';
+  const rolled = rollForOlderClient(db, task);
+  if (rolled) {
+    upsertTask(db, rolled.occurrence, 'create', viewer.userId);
+    return upsertTask(db, rolled.series, 'update', viewer.userId);
+  }
   const accepted = upsertTask(db, task, op, viewer.userId);
   // The Inbox is per person, so a task filed there is filed in the mover's —
   // otherwise moving a shared task to your Inbox would hand it to whoever
@@ -198,6 +206,27 @@ function pushTask(db: Database.Database, task: Task, viewer: PersonViewer): Task
     db.prepare('UPDATE tasks SET owner_id = ? WHERE id = ? AND list_id IS NULL').run(viewer.userId, task.id);
   }
   return accepted;
+}
+
+/**
+ * An app from before repeats knows nothing of them, so checking off a repeating
+ * task there arrives as a plain completion — without the `repeat` field at all.
+ * Rolling it forward here keeps the series going for the rest of the household.
+ * A client that does know (the field is present) has already done this itself
+ * and pushed both rows, so it is never rolled twice.
+ */
+function rollForOlderClient(db: Database.Database, task: Task) {
+  if (!task.completed || Object.prototype.hasOwnProperty.call(task, 'repeat')) return null;
+  const stored = db.prepare('SELECT * FROM tasks WHERE id = ?').get(task.id) as TaskRow | undefined;
+  if (!stored || stored.completed || stored.updated_at >= task.updatedAt) return null;
+  const repeat = taskFromRow(stored).repeat;
+  if (!repeat) return null;
+  const at = task.completedAt ?? task.updatedAt;
+  return completeRepeating(
+    { ...task, repeat, completed: false, completedAt: undefined },
+    task.updatedAt,
+    toISODate(wallClockNow(env.timeZone, new Date(at)))
+  );
 }
 
 /**

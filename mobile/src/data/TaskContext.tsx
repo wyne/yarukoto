@@ -17,6 +17,7 @@ import { TaskCriteria } from './taskFilter';
 import { addDays, toISODate } from './dateUtils';
 import { parseQuickAdd } from './quickAdd';
 import { normalizeTaskPatch } from './reminders';
+import { completeRepeating, skipRepeating } from './recurrence';
 import { newFolderId, newListId, newSavedFilterId, newSubtaskId, newTaskId } from './ids';
 import {
   Arrangements,
@@ -75,8 +76,9 @@ interface State {
 
 type Action =
   | { type: 'ADD_TASK'; task: Task }
-  | { type: 'TOGGLE_COMPLETE'; id: string }
+  | { type: 'TOGGLE_COMPLETE'; id: string; at: string }
   | { type: 'COMPLETE_AT'; id: string; at: string }
+  | { type: 'SKIP_OCCURRENCE'; id: string; at: string }
   | { type: 'UPDATE_TASK'; id: string; patch: Partial<Task> }
   | { type: 'DELETE_TASKS'; ids: string[] }
   | { type: 'RESTORE_TASKS'; ids: string[] }
@@ -198,18 +200,41 @@ function upsertViewPref(
   return existing ? prefs.map((p) => (p.id === key ? pref : p)) : [...prefs, pref];
 }
 
+/**
+ * Checks off a repeating task: the series moves to its next date and the
+ * occurrence stays behind as a completed copy (see shared/recurrence.ts). Null
+ * when the task doesn't roll — it doesn't repeat, or this was its last date.
+ */
+function rollRepeating(tasks: Task[], id: string, at: string): Task[] | null {
+  const index = tasks.findIndex((t) => t.id === id);
+  if (index < 0) return null;
+  const rolled = completeRepeating(tasks[index], at, toISODate(new Date(at)));
+  if (!rolled) return null;
+  // The copy's id is derived, so completing the same occurrence again — after
+  // an undo, or a notification tap folded in late — replaces it, never doubles.
+  const rest = tasks.filter((t) => t.id !== rolled.occurrence.id);
+  const position = rest.findIndex((t) => t.id === id);
+  return [...rest.slice(0, position), rolled.series, rolled.occurrence, ...rest.slice(position + 1)];
+}
+
 function applyAction(state: State, action: Action): State {
   switch (action.type) {
     case 'ADD_TASK':
       return { ...state, tasks: [action.task, ...state.tasks] };
-    case 'TOGGLE_COMPLETE':
+    case 'TOGGLE_COMPLETE': {
+      const rolled = rollRepeating(state.tasks, action.id, action.at);
+      if (rolled) return { ...state, tasks: rolled };
       return {
         ...state,
         tasks: state.tasks.map((t) =>
-          t.id === action.id
-            ? { ...t, completed: !t.completed, completedAt: !t.completed ? new Date().toISOString() : undefined }
-            : t
+          t.id === action.id ? { ...t, completed: !t.completed, completedAt: !t.completed ? action.at : undefined } : t
         ),
+      };
+    }
+    case 'SKIP_OCCURRENCE':
+      return {
+        ...state,
+        tasks: state.tasks.map((t) => (t.id === action.id ? (skipRepeating(t, action.at, toISODate(new Date(action.at))) ?? t) : t)),
       };
     /**
      * Completing a task at a stated time rather than now — a notification's
@@ -221,7 +246,12 @@ function applyAction(state: State, action: Action): State {
      * afternoon. The guard below is the same one the server applies, so both
      * sides reach the same answer about which change is older.
      */
-    case 'COMPLETE_AT':
+    case 'COMPLETE_AT': {
+      const current = state.tasks.find((t) => t.id === action.id);
+      if (current && current.updatedAt < action.at) {
+        const rolled = rollRepeating(state.tasks, action.id, action.at);
+        if (rolled) return { ...state, tasks: rolled };
+      }
       return {
         ...state,
         tasks: state.tasks.map((t) =>
@@ -230,6 +260,7 @@ function applyAction(state: State, action: Action): State {
             : t
         ),
       };
+    }
     case 'UPDATE_TASK':
       return {
         ...state,
@@ -562,6 +593,11 @@ export interface QuickAddDefaults {
 /** The most recent completion or trashing, offered for undo until it times out. */
 export interface PendingUndo {
   kind: 'complete' | 'delete';
+  /**
+   * A repeating task that rolled on: the series as it was, and the completed
+   * copy left behind. Undo puts the first back and trashes the second.
+   */
+  repeat?: { before: Task; occurrenceId: string };
   /** One for a completion; for a trashing, every task the toast would put back. */
   taskIds: string[];
   title: string;
@@ -598,6 +634,8 @@ interface TaskContextValue {
   setListShared: (listId: string, shared: boolean) => void;
   addTaskFromQuickAdd: (text: string, defaults?: QuickAddDefaults) => void;
   toggleComplete: (id: string) => void;
+  /** Moves a repeating task to its next date without completing this one. */
+  skipOccurrence: (id: string) => void;
   /** Complete a task as of a past moment — a notification action taken while
    * the app was not running. No-op if the task moved on since. */
   completeAt: (id: string, at: string) => void;
@@ -797,6 +835,11 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       dueDate: parsed.dueDate ?? defaults?.dueDate,
       dueTime: parsed.dueTime ?? defaults?.dueTime,
       reminders: [],
+      // Only where the server can keep it — an "every …" typed against one
+      // that can't stays a one-off task on its first date.
+      ...(parsed.repeat && (state.mode !== 'server' || hasServerFeature(serverFeatures ?? [], 'taskRepeat'))
+        ? { repeat: parsed.repeat }
+        : {}),
       listId: typedList ? typedList.id : (defaults?.listId ?? null),
       tags: Array.from(new Set([...(defaults?.tags ?? []), ...parsed.tags])),
       subtasks: [],
@@ -807,7 +850,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     };
     dispatch({ type: 'ADD_TASK', task });
     markDirty([task.id]);
-  }, [state.lists, markDirty]);
+  }, [state.lists, state.mode, serverFeatures, markDirty]);
 
   const [pendingUndo, setPendingUndo] = useState<PendingUndo | null>(null);
 
@@ -815,17 +858,38 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
   const toggleComplete = useCallback(
     (id: string) => {
       const task = state.tasks.find((t) => t.id === id);
-      dispatch({ type: 'TOGGLE_COMPLETE', id });
-      markDirty([id]);
+      const at = new Date().toISOString();
+      // Worked out here as well as in the reducer — the same pure function on
+      // the same row and moment — so the completed copy can be marked dirty and
+      // offered for undo.
+      const rolled = task ? completeRepeating(task, at, toISODate(new Date(at))) : null;
+      dispatch({ type: 'TOGGLE_COMPLETE', id, at });
+      markDirty(rolled ? [id, rolled.occurrence.id] : [id]);
       if (task && !task.completed) {
         ding.pause();
         ding.seekTo(0).then(() => ding.play());
       }
       setPendingUndo(
-        task && !task.completed ? { kind: 'complete', taskIds: [id], title: task.title, token: Date.now() } : null
+        task && !task.completed
+          ? {
+              kind: 'complete',
+              taskIds: [id],
+              title: task.title,
+              token: Date.now(),
+              ...(rolled ? { repeat: { before: task, occurrenceId: rolled.occurrence.id } } : {}),
+            }
+          : null
       );
     },
     [state.tasks, ding, markDirty]
+  );
+
+  const skipOccurrence = useCallback(
+    (id: string) => {
+      dispatch({ type: 'SKIP_OCCURRENCE', id, at: new Date().toISOString() });
+      markDirty([id]);
+    },
+    [markDirty]
   );
 
   /**
@@ -839,8 +903,10 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
    */
   const completeAt = useCallback(
     (id: string, at: string) => {
+      const task = stateRef.current.tasks.find((t) => t.id === id);
+      const rolled = task && task.updatedAt < at ? completeRepeating(task, at, toISODate(new Date(at))) : null;
       dispatch({ type: 'COMPLETE_AT', id, at });
-      markDirty([id]);
+      markDirty(rolled ? [id, rolled.occurrence.id] : [id]);
     },
     [markDirty]
   );
@@ -849,7 +915,17 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
 
   const undo = useCallback(() => {
     setPendingUndo((current) => {
-      if (current?.kind === 'complete') {
+      if (current?.kind === 'complete' && current.repeat) {
+        // The series back where it was, and the completed copy into the trash.
+        const before = current.repeat.before;
+        dispatch({
+          type: 'UPDATE_TASK',
+          id: before.id,
+          patch: { dueDate: before.dueDate, repeat: before.repeat, subtasks: before.subtasks, completed: false, completedAt: undefined },
+        });
+        dispatch({ type: 'DELETE_TASKS', ids: [current.repeat.occurrenceId] });
+        markDirty([before.id, current.repeat.occurrenceId]);
+      } else if (current?.kind === 'complete') {
         // Set the flag directly rather than toggling, so this stays correct even if
         // the task was un-completed by other means in the meantime.
         dispatch({ type: 'UPDATE_TASK', id: current.taskIds[0], patch: { completed: false, completedAt: undefined } });
@@ -1480,6 +1556,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       setListShared,
       addTaskFromQuickAdd,
       toggleComplete,
+      skipOccurrence,
       completeAt,
       undo,
       dismissUndo,
@@ -1527,6 +1604,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       setListShared,
       addTaskFromQuickAdd,
       toggleComplete,
+      skipOccurrence,
       completeAt,
       undo,
       dismissUndo,
