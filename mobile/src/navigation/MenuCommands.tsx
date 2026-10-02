@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { useCallback, useContext, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { Platform } from 'react-native';
-import { useIsFocused } from '@react-navigation/native';
+import { NavigationContext } from '@react-navigation/native';
 import MacMenu from '../../modules/mac-menu/src/MacMenu';
 import { DESKTOP_UI, MAC } from '../data/platform';
 import { PendingUndo, usePendingUndo, useTasks } from '../data/TaskContext';
@@ -112,6 +112,30 @@ function useCommandHandler(id: CommandId, handler: Handler, active: boolean) {
 }
 
 /**
+ * `useIsFocused`, minus its throw outside a screen. A bottom sheet's content
+ * is portalled to `BottomSheetModalProvider`, which sits above the
+ * NavigationContainer, so the phone's task sheet has no navigation at all;
+ * there it counts as in front, since a sheet only shows over the screen in use.
+ */
+function useScreenFocused(): boolean {
+  const navigation = useContext(NavigationContext);
+  const subscribe = useCallback(
+    (callback: () => void) => {
+      if (!navigation) return () => {};
+      const offFocus = navigation.addListener('focus', callback);
+      const offBlur = navigation.addListener('blur', callback);
+      return () => {
+        offFocus();
+        offBlur();
+      };
+    },
+    [navigation]
+  );
+  const isFocused = () => navigation?.isFocused() ?? true;
+  return useSyncExternalStore(subscribe, isFocused, isFocused);
+}
+
+/**
  * Answers a command while this screen is in front, and `enabled`.
  *
  * Tab screens stay mounted when you leave them, so registering only while
@@ -121,7 +145,7 @@ function useCommandHandler(id: CommandId, handler: Handler, active: boolean) {
  * there is nothing for it to act on.
  */
 export function useCommand(id: CommandId, handler: Handler, enabled = true) {
-  const focused = useIsFocused();
+  const focused = useScreenFocused();
   useCommandHandler(id, handler, DESKTOP_UI && enabled && focused);
 }
 
