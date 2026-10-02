@@ -3,10 +3,13 @@ name: Publish container image
 # Builds a ready-to-run image so a NAS (or anything else) can pull it instead of
 # compiling on the box. Building on a low-power device is the thing this avoids:
 # the web bundle alone needs the Metro bundler and a few hundred npm packages.
+#
+# Only main, never tags: the repo's v* tags and GitHub releases belong to the
+# Home Assistant integration (see ha-release.yml), not to the server, which is
+# identified by the sha stamped into /api/v1/health.
 on:
   push:
     branches: [main]
-    tags: ['v*']
   workflow_dispatch:
 
 env:
@@ -48,7 +51,6 @@ jobs:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE }}
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
-            type=semver,pattern={{version}}
             type=sha,format=short
 
       - uses: docker/build-push-action@v6
