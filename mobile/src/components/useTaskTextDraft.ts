@@ -3,6 +3,13 @@ import { AppState } from 'react-native';
 import { Task } from '../data/types';
 
 const DRAFT_COMMIT_MS = 500;
+/**
+ * How long typing has to stop before the hold lifts and the edit syncs. Without
+ * it the hold lasts as long as the editor, which is fine for a sheet that gets
+ * dismissed but means never in the wide-layout pane, where the editor stays open
+ * until another task is picked.
+ */
+const IDLE_RELEASE_MS = 3000;
 
 interface Params {
   taskId: string;
@@ -21,8 +28,9 @@ interface Draft {
 /**
  * Keeps high-frequency text input out of the global task collection while
  * preserving the existing local snapshot and sync durability after a short
- * pause. The task stays held from server pushes for the editor's whole active
- * lifetime, so all those local saves become one revision when it closes.
+ * pause. The task is held from server pushes while the user is typing, so a
+ * burst of local saves becomes one revision; the hold lifts once typing pauses
+ * for `IDLE_RELEASE_MS`, or when the editor closes, whichever comes first.
  */
 export function useTaskTextDraft({
   taskId,
@@ -38,14 +46,36 @@ export function useTaskTextDraft({
   const taskRef = useRef(task);
   const dirtyRef = useRef({ title: false, notes: false });
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const heldRef = useRef(false);
+  const activeRef = useRef(active);
 
   taskRef.current = task;
+  activeRef.current = active;
 
   const clearTimer = useCallback(() => {
     if (timerRef.current) clearTimeout(timerRef.current);
     timerRef.current = null;
   }, []);
+
+  const clearIdleTimer = useCallback(() => {
+    if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+    idleTimerRef.current = null;
+  }, []);
+
+  const hold = useCallback(() => {
+    if (heldRef.current) return;
+    heldRef.current = true;
+    beginTaskEdit(taskId);
+  }, [beginTaskEdit, taskId]);
+
+  // Lifts the hold without flushing, for callers that just flushed.
+  const unhold = useCallback(() => {
+    clearIdleTimer();
+    if (!heldRef.current) return;
+    heldRef.current = false;
+    endTaskEdit(taskId);
+  }, [clearIdleTimer, endTaskEdit, taskId]);
 
   const flush = useCallback(() => {
     clearTimer();
@@ -61,12 +91,17 @@ export function useTaskTextDraft({
     }
     dirtyRef.current = { title: false, notes: false };
     if (Object.keys(patch).length > 0) updateTask(taskId, patch);
-  }, [clearTimer, taskId, updateTask]);
+    clearIdleTimer();
+    idleTimerRef.current = setTimeout(unhold, IDLE_RELEASE_MS);
+  }, [clearIdleTimer, clearTimer, taskId, unhold, updateTask]);
 
   const scheduleFlush = useCallback(() => {
     clearTimer();
+    clearIdleTimer();
+    // Typing again after an idle release takes the hold back.
+    if (activeRef.current && AppState.currentState === 'active') hold();
     timerRef.current = setTimeout(flush, DRAFT_COMMIT_MS);
-  }, [clearTimer, flush]);
+  }, [clearIdleTimer, clearTimer, flush, hold]);
 
   const setTitle = useCallback((title: string) => {
     const next = { ...draftRef.current, title };
@@ -98,18 +133,10 @@ export function useTaskTextDraft({
     });
   }, [taskId, task?.title, task?.notes]);
 
-  const hold = useCallback(() => {
-    if (heldRef.current) return;
-    heldRef.current = true;
-    beginTaskEdit(taskId);
-  }, [beginTaskEdit, taskId]);
-
   const release = useCallback(() => {
     flush();
-    if (!heldRef.current) return;
-    heldRef.current = false;
-    endTaskEdit(taskId);
-  }, [endTaskEdit, flush, taskId]);
+    unhold();
+  }, [flush, unhold]);
 
   // A hidden sheet remains mounted for its closing animation, so `active`, not
   // mount state alone, defines the edit session.
