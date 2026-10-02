@@ -71,6 +71,20 @@ export function applyOrders<T extends Ordered>(rows: T[], orders: Map<string, nu
 }
 
 /**
+ * Keeps only positions that differ from the collection being changed.
+ *
+ * A precision renumber returns a position for every row in its scope. The caller
+ * has to sync every row whose number really moved, not merely the dragged row and
+ * its neighbours; filtering the map once gives the reducer and the outbox the
+ * same exact set of changes.
+ */
+export function changedOrders(rows: Ordered[], orders: Map<string, number>): Map<string, number> {
+  if (orders.size === 0) return orders;
+  const current = new Map(rows.map((row) => [row.id, row.order]));
+  return new Map([...orders].filter(([id, order]) => current.get(id) !== order));
+}
+
+/**
  * The new positions for `ids`, dropped between two neighbours of `scope`.
  *
  * Every moving id must itself be in `scope` — that is what makes the midpoint

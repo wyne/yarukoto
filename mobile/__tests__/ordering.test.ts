@@ -1,4 +1,4 @@
-import { applyOrders, computeOrders, reorderRows, renumberOrders } from '../src/data/ordering';
+import { applyOrders, changedOrders, computeOrders, reorderRows, renumberOrders } from '../src/data/ordering';
 
 describe('fractional ordering', () => {
   test('places a row midway between its new neighbours', () => {
@@ -23,6 +23,26 @@ describe('fractional ordering', () => {
         ['a', 0],
         ['c', 1],
         ['b', 2],
+      ])
+    );
+  });
+
+  test('reports every row changed by a precision renumber', () => {
+    const rows = [
+      { id: 'a', order: 0 },
+      { id: 'b', order: 0.0000005 },
+      { id: 'c', order: 0.5 },
+      { id: 'd', order: 1 },
+    ];
+
+    const orders = computeOrders(rows, ['d'], 'a', 'b');
+
+    // The dragged row happens to keep the same numeric position. Two peers are
+    // respaced, including c outside the old moved/previous/next dirty set.
+    expect(changedOrders(rows, orders)).toEqual(
+      new Map([
+        ['b', 2],
+        ['c', 3],
       ])
     );
   });

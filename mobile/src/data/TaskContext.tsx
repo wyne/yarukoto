@@ -54,7 +54,7 @@ export type { Household } from './household';
 import { setNativeCredentials } from '../../modules/notification-actions/src/NotificationActionsModule';
 import { Outbox, SyncStatus, dropRemoved, hasServerFeature, mergeBatch, pullSince, pushDirty } from './sync';
 import { activeFolders, activeLists } from './selectors';
-import { Ordered, applyOrders, computeOrders, reorderRows } from './ordering';
+import { Ordered, applyOrders, changedOrders, computeOrders, reorderRows } from './ordering';
 export { ApiError } from './api';
 export type { SyncState, SyncStatus } from './sync';
 
@@ -87,7 +87,7 @@ type Action =
   | { type: 'ADD_SUBTASK'; taskId: string; title: string }
   | { type: 'TOGGLE_SUBTASK'; taskId: string; subtaskId: string }
   | { type: 'SET_DUE_DAY'; id: string; days: number }
-  | { type: 'REORDER_TASKS'; ids: string[]; prevId: string | null; nextId: string | null }
+  | { type: 'REORDER_TASKS'; orders: Map<string, number> }
   | { type: 'SET_ARRANGEMENT'; key: string; sortBy: SortBy; groupKey: string; ids: string[] }
   | { type: 'CLEAR_ARRANGEMENT'; key: string; sortBy: SortBy }
   | { type: 'REORDER_LIST'; id: string; folderId: string | null; prevId: string | null; nextId: string | null }
@@ -321,7 +321,7 @@ function applyAction(state: State, action: Action): State {
       // Tasks rank globally, so their scope is the whole collection.
       return {
         ...state,
-        tasks: reorderRows(state.tasks, state.tasks, action.ids, action.prevId, action.nextId),
+        tasks: applyOrders(state.tasks, action.orders),
       };
     case 'SET_ARRANGEMENT':
       // A drag under an active sort. The whole group's sequence is recorded on the
@@ -1015,15 +1015,17 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     },
     [markDirty]
   );
-  // Only the moved task changes, except in the rare renumbering case — so mark the
-  // group dirty rather than guessing, and let the reducer's identity check decide
-  // which rows actually carry a new `updatedAt`.
+  // The usual midpoint changes one task. When a gap runs out of precision,
+  // computeOrders renumbers the whole collection; using that same change map for
+  // both the reducer and the outbox ensures every respaced task reaches the server.
   const reorderTasks = useCallback(
     (ids: string[], prevId: string | null, nextId: string | null) => {
-      dispatch({ type: 'REORDER_TASKS', ids, prevId, nextId });
-      markDirty([...ids, prevId, nextId].filter((x): x is string => !!x));
+      const orders = changedOrders(state.tasks, computeOrders(state.tasks, ids, prevId, nextId));
+      if (orders.size === 0) return;
+      dispatch({ type: 'REORDER_TASKS', orders });
+      markDirty([...orders.keys()]);
     },
-    [markDirty]
+    [state.tasks, markDirty]
   );
   // An arrangement lives entirely on the view, so no task is dirtied here. That is
   // the whole point: reordering under a sort must not disturb the Custom order.
@@ -1044,12 +1046,9 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
   /**
    * Moves a list within its folder, or into another one.
    *
-   * `markDirty` covers the whole affected scope, not just the moved row and its
-   * two neighbours the way `reorderTasks` does. That narrower version has a
-   * hole: when `reorderRows` falls back to renumbering, every peer's `order`
-   * changes but only three ids get pushed. Container scopes are single digits,
-   * and the reducer's identity check still decides which rows actually carry a
-   * new `updatedAt`, so marking the lot costs nothing and closes it.
+   * `markDirty` covers the whole affected scope. Container moves can change both
+   * folder membership and order across two collections, and their scopes are
+   * single digits, so marking the lot is simpler and cheap.
    */
   const reorderList = useCallback(
     (id: string, folderId: string | null, prevId: string | null, nextId: string | null) => {
