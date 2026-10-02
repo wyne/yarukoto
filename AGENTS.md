@@ -141,3 +141,11 @@ When a write changes who can see a row without changing the row itself — shari
 removing or restoring a person — bump `server_updated_at` on every affected row. That is what
 puts them in the next pull, where they come back as rows to some people and as `removed` ids to
 others. Nothing is ever hard-deleted for visibility; removing a person hides, never destroys.
+
+## Releases
+
+GitHub releases and `v*` tags in this repo are the Home Assistant integration's, and nothing
+else's: HACS reads every release as a new version of it. `.github/workflows/ha-release.yml`
+publishes one when the `version` in `custom_components/yarukoto/manifest.json` changes on main,
+so bump that version in the PR rather than tagging by hand. The app ships through the stores and
+the server is identified by its commit, so neither gets a GitHub release.

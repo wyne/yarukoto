@@ -699,6 +699,10 @@ sign in again. Deleting an item moves the task to the app's Trash.
 Due times are shown and written in Home Assistant's own time zone, so set it to match
 `YARUKOTO_TZ`. It needs a server new enough to advertise `household` in `/api/v1/health`.
 
+HACS offers an update whenever a new release is published. Releasing is just bumping `version`
+in `custom_components/yarukoto/manifest.json`: once that reaches main, `ha-release.yml` tags it
+and publishes the release.
+
 ### Feature Compatibility
 
 Your server updates when you pull a new image; the app updates when the App Store
