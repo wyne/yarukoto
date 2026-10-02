@@ -14,6 +14,12 @@ interface Props extends Omit<TextInputProps, 'defaultValue' | 'onChangeText' | '
   sheet?: boolean;
   /** Re-check the native value when a persistent sheet starts a new session. */
   syncKey?: string | number | boolean | null;
+  /**
+   * Called just after a change from outside is written into the native field.
+   * Writing the text puts the caret at the end, so a caller that wants it
+   * somewhere else (a formatting toolbar) places it from here.
+   */
+  onExternalText?: () => void;
 }
 
 /**
@@ -26,7 +32,7 @@ interface Props extends Omit<TextInputProps, 'defaultValue' | 'onChangeText' | '
  * because its input does not have the iOS prediction behavior this avoids.
  */
 const NativeOwnedTextInput = forwardRef<TextInput, Props>(function NativeOwnedTextInput(
-  { value, onChangeText, sheet = false, syncKey, ...props },
+  { value, onChangeText, sheet = false, syncKey, onExternalText, ...props },
   forwardedRef
 ) {
   const scheme = useScheme();
@@ -47,6 +53,7 @@ const NativeOwnedTextInput = forwardRef<TextInput, Props>(function NativeOwnedTe
     if (Platform.OS === 'web' || value === nativeValueRef.current) return;
     inputRef.current?.setNativeProps({ text: value });
     nativeValueRef.current = value;
+    onExternalText?.();
   }, [value, syncKey]);
 
   const inSheet = useBottomSheetInternal(true) !== null;
