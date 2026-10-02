@@ -96,7 +96,7 @@ export default function TaskListScreen({ mode, filter }: Props) {
   const refreshControl = useSyncRefresh();
   const { wide, openDrawer } = useSidebar();
   const rowContext = useRowContext();
-  const { openTask, openTaskId } = useDetail();
+  const { openTask, openTaskId, closeTask } = useDetail();
   const {
     state,
     updateTask,
@@ -461,7 +461,23 @@ export default function TaskListScreen({ mode, filter }: Props) {
   useCommand('selectNext', () => extendTo(1), hasRows);
   useCommand('selectPrevious', () => extendTo(-1), hasRows);
   useCommand('openTask', () => cursor && openTask(cursor), keyboardList && !!cursor);
-  useCommand('deselect', clearSelection, keyboardList && webSelection.length > 0);
+  /**
+   * Escape backs out one step: a selection first, then the task open beside the
+   * list, as the pane's close button would. The row keeps its tint as the cursor,
+   * so ↑ and ↓ carry on from where it was, and the list takes the keyboard back
+   * from a field in the pane that just went away.
+   */
+  const backOut = () => {
+    if (webSelection.length > 0) return clearSelection();
+    if (!openTaskId) return;
+    if (navIds.includes(openTaskId)) {
+      setAnchor(openTaskId);
+      head.current = openTaskId;
+    }
+    closeTask();
+    claimKeyboard();
+  };
+  useCommand('deselect', backOut, keyboardList && (webSelection.length > 0 || (wide && !!openTaskId)));
   useCommand(
     'completeTask',
     () =>

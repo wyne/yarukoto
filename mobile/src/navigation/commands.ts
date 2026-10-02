@@ -46,7 +46,9 @@ export type CommandId =
   | 'priorityLow'
   | 'priorityNone'
   | 'deleteTask'
-  | 'deselect';
+  | 'deselect'
+  | 'bold'
+  | 'italic';
 
 export interface CommandDef {
   id: CommandId;
@@ -94,6 +96,10 @@ export const COMMANDS: readonly CommandDef[] = [
   { id: 'newTask', title: 'New Task', menu: 'file', group: 'new', shortcut: cmd('n'), keywords: 'add create' },
 
   { id: 'find', title: 'Find…', menu: 'edit', group: 'find', shortcut: cmd('f'), keywords: 'search browse' },
+  // Answered by the notes editor while it has focus. The system's Format menu,
+  // where these keys would otherwise live, is removed (MacMenuBar.swift).
+  { id: 'bold', title: 'Bold', menu: 'edit', group: 'format', shortcut: cmd('b'), web: true, hiddenFromPalette: true },
+  { id: 'italic', title: 'Italic', menu: 'edit', group: 'format', shortcut: cmd('i'), web: true, hiddenFromPalette: true },
 
   { id: 'commandMenu', title: 'Command Menu…', menu: 'view', group: 'commandMenu', shortcut: cmd('k'), web: true, hiddenFromPalette: true },
 
@@ -102,6 +108,7 @@ export const COMMANDS: readonly CommandDef[] = [
   { id: 'previousTask', title: 'Previous Task', group: 'move', listKeys: [plain('up')], list: true, hiddenFromPalette: true },
   { id: 'selectNext', title: 'Add Next to Selection', group: 'move', listKeys: [plain('down', 'shift')], list: true, hiddenFromPalette: true },
   { id: 'selectPrevious', title: 'Add Previous to Selection', group: 'move', listKeys: [plain('up', 'shift')], list: true, hiddenFromPalette: true },
+  // Clears a selection, or else closes the task open beside the list.
   { id: 'deselect', title: 'Deselect', group: 'move', listKeys: [plain('escape')], list: true, hiddenFromPalette: true },
 
   { id: 'completeTask', title: 'Mark as Done', menu: 'task', group: 'complete', shortcut: cmd('return'), list: true, web: true, keywords: 'complete check finish' },

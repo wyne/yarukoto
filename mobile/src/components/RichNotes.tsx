@@ -3,6 +3,7 @@ import { Linking, ScrollView, Text, TextInput, TextInputProps, View } from 'reac
 import Markdown, { ASTNode, MarkdownIt, MarkdownStyles, RenderRules } from 'react-native-markdown-renderer';
 import { useAccent } from '../theme/ThemeContext';
 import { makeStyles } from '../theme/styles';
+import { useCommand } from '../navigation/MenuCommands';
 import { fonts } from '../theme/typography';
 import {
   TextEdit,
@@ -87,6 +88,7 @@ const RichNotes = forwardRef<RichNotesHandle, Props>(function RichNotes(
   const selectionRef = useRef<TextSelection>({ start: value.length, end: value.length });
   const focusWhenMountedRef = useRef(false);
   const [editing, setEditing] = useState(() => value.trim().length === 0);
+  const [focused, setFocused] = useState(false);
 
   const focusEditor = () => {
     focusWhenMountedRef.current = true;
@@ -116,6 +118,10 @@ const RichNotes = forwardRef<RichNotesHandle, Props>(function RichNotes(
       inputRef.current?.setNativeProps({ selection: edit.selection });
     });
   };
+
+  // ⌘B and ⌘I, from the menu bar or a key on the web, while the field has focus.
+  useCommand('bold', () => applyEdit(toggleBold), editing && focused);
+  useCommand('italic', () => applyEdit(toggleItalic), editing && focused);
 
   const toolbar: ToolbarItem[] = [
     { label: 'B', accessibilityLabel: 'Bold', action: toggleBold, textStyle: styles.boldButton },
@@ -226,8 +232,12 @@ const RichNotes = forwardRef<RichNotesHandle, Props>(function RichNotes(
             multiline
             scrollEnabled={false}
             inputAccessoryViewID={inputAccessoryViewID}
-            onFocus={onFocus}
+            onFocus={(event) => {
+              setFocused(true);
+              onFocus?.(event);
+            }}
             onBlur={(event) => {
+              setFocused(false);
               onBlur?.(event);
               onFlush();
             }}
