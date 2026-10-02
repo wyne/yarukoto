@@ -106,6 +106,13 @@ describe('matching DOM keys', () => {
     expect(webCommandFor(key('o', 'KeyO', { metaKey: true }))).toMatchObject({ listKey: false });
   });
 
+  test('trashes on a plain Delete in the list, and leaves ⌘⌫ to text fields', () => {
+    // ⌘⌫ deletes to the start of the line wherever text is typed, notes included.
+    expect(webCommandFor(key('Backspace', 'Backspace', { metaKey: true }))).toBeUndefined();
+    expect(webCommandFor(key('Backspace', 'Backspace'))).toMatchObject({ def: { id: 'deleteTask' }, listKey: true });
+    expect(COMMANDS.find((c) => c.id === 'deleteTask')!.shortcut).toBeUndefined();
+  });
+
   test('leaves the browser its own keys', () => {
     // ⌘N and ⌘T open a window and a tab before a page hears them.
     expect(webCommandFor(key('n', 'KeyN', { metaKey: true }))).toBeUndefined();

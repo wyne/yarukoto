@@ -3,7 +3,7 @@ import { Platform } from 'react-native';
 import { useIsFocused } from '@react-navigation/native';
 import MacMenu from '../../modules/mac-menu/src/MacMenu';
 import { DESKTOP_UI, MAC } from '../data/platform';
-import { usePendingUndo, useTasks } from '../data/TaskContext';
+import { PendingUndo, usePendingUndo, useTasks } from '../data/TaskContext';
 import { anyLayerOpen } from '../components/openLayers';
 import CommandPalette from '../components/CommandPalette';
 import { COMMANDS, CommandId, commandDef, webCommandFor } from './commands';
@@ -133,20 +133,23 @@ function typingIn(target: EventTarget | null): boolean {
 }
 
 /** The name Edit ▸ Undo shows as "Undo …". */
-const UNDO_ACTION_NAME = 'Complete Task';
+const UNDO_ACTION_NAME: Record<PendingUndo['kind'], string> = {
+  complete: 'Complete Task',
+  delete: 'Move to Trash',
+};
 
 /** Mounted once, in the main layout, so it never runs over the first-run screen. */
 export default function MenuCommands() {
   const { openServer } = useSidebar();
-  const { undoComplete } = useTasks();
+  const { undo } = useTasks();
   const pendingUndo = usePendingUndo();
   const [paletteOpen, setPaletteOpen] = useState(false);
 
   useCommandHandler('settings', openServer, DESKTOP_UI);
   useCommandHandler('commandMenu', useCallback(() => setPaletteOpen(true), []), DESKTOP_UI);
 
-  const latest = useRef({ undoComplete });
-  latest.current = { undoComplete };
+  const latest = useRef({ undo });
+  latest.current = { undo };
 
   // The menu bar: built from the command list once, then dimmed and lit as
   // screens come and go.
@@ -167,7 +170,7 @@ export default function MenuCommands() {
       }))
     );
     const subscription = MacMenu.addListener('onCommand', ({ command }) => {
-      if (command === 'undo') latest.current.undoComplete();
+      if (command === 'undo') latest.current.undo();
       else dispatchCommand(command as CommandId);
     });
     return () => subscription.remove();
@@ -198,10 +201,11 @@ export default function MenuCommands() {
   // Offered for as long as the toast is, and withdrawn with it. Keyed on the
   // token so completing a second task re-registers rather than keeping the first.
   const undoToken = pendingUndo?.token ?? null;
+  const undoKind = pendingUndo?.kind ?? null;
   useEffect(() => {
     if (!MAC || !MacMenu) return;
-    MacMenu.setUndo(undoToken === null ? null : UNDO_ACTION_NAME);
-  }, [undoToken]);
+    MacMenu.setUndo(undoToken === null || undoKind === null ? null : UNDO_ACTION_NAME[undoKind]);
+  }, [undoToken, undoKind]);
 
   if (!DESKTOP_UI) return null;
   return <CommandPalette visible={paletteOpen} onClose={() => setPaletteOpen(false)} />;

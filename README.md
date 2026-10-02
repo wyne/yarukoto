@@ -531,15 +531,15 @@ stay web-only.
 | Task | Mark as Done | ⌘↩ |
 | Task | Due Today / Due Tomorrow / Remove Due Date | ⌘T / ⌥⌘T / — |
 | Task | Priority ▸ High, Medium, Low, None | ⌥⌘1, 2, 3, 0 |
-| Task | Move to Trash | ⌘⌫ |
+| Task | Move to Trash | ⌫ in the list |
 
 The Task menu works on the list's cursor: the row last clicked or arrowed to, which keeps its tint.
 With a selection it works on all of it. Format is removed, since nothing here styles text. A
 command nothing on screen can answer is dimmed, and a Task command also while a popover or dialog
 is up.
 
-**The list's own keys** — ↑ and ↓ to move the cursor, ⇧↑ and ⇧↓ to select, ↩ to open, Escape to
-deselect — are not in the menu bar, and can't be: AppKit tries a menu key equivalent before
+**The list's own keys** — ↑ and ↓ to move the cursor, ⇧↑ and ⇧↓ to select, ↩ to open, ⌫ to trash,
+Escape to deselect — are not in the menu bar, and can't be: AppKit tries a menu key equivalent before
 anything focused hears the key, so a plain ↩ there would take Return from every text field.
 Instead the list holds them itself, through `KeyCommandsView` in `mobile/modules/mac-pointer`,
 taking the keyboard when it appears, when you click in it, and when a dialog closes. A field
@@ -554,8 +554,8 @@ Catalyst asks the app delegate to amend the menu, which no module can do, so `pl
 writes a small override into the generated AppDelegate that hands the menu to
 `mobile/modules/mac-menu`. JS sends it the command list once it starts, and screens answer
 commands through `useCommand` in `src/navigation/MenuCommands.tsx`. Undo doesn't get a command of
-its own: completing a task registers on the window's undo manager, so the system's Edit ▸ Undo
-reads "Undo Complete Task" and ⌘Z undoes it for as long as the undo toast is up, while a focused
+its own: completing or trashing a task registers on the window's undo manager, so the system's
+Edit ▸ Undo reads "Undo Complete Task" or "Undo Move to Trash" and ⌘Z undoes it for as long as the undo toast is up, while a focused
 text field keeps ⌘Z for its typing.
 
 ### Where it stands

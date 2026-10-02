@@ -62,7 +62,7 @@ export interface CommandDef {
   /** The menu bar's key for it, which works whatever has focus. Always has ⌘. */
   shortcut?: Shortcut;
   /**
-   * Plain keys — ↑, ↓, Return, Escape — answered by the task list itself while
+   * Plain keys — ↑, ↓, Return, Escape, Delete — answered by the task list itself while
    * it has focus, rather than by the menu bar. A key equivalent in the menu bar
    * fires before anything focused hears the key, so a plain one there would
    * take Return from every text field and ↑ from the command menu. Held by the
@@ -122,7 +122,10 @@ export const COMMANDS: readonly CommandDef[] = [
   { id: 'priorityLow', title: 'Low', menu: 'task', group: 'priority', submenu: 'Priority', shortcut: cmd('3', 'option'), list: true, web: true },
   { id: 'priorityNone', title: 'None', menu: 'task', group: 'priority', submenu: 'Priority', shortcut: cmd('0', 'option'), list: true, web: true },
 
-  { id: 'deleteTask', title: 'Move to Trash', menu: 'task', group: 'delete', shortcut: cmd('delete'), list: true, web: true, keywords: 'delete remove' },
+  // Plain Delete on the list, not ⌘⌫ in the menu bar: a menu key equivalent
+  // fires whatever has focus, and ⌘⌫ is "delete to start of line" in every
+  // text field, the note editor included.
+  { id: 'deleteTask', title: 'Move to Trash', menu: 'task', group: 'delete', listKeys: [plain('delete')], list: true, keywords: 'delete remove' },
 ];
 
 const BY_ID = new Map(COMMANDS.map((c) => [c.id, c]));

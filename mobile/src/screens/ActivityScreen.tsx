@@ -1,11 +1,14 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { RefreshControl, ScrollView, Text, View } from 'react-native';
+import Pressable from '../components/HoverPressable';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Palette } from '../theme/colors';
 import { makeStyles } from '../theme/styles';
 import { fonts } from '../theme/typography';
 import { useAccent, useColors } from '../theme/ThemeContext';
+import { useHoverBg } from '../theme/hover';
 import { PANE_MAX_WIDTH, useSidebar } from '../navigation/SidebarContext';
+import { useDetail } from '../navigation/DetailContext';
 import { NATIVE_TAB_CONTENT_PADDING } from '../navigation/nativeTabBarLayout';
 import { FLOATING_TAB_BAR } from '../data/platform';
 import { ActivityRevision, createApi } from '../data/api';
@@ -32,6 +35,7 @@ interface ActivityItem {
   title: string;
   detail?: string;
   changes?: ActivityChange[];
+  taskId: string;
   taskTitle: string;
   recordedAt: string;
 }
@@ -158,15 +162,16 @@ function summarize(revision: ActivityRevision, now: Date, lists: ListDef[]): Act
     // and changed again before its first sync. Expand those combined revisions
     // so existing history is useful too; newer servers emit separate rows.
     if (task.deletedAt) {
-      items.push({ id: `${revision.id}-deleted`, kind: 'delete', title: 'Deleted task', taskTitle, recordedAt: revision.recordedAt });
+      items.push({ id: `${revision.id}-deleted`, kind: 'delete', title: 'Deleted task', taskId: task.id, taskTitle, recordedAt: revision.recordedAt });
     }
     if (task.completed) {
-      items.push({ id: `${revision.id}-completed`, kind: 'complete', title: 'Completed task', taskTitle, recordedAt: revision.recordedAt });
+      items.push({ id: `${revision.id}-completed`, kind: 'complete', title: 'Completed task', taskId: task.id, taskTitle, recordedAt: revision.recordedAt });
     }
     items.push({
       id: String(revision.id),
       kind: 'create',
       title: 'Created task',
+      taskId: task.id,
       taskTitle,
       detail: due ? `Due ${due}` : undefined,
       recordedAt: revision.recordedAt,
@@ -174,18 +179,18 @@ function summarize(revision: ActivityRevision, now: Date, lists: ListDef[]): Act
     return items;
   }
   if (op === 'delete' || task.deletedAt) {
-    return [{ id: String(revision.id), kind: 'delete', title: 'Deleted task', taskTitle, recordedAt: revision.recordedAt }];
+    return [{ id: String(revision.id), kind: 'delete', title: 'Deleted task', taskId: task.id, taskTitle, recordedAt: revision.recordedAt }];
   }
   if (op === 'restore') {
-    return [{ id: String(revision.id), kind: 'restore', title: 'Restored task', taskTitle, recordedAt: revision.recordedAt }];
+    return [{ id: String(revision.id), kind: 'restore', title: 'Restored task', taskId: task.id, taskTitle, recordedAt: revision.recordedAt }];
   }
 
   const items: ActivityItem[] = [];
   if (previousTask && !previousTask.completed && task.completed) {
-    items.push({ id: `${revision.id}-completed`, kind: 'complete', title: 'Completed task', taskTitle, recordedAt: revision.recordedAt });
+    items.push({ id: `${revision.id}-completed`, kind: 'complete', title: 'Completed task', taskId: task.id, taskTitle, recordedAt: revision.recordedAt });
   }
   if (previousTask && previousTask.completed && !task.completed) {
-    items.push({ id: `${revision.id}-reopened`, kind: 'reopen', title: 'Reopened task', taskTitle, recordedAt: revision.recordedAt });
+    items.push({ id: `${revision.id}-reopened`, kind: 'reopen', title: 'Reopened task', taskId: task.id, taskTitle, recordedAt: revision.recordedAt });
   }
 
   if (changes.length > 0) {
@@ -193,13 +198,14 @@ function summarize(revision: ActivityRevision, now: Date, lists: ListDef[]): Act
       id: `${revision.id}-edited`,
       kind: 'edit',
       title: editTitle(changes),
+      taskId: task.id,
       taskTitle,
       changes,
       recordedAt: revision.recordedAt,
     });
   }
   if (items.length === 0) {
-    items.push({ id: String(revision.id), kind: 'edit', title: 'Edited task', taskTitle, recordedAt: revision.recordedAt });
+    items.push({ id: String(revision.id), kind: 'edit', title: 'Edited task', taskId: task.id, taskTitle, recordedAt: revision.recordedAt });
   }
   return items;
 }
@@ -210,7 +216,13 @@ export default function ActivityScreen() {
   const accent = useAccent();
   const insets = useSafeAreaInsets();
   const { wide, openDrawer } = useSidebar();
-  const { state, syncNow } = useTasks();
+  const hoverBg = useHoverBg();
+  const { openTask } = useDetail();
+  const { state, syncNow, restoreTasks } = useTasks();
+  // What each entry's task is now, which decides what the entry offers: a task
+  // still around opens, one in the trash restores, and one purged or no longer
+  // shared with you is only history.
+  const currentTasks = useMemo(() => new Map(state.tasks.map((t) => [t.id, t])), [state.tasks]);
   const [items, setItems] = useState<ActivityItem[]>([]);
   const [nextBeforeId, setNextBeforeId] = useState<number | null>(null);
   const [hasMore, setHasMore] = useState(false);
@@ -355,47 +367,63 @@ export default function ActivityScreen() {
             <View key={day} style={styles.group}>
               <Text style={styles.day}>{dayLabel(day)}</Text>
               <Card>
-                {dayItems.map((item, i) => (
-                  <View key={item.id}>
-                    <View style={styles.row}>
-                      <View style={[styles.dot, { backgroundColor: eventColor(item.kind, colors) }]} />
-                      <View style={styles.rowText}>
-                        <Text style={[styles.rowTitle, { color: eventColor(item.kind, colors) }]} numberOfLines={1}>
-                          {item.title}
-                        </Text>
-                        <Text style={styles.rowTask} numberOfLines={1}>
-                          {item.taskTitle}
-                        </Text>
-                        {!!item.detail && (
-                          <Text style={styles.rowMeta} numberOfLines={1}>
-                            {item.detail}
+                {dayItems.map((item, i) => {
+                  const current = currentTasks.get(item.taskId);
+                  const trashed = !!current?.deletedAt;
+                  return (
+                    <View key={item.id}>
+                      <Pressable
+                        onPress={() => openTask(item.taskId)}
+                        disabled={!current || trashed}
+                        accessibilityRole={current && !trashed ? 'button' : undefined}
+                        style={hoverBg(styles.row, !current || trashed)}
+                      >
+                        <View style={[styles.dot, { backgroundColor: eventColor(item.kind, colors) }]} />
+                        <View style={styles.rowText}>
+                          <Text style={[styles.rowTitle, { color: eventColor(item.kind, colors) }]} numberOfLines={1}>
+                            {item.title}
                           </Text>
-                        )}
-                        {!!item.changes?.length && (
-                          <View style={styles.changes}>
-                            {item.changes.slice(0, 2).map((change) => (
-                              <View key={change.label} style={styles.changeRow}>
-                                <Text style={styles.changeLabel}>{change.label}</Text>
-                                <Text style={styles.changeBefore} numberOfLines={1} ellipsizeMode="tail">
-                                  {change.before}
-                                </Text>
-                                <IconChevronRight size={11} color={colors.textFaint} />
-                                <Text style={styles.changeAfter} numberOfLines={1} ellipsizeMode="tail">
-                                  {change.after}
-                                </Text>
-                              </View>
-                            ))}
-                            {item.changes.length > 2 && (
-                              <Text style={styles.changeMore}>+{item.changes.length - 2} more</Text>
-                            )}
-                          </View>
-                        )}
-                      </View>
-                      <Text style={styles.time}>{timeLabel.format(new Date(item.recordedAt))}</Text>
+                          <Text style={styles.rowTask} numberOfLines={1}>
+                            {item.taskTitle}
+                          </Text>
+                          {!!item.detail && (
+                            <Text style={styles.rowMeta} numberOfLines={1}>
+                              {item.detail}
+                            </Text>
+                          )}
+                          {!!item.changes?.length && (
+                            <View style={styles.changes}>
+                              {item.changes.slice(0, 2).map((change) => (
+                                <View key={change.label} style={styles.changeRow}>
+                                  <Text style={styles.changeLabel}>{change.label}</Text>
+                                  <Text style={styles.changeBefore} numberOfLines={1} ellipsizeMode="tail">
+                                    {change.before}
+                                  </Text>
+                                  <IconChevronRight size={11} color={colors.textFaint} />
+                                  <Text style={styles.changeAfter} numberOfLines={1} ellipsizeMode="tail">
+                                    {change.after}
+                                  </Text>
+                                </View>
+                              ))}
+                              {item.changes.length > 2 && (
+                                <Text style={styles.changeMore}>+{item.changes.length - 2} more</Text>
+                              )}
+                            </View>
+                          )}
+                        </View>
+                        <View style={styles.trailing}>
+                          <Text style={styles.time}>{timeLabel.format(new Date(item.recordedAt))}</Text>
+                          {trashed && item.kind === 'delete' && (
+                            <Pressable onPress={() => restoreTasks([item.taskId])} hitSlop={8}>
+                              <Text style={[styles.restore, { color: accent }]}>Restore</Text>
+                            </Pressable>
+                          )}
+                        </View>
+                      </Pressable>
+                      {i < dayItems.length - 1 && <Divider indent={42} />}
                     </View>
-                    {i < dayItems.length - 1 && <Divider indent={42} />}
-                  </View>
-                ))}
+                  );
+                })}
               </Card>
             </View>
           ))
@@ -519,6 +547,14 @@ const useStyles = makeStyles((c) => ({
     fontFamily: fonts.monoRegular,
     fontSize: 11,
     color: c.textTertiary,
+  },
+  trailing: {
+    alignItems: 'flex-end',
+    gap: 6,
+  },
+  restore: {
+    fontFamily: fonts.sansSemiBold,
+    fontSize: 13.5,
   },
   time: {
     alignSelf: 'flex-start',

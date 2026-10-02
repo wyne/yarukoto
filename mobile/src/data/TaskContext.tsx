@@ -559,11 +559,13 @@ export interface QuickAddDefaults {
   priority?: Priority;
 }
 
-/** The most recent completion, offered for undo until it times out. */
+/** The most recent completion or trashing, offered for undo until it times out. */
 export interface PendingUndo {
-  taskId: string;
+  kind: 'complete' | 'delete';
+  /** One for a completion; for a trashing, every task the toast would put back. */
+  taskIds: string[];
   title: string;
-  /** Distinguishes repeat completions of the same task so the toast re-animates. */
+  /** Distinguishes repeat actions on the same task so the toast re-animates. */
   token: number;
 }
 
@@ -599,7 +601,8 @@ interface TaskContextValue {
   /** Complete a task as of a past moment — a notification action taken while
    * the app was not running. No-op if the task moved on since. */
   completeAt: (id: string, at: string) => void;
-  undoComplete: () => void;
+  /** Reverses whatever the undo toast is offering. */
+  undo: () => void;
   dismissUndo: () => void;
   updateTask: (id: string, patch: Partial<Task>) => void;
   /** Prevent this task from being pushed while its detail editor is active. */
@@ -818,7 +821,9 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
         ding.pause();
         ding.seekTo(0).then(() => ding.play());
       }
-      setPendingUndo(task && !task.completed ? { taskId: id, title: task.title, token: Date.now() } : null);
+      setPendingUndo(
+        task && !task.completed ? { kind: 'complete', taskIds: [id], title: task.title, token: Date.now() } : null
+      );
     },
     [state.tasks, ding, markDirty]
   );
@@ -842,13 +847,16 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
 
   const dismissUndo = useCallback(() => setPendingUndo(null), []);
 
-  const undoComplete = useCallback(() => {
+  const undo = useCallback(() => {
     setPendingUndo((current) => {
-      if (current) {
+      if (current?.kind === 'complete') {
         // Set the flag directly rather than toggling, so this stays correct even if
         // the task was un-completed by other means in the meantime.
-        dispatch({ type: 'UPDATE_TASK', id: current.taskId, patch: { completed: false, completedAt: undefined } });
-        markDirty([current.taskId]);
+        dispatch({ type: 'UPDATE_TASK', id: current.taskIds[0], patch: { completed: false, completedAt: undefined } });
+        markDirty(current.taskIds);
+      } else if (current?.kind === 'delete') {
+        dispatch({ type: 'RESTORE_TASKS', ids: current.taskIds });
+        markDirty(current.taskIds);
       }
       return null;
     });
@@ -866,12 +874,24 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     },
     [markDirty]
   );
+  // Every way into the trash offers its undo — the menu, the list's Delete key,
+  // a swipe, the bulk bar. Trashings in quick succession (Delete held down, or
+  // pressed down a list) gather into one undo, so it never puts back only the
+  // last of a run. Tasks already in the trash aren't this action's to restore.
   const deleteTasks = useCallback(
     (ids: string[]) => {
+      const live = ids.filter((id) => state.tasks.some((t) => t.id === id && !t.deletedAt));
       dispatch({ type: 'DELETE_TASKS', ids });
       markDirty(ids);
+      if (live.length === 0) return;
+      setPendingUndo((current) => {
+        const taskIds = current?.kind === 'delete' ? [...new Set([...current.taskIds, ...live])] : live;
+        const only = taskIds.length === 1 ? state.tasks.find((t) => t.id === taskIds[0]) : undefined;
+        const title = only ? only.title.trim() || 'Untitled task' : `${taskIds.length} tasks`;
+        return { kind: 'delete', taskIds, title, token: Date.now() };
+      });
     },
-    [markDirty]
+    [state.tasks, markDirty]
   );
   const restoreTasks = useCallback(
     (ids: string[]) => {
@@ -1461,7 +1481,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       addTaskFromQuickAdd,
       toggleComplete,
       completeAt,
-      undoComplete,
+      undo,
       dismissUndo,
       updateTask,
       beginTaskEdit,
@@ -1508,7 +1528,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       addTaskFromQuickAdd,
       toggleComplete,
       completeAt,
-      undoComplete,
+      undo,
       dismissUndo,
       updateTask,
       beginTaskEdit,
