@@ -5,6 +5,7 @@
 #   npm run mac            # production identity
 #   npm run mac -- --open  # ...and launch it
 #   APP_VARIANT=preview npm run mac
+#   npm run mac -- --debug # a Debug build, which loads JS from Metro (see mac-dev.sh)
 #
 # The result is unsigned and runs on this Mac only; see "Building the Mac app"
 # in the README for signing and distribution.
@@ -14,7 +15,14 @@ ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT_DIR"
 
 OPEN=0
-[ "${1:-}" = "--open" ] && OPEN=1
+CONFIGURATION=Release
+for arg in "$@"; do
+    case "$arg" in
+        --open) OPEN=1 ;;
+        --debug) CONFIGURATION=Debug ;;
+        *) echo "Unknown option: $arg" >&2; exit 1 ;;
+    esac
+done
 
 # CocoaPods aborts on a Podfile path check without a UTF-8 locale, which a
 # non-interactive shell may not have.
@@ -32,13 +40,13 @@ DERIVED=ios/build/catalyst
 xcodebuild \
     -workspace "$WORKSPACE" \
     -scheme "$SCHEME" \
-    -configuration Release \
+    -configuration "$CONFIGURATION" \
     -destination 'platform=macOS,variant=Mac Catalyst' \
     -derivedDataPath "$DERIVED" \
     CODE_SIGNING_ALLOWED=NO \
     build
 
-APP=$(ls -d "$DERIVED"/Build/Products/Release-maccatalyst/*.app | head -1)
+APP=$(ls -d "$DERIVED"/Build/Products/"$CONFIGURATION"-maccatalyst/*.app | head -1)
 echo
 echo "Built $ROOT_DIR/$APP"
 

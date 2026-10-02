@@ -57,6 +57,7 @@
     "ios:dev": "APP_VARIANT=development npx expo prebuild --clean && APP_VARIANT=development expo run:ios",
     "install:ipa": "scripts/install-ipa.sh",
     "mac": "scripts/build-mac.sh",
+    "mac:dev": "scripts/mac-dev.sh",
     "mac:release": "scripts/release-mac.sh",
     "test": "TZ=America/New_York jest --runInBand --no-watchman",
     "test:coverage": "TZ=America/New_York jest --runInBand --no-watchman --coverage --coverageReporters=text --coverageReporters=json-summary",
