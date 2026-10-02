@@ -406,12 +406,18 @@ cd mobile
 npm run mac              # prebuild with Catalyst on, then a Release build for the Mac
 npm run mac -- --open    # ...and launch it
 npm run mac:release      # sign, notarize, staple, and package a website download
+npm run mac:dev          # the dev client, built Debug and launched against Metro
+npm run mac:dev -- --no-build   # relaunch the last dev build; enough for JS changes
 ```
 
 The development command prints the path to the finished app under `mobile/ios/build/catalyst/`.
 `APP_VARIANT` works as
 it does for the phone (`APP_VARIANT=preview npm run mac`), so variants can sit side by side on a
 Mac too.
+
+`mac:dev` is the Mac's `ios:dev` plus `start:dev` in one: it builds the development variant in
+Debug, starts Metro in the terminal, and opens the app pointed at it, so JS edits reload in place.
+Only a native change needs the rebuild; for anything else, `--no-build` starts in seconds.
 
 Like `ios:dev`, this **regenerates `mobile/ios`** with `prebuild --clean`, and what it leaves there
 is a Catalyst-enabled project. The next phone build that prebuilds replaces it; one that doesn't
