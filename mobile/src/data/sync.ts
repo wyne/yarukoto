@@ -184,7 +184,7 @@ export function dropRemoved<T extends { id: string }>(local: T[], removedIds: re
  * still dirty (a local edit not yet pushed should not be clobbered by a pull
  * that raced ahead of it).
  */
-export function mergeBatch<T extends { id: string }>(local: T[], incoming: T[], dirtyIds: Set<string>): T[] {
+export function mergeBatch<T extends { id: string }>(local: T[], incoming: T[], dirtyIds: ReadonlySet<string>): T[] {
   if (incoming.length === 0) return local;
   const byId = new Map(local.map((r) => [r.id, r]));
   let changed = false;
