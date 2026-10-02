@@ -4,89 +4,33 @@ What's left, in the order I'd tackle it. Each item says why it matters, where th
 what "done" looks like — so it can be picked up cold.
 
 The three phases of the original backend plan (client prep, server, client sync layer) are all
-merged. The app syncs, persists, and survives restarts. Everything below is either unverified,
-a gap the UI never grew, or a deliberate deferral.
+merged, the app runs natively on iPhone and the Mac, caches tasks for offline launch, and both
+packages have test suites in CI. Everything below is a gap still open or a deliberate deferral.
 
 ---
 
-## 1. Run the app on a simulator or device
+## 1. Per-task history in the app
 
-**Nothing in the native path has ever been executed.** Every bit of verification so far was done
-in the web build. That is a real gap, not a formality — the client is meant to be primarily a
-phone app, and several things are native-only or changed startup:
-
-- `mobile/src/data/storage.ts` uses AsyncStorage. On web it's localStorage underneath, which is
-  what was actually exercised; the native backend never has been.
-- `initStorage()` is awaited in `mobile/App.tsx` before anything renders. If it ever failed to
-  resolve on device the app would sit on a blank screen.
-- `mobile/src/data/ids.ts` uses `randomUUID()` from `expo-crypto`.
-- The 5s sync loop keeps running while backgrounded; iOS may suspend timers differently.
-
-**The build config is in place now** — `mobile/eas.json`, an `ios.bundleIdentifier`, and the ATS
-keys below are committed, and `expo prebuild` produces a valid Xcode project. What is still
-untouched is the part that needs a Mac: actually compiling and running it. See
-[Building the iOS app](README.md#building-the-ios-app).
-
-**Done when:** `npm run ios` (or `android`) launches, first-run connects to a server on the LAN,
-a task created on the phone appears in the web client and vice versa, and force-quitting and
-reopening keeps you signed in.
-
-**Watch for:** the phone can't reach `localhost` — use the host's LAN IP, and note the server
-listens on `0.0.0.0` already. HTTP to a LAN IP needs an ATS exception, which `mobile/app.config.js`
-now carries as `NSAllowsLocalNetworking` plus `NSLocalNetworkUsageDescription` — if the very
-first connection attempt fails silently, that permission prompt is the thing to check.
-
----
-
-## 2. Cache tasks locally for offline launch
-
-Right now every launch does a full hydrate and starts from an empty list, so opening the app
-without a connection shows nothing until sync completes. On a phone that's the common case.
-
-This is a deliberate consequence of a bug fix, documented in `mobile/src/data/storage.ts`: the
-sync cursor used to be persisted, which meant a reload started empty and then asked only for
-changes *since* that cursor — so existing tasks were never re-fetched and the app looked wiped.
-Keeping the cursor in memory made every launch correct by construction.
-
-Caching the tasks themselves is what makes persisting the cursor worthwhile again: hydrate from
-cache instantly, then sync incrementally in the background.
-
-**Done when:** launching offline shows the last known tasks, and the sync cursor can be persisted
-again without the empty-on-refresh failure returning. Add a regression test for that specific
-case (see item 3).
-
----
-
-## 3. There are no tests
-
-Zero test runner, zero tests. `buildSampleData()` in `mobile/src/data/sampleData.ts` was
-deliberately written pure and deterministic — ids from a per-call counter, every timestamp derived
-from the injected `now` — precisely so it can back a suite. Nothing uses it yet.
-
-Highest-value targets, roughly in order:
-
-- `mergeBatch()` in `mobile/src/data/sync.ts` — last-write-wins and the skip-if-dirty rule are
-  easy to regress and hard to notice by hand.
-- The `updatedAt` stamping wrapper in `mobile/src/data/TaskContext.tsx`, which relies on array
-  identity to detect what changed.
-- `parseQuickAdd()` — pure, lots of cases, cheap to cover.
-- Server sync upsert: rejecting a record older than the stored copy.
-
-**Done when:** `npm test` runs in both packages in CI on every PR.
-
----
-
-## 4. Task history has no UI
-
-The server has captured a full snapshot of every task change since the schema existed — that was
-deliberate, because history you didn't record is gone forever. It's still only reachable by hand:
+The server has captured a full snapshot of every task change since the schema existed. The
+Activity tab now reads it across all tasks (`GET /api/v1/activity`), opens the task behind a change
+and restores deleted ones, but a single task's revisions are still only reachable by hand:
 
 ```bash
 curl -s localhost:8080/api/v1/tasks/<id>/history -H "Authorization: Bearer $YARUKOTO_TOKEN"
 ```
 
-**Done when:** the task detail sheet lists revisions, and ideally restoring one writes the old
-values back through the normal sync path.
+**Done when:** the task detail lists its revisions, and restoring one writes the old values back
+through the normal sync path.
+
+---
+
+## 2. Export and import
+
+Data lives in one SQLite file the owner controls, and the server snapshots it daily, but there is
+no portable export and no way in from another app. Self-hosters check for this before they move.
+
+**Done when:** a person can download their own lists and tasks as JSON and import that file into
+another server, and at least one importer (Todoist or CSV) exists.
 
 ---
 
@@ -128,7 +72,8 @@ These are known and accepted. Revisit only if they actually bite.
 - **"Delete forever" is local-only.** `PURGE_TASKS` drops the row on that device; the server
   removes it independently once `TRASH_RETENTION_DAYS` elapses. The sync protocol only upserts,
   so there's nothing to push.
-- **One shared token, no accounts.** Personal-instance design, not multi-tenant.
+- **One household per server.** People get their own accounts, but it is not multi-tenant, and
+  `YARUKOTO_TOKEN` stays an admin credential for clients that predate households.
 - **Plain HTTP by default.** The token rides as a bearer header on every request, so it needs a
   TLS-terminating proxy before facing the internet.
 - **`viewOptions` stays device-local.** It's UI preference, not data.

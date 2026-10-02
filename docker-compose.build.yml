@@ -1,0 +1,16 @@
+# Builds the image from this checkout rather than pulling it:
+#
+#     docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
+#
+# Needs a few GB of memory for the Metro bundler, so prefer the published image
+# on a NAS or a small VM.
+services:
+  yarukoto:
+    image: yarukoto:local
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+      args:
+        # Optional: `GIT_SHA=$(git rev-parse HEAD) docker compose … build` stamps the
+        # image so the app's server sheet can name the commit it's running.
+        GIT_SHA: ${GIT_SHA:-}

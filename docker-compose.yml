@@ -1,17 +1,15 @@
 services:
   yarukoto:
-    build:
-      context: .
-      dockerfile: server/Dockerfile
-      args:
-        # Optional: `GIT_SHA=$(git rev-parse HEAD) docker compose build` stamps the
-        # image so the app's server sheet can name the commit it's running.
-        GIT_SHA: ${GIT_SHA:-}
+    # Prebuilt for amd64 and arm64 from every merge to main. To build from this
+    # checkout instead, add the override:
+    #     docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
+    image: ghcr.io/wyne/yarukoto:latest
     restart: unless-stopped
     ports:
       - "8080:8080"
     environment:
-      # openssl rand -hex 32
+      # openssl rand -hex 32. Or keep it out of the environment entirely with
+      # YARUKOTO_TOKEN_FILE pointing at a Compose secret.
       YARUKOTO_TOKEN: ${YARUKOTO_TOKEN:?set a long random token in .env}
       PORT: 8080
       DATABASE_PATH: /data/yarukoto.db
@@ -19,6 +17,12 @@ services:
       HISTORY_REVISIONS_PER_TASK: 50
       # Your zone, so AI tools and the task API know when "today" is.
       YARUKOTO_TZ: ${YARUKOTO_TZ:-UTC}
+      # Snapshots land in ./data/backups: one a day, the newest seven kept.
+      BACKUP_INTERVAL_HOURS: 24
+      BACKUP_KEEP: 7
+      # Who owns ./data on the host. The server runs as this user, not root.
+      PUID: ${PUID:-1000}
+      PGID: ${PGID:-1000}
     volumes:
       - ./data:/data
     healthcheck:

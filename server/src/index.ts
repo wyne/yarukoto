@@ -12,6 +12,8 @@ import { registerTaskRoutes } from './routes/tasks';
 import { registerMcpRoutes } from './mcp';
 import { registerHouseholdRoutes, registerPairingRoutes } from './routes/household';
 import { scheduleRetention } from './retention';
+import { scheduleBackups } from './backup';
+import { registerBackupRoutes } from './routes/backup';
 import { acceptEmptyJson } from './http';
 import { buildInfo } from './version';
 
@@ -19,8 +21,9 @@ async function main() {
   const db = openDatabase();
   scheduleRetention(db);
 
-  const app = Fastify({ logger: true });
+  const app = Fastify({ logger: { level: env.logLevel }, trustProxy: env.trustProxy });
   acceptEmptyJson(app);
+  scheduleBackups(db, app.log);
 
   // Auth is the real boundary (a bearer token), so CORS just needs to not get in
   // the way of browser clients — including the Expo web dev server, which runs
@@ -40,6 +43,7 @@ async function main() {
     registerHistoryRoutes(instance, db);
     registerTaskRoutes(instance, db);
     registerMcpRoutes(instance, db);
+    registerBackupRoutes(instance, db);
     done();
   });
 
@@ -81,6 +85,10 @@ async function main() {
       webRoot: env.webRoot,
       servingWebClient: webRootExists,
       database: env.databasePath,
+      backups:
+        env.backupIntervalHours > 0 && env.backupKeep > 0
+          ? { dir: env.backupDir, everyHours: env.backupIntervalHours, keep: env.backupKeep }
+          : 'off',
     },
     'Yarukoto ready'
   );
