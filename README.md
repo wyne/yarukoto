@@ -18,7 +18,8 @@ a working instance. The same codebase builds an iOS/Android app via Expo.
   around. Drag a task onto a day to reschedule it.
 - **Quick add with natural syntax** — `pay rent fri 6pm #home !high ~admin` parses the due date
   and time, the `#tag`, the `!priority`, and the `~list`. Anything unrecognized stays as the title.
-- **Subtasks, notes, tags, priorities, due dates and times.**
+- **Subtasks, Markdown notes, tags, priorities, due dates and times.** Notes have a formatting
+  toolbar and a native preview for headings, lists, quotes, links and code.
 - **Real URLs on the web** — every view is an address (`/today`, `/inbox?listId=…`), so a reload
   stays where you were, Back retraces the views you visited, and a filtered list is a link you can
   bookmark.
@@ -405,12 +406,18 @@ cd mobile
 npm run mac              # prebuild with Catalyst on, then a Release build for the Mac
 npm run mac -- --open    # ...and launch it
 npm run mac:release      # sign, notarize, staple, and package a website download
+npm run mac:dev          # the dev client, built Debug and launched against Metro
+npm run mac:dev -- --no-build   # relaunch the last dev build; enough for JS changes
 ```
 
 The development command prints the path to the finished app under `mobile/ios/build/catalyst/`.
 `APP_VARIANT` works as
 it does for the phone (`APP_VARIANT=preview npm run mac`), so variants can sit side by side on a
 Mac too.
+
+`mac:dev` is the Mac's `ios:dev` plus `start:dev` in one: it builds the development variant in
+Debug, starts Metro in the terminal, and opens the app pointed at it, so JS edits reload in place.
+Only a native change needs the rebuild; for anything else, `--no-build` starts in seconds.
 
 Like `ios:dev`, this **regenerates `mobile/ios`** with `prebuild --clean`, and what it leaves there
 is a Catalyst-enabled project. The next phone build that prebuilds replaces it; one that doesn't
@@ -663,6 +670,9 @@ included, applies the same rule.
 The `/tasks` routes are for scripts and tools, not the app: each one reads the stored row, merges
 only what it was sent, and writes history, so a caller never has to hold a whole task the way
 `POST /sync` requires. The app picks the change up on its next pull.
+
+The `notes` field is Markdown. REST and MCP callers read and write the Markdown source unchanged;
+clients that do not render Markdown still see ordinary plain text.
 
 ### AI assistants (MCP)
 
