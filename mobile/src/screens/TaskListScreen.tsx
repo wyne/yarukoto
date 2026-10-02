@@ -101,6 +101,7 @@ export default function TaskListScreen({ mode, filter }: Props) {
     state,
     updateTask,
     toggleComplete,
+    skipOccurrence,
     scheduleToday,
     snoozeTask,
     reorderTasks,
@@ -1007,6 +1008,7 @@ export default function TaskListScreen({ mode, filter }: Props) {
         onMove={() => openPicker(setMoveOpen)}
         onTags={() => openPicker(setTagOpen)}
         onToggleComplete={() => contextTask && toggleComplete(contextTask.id)}
+        onSkip={() => contextTask && skipOccurrence(contextTask.id)}
         onDelete={() => contextTask && deleteTasks([contextTask.id])}
       />
       )}

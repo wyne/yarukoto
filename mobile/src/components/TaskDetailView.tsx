@@ -31,12 +31,15 @@ import {
   IconClock,
   IconDotsHorizontal,
   IconPlus,
+  IconRepeat,
   IconTag,
   IconTrash,
 } from '../icons/Icons';
 import DueDateQuickMenu from './pickers/DueDateQuickMenu';
 import DueTimeQuickMenu from './pickers/DueTimeQuickMenu';
 import ReminderQuickMenu from './pickers/ReminderQuickMenu';
+import RepeatQuickMenu from './pickers/RepeatQuickMenu';
+import { describeRepeat } from '../data/recurrence';
 import ListPickerSheet from './pickers/ListPickerSheet';
 import TagPickerSheet from './pickers/TagPickerSheet';
 import { measureAnchor, PopoverAnchor } from './Popover';
@@ -45,6 +48,15 @@ import { useTaskTextDraft } from './useTaskTextDraft';
 import { useSheetBottomPadding } from './useSheetInsets';
 import NativeOwnedTextInput from './NativeOwnedTextInput';
 import RichNotes, { RichNotesHandle } from './RichNotes';
+
+/** A reminder or a repeat counts from the date, so clearing it clears them; say so. */
+function clearDateLabel(task: { reminders?: unknown[]; repeat?: unknown }): string | undefined {
+  const reminders = (task.reminders?.length ?? 0) > 0;
+  if (reminders && task.repeat) return 'Clear date, reminders and repeat';
+  if (reminders) return 'Clear date and reminders';
+  if (task.repeat) return 'Clear date and repeat';
+  return undefined;
+}
 
 interface Props {
   taskId: string;
@@ -76,6 +88,7 @@ export default function TaskDetailView({ taskId, onClose, variant, active = true
     beginTaskEdit,
     endTaskEdit,
     toggleComplete,
+    skipOccurrence,
     deleteTasks,
     addSubtask,
     toggleSubtask,
@@ -138,7 +151,7 @@ export default function TaskDetailView({ taskId, onClose, variant, active = true
       mode: 'date',
       date: task.dueDate,
       time: task.dueTime,
-      clearDateLabel: (task.reminders?.length ?? 0) > 0 ? 'Clear date and reminders' : undefined,
+      clearDateLabel: clearDateLabel(task),
       onChange: (dueDate, dueTime) => updateTask(task.id, { dueDate, dueTime }),
     }));
   };
@@ -183,6 +196,7 @@ export default function TaskDetailView({ taskId, onClose, variant, active = true
   const reminders = normalizeReminders(task.reminders);
   const reminderLabel = reminderSummary(reminders);
   const remindersSupported = supportsFeature('taskReminders');
+  const repeatSupported = supportsFeature('taskRepeat');
 
   const confirmDelete = () => {
     confirmDestructive('Delete task?', textDraft.title, () => {
@@ -388,7 +402,7 @@ export default function TaskDetailView({ taskId, onClose, variant, active = true
               style={styles.metaValueMenu}
               onChange={(dueDate, dueTime) => updateTask(task.id, { dueDate, dueTime })}
               onCustomDate={openDatePicker}
-              clearLabel={reminders.length > 0 ? 'Clear date and reminders' : undefined}
+              clearLabel={clearDateLabel(task)}
             >
               <View style={[styles.metaValueButton, styles.menuValueButton]}>
                 <Text
@@ -476,6 +490,33 @@ export default function TaskDetailView({ taskId, onClose, variant, active = true
                     <IconChevronDown size={12} color={reminders.length > 0 ? accent : colors.textTertiary} strokeWidth={1.8} />
                   </View>
                 </ReminderQuickMenu>
+              </View>
+            </>
+          )}
+          {!!task.dueDate && repeatSupported && !task.completed && (
+            <>
+              <Divider indent={44} />
+              <View style={styles.metaRow}>
+                <IconRepeat size={18} color={colors.textSecondary} />
+                <Text style={styles.metaLabelFixed}>Repeat</Text>
+                <RepeatQuickMenu
+                  dueDate={task.dueDate}
+                  repeat={task.repeat}
+                  style={styles.metaValueMenu}
+                  onChange={(repeat) => updateTask(task.id, { repeat })}
+                  onSkip={() => skipOccurrence(task.id)}
+                >
+                  <View style={[styles.metaValueButton, styles.menuValueButton]}>
+                    <Text
+                      numberOfLines={1}
+                      ellipsizeMode="tail"
+                      style={[styles.metaValue, styles.dueValue, !!task.repeat && { color: accent }]}
+                    >
+                      {describeRepeat(task.repeat, task.dueDate)}
+                    </Text>
+                    <IconChevronDown size={12} color={task.repeat ? accent : colors.textTertiary} strokeWidth={1.8} />
+                  </View>
+                </RepeatQuickMenu>
               </View>
             </>
           )}

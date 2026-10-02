@@ -5,6 +5,7 @@ export type {
   ServerFeature,
   Subtask,
   TaskReminder,
+  TaskRepeat,
   Synced,
   Task,
   ListDef,

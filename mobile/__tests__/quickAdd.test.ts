@@ -54,3 +54,34 @@ describe('quick add parser', () => {
     }));
   });
 });
+
+describe('quick add repeats', () => {
+  // A Sunday.
+  const now = new Date(2026, 8, 27, 12);
+
+  test('"every …" sets a repeat and starts it on its first day', () => {
+    expect(parseQuickAdd('Take out bins every mon 7pm #home', now)).toEqual({
+      title: 'Take out bins',
+      priority: 'none',
+      dueDate: '2026-09-28',
+      dueTime: '19:00',
+      tags: ['home'],
+      listName: undefined,
+      repeat: { rule: 'FREQ=WEEKLY;INTERVAL=1;BYDAY=MO', from: 'due' },
+    });
+  });
+
+  test('a typed date wins as the first occurrence', () => {
+    expect(parseQuickAdd('Stretch every day tomorrow', now)).toMatchObject({
+      title: 'Stretch',
+      dueDate: '2026-09-28',
+      repeat: { rule: 'FREQ=DAILY;INTERVAL=1', from: 'due' },
+    });
+  });
+
+  test('ordinary uses of the words stay in the title', () => {
+    const parsed = parseQuickAdd('Write weekly report every time it rains', now);
+    expect(parsed.title).toBe('Write weekly report every time it rains');
+    expect(parsed.repeat).toBeUndefined();
+  });
+});

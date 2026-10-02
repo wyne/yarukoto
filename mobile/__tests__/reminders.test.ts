@@ -91,6 +91,7 @@ describe('reminder values', () => {
       dueDate: undefined,
       dueTime: undefined,
       reminders: undefined,
+      repeat: null,
     });
     expect(normalizeTaskPatch({ title: 'Keep me', reminders: [] })).toEqual({
       title: 'Keep me',

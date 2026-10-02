@@ -92,6 +92,10 @@ function taskForFeatures(task: Task, features: readonly ServerFeature[]): Task {
     const { assigneeId: _unsupported, ...compatible } = out;
     out = compatible;
   }
+  if (!hasServerFeature(features, 'taskRepeat')) {
+    const { repeat: _unsupported, ...compatible } = out;
+    out = compatible;
+  }
   return out;
 }
 

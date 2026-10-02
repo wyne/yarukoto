@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { Task } from '../../shared/types';
 import { parseQuickAdd } from '../../shared/quickAdd';
 import { toISODate } from '../../shared/dates';
+import { describeRepeat } from '../../shared/recurrence';
 import { isValidTimeZone, wallClockNow } from './clock';
 import { env } from './env';
 import { buildInfo } from './version';
@@ -21,6 +22,7 @@ import {
   listTasks,
   savedFilterTasks,
   restoreTask,
+  skipTask,
   trashTask,
   updateTask,
 } from './taskService';
@@ -61,6 +63,13 @@ const timeZoneArg = z
   .describe('IANA time zone for resolving "today", weekdays and times. Defaults to the server setting.');
 
 const idArg = z.string().describe('Task id, as returned by list_tasks or create_task');
+const repeatArg = z
+  .string()
+  .optional()
+  .describe(
+    'How it repeats: "every day", "every weekday", "every mon, thu", "every 2 weeks", "every 15th", ' +
+      '"every last friday", "every! 3 days" (counted from completion), or an RRULE like FREQ=WEEKLY;BYDAY=MO'
+  );
 
 export function buildMcpServer(db: Database.Database, viewer: Viewer = OWNER_VIEWER): McpServer {
   const server = new McpServer(
@@ -175,6 +184,7 @@ export function buildMcpServer(db: Database.Database, viewer: Viewer = OWNER_VIE
         dueTime: z.string().optional().describe('18:00 or 6pm; needs a due date'),
         listId: z.string().nullable().optional().describe('A list id; null or omitted = Inbox'),
         tags: z.array(z.string()).optional(),
+        repeat: repeatArg,
         timeZone: timeZoneArg,
       },
     },
@@ -192,6 +202,7 @@ export function buildMcpServer(db: Database.Database, viewer: Viewer = OWNER_VIE
             dueTime: args.dueTime === undefined ? undefined : resolveTime(args.dueTime),
             listId: args.listId,
             tags: args.tags,
+            repeat: args.repeat,
           },
           today,
           viewer
@@ -214,6 +225,7 @@ export function buildMcpServer(db: Database.Database, viewer: Viewer = OWNER_VIE
         priority: z.enum(PRIORITIES as [string, ...string[]]).optional(),
         listId: z.string().nullable().optional().describe('A list id, or null to move to the Inbox'),
         tags: z.array(z.string()).optional(),
+        repeat: repeatArg.nullable().describe('As for create_task; null stops it repeating'),
       },
       annotations: { idempotentHint: true },
     },
@@ -249,11 +261,23 @@ export function buildMcpServer(db: Database.Database, viewer: Viewer = OWNER_VIE
     'complete_task',
     {
       title: 'Complete task',
-      description: 'Check a task off, or pass completed: false to reopen it.',
+      description:
+        'Check a task off, or pass completed: false to reopen it. A repeating task moves to its next date and ' +
+        'the occurrence just done is kept as a completed copy, as in the app.',
       inputSchema: { id: idArg, completed: z.boolean().optional().describe('Defaults to true') },
       annotations: { idempotentHint: true },
     },
     async ({ id, completed }) => run(() => ({ task: summarize(updateTask(db, id, { completed: completed ?? true }, viewer)) }))
+  );
+
+  server.registerTool(
+    'skip_occurrence',
+    {
+      title: 'Skip occurrence',
+      description: 'Move a repeating task on to its next date without completing this one.',
+      inputSchema: { id: idArg },
+    },
+    async ({ id }) => run(() => ({ task: summarize(skipTask(db, id, viewer)) }))
   );
 
   server.registerTool(
@@ -293,6 +317,7 @@ function summarize(task: Task) {
     dueTime: task.dueTime ?? null,
     listId: task.listId,
     tags: task.tags,
+    ...(task.repeat ? { repeat: describeRepeat(task.repeat, task.dueDate) } : {}),
     ...(task.subtasks.length ? { subtasks: `${task.subtasks.filter((s) => s.done).length}/${task.subtasks.length} done` } : {}),
     completed: task.completed,
     ...(task.deletedAt ? { inTrash: true } : {}),

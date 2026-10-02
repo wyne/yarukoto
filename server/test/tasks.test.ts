@@ -206,6 +206,7 @@ test('MCP tools cover create, schedule, complete, delete and restore', async () 
     'restore_task',
     'saved_filter_tasks',
     'schedule_task',
+    'skip_occurrence',
     'update_task',
   ]);
 

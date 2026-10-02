@@ -11,6 +11,7 @@ import {
   ViewPref,
 } from '../../shared/types';
 import { normalizeCriteria } from '../../shared/taskFilter';
+import { normalizeRepeat } from '../../shared/recurrence';
 import { env } from './env';
 
 export interface TaskRow {
@@ -33,6 +34,8 @@ export interface TaskRow {
   /** NULL for a task an integration created straight into a shared list. */
   owner_id: string | null;
   assignee_id: string | null;
+  /** JSON TaskRepeat, or NULL. */
+  repeat: string | null;
 }
 
 export interface ListRow {
@@ -74,6 +77,15 @@ export interface SavedFilterRow {
   deleted_at: string | null;
 }
 
+function asRepeat(value: string | null): Task['repeat'] {
+  if (!value) return null;
+  try {
+    return normalizeRepeat(JSON.parse(value));
+  } catch {
+    return null;
+  }
+}
+
 function asReminders(value: string): Task['reminders'] {
   try {
     const parsed = JSON.parse(value || '[]');
@@ -112,6 +124,9 @@ export function taskFromRow(row: TaskRow): Task {
     dueDate: row.due_date ?? undefined,
     dueTime: row.due_time ?? undefined,
     reminders: row.due_date ? asReminders(row.reminders) : undefined,
+    // Always present, null included, so a client that knows the field holds the
+    // server's answer rather than "not sent".
+    repeat: row.due_date ? asRepeat(row.repeat) : null,
     listId: row.list_id,
     tags: JSON.parse(row.tags),
     subtasks: JSON.parse(row.subtasks),
@@ -217,6 +232,12 @@ export function savedFilterFromRow(row: SavedFilterRow): SavedFilter {
  * when the incoming task carries the key at all — a client from before
  * households omits it, and must not unassign the task by doing so.
  */
+/** A repeat needs a date to count from, like a reminder; without one it is dropped. */
+function storedRepeat(task: Task): string | null {
+  const repeat = task.dueDate ? normalizeRepeat(task.repeat) : null;
+  return repeat ? JSON.stringify(repeat) : null;
+}
+
 export function upsertTask(
   db: Database.Database,
   task: Task,
@@ -230,10 +251,11 @@ export function upsertTask(
   }
 
   db.prepare(
-    `INSERT INTO tasks (id, title, notes, priority, due_date, due_time, reminders, list_id, tags, subtasks, completed, completed_at, created_at, order_key, updated_at, deleted_at, server_updated_at, owner_id, assignee_id)
-     VALUES (@id, @title, @notes, @priority, @dueDate, @dueTime, @reminders, @listId, @tags, @subtasks, @completed, @completedAt, @createdAt, @order, @updatedAt, @deletedAt, @serverUpdatedAt, @ownerId, @assigneeId)
+    `INSERT INTO tasks (id, title, notes, priority, due_date, due_time, reminders, list_id, tags, subtasks, completed, completed_at, created_at, order_key, updated_at, deleted_at, server_updated_at, owner_id, assignee_id, repeat)
+     VALUES (@id, @title, @notes, @priority, @dueDate, @dueTime, @reminders, @listId, @tags, @subtasks, @completed, @completedAt, @createdAt, @order, @updatedAt, @deletedAt, @serverUpdatedAt, @ownerId, @assigneeId, @repeat)
      ON CONFLICT(id) DO UPDATE SET
        assignee_id = CASE WHEN @hasAssignee THEN excluded.assignee_id ELSE tasks.assignee_id END,
+       repeat = CASE WHEN @hasRepeat OR excluded.due_date IS NULL THEN excluded.repeat ELSE tasks.repeat END,
        title = excluded.title, notes = excluded.notes, priority = excluded.priority,
        due_date = excluded.due_date, due_time = excluded.due_time, reminders = excluded.reminders, list_id = excluded.list_id,
        tags = excluded.tags, subtasks = excluded.subtasks, completed = excluded.completed,
@@ -262,6 +284,8 @@ export function upsertTask(
     ownerId,
     assigneeId: task.assigneeId ?? null,
     hasAssignee: Object.prototype.hasOwnProperty.call(task, 'assigneeId') ? 1 : 0,
+    repeat: storedRepeat(task),
+    hasRepeat: Object.prototype.hasOwnProperty.call(task, 'repeat') ? 1 : 0,
   });
 
   // A task can be changed again before its first sync. The record outbox then
