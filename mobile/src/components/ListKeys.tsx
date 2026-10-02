@@ -16,7 +16,7 @@ interface Props {
 }
 
 /**
- * The task list's plain keys on the Mac — ↑, ↓, ⇧↑, ⇧↓, Return, Escape — by
+ * The task list's plain keys on the Mac — ↑, ↓, ⇧↑, ⇧↓, Return, Escape, Delete — by
  * the command each runs (`listKeys` in commands.ts).
  *
  * The list takes the keyboard when it appears, when its screen comes to the

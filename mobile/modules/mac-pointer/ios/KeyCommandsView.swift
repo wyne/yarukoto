@@ -2,7 +2,7 @@ import ExpoModulesCore
 import UIKit
 
 /**
- * A container that reports plain keys — ↑, ↓, Return, Escape — on the Mac,
+ * A container that reports plain keys — ↑, ↓, Return, Escape, Delete — on the Mac,
  * while it or something inside it has focus.
  *
  * UIKit only offers a key to the responder chain, starting at whatever has
@@ -98,6 +98,7 @@ public final class KeyCommandsView: ExpoView {
     case "right": input = UIKeyCommand.inputRightArrow
     case "escape": input = UIKeyCommand.inputEscape
     case "return": input = "\r"
+    case "delete": input = "\u{8}"
     default: return nil
     }
     return (input, flags)

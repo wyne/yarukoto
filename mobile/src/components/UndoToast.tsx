@@ -5,7 +5,7 @@ import { makeStyles } from '../theme/styles';
 import { fonts } from '../theme/typography';
 import { useAccent } from '../theme/ThemeContext';
 import { usePendingUndo, useTasks } from '../data/TaskContext';
-import { IconCheckBig } from '../icons/Icons';
+import { IconCheckBig, IconTrash } from '../icons/Icons';
 import { useSidebar } from '../navigation/SidebarContext';
 import { nativeTabBarClearance } from '../navigation/nativeTabBarLayout';
 import { FLOATING_TAB_BAR } from '../data/platform';
@@ -15,7 +15,7 @@ const NATIVE_DRIVER = Platform.OS !== 'web';
 export default function UndoToast() {
   const styles = useStyles();
   const pendingUndo = usePendingUndo();
-  const { undoComplete } = useTasks();
+  const { undo } = useTasks();
   const insets = useSafeAreaInsets();
   const accent = useAccent();
   const { wide } = useSidebar();
@@ -48,13 +48,19 @@ export default function UndoToast() {
           },
         ]}
       >
-        <View style={styles.check}>
-          <IconCheckBig size={12} color="#fff" strokeWidth={2.4} />
-        </View>
+        {pendingUndo.kind === 'delete' ? (
+          <View style={[styles.check, styles.trash]}>
+            <IconTrash size={11} color="#fff" strokeWidth={2} />
+          </View>
+        ) : (
+          <View style={styles.check}>
+            <IconCheckBig size={12} color="#fff" strokeWidth={2.4} />
+          </View>
+        )}
         <Text style={styles.label} numberOfLines={1}>
           {pendingUndo.title}
         </Text>
-        <Pressable onPress={undoComplete} hitSlop={10}>
+        <Pressable onPress={undo} hitSlop={10}>
           <Text style={[styles.undo, { color: accent }]}>Undo</Text>
         </Pressable>
       </Animated.View>
@@ -93,6 +99,9 @@ const useStyles = makeStyles((c) => ({
     backgroundColor: c.success,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  trash: {
+    backgroundColor: c.priorityHigh,
   },
   label: {
     flexShrink: 1,
