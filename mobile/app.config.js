@@ -10,9 +10,8 @@
  * they are easy to tell apart on the home screen.
  *
  * Every icon master is a full-bleed square with no rounded corners or
- * transparency: iOS and macOS cut the shape themselves. Prebuild flattens a
- * light icon onto white, so baked-in transparent corners turn into a white rim
- * that the Mac's own squircle mask then shows around the paper.
+ * transparency: iOS and macOS cut the shape themselves, and prebuild flattens a
+ * light icon onto white, so baked-in transparent corners would show as a rim.
  *
  * It also bakes `experiments.baseUrl` into the web export at build time: it
  * prefixes every bundled asset URL. The self-hosted server serves the app from
@@ -35,6 +34,7 @@ const VARIANTS = {
     suffix: '.dev',
     name: 'Yarukoto (dev)',
     icon: './assets/icon-dev.png',
+    iconDark: './assets/icon-dev-dark.png',
     adaptiveForeground: './assets/android-icon-foreground-dev.png',
     // Sampled from the paper in the matching icon master, so the flat
     // background reads as a continuation of the inset foreground.
@@ -44,6 +44,7 @@ const VARIANTS = {
     suffix: '.preview',
     name: 'Yarukoto (preview)',
     icon: './assets/icon-preview.png',
+    iconDark: './assets/icon-preview-dark.png',
     adaptiveForeground: './assets/android-icon-foreground-preview.png',
     adaptiveBackground: '#EFF1EC',
   },
@@ -81,9 +82,10 @@ module.exports = ({ config }) => {
     ],
     ios: {
       ...config.ios,
-      // The light/dark pair in app.json is production-only; a variant replaces it
-      // with its single tinted icon.
-      icon: variant?.icon ?? config.ios?.icon,
+      // Every variant ships a light/dark pair, like app.json does for production.
+      // macOS needs the pair: given a lone icon, a Mac Catalyst build shrinks it
+      // into a frame instead of filling the app icon shape with it.
+      icon: variant ? { light: variant.icon, dark: variant.iconDark } : config.ios?.icon,
       bundleIdentifier: config.ios?.bundleIdentifier + (variant?.suffix ?? ''),
       buildNumber: macCatalyst && process.env.MAC_BUILD_NUMBER
         ? process.env.MAC_BUILD_NUMBER
