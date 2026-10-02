@@ -19,3 +19,29 @@ public final class EscapeKeyModule: Module {
     }
   }
 }
+
+public final class KeyCommandsModule: Module {
+  public func definition() -> ModuleDefinition {
+    Name("KeyCommands")
+
+    View(KeyCommandsView.self) {
+      Events("onKeyCommand")
+
+      Prop("keys") { (view: KeyCommandsView, keys: [String]) in
+        view.keys = keys
+      }
+
+      Prop("active") { (view: KeyCommandsView, active: Bool?) in
+        view.active = active ?? true
+      }
+
+      Prop("focusable") { (view: KeyCommandsView, focusable: Bool?) in
+        view.focusable = focusable ?? false
+      }
+
+      Prop("focusKey") { (view: KeyCommandsView, focusKey: Int?) in
+        view.focusKey = focusKey ?? 0
+      }
+    }
+  }
+}

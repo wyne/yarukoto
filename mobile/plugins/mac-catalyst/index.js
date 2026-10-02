@@ -140,8 +140,9 @@ const MENU_MARKER = '// mac-catalyst plugin: menu bar';
  * Catalyst asks the app delegate to amend its default menu bar, through an
  * override no module can supply, and a menu command's action has to be answered
  * by something in the responder chain, which the delegate ends. So the delegate
- * gets both, each forwarding to MacMenuBar, where the menu is actually defined.
- * The action's name is the one MacMenuBar.action looks up.
+ * gets both, each forwarding to MacMenuBar, where the menu is actually defined,
+ * and a `canPerformAction` that lets MacMenuBar dim a command. The action's
+ * name is the one MacMenuBar.action looks up.
  *
  * Anchored on Expo's template, and throws if that changes, like the Podfile edit.
  */
@@ -172,6 +173,10 @@ function withMenuBarAppDelegate(config) {
         `  }\n\n` +
         `  @objc func macMenuCommand(_ sender: UICommand) {\n` +
         `    MacMenuBar.perform(sender)\n` +
+        `  }\n\n` +
+        `  override func canPerformAction(_ action: Selector, withSender sender: Any?) -> Bool {\n` +
+        `    MacMenuBar.canPerform(action, withSender: sender)\n` +
+        `      ?? super.canPerformAction(action, withSender: sender)\n` +
         `  }\n\n`
     );
 

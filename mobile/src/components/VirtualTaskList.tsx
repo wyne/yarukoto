@@ -1,5 +1,5 @@
-import React, { forwardRef, memo, useCallback, useMemo, useReducer, useState } from 'react';
-import { type FlatList, type ListRenderItemInfo, Pressable, type RefreshControlProps, type StyleProp, Text, View, type ViewStyle } from 'react-native';
+import React, { forwardRef, memo, useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import { type FlatList, type ListRenderItemInfo, Pressable, type RefreshControlProps, type StyleProp, Text, View, type ViewStyle, type ViewToken } from 'react-native';
 import { Gesture } from 'react-native-gesture-handler';
 import { LinearTransition } from 'react-native-reanimated';
 import ReorderableList, {
@@ -77,9 +77,15 @@ interface Props {
   contentContainerStyle?: StyleProp<ViewStyle>;
   refreshControl?: React.ReactElement<RefreshControlProps>;
   onScrollBeginDrag?: () => void;
+  /**
+   * The keyboard's cursor. Scrolled into sight when it moves onto a row that
+   * isn't, and left alone when it is — a click never scrolls.
+   */
+  revealTaskId?: string | null;
 }
 
 const LAYOUT = LinearTransition.duration(180);
+const VIEWABILITY = { itemVisiblePercentThreshold: 100 };
 
 export type VirtualTaskListRef = FlatList<Item>;
 
@@ -102,6 +108,7 @@ const VirtualTaskList = forwardRef<FlatList<Item>, Props>(function VirtualTaskLi
     contentContainerStyle,
     refreshControl,
     onScrollBeginDrag,
+    revealTaskId,
   },
   ref
 ) {
@@ -204,6 +211,31 @@ const VirtualTaskList = forwardRef<FlatList<Item>, Props>(function VirtualTaskLi
     onReorder(groupKey, ids, { id, prevId: ids[at - 1] ?? null, nextId: ids[at + 1] ?? null });
   };
 
+  const listRef = useRef<FlatList<Item> | null>(null);
+  const setRefs = useCallback(
+    (list: FlatList<Item> | null) => {
+      listRef.current = list;
+      if (typeof ref === 'function') ref(list);
+      else if (ref) ref.current = list;
+    },
+    [ref]
+  );
+  /** Keys of the cells wholly on screen, as the list last reported them. */
+  const onScreen = useRef<Set<string>>(new Set());
+  const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: ViewToken<Item>[] }) => {
+    onScreen.current = new Set(viewableItems.map((v) => v.key));
+  }).current;
+
+  useEffect(() => {
+    if (!revealTaskId) return;
+    const index = items.findIndex((item) => item.kind === 'task' && item.groupKey !== null && item.task.id === revealTaskId);
+    if (index === -1 || onScreen.current.has(items[index].key)) return;
+    // Above what's on screen comes in at the top; below, at the bottom — the
+    // least scrolling that shows it, as a Mac list scrolls.
+    const firstOnScreen = items.findIndex((item) => onScreen.current.has(item.key));
+    listRef.current?.scrollToIndex({ index, viewPosition: index < firstOnScreen ? 0 : 1, animated: false });
+  }, [revealTaskId, items]);
+
   const renderItem = ({ item }: ListRenderItemInfo<Item>) => {
     switch (item.kind) {
       case 'empty':
@@ -243,7 +275,7 @@ const VirtualTaskList = forwardRef<FlatList<Item>, Props>(function VirtualTaskLi
 
   return (
     <ReorderableList
-      ref={ref}
+      ref={setRefs}
       data={items}
       keyExtractor={keyExtractor}
       renderItem={renderItem}
@@ -255,6 +287,13 @@ const VirtualTaskList = forwardRef<FlatList<Item>, Props>(function VirtualTaskLi
       contentContainerStyle={contentContainerStyle}
       refreshControl={refreshControl}
       onScrollBeginDrag={onScrollBeginDrag}
+      onViewableItemsChanged={onViewableItemsChanged}
+      viewabilityConfig={VIEWABILITY}
+      // Rows far from the screen aren't built, so a jump to one can miss; it is
+      // only ever one row past the edge here, so landing nearby is enough.
+      onScrollToIndexFailed={({ averageItemLength, index }) =>
+        listRef.current?.scrollToOffset({ offset: averageItemLength * index, animated: false })
+      }
       keyboardShouldPersistTaps="handled"
       // Enough to cover a fast flick on a long list without building it all.
       initialNumToRender={16}
