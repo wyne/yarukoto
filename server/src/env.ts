@@ -1,15 +1,44 @@
+import fs from 'node:fs';
 import path from 'node:path';
 
+/**
+ * `NAME`, or the contents of the file `NAME_FILE` points at — the convention
+ * Docker and Compose secrets use, so a token can live in `/run/secrets/…`
+ * rather than in the environment. Setting both is a mistake worth refusing.
+ */
+export function fromEnvOrFile(name: string, source: NodeJS.ProcessEnv = process.env): string | undefined {
+  const file = source[`${name}_FILE`];
+  if (file && source[name]) throw new Error(`Set ${name} or ${name}_FILE, not both`);
+  if (file) return fs.readFileSync(file, 'utf8').trim();
+  return source[name];
+}
+
 function required(name: string): string {
-  const value = process.env[name];
-  if (!value) throw new Error(`Missing required env var ${name}`);
+  const value = fromEnvOrFile(name);
+  if (!value) throw new Error(`Missing required env var ${name} (or ${name}_FILE)`);
   return value;
 }
+
+/**
+ * Fastify's `trustProxy`: off unless asked, because trusting `X-Forwarded-For`
+ * from anyone lets a client claim any address. `true` trusts every hop, a
+ * number trusts that many, anything else is a comma-separated list of proxy
+ * addresses or CIDRs.
+ */
+export function parseTrustProxy(value: string | undefined): boolean | number | string {
+  const trimmed = value?.trim();
+  if (!trimmed || trimmed === 'false') return false;
+  if (trimmed === 'true') return true;
+  if (/^\d+$/.test(trimmed)) return Number(trimmed);
+  return trimmed;
+}
+
+const databasePath = process.env.DATABASE_PATH ?? path.resolve(process.cwd(), 'data/yarukoto.db');
 
 export const env = {
   token: required('YARUKOTO_TOKEN'),
   port: Number(process.env.PORT ?? 8080),
-  databasePath: process.env.DATABASE_PATH ?? path.resolve(process.cwd(), 'data/yarukoto.db'),
+  databasePath,
   trashRetentionDays: Number(process.env.TRASH_RETENTION_DAYS ?? 30),
   historyRevisionsPerTask: Number(process.env.HISTORY_REVISIONS_PER_TASK ?? 50),
   webRoot: process.env.WEB_ROOT ?? path.resolve(process.cwd(), '../web'),
@@ -19,4 +48,10 @@ export const env = {
    */
   timeZone: process.env.YARUKOTO_TZ ?? process.env.TZ ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
   migrationsDir: process.env.MIGRATIONS_DIR ?? path.resolve(process.cwd(), 'migrations'),
+  /** Next to the database by default, so the one volume people already mount holds both. */
+  backupDir: process.env.BACKUP_DIR ?? path.join(path.dirname(databasePath), 'backups'),
+  backupIntervalHours: Number(process.env.BACKUP_INTERVAL_HOURS ?? 24),
+  backupKeep: Number(process.env.BACKUP_KEEP ?? 7),
+  logLevel: process.env.LOG_LEVEL ?? 'info',
+  trustProxy: parseTrustProxy(process.env.TRUST_PROXY),
 };

@@ -5,8 +5,9 @@ A self-hosted todo app. One container, one SQLite file, your data on your own se
 The server serves both the API and the web client, so a single `docker compose up` gives you
 a working instance. The same codebase builds an iOS/Android app via Expo.
 
-> **Status:** working and usable, but young. Single-user by design (one shared access token,
-> no accounts). See [Limitations](#limitations) before trusting it with anything important.
+> **Status:** working and usable, but young. One household per server: everyone gets their own
+> account and private lists, and signs in by QR code rather than password. See
+> [Limitations](#limitations) before trusting it with anything important.
 
 ---
 
@@ -28,7 +29,7 @@ a working instance. The same codebase builds an iOS/Android app via Expo.
 - **Trash** — deleting is a soft delete. Restore from Trash, or delete forever. The server hard-deletes
   anything left there past its retention window.
 - **Task history** — every change writes a full snapshot server-side, capped per task.
-  Exposed at `GET /api/v1/tasks/:id/history`; there is no UI for browsing it yet.
+  The Activity tab shows recent changes, and opens or restores the task behind each one.
 - **Offline-tolerant sync** — the UI never waits on the network. Local changes queue in an outbox and
   push on the next cycle, so the app stays responsive when the server is unreachable. A dot at the
   bottom of the sidebar reports the real state: synced, syncing, changes pending, offline, or a
@@ -39,7 +40,9 @@ a working instance. The same codebase builds an iOS/Android app via Expo.
 
 ## Running it with Docker
 
-Requires Docker with Compose v2.
+Requires Docker with Compose v2. Nothing is built on your machine: the compose file pulls the
+prebuilt `ghcr.io/wyne/yarukoto` image (amd64 and arm64), so all you need is the compose file
+itself.
 
 ```bash
 git clone https://github.com/wyne/yarukoto.git
@@ -86,11 +89,24 @@ matches their `sha-<short>` tag.
 ### Updating
 
 ```bash
-git pull
-docker compose up -d --build
+docker compose pull
+docker compose up -d
 ```
 
-Your database lives in `./data` on the host and is untouched by rebuilds.
+Your database lives in `./data` on the host and is untouched by updates. Watchtower and similar
+tools work too; pin a `sha-<short>` tag instead of `latest` if you'd rather choose when to move.
+
+### Building from source
+
+To build the image from your checkout instead of pulling it, layer
+[`docker-compose.build.yml`](docker-compose.build.yml) on top:
+
+```bash
+GIT_SHA=$(git rev-parse HEAD) docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
+```
+
+It runs the Metro bundler and compiles better-sqlite3, so give it a few GB of memory and a few
+minutes. `GIT_SHA` is optional; it stamps the build so `/health` can name the commit.
 
 ---
 
@@ -100,10 +116,10 @@ Container Manager can run this as a **Project** without cloning the repo or buil
 `main` publishes a prebuilt image to `ghcr.io/wyne/yarukoto` for `linux/amd64` and `linux/arm64`,
 which covers both the Intel and ARM Synology models.
 
-Don't point Container Manager at this repo's `docker-compose.yml`: it uses `build:`, which would
-make the NAS install several hundred npm packages, run the Metro bundler and compile
-better-sqlite3 from source. That's slow on NAS hardware and can run out of memory. Use
-[`docker-compose.synology.yml`](docker-compose.synology.yml) instead, which pulls the image.
+Use [`docker-compose.synology.yml`](docker-compose.synology.yml): it pulls the same image as the
+main compose file, with NAS paths and every setting explained inline for pasting into Container
+Manager. Never add the `docker-compose.build.yml` override on a NAS; building the image there is
+slow and can run out of memory.
 
 1. **Make a folder** in File Station for the database, e.g. `docker/yarukoto/data`.
 2. **Generate a token** on any machine: `openssl rand -hex 32`
@@ -161,20 +177,67 @@ Set these in `docker-compose.yml` or your `.env`.
 
 | Variable | Default | What it does |
 |---|---|---|
-| `YARUKOTO_TOKEN` | *(required)* | Bearer token for every API request. No default — the server refuses to start without it. |
+| `YARUKOTO_TOKEN` | *(required)* | The owner's admin token, and the bootstrap credential before anyone has signed in. The server refuses to start without it. |
+| `YARUKOTO_TOKEN_FILE` | | Read the token from this file instead, for Docker/Compose secrets (`/run/secrets/…`). Set this or `YARUKOTO_TOKEN`, not both. |
 | `PORT` | `8080` | Port the server listens on. |
 | `DATABASE_PATH` | `/data/yarukoto.db` | SQLite file location. |
 | `TRASH_RETENTION_DAYS` | `30` | How long soft-deleted tasks stay restorable before being hard-deleted. |
 | `HISTORY_REVISIONS_PER_TASK` | `50` | Snapshots kept per task. `0` disables history entirely. |
 | `YARUKOTO_TZ` | `TZ`, else the container's zone | IANA zone (`America/New_York`) the task API and AI tools use for "today", weekdays and times. Containers usually run in UTC, so set this. |
+| `BACKUP_INTERVAL_HOURS` | `24` | How often the server snapshots the database. `0` turns automatic backups off. See [Backups](#backups). |
+| `BACKUP_KEEP` | `7` | Snapshots kept; older ones are deleted. |
+| `BACKUP_DIR` | `backups/` next to the database | Where snapshots go. Mount a second volume here to put them on other storage. |
+| `PUID` / `PGID` | `1000` / `1000` | The user and group the server runs as inside the container, and that it makes the owner of `/data`. Set them to your host user's ids (`id -u`, `id -g`). Ignored if you start the container with `--user`. |
+| `LOG_LEVEL` | `info` | `trace`, `debug`, `info`, `warn`, `error` or `fatal`. Logs are JSON on stdout. |
+| `TRUST_PROXY` | off | Behind a reverse proxy, set this so logs show the client's address rather than the proxy's: `true` trusts every hop, a number trusts that many, or give the proxy's addresses or CIDRs (`172.16.0.0/12`). Leave it off when nothing sits in front, or clients can claim any address. |
 | `WEB_ROOT` | `/app/web` *(set in the image)* | Where the built web client lives. If missing, the server runs API-only and says so in its logs. |
 
-### TLS
+### HTTPS and reverse proxies
 
-The default compose file serves plain HTTP, which is fine on a trusted network or behind an
-existing reverse proxy. **The access token is sent as a bearer header on every request, so put it
-behind HTTPS before exposing it to the internet** — Caddy or Traefik in front of this container is
-the usual approach.
+The container serves plain HTTP, which is fine on a trusted network. **Every request carries a
+bearer token, so put it behind HTTPS before exposing it to the internet.** Nothing about the app
+needs special proxy handling: no WebSockets, no long-lived streams (`/mcp` answers in plain JSON),
+and it works at the root of its own hostname. A subpath (`example.com/todo`) is not supported.
+
+Set `TRUST_PROXY` so logs record the real client address.
+
+**Caddy**
+
+```caddyfile
+todo.example.com {
+	reverse_proxy yarukoto:8080
+}
+```
+
+**Traefik** (labels on the `yarukoto` service)
+
+```yaml
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.yarukoto.rule=Host(`todo.example.com`)
+      - traefik.http.routers.yarukoto.entrypoints=websecure
+      - traefik.http.routers.yarukoto.tls.certresolver=letsencrypt
+      - traefik.http.services.yarukoto.loadbalancer.server.port=8080
+```
+
+**nginx**
+
+```nginx
+server {
+    listen 443 ssl;
+    server_name todo.example.com;
+    # ssl_certificate / ssl_certificate_key as usual
+
+    location / {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+Nginx Proxy Manager and DSM's reverse proxy need only the hostname and `http://<host>:8080`.
 
 ---
 
@@ -646,6 +709,7 @@ All endpoints are under `/api/v1` and require `Authorization: Bearer <token>`, e
 | `POST /tasks/:id/complete` | Check off with a device timestamp; a stale tap loses to a later edit. Used by notification actions. |
 | `GET /lists` | Every list the caller can see, with its id. |
 | `GET /filters` | Saved filters. `GET /filters/:id/tasks` evaluates one now, exactly as the app does. |
+| `GET /backup` | *(admin)* A consistent snapshot of the whole database, as a SQLite file download. |
 | `POST /pair/start` | *(no token)* Begin signing in a device: returns a short `code` to show and a `secret` to poll with. |
 | `POST /pair/poll` | *(no token)* `{ pairingId, secret }` → `pending`, or the device's own token once approved. |
 | `POST /pair/approve` | Approve a code `as` `self` (another device of yours), `member` (a new person, with `name`; admin only) or `integration` (Home Assistant; admin only). |
@@ -846,20 +910,39 @@ docker compose start
 
 ## Backups
 
-Everything is one SQLite file, at `./data/yarukoto.db` on the host.
+Everything is one SQLite file, at `./data/yarukoto.db` on the host, and the server backs it up
+itself. Once a day (a minute after startup, then every `BACKUP_INTERVAL_HOURS`) it writes a
+complete, consistent snapshot to `./data/backups/yarukoto-<time>.db` and keeps the newest
+`BACKUP_KEEP`. No downtime, no cron job.
 
-The reliable way is to stop the server, copy, and start again — a few seconds of downtime buys a
-guaranteed-consistent copy:
+**Point your backup tool at `./data/backups`, not at `yarukoto.db`.** Restic, Borg, Kopia, Hyper
+Backup and the rest copy files from outside the container, and the live database can be missing
+writes that only exist in its WAL (see the warning above). A snapshot is written by the server
+through SQLite's backup API and renamed into place when it's complete, so every file there is safe
+to copy at any moment.
+
+To pull one on demand, for example from a cron job on another machine, an admin token can
+download a fresh snapshot:
+
+```bash
+curl -fsS -H "Authorization: Bearer $YARUKOTO_TOKEN" -o yarukoto.db https://todo.example.com/api/v1/backup
+```
+
+**Restoring** is copying a snapshot back over the live file while the server is stopped:
 
 ```bash
 docker compose stop
-cp data/yarukoto.db ~/backups/yarukoto-$(date +%F).db
+rm -f data/yarukoto.db-wal data/yarukoto.db-shm
+cp data/backups/yarukoto-2026-10-02T03-00-00Z.db data/yarukoto.db
 docker compose start
 ```
 
-If you must copy without stopping, take `yarukoto.db` **together with** `yarukoto.db-wal` and
-`yarukoto.db-shm` — the `.db` file alone can be missing recent writes that still live in the WAL.
-For the reason not to use `sqlite3 .backup` here, see the warning above.
+Remove the `-wal` and `-shm` files first; they belong to the database you are replacing.
+
+A restore rolls the server back, and devices don't roll back with it. Anything a device synced
+after the snapshot stays in that device's local cache but is not sent again, so the server and
+the device disagree until the task is next edited. A device that signed in after the snapshot
+was taken is signed out, since its token isn't in the restored file.
 
 ---
 
@@ -875,12 +958,10 @@ yet — see [ROADMAP.md](ROADMAP.md).
   Everything else merges cleanly per record.
 - **"Delete forever" is local-only.** It removes the task from that device immediately; the server
   drops it independently once the retention window elapses.
-- **Task history has no UI.** The data is captured from day one — because history you didn't record
-  is gone forever — but reading it means calling the endpoint directly.
-- **Reminders are not implemented.** The field was removed rather than left as dead UI; real
-  delivery needs push tokens and a scheduler.
-- **No automated tests yet.** `buildSampleData()` is written as a deterministic fixture specifically
-  so it can back a test suite when one is added.
+- **Per-task history has no UI.** The Activity tab shows recent changes across everything, but
+  one task's full revision list is only at `GET /api/v1/tasks/:id/history`.
+- **No export or import yet.** Your data is one SQLite file you own, and `/api/v1/tasks` reads it
+  as JSON, but there is no one-click export or importer from other apps.
 
 ---
 

@@ -48,11 +48,22 @@ services:
       DATABASE_PATH: /data/yarukoto.db
       TRASH_RETENTION_DAYS: 30
       HISTORY_REVISIONS_PER_TASK: 50
+      # Your zone, so AI tools and the task API know when "today" is.
+      YARUKOTO_TZ: UTC
+      # A snapshot a day into data/backups, newest seven kept. Point Hyper Backup
+      # at that folder and it never copies a half-written database.
+      BACKUP_INTERVAL_HOURS: 24
+      BACKUP_KEEP: 7
+      # The server runs as this user, not root, and owns the data folder. To
+      # have File Station show your own account as owner, put your DSM user's
+      # ids here: `id` over SSH prints them (often 1026 and 100).
+      PUID: 1000
+      PGID: 1000
 
     volumes:
       # Create this folder first in File Station (e.g. docker/yarukoto/data).
-      # Everything Yarukoto stores lives in one SQLite file inside it — back the
-      # app up by stopping the project and copying that folder.
+      # Everything Yarukoto stores lives in one SQLite file inside it, with
+      # automatic snapshots in its backups/ subfolder.
       - /volume1/docker/yarukoto/data:/data
 
     healthcheck:
