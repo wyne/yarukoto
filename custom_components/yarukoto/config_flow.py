@@ -26,23 +26,21 @@ from homeassistant.helpers.selector import (
 
 from .api import (
     HOUSEHOLD_FEATURE,
+    INBOX,
     Pairing,
     PairingExpired,
     YarukotoApi,
     YarukotoConnectionError,
     YarukotoError,
 )
-from .const import CONF_DEFAULT_LIST, CONF_FILTERS, DEVICE_NAME, DOMAIN
-
-NO_DEFAULT_LIST = ""
-
+from .const import CONF_FILTERS, CONF_LISTS, DEVICE_NAME, DOMAIN
 
 def _normalize_url(url: str) -> str:
     return url.strip().rstrip("/")
 
 
 class YarukotoConfigFlow(ConfigFlow, domain=DOMAIN):
-    """Server address, then the sign-in code, then the filters."""
+    """Server address, then the sign-in code, then the lists and filters."""
 
     VERSION = 1
 
@@ -122,19 +120,19 @@ class YarukotoConfigFlow(ConfigFlow, domain=DOMAIN):
         data = {CONF_URL: self._url, CONF_TOKEN: self._token}
         if self.source == "reauth":
             return self.async_update_reload_and_abort(self._get_reauth_entry(), data=data)
-        return await self.async_step_filters()
+        return await self.async_step_choose()
 
-    async def async_step_filters(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+    async def async_step_choose(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         if user_input is not None:
             return self.async_create_entry(
                 title=urlparse(self._url).hostname or self._url,
                 data={CONF_URL: self._url, CONF_TOKEN: self._token},
                 options=_options_from(user_input),
             )
-        schema = await _filters_schema(self._api(self._token), {})
+        schema = await _choose_schema(self._api(self._token), {})
         if schema is None:
             return self.async_abort(reason="cannot_connect")
-        return self.async_show_form(step_id="filters", data_schema=schema)
+        return self.async_show_form(step_id="choose", data_schema=schema)
 
     async def async_step_reauth(self, entry_data: Mapping[str, Any]) -> ConfigFlowResult:
         self._url = entry_data[CONF_URL]
@@ -155,43 +153,47 @@ class YarukotoConfigFlow(ConfigFlow, domain=DOMAIN):
 
 
 class YarukotoOptionsFlow(OptionsFlow):
-    """Change which filters are shown, and where new items go."""
+    """Change which lists and filters are shown."""
 
     async def async_step_init(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         if user_input is not None:
             return self.async_create_entry(data=_options_from(user_input))
         entry = self.config_entry
         api = YarukotoApi(async_get_clientsession(self.hass), entry.data[CONF_URL], entry.data[CONF_TOKEN])
-        schema = await _filters_schema(api, entry.options)
+        schema = await _choose_schema(api, entry.options)
         if schema is None:
             return self.async_abort(reason="cannot_connect")
         return self.async_show_form(step_id="init", data_schema=schema)
 
 
 def _options_from(user_input: dict[str, Any]) -> dict[str, Any]:
-    default_list = user_input.get(CONF_DEFAULT_LIST) or None
-    return {CONF_FILTERS: list(user_input.get(CONF_FILTERS, [])), CONF_DEFAULT_LIST: default_list}
+    return {
+        CONF_LISTS: list(user_input.get(CONF_LISTS, [])),
+        CONF_FILTERS: list(user_input.get(CONF_FILTERS, [])),
+    }
 
 
-async def _filters_schema(api: YarukotoApi, current: Mapping[str, Any]) -> vol.Schema | None:
-    """The filter and list pickers, filled from the server; None if it can't be reached."""
+async def _choose_schema(api: YarukotoApi, current: Mapping[str, Any]) -> vol.Schema | None:
+    """The list and filter pickers, filled from the server; None if it can't be reached."""
     try:
-        filters = await api.filters()
         lists = await api.lists()
+        filters = await api.filters()
+        me = await api.me()
     except YarukotoError:
         return None
-    filter_options = [SelectOptionDict(value=f["id"], label=f["name"]) for f in filters]
-    list_options = [SelectOptionDict(value=NO_DEFAULT_LIST, label="None")] + [
-        SelectOptionDict(value=l["id"], label=l["name"]) for l in lists
-    ]
-    known = {f["id"] for f in filters}
-    return vol.Schema(
-        {
-            vol.Optional(
-                CONF_FILTERS, default=[f for f in current.get(CONF_FILTERS, []) if f in known]
-            ): SelectSelector(SelectSelectorConfig(options=filter_options, multiple=True, mode=SelectSelectorMode.LIST)),
-            vol.Optional(
-                CONF_DEFAULT_LIST, default=current.get(CONF_DEFAULT_LIST) or NO_DEFAULT_LIST
-            ): SelectSelector(SelectSelectorConfig(options=list_options, mode=SelectSelectorMode.DROPDOWN)),
+    list_options = [SelectOptionDict(value=item["id"], label=item["name"]) for item in lists]
+    # Only a person has an Inbox. Approved as an integration, there is none to show.
+    if me.get("member"):
+        list_options.insert(0, SelectOptionDict(value=INBOX, label="Inbox"))
+    filter_options = [SelectOptionDict(value=item["id"], label=item["name"]) for item in filters]
+
+    def picker(key: str, options: list[SelectOptionDict]) -> dict[Any, Any]:
+        known = {option["value"] for option in options}
+        default = [value for value in current.get(key, []) if value in known]
+        return {
+            vol.Optional(key, default=default): SelectSelector(
+                SelectSelectorConfig(options=options, multiple=True, mode=SelectSelectorMode.LIST)
+            )
         }
-    )
+
+    return vol.Schema({**picker(CONF_LISTS, list_options), **picker(CONF_FILTERS, filter_options)})

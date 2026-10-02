@@ -1,7 +1,7 @@
 from datetime import date, datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
-from custom_components.yarukoto.api import due_fields, list_for_new_items, task_due
+from custom_components.yarukoto.api import due_fields, task_due
 
 LA = ZoneInfo("America/Los_Angeles")
 
@@ -20,13 +20,3 @@ def test_a_due_time_from_another_zone_is_written_in_the_household_zone():
     naive = datetime(2026, 10, 2, 9, 5)
     assert due_fields(naive, LA)["dueTime"] == "09:05"
     assert due_fields(datetime(2026, 10, 2, 9, 5, tzinfo=timezone(timedelta(hours=-7))), LA)["dueTime"] == "09:05"
-
-
-def test_new_items_go_to_the_one_list_a_filter_names_or_else_the_default():
-    assert list_for_new_items({"listIds": ["l-groceries"], "folderIds": []}, "l-family") == "l-groceries"
-    assert list_for_new_items({"listIds": ["l-a", "l-b"]}, "l-family") == "l-family"
-    assert list_for_new_items({"listIds": [], "due": ["today"]}, None) is None
-    # The Inbox is private to one person, so an integration can't add to it.
-    assert list_for_new_items({"listIds": ["__inbox"]}, "l-family") == "l-family"
-    # A folder widens the filter past its one list.
-    assert list_for_new_items({"listIds": ["l-a"], "folderIds": ["f-home"]}, None) is None

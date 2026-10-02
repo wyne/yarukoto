@@ -4,11 +4,11 @@ from datetime import timedelta
 
 DOMAIN = "yarukoto"
 
-CONF_FILTERS = "filters"
-"""Saved filter ids shown as to-do lists."""
+CONF_LISTS = "lists"
+"""Yarukoto lists shown as to-do lists. Adding an item puts it in that list."""
 
-CONF_DEFAULT_LIST = "default_list"
-"""Where a new item goes when its filter doesn't name exactly one list."""
+CONF_FILTERS = "filters"
+"""Saved filters shown as to-do lists. Items can be ticked off and edited, not added."""
 
 SCAN_INTERVAL = timedelta(seconds=30)
 

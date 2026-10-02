@@ -14,14 +14,15 @@ import json
 from dataclasses import dataclass
 from datetime import date, datetime, tzinfo
 from typing import Any
+from urllib.parse import quote
 
 import aiohttp
 
 HOUSEHOLD_FEATURE = "household"
 """The server feature that carries sign-in codes; older servers only take an access token."""
 
-INBOX_LIST_ID = "__inbox"
-"""How a saved filter names the Inbox, which an integration can never write to."""
+INBOX = "inbox"
+"""How the task API names the Inbox, the private list a person's own sign-in can see."""
 
 
 class YarukotoError(Exception):
@@ -119,6 +120,10 @@ class YarukotoApi:
     async def filter_tasks(self, filter_id: str) -> dict[str, Any]:
         return await self._request("GET", f"/api/v1/filters/{filter_id}/tasks")
 
+    async def list_tasks(self, list_id: str) -> list[dict[str, Any]]:
+        """The open tasks in one list, or in the Inbox for `INBOX`."""
+        return (await self._request("GET", f"/api/v1/tasks?listId={quote(list_id)}&status=open&limit=500"))["tasks"]
+
     async def lists(self) -> list[dict[str, Any]]:
         return (await self._request("GET", "/api/v1/lists"))["lists"]
 
@@ -153,17 +158,3 @@ def due_fields(due: date | datetime | None, zone: tzinfo) -> dict[str, str | Non
         local = due.astimezone(zone) if due.tzinfo else due.replace(tzinfo=zone)
         return {"dueDate": local.date().isoformat(), "dueTime": local.strftime("%H:%M")}
     return {"dueDate": due.isoformat(), "dueTime": None}
-
-
-def list_for_new_items(criteria: dict[str, Any], default_list: str | None) -> str | None:
-    """
-    Which list a task added to this filter's to-do list goes into.
-
-    A filter that names exactly one list keeps its new items there, so they
-    show up where they were added. Anything else falls back to the list chosen
-    in the options, since a filter can span lists, or name none at all.
-    """
-    list_ids = [list_id for list_id in criteria.get("listIds") or [] if list_id != INBOX_LIST_ID]
-    if len(list_ids) == 1 and not criteria.get("folderIds"):
-        return list_ids[0]
-    return default_list
