@@ -12,8 +12,9 @@ const pkg = require('../../package.json');
  * Makes the generated iOS project build for Mac Catalyst as well.
  *
  * Expo has no macOS target, but nothing in the app needs one: every dependency
- * compiles for Catalyst once four things in the generated project are set. Each
- * fix below is one of them, and each was a build failure without it.
+ * but the few in EXCLUDED_MODULES compiles for Catalyst once four things in the
+ * generated project are set. Each fix below is one of them, and each was a build
+ * failure without it.
  *
  * It also hooks the app's own commands into the Mac menu bar; that one is a
  * feature rather than a build fix.
@@ -34,6 +35,15 @@ const IOS_DEPLOYMENT_TARGET = '16.4';
 const MACOS_DEPLOYMENT_TARGET = '14.0';
 
 const MARKER = '# mac-catalyst plugin';
+
+// Expo modules that don't compile for Catalyst, left out of the Mac build. Their
+// JS must not load there either: anything importing one has to stay behind a
+// check that is false on the Mac.
+//
+// expo-camera: its barcode scanner uses VisionKit's DataScannerViewController,
+// which doesn't exist on the Mac. Only the QR scanner uses it, and that is
+// already hidden there (CAN_SCAN in src/components/household/QrScanner.tsx).
+const EXCLUDED_MODULES = ['expo-camera'];
 
 /**
  * Expo's precompiled module xcframeworks ship device and simulator slices only,
@@ -67,6 +77,15 @@ function withCatalystPodfile(config) {
       throw new Error(`mac-catalyst: expected "${flag}" in the Podfile; Expo's template has changed.`);
     }
     contents = contents.replace(flag, ':mac_catalyst_enabled => true');
+
+    const expoModules = /^([ \t]*)use_expo_modules!\n/m;
+    if (!expoModules.test(contents)) {
+      throw new Error('mac-catalyst: expected a bare use_expo_modules! in the Podfile; Expo\'s template has changed.');
+    }
+    contents = contents.replace(
+      expoModules,
+      (_, indent) => `${indent}use_expo_modules!({ exclude: ${JSON.stringify(EXCLUDED_MODULES)} }) ${MARKER}\n`
+    );
 
     // After react_native_post_install rather than before it, so nothing it does
     // to the pods' settings can undo these.
