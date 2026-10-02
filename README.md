@@ -18,7 +18,8 @@ a working instance. The same codebase builds an iOS/Android app via Expo.
   around. Drag a task onto a day to reschedule it.
 - **Quick add with natural syntax** — `pay rent fri 6pm #home !high ~admin` parses the due date
   and time, the `#tag`, the `!priority`, and the `~list`. Anything unrecognized stays as the title.
-- **Subtasks, notes, tags, priorities, due dates and times.**
+- **Subtasks, Markdown notes, tags, priorities, due dates and times.** Notes have a formatting
+  toolbar and a native preview for headings, lists, quotes, links and code.
 - **Real URLs on the web** — every view is an address (`/today`, `/inbox?listId=…`), so a reload
   stays where you were, Back retraces the views you visited, and a filtered list is a link you can
   bookmark.
@@ -634,6 +635,9 @@ included, applies the same rule.
 The `/tasks` routes are for scripts and tools, not the app: each one reads the stored row, merges
 only what it was sent, and writes history, so a caller never has to hold a whole task the way
 `POST /sync` requires. The app picks the change up on its next pull.
+
+The `notes` field is Markdown. REST and MCP callers read and write the Markdown source unchanged;
+clients that do not render Markdown still see ordinary plain text.
 
 ### AI assistants (MCP)
 

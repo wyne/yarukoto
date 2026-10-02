@@ -44,6 +44,7 @@ import { useNativeDateTimePicker } from '../navigation/DateTimePickerContext';
 import { useTaskTextDraft } from './useTaskTextDraft';
 import { useSheetBottomPadding } from './useSheetInsets';
 import NativeOwnedTextInput from './NativeOwnedTextInput';
+import RichNotes, { RichNotesHandle } from './RichNotes';
 
 interface Props {
   taskId: string;
@@ -152,7 +153,7 @@ export default function TaskDetailView({ taskId, onClose, variant, active = true
     }));
   };
 
-  const notesRef = useRef<TextInput>(null);
+  const notesRef = useRef<RichNotesHandle>(null);
   const subtaskInputRef = useRef<TextInput>(null);
   const [keyboardUp, setKeyboardUp] = useState(false);
   const [keyboardInputFocused, setKeyboardInputFocused] = useState(false);
@@ -253,14 +254,7 @@ export default function TaskDetailView({ taskId, onClose, variant, active = true
    * so the field switch reads as one continuous motion.
    */
   const jumpToNotes = () => {
-    const notes = notesRef.current;
-    if (!notes) return;
-    notes.focus();
-    // The caret lands where the field last left it; push it past any existing
-    // notes once focus has actually landed.
-    requestAnimationFrame(() => {
-      notes.setNativeProps({ selection: { start: textDraft.notes.length, end: textDraft.notes.length } });
-    });
+    notesRef.current?.focusAtEnd();
   };
 
   const submitTitle = () => {
@@ -535,23 +529,17 @@ export default function TaskDetailView({ taskId, onClose, variant, active = true
         </Card>
 
         <Card style={[styles.pad14, { marginTop: 12 }]}>
-          <Text style={styles.sectionLabel}>Notes</Text>
-          <NativeOwnedTextInput
-            ref={notesRef as never}
+          <RichNotes
+            key={task.id}
+            ref={notesRef}
+            taskId={task.id}
             sheet={registerInputWithSheet}
             value={textDraft.notes}
             onChangeText={textDraft.setNotes}
-            placeholder="Add notes…"
-            placeholderTextColor={colors.textFaint}
-            style={styles.notesInput}
-            multiline
-            scrollEnabled={false}
-            {...keyboardTargetProps}
-            {...accessoryProps}
-            onBlur={() => {
-              setKeyboardInputFocused(false);
-              textDraft.flush();
-            }}
+            onFlush={textDraft.flush}
+            inputAccessoryViewID={Platform.OS === 'ios' && variant === 'pane' ? KEYBOARD_ACCESSORY_ID : undefined}
+            onFocus={keyboardTargetProps.onFocus}
+            onBlur={keyboardTargetProps.onBlur}
           />
         </Card>
 
@@ -891,15 +879,6 @@ const useStyles = makeStyles((c) => ({
     letterSpacing: 1,
     textTransform: 'uppercase',
     color: c.textTertiary,
-  },
-  notesInput: {
-    fontFamily: fonts.sansRegular,
-    fontSize: 15,
-    lineHeight: 21,
-    color: c.textPrimary,
-    marginTop: 6,
-    padding: 0,
-    minHeight: 40,
   },
   subtasksHeader: {
     flexDirection: 'row',
