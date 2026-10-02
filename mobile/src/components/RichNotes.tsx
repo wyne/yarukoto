@@ -98,25 +98,48 @@ const RichNotes = forwardRef<RichNotesHandle, Props>(function RichNotes(
 
   useImperativeHandle(forwardedRef, () => ({ focusAtEnd: focusEditor }));
 
+  // `setSelection` is a native command, which the new architecture honours;
+  // a `selection` sent through setNativeProps can be dropped there.
+  const placeCaret = ({ start, end }: TextSelection) => {
+    const input = inputRef.current;
+    if (!input) return;
+    if (typeof input.setSelection === 'function') input.setSelection(start, end);
+    else input.setNativeProps({ selection: { start, end } });
+  };
+
   useEffect(() => {
     if (!editing || !focusWhenMountedRef.current) return;
     focusWhenMountedRef.current = false;
     const selection = selectionRef.current;
     requestAnimationFrame(() => {
       inputRef.current?.focus();
-      inputRef.current?.setNativeProps({ selection });
+      placeCaret(selection);
     });
   }, [editing]);
 
+  /**
+   * Where a toolbar edit wants the caret: between the markers of an empty pair,
+   * or around the text it just wrapped. Writing the new text into the field
+   * moves the caret to the end, and that write can land on either side of the
+   * next frame, so the caret is placed in both spots and cleared after.
+   */
+  const pendingCaretRef = useRef<TextSelection | null>(null);
   const applyEdit = (formatter: ToolbarItem['action']) => {
     const edit = formatter(valueRef.current, selectionRef.current);
     valueRef.current = edit.text;
     selectionRef.current = edit.selection;
+    pendingCaretRef.current = edit.selection;
     onChangeText(edit.text);
     requestAnimationFrame(() => {
       inputRef.current?.focus();
-      inputRef.current?.setNativeProps({ selection: edit.selection });
+      placeCaret(edit.selection);
+      requestAnimationFrame(() => {
+        if (pendingCaretRef.current === edit.selection) pendingCaretRef.current = null;
+      });
     });
+  };
+  const onExternalText = () => {
+    if (pendingCaretRef.current) placeCaret(pendingCaretRef.current);
   };
 
   // ⌘B and ⌘I, from the menu bar or a key on the web, while the field has focus.
@@ -218,6 +241,7 @@ const RichNotes = forwardRef<RichNotesHandle, Props>(function RichNotes(
             ref={inputRef as never}
             sheet={sheet}
             syncKey={taskId}
+            onExternalText={onExternalText}
             value={value}
             onChangeText={(next) => {
               valueRef.current = next;
