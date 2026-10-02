@@ -9,6 +9,11 @@
  * the production icon, desaturated for dev and hue-shifted red for preview, so
  * they are easy to tell apart on the home screen.
  *
+ * Every icon master is a full-bleed square with no rounded corners or
+ * transparency: iOS and macOS cut the shape themselves. Prebuild flattens a
+ * light icon onto white, so baked-in transparent corners turn into a white rim
+ * that the Mac's own squircle mask then shows around the paper.
+ *
  * It also bakes `experiments.baseUrl` into the web export at build time: it
  * prefixes every bundled asset URL. The self-hosted server serves the app from
  * the domain root, so it must stay empty there — but GitHub Pages project sites

@@ -30,7 +30,7 @@ import SidebarDrawer from '../components/SidebarDrawer';
 import TaskDetailView from '../components/TaskDetailView';
 import TaskDetailSheet from '../components/TaskDetailSheet';
 import BulkActions from '../components/BulkActions';
-import { DESKTOP_UI } from '../data/platform';
+import { DESKTOP_UI, MAC } from '../data/platform';
 import UndoToast from '../components/UndoToast';
 import DragOverlay from '../drag/DragOverlay';
 import { useDragActive } from '../drag/DragContext';
@@ -39,7 +39,9 @@ import PairLinkHandler from './PairLinkHandler';
 import JoinLinkHandler from './JoinLinkHandler';
 import NavSheets from '../components/sidebar/NavSheets';
 import TaskReminderNotifications from './TaskReminderNotifications';
-import MenuCommands from './MenuCommands';
+import MenuCommands, { dispatchCommand } from './MenuCommands';
+import KeyCommandsView from '../../modules/mac-pointer/src/KeyCommandsView';
+import { anyLayerOpen } from '../components/openLayers';
 import AllScreen from '../screens/AllScreen';
 import InboxScreen from '../screens/InboxScreen';
 import TodayScreen from '../screens/TodayScreen';
@@ -204,11 +206,13 @@ function Layout() {
               DESKTOP_UI && { width: detailColumnWidth },
             ]}
           >
-            {bulk || !openTaskId ? (
-              <BulkActions variant="pane" />
-            ) : (
-              <TaskDetailView key={openTaskId} taskId={openTaskId} onClose={closeTask} variant="pane" />
-            )}
+            <PaneEscape onClose={closeTask}>
+              {bulk || !openTaskId ? (
+                <BulkActions variant="pane" />
+              ) : (
+                <TaskDetailView key={openTaskId} taskId={openTaskId} onClose={closeTask} variant="pane" />
+              )}
+            </PaneEscape>
           </View>
         </>
       )}
@@ -221,6 +225,33 @@ function Layout() {
       <TaskReminderNotifications />
       <MenuCommands />
     </View>
+  );
+}
+
+/**
+ * Escape from a field in the pane beside the list, on the Mac: backs out the
+ * same step Escape in the list does (see `deselect`), so typing in a note and
+ * pressing Escape closes the task with its row still marked in the list.
+ *
+ * Not focusable, so it only hears the key while something inside the pane has
+ * focus; the list's own Escape covers the rest. Popovers opened from the pane
+ * are modals with their own Escape, and keep it.
+ */
+function PaneEscape({ onClose, children }: { onClose: () => void; children: React.ReactNode }) {
+  const styles = useStyles();
+  if (!MAC) return <>{children}</>;
+  return (
+    <KeyCommandsView
+      style={styles.flex}
+      keys={['escape']}
+      onKeyCommand={() => {
+        if (anyLayerOpen()) return;
+        // A screen without a task list (Calendar, Browse) has no cursor to keep.
+        if (!dispatchCommand('deselect')) onClose();
+      }}
+    >
+      {children}
+    </KeyCommandsView>
   );
 }
 
