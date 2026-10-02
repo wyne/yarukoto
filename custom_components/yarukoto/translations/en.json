@@ -1,0 +1,60 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to Yarukoto",
+        "description": "Enter the address of your Yarukoto server, the same one the app uses.",
+        "data": {
+          "url": "Server address"
+        },
+        "data_description": {
+          "url": "For example http://192.168.1.20:8080"
+        }
+      },
+      "pair": {
+        "title": "Approve Home Assistant in Yarukoto",
+        "description": "On a phone signed in to {url} as an admin, open **Settings > Household**, enter this code under Add a device, and approve it:\n\n## {code}\n\nChoose **Integration** to let Home Assistant see only lists shared with the household. Choose **My device** to let it see everything you see, including your private lists and Inbox. Select **Submit** once you've approved it."
+      },
+      "reauth_confirm": {
+        "title": "Sign in to Yarukoto again",
+        "description": "{url} no longer accepts Home Assistant's sign-in, probably because it was signed out in the app. Select **Submit** to get a new code to approve."
+      },
+      "choose": {
+        "title": "Choose to-do lists",
+        "description": "Each one you pick becomes a to-do list in Home Assistant. You can add items to a list. A saved filter shows what it matches, and items can be ticked off and edited there, but not added, since a filter has no one list to add to. Saved filters are made in the app, under Browse.",
+        "data": {
+          "lists": "Lists",
+          "filters": "Saved filters"
+        }
+      }
+    },
+    "error": {
+      "invalid_url": "Enter a full address, starting with http:// or https://",
+      "cannot_connect": "Could not reach a Yarukoto server at that address.",
+      "server_too_old": "This server is too old for Home Assistant. Update it to a version with households.",
+      "not_approved": "That code hasn't been approved yet.",
+      "code_expired": "That code expired. Here is a new one.",
+      "unknown": "Something went wrong. Try again."
+    },
+    "abort": {
+      "already_configured": "This server is already set up.",
+      "cannot_connect": "Could not reach the Yarukoto server.",
+      "reauth_successful": "Signed in again."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Yarukoto to-do lists",
+        "description": "Each one you pick becomes a to-do list in Home Assistant. You can add items to a list. A saved filter shows what it matches, and items can be ticked off and edited there, but not added, since a filter has no one list to add to. Saved filters are made in the app, under Browse.",
+        "data": {
+          "lists": "Lists",
+          "filters": "Saved filters"
+        }
+      }
+    },
+    "abort": {
+      "cannot_connect": "Could not reach the Yarukoto server."
+    }
+  }
+}

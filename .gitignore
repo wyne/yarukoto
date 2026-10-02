@@ -10,3 +10,6 @@ server/dist/
 coverage/
 # The web export a local server serves (`expo export --output-dir ../web`).
 /web/
+
+__pycache__/
+.pytest_cache/
