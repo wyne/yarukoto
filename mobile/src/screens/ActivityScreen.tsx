@@ -11,6 +11,7 @@ import { FLOATING_TAB_BAR } from '../data/platform';
 import { ActivityRevision, createApi } from '../data/api';
 import { useTasks } from '../data/TaskContext';
 import { ListDef, Task } from '../data/types';
+import { markdownToPlainText } from '../data/markdown';
 import { addDays, formatDueFull, formatDueShort, fromISODate, toISODate } from '../data/dateUtils';
 import Card from '../components/Card';
 import Divider from '../components/Divider';
@@ -101,7 +102,11 @@ function changesFor(task: Task, previous: Task | null, lists: ListDef[]): Activi
     changes.push({ label: 'Title', before: compactText(previous.title, 'Untitled'), after: compactText(task.title, 'Untitled') });
   }
   if (task.notes !== previous.notes) {
-    changes.push({ label: 'Notes', before: compactText(previous.notes), after: compactText(task.notes) });
+    changes.push({
+      label: 'Notes',
+      before: markdownToPlainText(previous.notes),
+      after: markdownToPlainText(task.notes),
+    });
   }
   if (task.priority !== previous.priority) {
     changes.push({ label: 'Priority', before: priorityLabel(previous.priority), after: priorityLabel(task.priority) });
