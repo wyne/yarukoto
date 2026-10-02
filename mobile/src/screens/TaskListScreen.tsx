@@ -32,6 +32,8 @@ import { PANE_MAX_WIDTH, useSidebar } from '../navigation/SidebarContext';
 import { NATIVE_FAB_CLEARANCE, nativeTabBarClearance } from '../navigation/nativeTabBarLayout';
 import { useDetail } from '../navigation/DetailContext';
 import { useSelection } from '../navigation/SelectionContext';
+import { useCommand } from '../navigation/MenuCommands';
+import { rangeBetween, stepCursor } from '../data/listCursor';
 import TaskRow from '../components/TaskRow';
 import { useRowContext } from '../components/useRowContext';
 import Card from '../components/Card';
@@ -306,10 +308,13 @@ export default function TaskListScreen({ mode, filter }: Props) {
    * before the press handler asks.
    *
    * Web only: it listens on `document`, which the Mac doesn't have. There a
-   * click still opens a row and makes it the anchor; shift-extend and Escape
-   * are not wired up yet.
+   * click still opens a row and makes it the anchor, and ⇧↑ and ⇧↓ extend a
+   * selection from it (see `extendTo`); shift-click and Escape are not wired
+   * up yet.
    */
   const shiftHeld = useRef(false);
+  /** The moving end of a keyboard selection; see `extendTo`. */
+  const head = useRef<string | null>(null);
   useEffect(() => {
     if (Platform.OS !== 'web') return;
     const onDown = (e: PointerEvent) => {
@@ -365,13 +370,124 @@ export default function TaskListScreen({ mode, filter }: Props) {
       if (from !== -1 && to !== -1) {
         const [lo, hi] = from < to ? [from, to] : [to, from];
         select(flatIds.slice(lo, hi + 1));
+        head.current = id;
         return;
       }
     }
     clearSelection();
     setAnchor(id);
+    head.current = id;
     openTask(id);
   };
+
+  /**
+   * The keyboard's way through the list, on the desktop.
+   *
+   * The anchor is the cursor: the row a plain click last landed on, drawn with
+   * its tint, which ↑ and ↓ move and the task commands act on. ⇧↑ and ⇧↓ grow
+   * a selection from it, as a shift-click does, with `head` as the moving end.
+   * With a selection, the task commands act on all of it instead.
+   *
+   * Only the rows on screen count: a folded group's are skipped, and the
+   * Completed section is left out, since every task command is about open work.
+   */
+  const navIds = useMemo(
+    () =>
+      // A task under two tags is listed twice; one stop is enough.
+      Array.from(
+        new Set(
+          groups
+            .filter((g) => !(options.groupBy !== 'none' && sections.isGroupCollapsed(g.key)))
+            .flatMap((g) => g.tasks.map((t) => t.id))
+        )
+      ),
+    [groups, options.groupBy, sections.isGroupCollapsed]
+  );
+  const cursor = anchorId && navIds.includes(anchorId) ? anchorId : null;
+  // The selection is held above the screen, so only what this view shows of it
+  // counts: a key must never act on a task you can't see.
+  const visibleSelection = webSelection.filter((id) => navIds.includes(id));
+  const commandTargets = visibleSelection.length > 0 ? visibleSelection : cursor ? [cursor] : [];
+  const keyboardList = DESKTOP_UI && !selectionMode;
+
+  /** Puts the cursor on a row, and the detail with it if the detail is up beside the list. */
+  const moveCursor = (id: string | null) => {
+    if (!id) return;
+    clearSelection();
+    setAnchor(id);
+    head.current = id;
+    if (wide && openTaskId && openTaskId !== id) openTask(id);
+  };
+  const stepTo = (delta: 1 | -1) => moveCursor(stepCursor(navIds, cursor, delta));
+  const extendTo = (delta: 1 | -1) => {
+    if (!cursor) return stepTo(delta);
+    const from = head.current && navIds.includes(head.current) ? head.current : cursor;
+    const to = stepCursor(navIds, from, delta);
+    if (!to) return;
+    head.current = to;
+    select(rangeBetween(navIds, cursor, to));
+  };
+  /**
+   * Where the cursor goes if the row under it leaves the view — completed,
+   * trashed, or rescheduled out of Today. Taken before the act, while the row
+   * after it is still known: the next one down, or up at the end of the list.
+   */
+  const cursorFallback = useRef<string | null>(null);
+  const actOnTargets = (act: (ids: string[]) => void, clearsSelection = false) => {
+    const ids = commandTargets;
+    if (ids.length === 0) return;
+    const gone = new Set(ids);
+    const last = Math.max(...ids.map((id) => navIds.indexOf(id)));
+    cursorFallback.current =
+      navIds.slice(last + 1).find((id) => !gone.has(id)) ??
+      navIds.slice(0, last).reverse().find((id) => !gone.has(id)) ??
+      null;
+    act(ids);
+    if (clearsSelection) clearSelection();
+  };
+  useEffect(() => {
+    // Read once, on the first change of rows after the act; an act that left
+    // the row where it was has nothing to correct.
+    const fallback = cursorFallback.current;
+    cursorFallback.current = null;
+    if (!fallback || !anchorId || navIds.includes(anchorId) || !navIds.includes(fallback)) return;
+    setAnchor(fallback);
+    head.current = fallback;
+    // The detail beside the list was showing the row that left; it follows.
+    if (wide && openTaskId === anchorId) openTask(fallback);
+  }, [navIds, anchorId, setAnchor, wide, openTaskId, openTask]);
+
+  const hasRows = keyboardList && navIds.length > 0;
+  const hasTargets = keyboardList && commandTargets.length > 0;
+  useCommand('nextTask', () => stepTo(1), hasRows);
+  useCommand('previousTask', () => stepTo(-1), hasRows);
+  useCommand('selectNext', () => extendTo(1), hasRows);
+  useCommand('selectPrevious', () => extendTo(-1), hasRows);
+  useCommand('openTask', () => cursor && openTask(cursor), keyboardList && !!cursor);
+  useCommand(
+    'completeTask',
+    () =>
+      actOnTargets((ids) => {
+        // Through toggleComplete one at a time, as the bulk bar does, so each
+        // gets its sound and the last one its undo.
+        for (const id of ids) {
+          if (!state.tasks.find((t) => t.id === id)?.completed) toggleComplete(id);
+        }
+      }, true),
+    hasTargets
+  );
+  useCommand('dueToday', () => actOnTargets((ids) => ids.forEach(scheduleToday)), hasTargets);
+  useCommand('dueTomorrow', () => actOnTargets((ids) => ids.forEach(snoozeTask)), hasTargets);
+  useCommand(
+    'clearDue',
+    () => actOnTargets((ids) => bulkUpdate(ids, { dueDate: undefined, dueTime: undefined })),
+    hasTargets
+  );
+  useCommand('priorityHigh', () => actOnTargets((ids) => bulkUpdate(ids, { priority: 'high' })), hasTargets);
+  useCommand('priorityMedium', () => actOnTargets((ids) => bulkUpdate(ids, { priority: 'medium' })), hasTargets);
+  useCommand('priorityLow', () => actOnTargets((ids) => bulkUpdate(ids, { priority: 'low' })), hasTargets);
+  useCommand('priorityNone', () => actOnTargets((ids) => bulkUpdate(ids, { priority: 'none' })), hasTargets);
+  useCommand('deleteTask', () => actOnTargets(deleteTasks, true), hasTargets);
 
   const exitSelection = () => {
     setSelectionMode(false);
@@ -703,6 +819,7 @@ export default function TaskListScreen({ mode, filter }: Props) {
           dragCount={DESKTOP_UI ? (id) => (isSelected(id) ? webSelection.length : 1) : undefined}
           refreshControl={refreshControl}
           onScrollBeginDrag={closeOpenSwipeRow}
+          revealTaskId={DESKTOP_UI ? cursor : null}
           contentContainerStyle={[
             styles.listContent,
             !DESKTOP_UI && styles.scrollContentFab,

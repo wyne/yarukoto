@@ -8,7 +8,7 @@ import { IconPlus } from '../icons/Icons';
 import { parseQuickAdd } from '../data/quickAdd';
 import { formatDueShort } from '../data/dateUtils';
 import { applySuggestion, useQuickAddSuggestions } from '../data/quickAddSuggestions';
-import { useMenuCommand } from '../navigation/MenuCommands';
+import { useCommand } from '../navigation/MenuCommands';
 
 const HINT = 'Add a task… try "pay rent fri 6pm #home !high ~admin"';
 
@@ -27,7 +27,7 @@ export default function QuickAddBar({ onSubmit, contextLabel }: Props) {
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const inputRef = useRef<TextInput>(null);
   // File ▸ New Task (⌘N) on the Mac: this field is where a new task starts.
-  useMenuCommand('newTask', () => inputRef.current?.focus());
+  useCommand('newTask', () => inputRef.current?.focus());
   const parsed = text.trim() ? parseQuickAdd(text) : null;
   const dueLabel = parsed ? formatDueShort(new Date(), parsed.dueDate, parsed.dueTime) : null;
 

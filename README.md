@@ -511,16 +511,41 @@ which only appears on hover, takes pointer enter and leave directly — and matt
 with a fine pointer, rows drag from that handle alone. Tooltips still listen for DOM events and
 stay web-only.
 
-**The menu bar** adds the app's own commands to the one Catalyst provides: File ▸ New Task (⌘N)
-focuses the pinned add field, Edit ▸ Find… (⌘F) goes to Browse and focuses its search, and
-Yarukoto ▸ Settings… (⌘,) opens the settings sheet. On a screen without an add field, New Task
-goes to the Inbox's. Catalyst asks the app delegate to amend the menu, which no module can do, so
-`plugins/mac-catalyst` writes a small override into the generated AppDelegate that hands the
-menu to `mobile/modules/mac-menu`; screens answer commands through `useMenuCommand` in
-`src/navigation/MenuCommands.tsx`. Undo doesn't get a command of its own: completing a task
-registers on the window's undo manager, so the system's Edit ▸ Undo reads "Undo Complete Task"
-and ⌘Z undoes it for as long as the undo toast is up, while a focused text field keeps ⌘Z for its
-typing.
+**The menu bar** adds the app's own commands to the one Catalyst provides, from one list in
+`src/navigation/commands.ts`:
+
+| Menu | Command | Key |
+|---|---|---|
+| Yarukoto | Settings… | ⌘, |
+| File | New Task — the pinned add field, or the Inbox's on a screen without one | ⌘N |
+| Edit | Find… — Browse's search | ⌘F |
+| View | Command Menu… | ⌘K |
+| Task | Open Task | ↩ |
+| Task | Next / Previous Task | ↓ / ↑ |
+| Task | Add Next / Previous to Selection | ⇧↓ / ⇧↑ |
+| Task | Mark as Done | ⌘↩ |
+| Task | Due Today / Due Tomorrow / Remove Due Date | ⌘T / ⌥⌘T / — |
+| Task | Priority ▸ High, Medium, Low, None | ⌥⌘1, 2, 3, 0 |
+| Task | Move to Trash | ⌘⌫ |
+
+The Task menu works on the list's cursor: the row last clicked or arrowed to, which keeps its tint.
+With a selection it works on all of it. Format is removed, since nothing here styles text. A
+command nothing on screen can answer is dimmed; a Task command also dims while a popover or dialog
+is up, and one on a plain key (↩, ↑, ↓) while a text field has focus, which hands the key back to
+the field.
+
+The **command menu** (⌘K) searches every view, list, folder, tag and saved filter, and every
+command something on screen can answer, with each one's key beside it — so it doubles as the way
+to learn them. The web build has it too, along with the Task keys a browser lets a page have (not
+⌘N or ⌘T, which open a window and a tab first).
+
+Catalyst asks the app delegate to amend the menu, which no module can do, so `plugins/mac-catalyst`
+writes a small override into the generated AppDelegate that hands the menu to
+`mobile/modules/mac-menu`. JS sends it the command list once it starts, and screens answer
+commands through `useCommand` in `src/navigation/MenuCommands.tsx`. Undo doesn't get a command of
+its own: completing a task registers on the window's undo manager, so the system's Edit ▸ Undo
+reads "Undo Complete Task" and ⌘Z undoes it for as long as the undo toast is up, while a focused
+text field keeps ⌘Z for its typing.
 
 ### Where it stands
 
@@ -536,8 +561,8 @@ The app launches, syncs with a real server, and renders its wide layout. Known g
   every rebuild, so the prompt may not appear or may not stick; signing with a stable identity fixes
   that. Until then, the app's binary can be added to that list by hand.
 - **Shift-click and Escape in lists** are web-only for now: both listen on `document`, which the
-  Mac doesn't have. A plain click still opens a task. Escape doesn't close popover menus either,
-  for the same reason; clicking outside does.
+  Mac doesn't have. ⇧↑ and ⇧↓ select a range from the keyboard instead, and Escape does close
+  popovers and dialogs.
 - **The Pick time sheet is mostly empty** on the Mac: three small menus, in a sheet sized for the
   phone's wheel.
 - **Untested on the Mac:** notifications, and their Mark done / Snooze actions.

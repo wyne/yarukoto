@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { Platform, StyleProp, View, ViewStyle } from 'react-native';
 import EscapeKeyView from '../../modules/mac-pointer/src/EscapeKeyView';
 import { MAC } from '../data/platform';
+import { useOpenLayer } from './openLayers';
 
 interface Props {
   /** Only listens while true, so a hidden layer doesn't swallow the key. */
@@ -32,6 +33,7 @@ export default function EscapeToClose({ active, onEscape, inModal, style, childr
   // fresh arrow function.
   const onEscapeRef = useRef(onEscape);
   onEscapeRef.current = onEscape;
+  useOpenLayer(active);
 
   useEffect(() => {
     if (Platform.OS !== 'web' || !active || inModal) return;

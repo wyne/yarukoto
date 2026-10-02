@@ -17,7 +17,7 @@ import { useRowContext } from '../useRowContext';
 import { closeOpenSwipeRow } from '../SwipeableRow';
 import FilterBar from './FilterBar';
 import SavedFilterBar from './SavedFilterBar';
-import { useMenuCommand } from '../../navigation/MenuCommands';
+import { useCommand } from '../../navigation/MenuCommands';
 
 interface Props {
   criteria: TaskCriteria;
@@ -47,7 +47,7 @@ export default function BrowseView({ criteria, onCriteriaChange }: Props) {
 
   // Edit ▸ Find… (⌘F) on the Mac.
   const searchRef = useRef<TextInput>(null);
-  useMenuCommand('find', () => searchRef.current?.focus());
+  useCommand('find', () => searchRef.current?.focus());
 
   const tasks = useMemo(
     () => filterTasks(state.tasks, criteria, { lists: state.lists, now }),
