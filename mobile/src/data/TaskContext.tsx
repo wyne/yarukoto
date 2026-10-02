@@ -1396,27 +1396,6 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
           outboxRef.current.clear(removedIds);
           saveDirtyIds(outboxRef.current.toArray());
         }
-        const pulledAnything =
-          pulled.tasks.length +
-            pulled.lists.length +
-            pulled.folders.length +
-            pulled.viewPrefs.length +
-            pulled.savedFilters.length +
-            removedIds.length >
-          0;
-        // An empty pull only moves the cursor. Rewriting the whole snapshot for
-        // that serializes every task on the JS thread each tick; if the app dies
-        // first, the next launch just pulls from the older cursor again.
-        if (pulledAnything) saveServerSnapshot({
-          tasks: stateRef.current.tasks,
-          lists: stateRef.current.lists,
-          folders: stateRef.current.folders,
-          viewPrefs: stateRef.current.viewPrefs,
-          savedFilters: stateRef.current.savedFilters,
-          serverFeatures: features ?? undefined,
-          household: householdRef.current ?? undefined,
-          cursor: cursorRef.current,
-        });
         setMergeDirtyIds(outboxRef.current.snapshot());
         dispatch({
           type: 'MERGE',
@@ -1427,6 +1406,13 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
           savedFilters: pulled.savedFilters,
           removed: pulled.removed,
         });
+
+        // The state effect below persists the merged collections and this cursor
+        // together. Saving here would pair the new cursor with stateRef's
+        // pre-merge rows; if the app died before React committed the MERGE, the
+        // next launch would resume after changes its snapshot never contained.
+        // Leaving the previous snapshot untouched in that window is safe: an
+        // interrupted launch simply replays this pull.
 
         // Anything marked dirty *during* the request is still queued, so this is
         // only fully "synced" if the outbox came out empty.
@@ -1672,4 +1658,3 @@ export function useSyncStatus(): SyncStatus {
 export function usePendingUndo(): PendingUndo | null {
   return useContext(PendingUndoContext);
 }
-
