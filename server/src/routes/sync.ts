@@ -42,7 +42,12 @@ export function registerSyncRoutes(app: FastifyInstance, db: Database.Database):
     const viewer = syncViewer(request.viewer, reply);
     if (!viewer) return;
     const since = request.query.since;
-    const now = new Date().toISOString();
+    // The cursor handed back is one millisecond behind the clock. A write that
+    // lands later in this same millisecond is stamped with it, and the next
+    // pull asks for rows strictly after the cursor — so a cursor of "now"
+    // would skip that write for good. Rows stamped in the overlap come back
+    // twice instead, which last-write-wins makes harmless.
+    const now = new Date(Date.now() - 1).toISOString();
 
     if (since) {
       const cutoff = new Date(Date.now() - env.trashRetentionDays * 24 * 60 * 60 * 1000).toISOString();
