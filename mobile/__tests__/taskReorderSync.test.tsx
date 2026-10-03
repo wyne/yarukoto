@@ -4,7 +4,7 @@ import { TaskProvider, useTasks } from '../src/data/TaskContext';
 import { saveDirtyIds } from '../src/data/storage';
 import type { Task } from '../src/data/types';
 
-const task = (id: string, order: number): Task => ({
+const task = (id: string, order: number, patch: Partial<Task> = {}): Task => ({
   id,
   title: id,
   notes: '',
@@ -16,10 +16,20 @@ const task = (id: string, order: number): Task => ({
   createdAt: '2026-10-02T12:00:00.000Z',
   updatedAt: '2026-10-02T12:00:00.000Z',
   order,
+  ...patch,
 });
 
 // This gap forces computeOrders through its precision-renumber fallback.
-const mockInitialTasks = [task('a', 0), task('b', 0.0000005), task('c', 0.5), task('d', 1)];
+const mockInitialTasks = [
+  task('a', 0),
+  task('b', 0.0000005),
+  task('c', 0.5),
+  task('d', 1),
+  task('other-list', 10, { listId: 'l-other' }),
+  task('completed', 11, { completed: true, completedAt: '2026-10-02T12:30:00.000Z' }),
+  task('deleted', 12, { deletedAt: '2026-10-02T12:30:00.000Z' }),
+  task('shared-list', 13, { listId: 'l-shared' }),
+];
 const mockSaveDirtyIds = saveDirtyIds as jest.MockedFunction<typeof saveDirtyIds>;
 
 jest.mock('expo-audio', () => ({
@@ -42,7 +52,18 @@ jest.mock('../src/data/storage', () => ({
   loadServerSnapshot: () => ({
     schemaVersion: 1,
     tasks: mockInitialTasks,
-    lists: [],
+    lists: [
+      { id: 'l-other', name: 'Other', folderId: null, order: 0, updatedAt: '2026-10-02T12:00:00.000Z' },
+      {
+        id: 'l-shared',
+        name: 'Shared',
+        folderId: null,
+        order: 1,
+        shared: true,
+        ownerId: 'u-owner',
+        updatedAt: '2026-10-02T12:00:00.000Z',
+      },
+    ],
     folders: [],
     viewPrefs: [],
     savedFilters: [],
@@ -81,7 +102,7 @@ jest.mock('../src/data/api', () => {
   };
 });
 
-test('precision renumber queues every task whose order changed', async () => {
+test('precision respace queues only tasks changed in its local window', async () => {
   let root: ReactTestRenderer | undefined;
   let context: ReturnType<typeof useTasks> | undefined;
 
@@ -102,15 +123,22 @@ test('precision renumber queues every task whose order changed', async () => {
 
   act(() => context!.reorderTasks(['d'], 'a', 'b'));
 
-  // d keeps numeric order 1. The fallback respaces b and c, including c outside
-  // the moved/previous/next set used before this fix, so both enter the outbox.
-  expect(mockSaveDirtyIds).toHaveBeenCalledWith(['b', 'c']);
+  // Only the dragged task and its local collision peer enter the outbox. Tasks
+  // from other, completed, deleted, and shared-list scopes stay untouched.
+  expect(mockSaveDirtyIds).toHaveBeenCalledWith(['d', 'b']);
   expect(context!.state.tasks.map(({ id, order }) => ({ id, order }))).toEqual([
     { id: 'a', order: 0 },
-    { id: 'b', order: 2 },
-    { id: 'c', order: 3 },
-    { id: 'd', order: 1 },
+    { id: 'b', order: 1 / 3 },
+    { id: 'c', order: 0.5 },
+    { id: 'd', order: 1 / 6 },
+    { id: 'other-list', order: 10 },
+    { id: 'completed', order: 11 },
+    { id: 'deleted', order: 12 },
+    { id: 'shared-list', order: 13 },
   ]);
+  for (const id of ['a', 'c', 'other-list', 'completed', 'deleted', 'shared-list']) {
+    expect(context!.state.tasks.find((row) => row.id === id)).toBe(mockInitialTasks.find((row) => row.id === id));
+  }
 
   act(() => root?.unmount());
 });
