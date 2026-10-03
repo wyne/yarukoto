@@ -29,14 +29,20 @@ export interface SyncStatus {
  * a not-yet-pushed local edit.
  */
 export class Outbox {
-  private ids = new Set<string>();
+  /**
+   * Each dirty id maps to the mark that last touched it. Marking an id that is
+   * already dirty still moves it to a new mark, which is how a push can tell an
+   * edit made while it was in flight from the one it actually sent.
+   */
+  private ids = new Map<string, number>();
+  private lastMark = 0;
 
   constructor(ids: string[] = []) {
     this.mark(ids);
   }
 
   mark(ids: string[]): void {
-    for (const id of ids) this.ids.add(id);
+    for (const id of ids) this.ids.set(id, ++this.lastMark);
   }
 
   has(id: string): boolean {
@@ -47,19 +53,41 @@ export class Outbox {
     return this.ids.size;
   }
 
-  /** Removes ids that were included in a push that succeeded. */
+  /** Removes ids unconditionally, edited since or not. */
   clear(ids: string[]): void {
     for (const id of ids) this.ids.delete(id);
   }
 
+  /** Records which mark each id is at, to hand to `settle` once a push lands. */
+  marksOf(ids: string[]): Map<string, number> {
+    const marks = new Map<string, number>();
+    for (const id of ids) {
+      const mark = this.ids.get(id);
+      if (mark !== undefined) marks.set(id, mark);
+    }
+    return marks;
+  }
+
+  /**
+   * Removes ids that a successful push sent, unless they were marked again while
+   * it was in flight. That later edit is not on the server yet, so it has to stay
+   * dirty: both to be pushed next cycle and to keep the push's echo of the older
+   * row from overwriting it in the merge.
+   */
+  settle(sent: ReadonlyMap<string, number>): void {
+    for (const [id, mark] of sent) {
+      if (this.ids.get(id) === mark) this.ids.delete(id);
+    }
+  }
+
   /** A point-in-time copy, safe to hand to a reducer action. */
   snapshot(): Set<string> {
-    return new Set(this.ids);
+    return new Set(this.ids.keys());
   }
 
   /** A JSON-friendly copy for persistence. */
   toArray(): string[] {
-    return Array.from(this.ids);
+    return Array.from(this.ids.keys());
   }
 }
 
@@ -134,6 +162,15 @@ export async function pushDirty(
 
   if (tasks.length + lists.length + folders.length + viewPrefs.length + savedFilters.length === 0) return null;
 
+  // Taken before the request: anything marked after this point is newer than
+  // what is being sent.
+  const sent = outbox.marksOf([
+    ...tasks.map((t) => t.id),
+    ...lists.map((l) => l.id),
+    ...folders.map((f) => f.id),
+    ...viewPrefs.map((v) => v.id),
+    ...savedFilters.map((f) => f.id),
+  ]);
   const result = await api.push({
     tasks,
     lists,
@@ -141,13 +178,7 @@ export async function pushDirty(
     viewPrefs,
     ...(sendFilters && savedFilters.length > 0 ? { savedFilters } : {}),
   });
-  outbox.clear([
-    ...tasks.map((t) => t.id),
-    ...lists.map((l) => l.id),
-    ...folders.map((f) => f.id),
-    ...viewPrefs.map((v) => v.id),
-    ...savedFilters.map((f) => f.id),
-  ]);
+  outbox.settle(sent);
   return result;
 }
 
