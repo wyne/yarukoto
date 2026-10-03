@@ -107,7 +107,7 @@ type Action =
   | { type: 'USE_SAMPLE_DATA'; data: ReturnType<typeof buildSampleData> }
   | { type: 'DISCONNECT' }
   | ({ type: 'HYDRATE' } & Collections)
-  | ({ type: 'MERGE'; removed?: { tasks: string[]; lists: string[] } } & Collections);
+  | ({ type: 'MERGE'; dirtyIds: ReadonlySet<string>; removed?: { tasks: string[]; lists: string[] } } & Collections);
 
 interface Collections {
   tasks: Task[];
@@ -481,11 +481,11 @@ function applyAction(state: State, action: Action): State {
         savedFilters: action.savedFilters,
       };
     case 'MERGE': {
-      const tasks = dropRemoved(mergeBatch(state.tasks, action.tasks, mergeDirtyIds), action.removed?.tasks ?? []);
-      const lists = dropRemoved(mergeBatch(state.lists, action.lists, mergeDirtyIds), action.removed?.lists ?? []);
-      const folders = mergeBatch(state.folders, action.folders, mergeDirtyIds);
-      const viewPrefs = mergeBatch(state.viewPrefs, action.viewPrefs, mergeDirtyIds);
-      const savedFilters = mergeBatch(state.savedFilters, action.savedFilters, mergeDirtyIds);
+      const tasks = dropRemoved(mergeBatch(state.tasks, action.tasks, action.dirtyIds), action.removed?.tasks ?? []);
+      const lists = dropRemoved(mergeBatch(state.lists, action.lists, action.dirtyIds), action.removed?.lists ?? []);
+      const folders = mergeBatch(state.folders, action.folders, action.dirtyIds);
+      const viewPrefs = mergeBatch(state.viewPrefs, action.viewPrefs, action.dirtyIds);
+      const savedFilters = mergeBatch(state.savedFilters, action.savedFilters, action.dirtyIds);
       // Most pulls come back empty. Handing back the same state lets React bail
       // out, instead of re-rendering every consumer on each idle sync tick.
       if (
@@ -505,18 +505,6 @@ function applyAction(state: State, action: Action): State {
 }
 
 /**
- * `MERGE` needs to know which ids are still dirty (a local edit not yet pushed),
- * but the reducer is a pure function with no access to the outbox. The dispatcher
- * stashes a snapshot here immediately before dispatching MERGE — safe because JS
- * is single-threaded, so nothing else can run between the snapshot and the
- * reducer picking it up.
- */
-let mergeDirtyIds = new Set<string>();
-export function setMergeDirtyIds(ids: Set<string>): void {
-  mergeDirtyIds = ids;
-}
-
-/**
  * Stamps `updatedAt` on whatever the action actually changed.
  *
  * Every mutating case builds new objects with `.map()`, which returns the *same*
@@ -524,7 +512,7 @@ export function setMergeDirtyIds(ids: Set<string>): void {
  * state finds exactly the changed records. Doing it here rather than in each case
  * means a future action gets correct timestamps without its author remembering to.
  */
-function reducer(state: State, action: Action): State {
+export function reduceTaskState(state: State, action: Action): State {
   const next = applyAction(state, action);
   if (next === state) return next;
   // Rows from the server already carry their true updatedAt; restamping them
@@ -728,7 +716,7 @@ const PendingUndoContext = createContext<PendingUndo | null>(null);
 
 
 export function TaskProvider({ children }: { children: React.ReactNode }) {
-  const [state, dispatch] = useReducer(reducer, undefined, initState);
+  const [state, dispatch] = useReducer(reduceTaskState, undefined, initState);
   // `null` means "not probed yet", which is deliberately not the same as `[]`.
   // A server that answered with no features is one to strip fields for; a server
   // we simply haven't reached is not, because omitting a field it does support
@@ -904,7 +892,11 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
   const completeAt = useCallback(
     (id: string, at: string) => {
       const task = stateRef.current.tasks.find((t) => t.id === id);
-      const rolled = task && task.updatedAt < at ? completeRepeating(task, at, toISODate(new Date(at))) : null;
+      // A missing task, a stale notification, or a duplicate completion cannot
+      // change state. Keeping it out of the outbox matters: pushDirty cannot
+      // clear an id for which no local row exists, leaving sync pending forever.
+      if (!task || task.completed || task.updatedAt >= at) return;
+      const rolled = completeRepeating(task, at, toISODate(new Date(at)));
       dispatch({ type: 'COMPLETE_AT', id, at });
       markDirty(rolled ? [id, rolled.occurrence.id] : [id]);
     },
@@ -1377,10 +1369,10 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
             features ?? SERVER_FEATURES
           );
           saveDirtyIds(outboxRef.current.toArray());
-          setMergeDirtyIds(outboxRef.current.snapshot());
           if (pushed) {
             dispatch({
               type: 'MERGE',
+              dirtyIds: outboxRef.current.snapshot(),
               tasks: pushed.tasks,
               lists: pushed.lists,
               folders: pushed.folders,
@@ -1396,9 +1388,9 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
           outboxRef.current.clear(removedIds);
           saveDirtyIds(outboxRef.current.toArray());
         }
-        setMergeDirtyIds(outboxRef.current.snapshot());
         dispatch({
           type: 'MERGE',
+          dirtyIds: outboxRef.current.snapshot(),
           tasks: pulled.tasks,
           lists: pulled.lists,
           folders: pulled.folders,
