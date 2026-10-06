@@ -6,6 +6,7 @@ node_modules/
 # Expo
 .expo/
 dist/
+dist-e2e/
 web-build/
 expo-env.d.ts
 
@@ -35,6 +36,8 @@ yarn-error.*
 
 # typescript
 *.tsbuildinfo
+test-results/
+playwright-report/
 
 # generated native folders
 /ios
