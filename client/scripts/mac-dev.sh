@@ -15,6 +15,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT_DIR"
+. scripts/require-deps.sh
 
 BUILD=1
 for arg in "$@"; do
