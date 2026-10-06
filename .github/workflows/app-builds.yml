@@ -1,0 +1,169 @@
+name: App builds
+
+# Builds the Mac, iOS and Android apps on demand: Actions > App builds > Run
+# workflow. Deliberately manual. Main moves often, and a native build of every
+# merge would be slow, noisy and mostly unused.
+#
+# Each build is attached to the run as an artifact. None becomes a GitHub
+# release: those belong to the Home Assistant integration (see ha-release.yml).
+#
+# iOS and Android go through `eas build --local`, the same build the README
+# describes, run on GitHub's runners instead of a laptop. That keeps the build
+# off EAS's monthly quota while still signing with the credentials EAS stores,
+# so it needs an EXPO_TOKEN secret (expo.dev > Account settings > Access tokens).
+on:
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: Build profile
+        type: choice
+        options: [development, preview]
+        default: development
+
+permissions:
+  contents: read
+
+concurrency:
+  group: app-builds-${{ github.ref }}-${{ inputs.profile || 'development' }}
+  cancel-in-progress: false
+
+env:
+  PROFILE: ${{ inputs.profile || 'development' }}
+  # CocoaPods aborts on a Podfile path check without a UTF-8 locale.
+  LANG: en_US.UTF-8
+  LC_ALL: en_US.UTF-8
+
+jobs:
+  mac:
+    name: Mac
+    runs-on: macos-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+
+      - name: Install
+        working-directory: mobile
+        run: npm ci
+
+      # development is the dev client, which loads JS from Metro, so it is the
+      # Debug build `npm run mac:dev` makes. preview is a standalone Release.
+      - name: Build
+        working-directory: mobile
+        env:
+          APP_VARIANT: ${{ inputs.profile || 'development' }}
+        run: |
+          if [ "$PROFILE" = development ]; then
+            scripts/build-mac.sh --debug
+          else
+            scripts/build-mac.sh
+          fi
+
+      # The build is unsigned, so a downloaded copy is quarantined; clear it
+      # with `xattr -dr com.apple.quarantine <app>` before the first launch.
+      - name: Package
+        working-directory: mobile
+        run: |
+          APP=$(ls -d ios/build/catalyst/Build/Products/*-maccatalyst/*.app | head -1)
+          mkdir -p "$RUNNER_TEMP/out"
+          ditto -c -k --keepParent "$APP" "$RUNNER_TEMP/out/$(basename "$APP" .app)-mac-$PROFILE.zip"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mac-${{ inputs.profile || 'development' }}
+          path: ${{ runner.temp }}/out/*.zip
+          if-no-files-found: error
+
+  ios:
+    name: iOS
+    runs-on: macos-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install
+        working-directory: mobile
+        run: npm ci
+
+      # Ad hoc signing bakes in the devices registered at build time. A phone
+      # added since the last profile was made needs one local
+      # `eas build --platform ios` first: regenerating the profile asks
+      # questions, and this run can't answer them.
+      - name: Build
+        working-directory: mobile
+        run: |
+          mkdir -p "$RUNNER_TEMP/out"
+          eas build --platform ios --profile "$PROFILE" --local --non-interactive \
+            --output "$RUNNER_TEMP/out/Yarukoto-ios-$PROFILE.ipa"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ios-${{ inputs.profile || 'development' }}
+          path: ${{ runner.temp }}/out/*.ipa
+          if-no-files-found: error
+
+  android:
+    name: Android
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install
+        working-directory: mobile
+        run: npm ci
+
+      # Both profiles use internal distribution, which builds an APK that
+      # installs directly rather than a Play Store bundle.
+      - name: Build
+        working-directory: mobile
+        run: |
+          mkdir -p "$RUNNER_TEMP/out"
+          eas build --platform android --profile "$PROFILE" --local --non-interactive \
+            --output "$RUNNER_TEMP/out/Yarukoto-android-$PROFILE.apk"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-${{ inputs.profile || 'development' }}
+          path: ${{ runner.temp }}/out/*.apk
+          if-no-files-found: error
