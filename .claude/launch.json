@@ -11,7 +11,7 @@
       "name": "yarukoto-web-start",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "web"],
-      "cwd": "mobile",
+      "cwd": "client",
       "port": 8081,
       "autoPort": false
     }

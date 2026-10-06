@@ -11,9 +11,9 @@ data
 
 # Build output, regenerated inside the image.
 server/dist
-mobile/dist
-mobile/.expo
-mobile/web-build
+client/dist
+client/.expo
+client/web-build
 
 .git
 .gitignore

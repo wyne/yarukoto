@@ -7,7 +7,7 @@
 #
 # Only a native change (a module's Swift, a new native dependency, a config
 # plugin) needs the build; for JS, --no-build skips it. Like `npm run mac`, the
-# build regenerates mobile/ios with prebuild --clean.
+# build regenerates client/ios with prebuild --clean.
 #
 # Metro runs in this terminal, as `npm run start:dev` does; the app is opened
 # once it is listening, pointed straight at it rather than at the launcher.

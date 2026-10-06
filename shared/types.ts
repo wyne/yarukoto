@@ -6,9 +6,9 @@ export type Priority = 'none' | 'low' | 'medium' | 'high';
  * Optional backend capabilities, advertised by `GET /api/v1/health` and
  * negotiated at runtime — never inferred from an app or server version. Ids are
  * permanent: they outlive every deployed client, so they are not renamed or
- * recycled. When a connected server omits one, mobile hides the UI behind it and
+ * recycled. When a connected server omits one, the client hides the UI behind it and
  * strips its fields before pushing. An *unreachable* server is a third state:
- * mobile hides the UI but keeps sending the field, since a wrongly stripped field
+ * the client hides the UI but keeps sending the field, since a wrongly stripped field
  * is unrecoverable and a wrongly hidden row is not. See AGENTS.md.
  */
 export const SERVER_FEATURES = ['taskReminders', 'savedFilters', 'household', 'taskRepeat'] as const;

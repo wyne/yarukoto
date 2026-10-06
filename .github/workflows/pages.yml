@@ -7,7 +7,7 @@ on:
   push:
     branches: [main]
     paths:
-      - 'mobile/**'
+      - 'client/**'
       - 'shared/**'
       - '.github/workflows/pages.yml'
   workflow_dispatch:
@@ -32,14 +32,14 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: mobile/package-lock.json
+          cache-dependency-path: client/package-lock.json
 
       - name: Install
-        working-directory: mobile
+        working-directory: client
         run: npm ci
 
       - name: Export web
-        working-directory: mobile
+        working-directory: client
         # Project sites are served from /<repo>/, so bundled asset URLs need that
         # prefix. Taken from the repo name so renaming the repo can't silently
         # break it. A user/org site or custom domain would set this to ''.
@@ -53,16 +53,16 @@ jobs:
         # it serves in that case, so a copy of index.html boots the app, which reads
         # the path and shows the right view. The self-hosted server does the same
         # thing with its notFound handler.
-        run: cp mobile/dist/index.html mobile/dist/404.html
+        run: cp client/dist/index.html client/dist/404.html
 
       - name: Disable Jekyll
         # The bundle lives in _expo/, and a leading underscore is exactly what
         # Jekyll strips. Cheap insurance against an empty-looking deploy.
-        run: touch mobile/dist/.nojekyll
+        run: touch client/dist/.nojekyll
 
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: mobile/dist
+          path: client/dist
 
   deploy:
     needs: build

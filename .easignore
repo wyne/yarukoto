@@ -13,10 +13,10 @@ server/data/
 server/dist/
 coverage/
 
-# ---- From mobile/.gitignore ----
-mobile/dist/
-mobile/web-build/
-mobile/expo-env.d.ts
+# ---- From client/.gitignore ----
+client/dist/
+client/web-build/
+client/expo-env.d.ts
 .kotlin/
 *.orig.*
 *.jks
@@ -31,8 +31,8 @@ yarn-error.*
 .DS_Store
 *.pem
 .env*.local
-mobile/ios/
-mobile/android/
+client/ios/
+client/android/
 *.ipa
 
 # ---- Only here: git tracks these, a build has no use for them ----
