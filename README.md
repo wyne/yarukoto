@@ -251,7 +251,7 @@ plain HTTP is mixed content that browsers block — so "Connect" can't reach a l
 there. Visitors get "Explore with sample data", which runs entirely client-side.
 
 The build-time subtlety: a Pages *project* site is served from `/<repo>/`, and the export
-hard-codes absolute asset URLs. `mobile/app.config.js` reads `EXPO_BASE_URL` so the workflow can
+hard-codes absolute asset URLs. `client/app.config.js` reads `EXPO_BASE_URL` so the workflow can
 set that prefix while the Docker build — which serves from the domain root — leaves it empty.
 Setting it globally would break self-hosting. A user/org site or a custom domain needs no prefix.
 The same value reaches the app itself as `process.env.EXPO_BASE_URL`, which is how the URL routing
@@ -266,10 +266,10 @@ with a not-found handler.
 
 ## Building the iOS app
 
-The same `mobile/` project that produces the web bundle builds the iOS app — the screens are
+The same `client/` project that produces the web bundle builds the iOS app — the screens are
 React Native either way, so there is no separate codebase to keep in step.
 
-Native folders are not committed (`mobile/.gitignore` ignores `/ios` and `/android`); they are
+Native folders are not committed (`client/.gitignore` ignores `/ios` and `/android`); they are
 generated from `app.json` + `app.config.js` on each build. Edit the config, not the generated
 project.
 
@@ -283,7 +283,7 @@ and then withdrawing it — is the direction Apple pushes back on, which is why 
 ### One-time setup
 
 ```bash
-cd mobile
+cd client
 npm install
 npm install -g eas-cli
 eas login
@@ -296,12 +296,12 @@ eas init          # links the project and writes extra.eas.projectId into app.js
 > **The app builds under three identities so they can all live on the same device at once.**
 > `production` is `com.wyne.yarukoto`, `development` is `com.wyne.yarukoto.dev` and `preview` is
 > `com.wyne.yarukoto.preview`; each also gets its own icon (dev desaturated, preview hue-shifted
-> red) and display name, switched by the `APP_VARIANT` env var in `mobile/app.config.js`. Changing
+> red) and display name, switched by the `APP_VARIANT` env var in `client/app.config.js`. Changing
 > the production identifier later means a new app record in App Store Connect.
 
 ### Build profiles
 
-`mobile/eas.json` defines three, each baking in its `APP_VARIANT`:
+`client/eas.json` defines three, each baking in its `APP_VARIANT`:
 
 | Profile | What it produces | Distribution |
 |---|---|---|
@@ -320,7 +320,7 @@ ignored — that is deliberate, it keeps build-number churn out of git.
 Two different native projects are in play, and which one a command reads is the thing to keep
 straight.
 
-**`expo run:ios` and `expo run:android` compile the `mobile/ios` and `mobile/android` folders in
+**`expo run:ios` and `expo run:android` compile the `client/ios` and `client/android` folders in
 your working tree.** Those are generated, and they hold one variant at a time — the folder is even
 named for it, `ios/Yarukotopreview.xcodeproj`. So switching variants means regenerating them, which
 is why `ios:dev` chains `prebuild --clean` ahead of `run:ios`. Skip it and you rebuild whatever
@@ -386,12 +386,12 @@ signed build on a device you own without waiting in a queue. It needs Xcode (or 
 a JDK for `--platform android`), and it writes the artifact into the directory you run it from:
 
 ```bash
-cd mobile
+cd client
 npx eas build --platform ios --profile development --local
 npx eas build --platform ios --profile preview --local
 ```
 
-Each produces a `build-<epoch-ms>.ipa` in `mobile/`, which is gitignored. Run them one at a time:
+Each produces a `build-<epoch-ms>.ipa` in `client/`, which is gitignored. Run them one at a time:
 signing an ad hoc build can need a provisioning profile regenerating, and that asks.
 
 Both of those profiles sign against the devices registered to the Apple team — `eas device:list`
@@ -405,7 +405,7 @@ Then put it on a paired device:
 npm run install:ipa
 ```
 
-`mobile/scripts/install-ipa.sh` lists the IPAs newest-first with their version, variant and age,
+`client/scripts/install-ipa.sh` lists the IPAs newest-first with their version, variant and age,
 lists the paired devices, and installs the chosen one with `xcrun devicectl`. With `fzf` installed
 you get a picker with an Info.plist preview; without it, a numbered menu. It installs one IPA per
 run, so run it once per build. The phone has to be plugged in or reachable with Wireless Debugging
@@ -422,7 +422,7 @@ The preview build is standalone and runs on its own.
 ### Getting it onto TestFlight
 
 Needs a paid Apple Developer Program membership and an app record in App Store Connect whose
-bundle ID matches `mobile/app.config.js`. Create the record first — `eas submit` can do it for you
+bundle ID matches `client/app.config.js`. Create the record first — `eas submit` can do it for you
 on the first run, but only if the identifier is free.
 
 ```bash
@@ -437,14 +437,14 @@ Processing on Apple's side takes a few minutes, after which the build appears un
 Internal testers (up to 100, on your team) get it immediately. External testers need Apple's
 review of the *build*, which is lighter than App Store review but not instant.
 
-> `ITSAppUsesNonExemptEncryption` is set to `false` in `mobile/app.config.js`. The app only uses
+> `ITSAppUsesNonExemptEncryption` is set to `false` in `client/app.config.js`. The app only uses
 > encryption for HTTPS, which is exempt, and declaring that up front is what stops every single
 > build from landing in TestFlight as "Missing Compliance" waiting on a manual answer.
 
 ### Why the app can talk to an HTTP server
 
 iOS App Transport Security blocks plain HTTP, and the common Yarukoto setup is exactly that — a
-server on your LAN at `http://192.168.x.x:8080`. `mobile/app.config.js` sets two Info.plist keys to
+server on your LAN at `http://192.168.x.x:8080`. `client/app.config.js` sets two Info.plist keys to
 allow it:
 
 - `NSAllowsLocalNetworking` permits HTTP to private-range and `.local` addresses. It is the
@@ -465,7 +465,7 @@ a menu bar. The wide layout — pinned sidebar, list, and task pane side by side
 `width >= 900` check the web build uses, so a Mac window gets it with no Mac-specific screens.
 
 ```bash
-cd mobile
+cd client
 npm run mac              # prebuild with Catalyst on, then a Release build for the Mac
 npm run mac -- --open    # ...and launch it
 npm run mac:release      # sign, notarize, staple, and package a website download
@@ -473,7 +473,7 @@ npm run mac:dev          # the dev client, built Debug and launched against Metr
 npm run mac:dev -- --no-build   # relaunch the last dev build; enough for JS changes
 ```
 
-The development command prints the path to the finished app under `mobile/ios/build/catalyst/`.
+The development command prints the path to the finished app under `client/ios/build/catalyst/`.
 `APP_VARIANT` works as
 it does for the phone (`APP_VARIANT=preview npm run mac`), so variants can sit side by side on a
 Mac too.
@@ -482,13 +482,13 @@ Mac too.
 Debug, starts Metro in the terminal, and opens the app pointed at it, so JS edits reload in place.
 Only a native change needs the rebuild; for anything else, `--no-build` starts in seconds.
 
-Like `ios:dev`, this **regenerates `mobile/ios`** with `prebuild --clean`, and what it leaves there
+Like `ios:dev`, this **regenerates `client/ios`** with `prebuild --clean`, and what it leaves there
 is a Catalyst-enabled project. The next phone build that prebuilds replaces it; one that doesn't
 (`expo run:ios` on its own) would compile it as-is, which works but is slower — see below.
 
 ### What makes it build
 
-`mobile/plugins/mac-catalyst` applies four changes to the generated project. Each one was a build
+`client/plugins/mac-catalyst` applies four changes to the generated project. Each one was a build
 failure without it:
 
 | Change | Why |
@@ -510,7 +510,7 @@ EAS Build has no Catalyst target, so Mac builds are local-only.
 
 `npm run mac:release` creates a Developer ID-signed archive and disk image, submits the DMG to
 Apple's notary service, staples the accepted ticket, verifies it with Gatekeeper, and writes a DMG plus SHA-256
-checksum under `mobile/dist/macos/<version>-<build>/`. It reads the signing identity from the
+checksum under `client/dist/macos/<version>-<build>/`. It reads the signing identity from the
 login keychain and the notarization credential from the `yarukoto-notary` keychain profile; neither
 secret lives in the repository.
 
@@ -518,7 +518,7 @@ The version defaults to `expo.version` in `app.json`. The build number defaults 
 successive local releases increase naturally. Either can be made explicit:
 
 ```bash
-cd mobile
+cd client
 MAC_VERSION=1.0.1 MAC_BUILD_NUMBER=2026092701 npm run mac:release
 ```
 
@@ -562,7 +562,7 @@ phone spins wheels.
 **Right-click** goes through `ContextMenuTarget`, which opens the same popover menus on web and the
 Mac. On web it listens for the DOM `contextmenu` event. On iOS, React Native's gesture recognizers
 only accept the primary button, so a right-click never reaches JS on its own. The local Expo module
-`mobile/modules/mac-pointer` wraps the target in a native view carrying a
+`client/modules/mac-pointer` wraps the target in a native view carrying a
 `UIContextMenuInteraction` — the channel Mac Catalyst routes right-clicks through. It reports the
 click's position to JS and declines to show a native menu, so the JS popover opens instead. (A
 gesture recognizer requiring the secondary button looks like the obvious tool and doesn't work:
@@ -604,7 +604,7 @@ is up.
 **The list's own keys** — ↑ and ↓ to move the cursor, ⇧↑ and ⇧↓ to select, ↩ to open, ⌫ to trash,
 Escape to deselect — are not in the menu bar, and can't be: AppKit tries a menu key equivalent before
 anything focused hears the key, so a plain ↩ there would take Return from every text field.
-Instead the list holds them itself, through `KeyCommandsView` in `mobile/modules/mac-pointer`,
+Instead the list holds them itself, through `KeyCommandsView` in `client/modules/mac-pointer`,
 taking the keyboard when it appears, when you click in it, and when a dialog closes. A field
 focused anywhere else keeps every key.
 
@@ -615,7 +615,7 @@ to learn them. The web build has it too, along with the Task keys a browser lets
 
 Catalyst asks the app delegate to amend the menu, which no module can do, so `plugins/mac-catalyst`
 writes a small override into the generated AppDelegate that hands the menu to
-`mobile/modules/mac-menu`. JS sends it the command list once it starts, and screens answer
+`client/modules/mac-menu`. JS sends it the command list once it starts, and screens answer
 commands through `useCommand` in `src/navigation/MenuCommands.tsx`. Undo doesn't get a command of
 its own: completing or trashing a task registers on the window's undo manager, so the system's
 Edit ▸ Undo reads "Undo Complete Task" or "Undo Move to Trash" and ⌘Z undoes it for as long as the undo toast is up, while a focused
@@ -654,7 +654,7 @@ resizes like one.
 ## Repo layout
 
 ```
-mobile/    Expo + React Native client (also builds the web UI)
+client/    Expo + React Native client for web, iOS, Android, and Mac
 server/    Fastify + better-sqlite3 API server
 shared/    Task/ListDef/FolderDef types and the quick-add parser, used by both sides
 custom_components/yarukoto/   Home Assistant integration (installed through HACS)
@@ -835,7 +835,7 @@ Adding a backend-backed feature:
 - Add a stable id to `SERVER_FEATURES`. Ids outlive deployed clients, so they're
   never renamed or recycled.
 - Advertise it from `/health` only once the backend can persist *and* sync the field.
-- Gate the mobile UI with `supportsFeature(id)`.
+- Gate the client UI with `supportsFeature(id)`.
 - Strip the field before `POST /sync` when the id isn't advertised.
 - Leave local and sample mode fully capable — there's no backend there to negotiate
   with.
@@ -857,7 +857,7 @@ YARUKOTO_TOKEN=devtoken DATABASE_PATH=./data/dev.db MIGRATIONS_DIR=./migrations 
 **Client** — in a second terminal:
 
 ```bash
-cd mobile
+cd client
 npm install
 npm run web
 ```
@@ -879,7 +879,7 @@ URL field is skipped only when the page is served by the API server itself.
 Type checking (there is no test runner yet):
 
 ```bash
-cd mobile && npx tsc --noEmit
+cd client && npx tsc --noEmit
 cd server && npx tsc --noEmit
 ```
 

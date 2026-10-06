@@ -9,7 +9,7 @@ if (!outputPath) {
 }
 
 const reports = [
-  ['Mobile', path.join(root, 'mobile/coverage/coverage-summary.json')],
+  ['Client', path.join(root, 'client/coverage/coverage-summary.json')],
   ['Server', path.join(root, 'server/coverage/coverage-summary.json')],
 ].map(([name, reportPath]) => {
   const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
@@ -50,7 +50,7 @@ const lines = [
   ...reports.map((report) => row(report.name, report.totals)),
   row('Combined', combined),
   '',
-  '_Scope: all mobile app source and server source except the server bootstrap entry point._',
+  '_Scope: all client source and server source except the server bootstrap entry point._',
   sha ? `_Commit \`${sha}\`._` : '_Generated from the current checkout._',
   '',
 ].join('\n');

@@ -1,6 +1,6 @@
 # Yarukoto
 
-`mobile/` (Expo client), `server/` (Fastify + SQLite), and `shared/` (the types both
+`client/` (Expo client for web, iOS, Android, and Mac), `server/` (Fastify + SQLite), and `shared/` (the types both
 compile against). Subdirectories may add their own `AGENTS.md`; those apply on top of
 this file.
 
@@ -18,7 +18,7 @@ The protocol, whenever a feature needs backend storage:
    they outlive every deployed client, so don't rename or recycle one.
 2. Advertise it from `GET /api/v1/health` only once the backend can actually
    persist *and* sync the data. Advertising early is what corrupts data.
-3. Gate the mobile UI with `supportsFeature(id)`, so a feature the server cannot
+3. Gate the client UI with `supportsFeature(id)`, so a feature the server cannot
    keep is never offered.
 4. Strip that feature's fields before `POST /sync` when the server has not
    advertised it.
@@ -67,7 +67,7 @@ A reminder notification carries **Mark done** and **Snooze**, and both have to w
 with the app killed — that is the only state a lock-screen button is interesting in.
 Neither platform lets JavaScript be the thing that answers.
 
-- **iOS** catches the tap in `mobile/modules/notification-actions`, a local Expo
+- **iOS** catches the tap in `client/modules/notification-actions`, a local Expo
   module whose handler registers during `didFinishLaunchingWithOptions`. Expo's own
   response listeners come up with the JS bundle, which is too late: the process can
   be suspended again before React Native finishes booting, and the tap is gone.

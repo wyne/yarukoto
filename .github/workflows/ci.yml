@@ -27,7 +27,7 @@ jobs:
           node-version: 22
           cache: npm
           cache-dependency-path: |
-            mobile/package-lock.json
+            client/package-lock.json
             server/package-lock.json
 
       - name: Install server dependencies
@@ -42,16 +42,16 @@ jobs:
         working-directory: server
         run: npm run build
 
-      - name: Install mobile dependencies
-        working-directory: mobile
+      - name: Install client dependencies
+        working-directory: client
         run: npm ci
 
-      - name: Test mobile
-        working-directory: mobile
+      - name: Test client
+        working-directory: client
         run: npm run test:coverage -- --ci
 
-      - name: Type-check mobile
-        working-directory: mobile
+      - name: Type-check client
+        working-directory: client
         run: npm run typecheck
 
       - name: Build coverage report

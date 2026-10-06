@@ -49,16 +49,16 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: mobile/package-lock.json
+          cache-dependency-path: client/package-lock.json
 
       - name: Install
-        working-directory: mobile
+        working-directory: client
         run: npm ci
 
       # development is the dev client, which loads JS from Metro, so it is the
       # Debug build `npm run mac:dev` makes. preview is a standalone Release.
       - name: Build
-        working-directory: mobile
+        working-directory: client
         env:
           APP_VARIANT: ${{ inputs.profile || 'development' }}
         run: |
@@ -71,7 +71,7 @@ jobs:
       # The build is unsigned, so a downloaded copy is quarantined; clear it
       # with `xattr -dr com.apple.quarantine <app>` before the first launch.
       - name: Package
-        working-directory: mobile
+        working-directory: client
         run: |
           APP=$(ls -d ios/build/catalyst/Build/Products/*-maccatalyst/*.app | head -1)
           mkdir -p "$RUNNER_TEMP/out"
@@ -98,7 +98,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: mobile/package-lock.json
+          cache-dependency-path: client/package-lock.json
 
       - uses: expo/expo-github-action@v8
         with:
@@ -106,7 +106,7 @@ jobs:
           token: ${{ secrets.EXPO_TOKEN }}
 
       - name: Install
-        working-directory: mobile
+        working-directory: client
         run: npm ci
 
       # Ad hoc signing bakes in the devices registered at build time. A phone
@@ -114,7 +114,7 @@ jobs:
       # `eas build --platform ios` first: regenerating the profile asks
       # questions, and this run can't answer them.
       - name: Build
-        working-directory: mobile
+        working-directory: client
         run: |
           mkdir -p "$RUNNER_TEMP/out"
           eas build --platform ios --profile "$PROFILE" --local --non-interactive \
@@ -142,7 +142,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: mobile/package-lock.json
+          cache-dependency-path: client/package-lock.json
 
       - uses: expo/expo-github-action@v8
         with:
@@ -150,13 +150,13 @@ jobs:
           token: ${{ secrets.EXPO_TOKEN }}
 
       - name: Install
-        working-directory: mobile
+        working-directory: client
         run: npm ci
 
       # Both profiles use internal distribution, which builds an APK that
       # installs directly rather than a Play Store bundle.
       - name: Build
-        working-directory: mobile
+        working-directory: client
         run: |
           mkdir -p "$RUNNER_TEMP/out"
           eas build --platform android --profile "$PROFILE" --local --non-interactive \
