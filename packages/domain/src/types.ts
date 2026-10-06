@@ -33,7 +33,7 @@ export interface TaskReminder {
  *
  * `rule` is an RFC 5545 RRULE body — `FREQ=WEEKLY;INTERVAL=1;BYDAY=MO,WE` — the
  * same notation TickTick stores, so an imported rule survives as written. See
- * `shared/recurrence.ts` for the subset that is understood.
+ * `recurrence.ts` for the subset that is understood.
  */
 export interface TaskRepeat {
   rule: string;

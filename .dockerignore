@@ -13,8 +13,13 @@ data
 server/dist
 client/dist
 client/dist-e2e
+client/dist-windows
 client/.expo
 client/web-build
+docs/dist
+packages/domain/dist
+windows/dist
+windows/target
 
 .git
 .gitignore

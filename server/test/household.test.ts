@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import Database from 'better-sqlite3';
-import { ListDef, Task } from '../../shared/types';
+import { ListDef, Task } from '@yarukoto/domain/types';
 import { runMigrations } from '../src/db';
 import { registerHouseholdRoutes, registerPairingRoutes } from '../src/routes/household';
 import { registerHistoryRoutes } from '../src/routes/history';

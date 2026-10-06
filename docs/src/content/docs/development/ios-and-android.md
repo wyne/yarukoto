@@ -20,8 +20,8 @@ and then withdrawing it — is the direction Apple pushes back on, which is why 
 ## One-time setup
 
 ```bash
-cd client
 npm install
+cd client
 npm install -g eas-cli
 eas login
 eas init          # links the project and writes extra.eas.projectId into app.json

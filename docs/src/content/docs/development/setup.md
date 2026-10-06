@@ -5,11 +5,16 @@ description: Run the server and client locally, and inspect the database safely.
 
 Node 22+.
 
+Install every JavaScript package once from the repository root:
+
+```bash
+npm install
+```
+
 **Server** — needs a token and a writable database path:
 
 ```bash
 cd server
-npm install
 YARUKOTO_TOKEN=devtoken DATABASE_PATH=./data/dev.db MIGRATIONS_DIR=./migrations npm run dev
 ```
 
@@ -17,7 +22,6 @@ YARUKOTO_TOKEN=devtoken DATABASE_PATH=./data/dev.db MIGRATIONS_DIR=./migrations 
 
 ```bash
 cd client
-npm install
 npm run web
 ```
 
@@ -35,11 +39,11 @@ URL field is skipped only when the page is served by the API server itself.
 > `lsof -i :8080 -sTCP:LISTEN` is the first thing to check; a second listener is invisible to
 > `docker compose ps`.
 
-Type checking (there is no test runner yet):
+Run the unit tests and type checks for both the client and server from the repository root:
 
 ```bash
-cd client && npx tsc --noEmit
-cd server && npx tsc --noEmit
+npm test
+npm run typecheck
 ```
 
 ## Inspecting the database

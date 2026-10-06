@@ -202,7 +202,7 @@ function upsertViewPref(
 
 /**
  * Checks off a repeating task: the series moves to its next date and the
- * occurrence stays behind as a completed copy (see shared/recurrence.ts). Null
+ * occurrence stays behind as a completed copy (see packages/domain/src/recurrence.ts). Null
  * when the task doesn't roll — it doesn't repeat, or this was its last date.
  */
 function rollRepeating(tasks: Task[], id: string, at: string): Task[] | null {

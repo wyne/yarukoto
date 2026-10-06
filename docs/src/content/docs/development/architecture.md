@@ -6,15 +6,19 @@ description: Repo layout, and how sync works.
 ## Repo layout
 
 ```
-client/    Expo + React Native client for web, iOS, Android, and Mac
-server/    Fastify + better-sqlite3 API server
-shared/    Task/ListDef/FolderDef types and the quick-add parser, used by both sides
+client/             Expo + React Native client for web, iOS, Android, and Mac
+server/             Fastify + better-sqlite3 API server
+packages/domain/    Types and domain logic shared by the client and server
+windows/            Tauri shell around the client's web export
+docs/               Starlight documentation site
 custom_components/yarukoto/   Home Assistant integration (installed through HACS)
 homeassistant-tests/          its tests, run with pytest-homeassistant-custom-component
 ```
 
-Keeping the types in `shared/` means the client and server can't drift apart silently — the
-server compiles against the same `Task` shape the UI uses.
+The JavaScript projects form one npm workspace, with one install and one lockfile at the root.
+Keeping the domain types and pure logic in `packages/domain/` means the client and server can't
+drift apart silently — the server compiles against the same `Task` shape and filtering rules the
+UI uses.
 
 
 ## How sync works

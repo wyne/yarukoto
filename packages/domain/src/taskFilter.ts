@@ -8,7 +8,7 @@ import { dueBucket } from './dates';
  * inbox, today, what is in the trash. These answer whatever question the user
  * has typed, so they take criteria rather than being one apiece.
  *
- * In `shared/` because a saved filter is evaluated in two places: the app, and
+ * In the domain package because a saved filter is evaluated in two places: the app, and
  * the server's `/api/v1/filters/:id/tasks` for callers like Home Assistant. The
  * same criteria must admit the same tasks on both sides.
  */

@@ -1,9 +1,6 @@
 const { getDefaultConfig } = require('expo/metro-config');
-const path = require('path');
 
 const config = getDefaultConfig(__dirname);
-
-config.watchFolders = [...(config.watchFolders ?? []), path.resolve(__dirname, '../shared')];
 
 // Worklets installs its globals as a side effect of being required, and Reanimated's
 // own modules read them at import time. Expo defaults inlineRequires to false, which

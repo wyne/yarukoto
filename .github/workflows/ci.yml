@@ -26,13 +26,10 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: |
-            client/package-lock.json
-            server/package-lock.json
+          cache-dependency-path: package-lock.json
 
-      - name: Install server dependencies
-        working-directory: server
-        run: npm ci
+      - name: Install dependencies
+        run: npm ci --workspace yarukoto-client --workspace yarukoto-server --workspace @yarukoto/domain
 
       - name: Test server
         working-directory: server
@@ -41,10 +38,6 @@ jobs:
       - name: Build server
         working-directory: server
         run: npm run build
-
-      - name: Install client dependencies
-        working-directory: client
-        run: npm ci
 
       - name: Test client
         working-directory: client

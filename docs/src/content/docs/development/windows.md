@@ -19,10 +19,9 @@ You need Node, Rust (`rustup`), and on Windows the Visual Studio C++ build tools
 installer offers.
 
 ```bash
-cd client && npm ci        # the web export comes from here
-cd ../windows && npm ci    # the Tauri CLI
-npm run build              # exports the web client, then builds the installers
-npm run dev                # starts Expo's web dev server and opens it in the shell
+npm ci
+npm run build --workspace yarukoto-windows  # exports the web client, then builds the installers
+npm run dev --workspace yarukoto-windows    # starts Expo's web dev server and opens it in the shell
 ```
 
 `npm run build` leaves an `.exe` (NSIS, installs for the current user, no admin prompt) and an
@@ -30,9 +29,9 @@ npm run dev                # starts Expo's web dev server and opens it in the sh
 lacks it.
 
 CI does the same on `windows-latest` (`.github/workflows/windows.yml`) for every pull request that
-touches `windows/`, and on demand from **Actions → Windows app → Run workflow**. The installers are
-attached to the run. They are unsigned, so SmartScreen warns on first launch: **More info → Run
-anyway**.
+touches the web client or Windows shell, and on demand from **Actions → Windows app → Run
+workflow**. The installers are attached to the run. They are unsigned, so SmartScreen warns on
+first launch: **More info → Run anyway**.
 
 ## What the shell changes
 

@@ -11,12 +11,15 @@ server/data/
 *.env
 *.tsbuildinfo
 server/dist/
+packages/domain/dist/
 coverage/
 
 # ---- From client/.gitignore ----
 client/dist/
 client/dist-e2e/
+client/dist-windows/
 client/web-build/
+docs/dist/
 client/expo-env.d.ts
 .kotlin/
 *.orig.*
@@ -37,6 +40,8 @@ client/android/
 *.ipa
 client/test-results/
 client/playwright-report/
+windows/dist/
+windows/target/
 
 # ---- Only here: git tracks these, a build has no use for them ----
 # Agent worktrees are whole checkouts of the repo, and can run to gigabytes.

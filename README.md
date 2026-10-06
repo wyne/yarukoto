@@ -66,11 +66,14 @@ request. Merging to `main` publishes them.
 ## Repo layout
 
 ```
-client/    Expo + React Native client for web, iOS, Android, and Mac
-server/    Fastify + better-sqlite3 API server
-shared/    Types and the quick-add parser, used by both sides
-windows/   Tauri shell that packages the web build as a Windows app
-docs/      The documentation site (Starlight)
+client/             Expo + React Native client for web, iOS, Android, and Mac
+server/             Fastify + better-sqlite3 API server
+packages/domain/    Types and domain logic shared by the client and server
+windows/            Tauri shell that packages the web build as a Windows app
+docs/               The documentation site (Starlight)
 custom_components/yarukoto/   Home Assistant integration (installed through HACS)
 homeassistant-tests/          its tests
 ```
+
+The JavaScript projects are one npm workspace. Run `npm install` once at the repository root,
+then use the root scripts or target an individual package with `npm --workspace`.

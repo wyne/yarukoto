@@ -1,4 +1,4 @@
-import { HouseholdRole } from '../../shared/types';
+import { HouseholdRole } from '@yarukoto/domain/types';
 
 /**
  * Who a request is acting as, and the one place that decides what they see.

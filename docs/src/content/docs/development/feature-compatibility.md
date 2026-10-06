@@ -7,7 +7,7 @@ Your server updates when you pull a new image; the app updates when the App Stor
 says so. The two are rarely on the same build, so optional backend-backed features
 are negotiated at runtime rather than guessed from a version number.
 
-Feature ids live in `shared/types.ts` as `SERVER_FEATURES`. The server advertises the
+Feature ids live in `packages/domain/src/types.ts` as `SERVER_FEATURES`. The server advertises the
 ids it supports in the `/health` response, the app probes that on connect and
 refreshes it on a slow timer, and it caches the answer alongside the local snapshot
 so a cold start isn't a blind one. Anything the server leaves out, the app hides and
