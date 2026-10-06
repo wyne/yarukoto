@@ -28,6 +28,7 @@ import { DESKTOP_UI, FLOATING_TAB_BAR } from '../data/platform';
 import { IconChevronDown, IconChevronLeft, IconChevronRight, IconMenu } from '../icons/Icons';
 import { taskIdsFromDrag, useDragActive, useDragPayload } from '../drag/DragContext';
 import { Measurable } from '../drag/useDropTarget';
+import ResizeCursorView from '../../modules/mac-pointer/src/ResizeCursorView';
 import { alpha } from '../theme/colors';
 
 const AGENDA_WINDOW_DAYS = 45;
@@ -353,14 +354,14 @@ export default function CalendarScreen() {
         />
       )}
       {wide && DESKTOP_UI && (
-        <View
+        <ResizeCursorView
           style={styles.paneResizer}
           accessibilityRole="adjustable"
           accessibilityLabel="Resize plan task pane"
           {...resizePan.panHandlers}
         >
           <View style={styles.paneResizerLine} />
-        </View>
+        </ResizeCursorView>
       )}
 
       <View style={[styles.calendarCol, wide && DESKTOP_UI && styles.calendarColResizable]}>

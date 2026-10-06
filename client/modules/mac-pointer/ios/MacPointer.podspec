@@ -1,7 +1,7 @@
 Pod::Spec.new do |s|
   s.name           = 'MacPointer'
   s.version        = '1.0.0'
-  s.summary        = 'Mouse and keyboard input for the Mac build: hover, right-click and Escape'
+  s.summary        = 'Mouse and keyboard input for the Mac build: hover, right-click, resize cursor and Escape'
   s.description    = 'Turns on React Native pointer events on the Mac, and reports right-clicks; neither reaches JS by default.'
   s.author         = ''
   s.homepage       = 'https://docs.expo.dev/modules/'
