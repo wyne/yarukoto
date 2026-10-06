@@ -139,18 +139,28 @@ describe('fractional ordering', () => {
   });
 
   test('repeated inserts recover headroom without spreading to distant rows', () => {
-    const left = { id: 'left', order: -100 };
-    const anchor = { id: 'anchor', order: 0 };
-    const right = { id: 'right', order: 100 };
+    const base = -1_760_000_000_000;
+    const left = { id: 'left', order: base - 1_000_000 };
+    const anchor = { id: 'anchor', order: base };
+    const right = { id: 'right', order: base + 1_000_000 };
     let rows = [left, anchor, right];
     let nextId = right.id;
     let widestChange = 0;
+    let insertsSinceRespace = 0;
+    let sawRespace = false;
 
-    for (let index = 0; index < 80; index += 1) {
-      const inserted = { id: `inserted-${index}`, order: 1000 + index };
+    for (let index = 0; index < 200; index += 1) {
+      const inserted = { id: `inserted-${index}`, order: base + 1000 + index };
       rows = [...rows, inserted];
       const changed = changedOrders(rows, computeOrders(rows, [inserted.id], anchor.id, nextId));
       widestChange = Math.max(widestChange, changed.size);
+      if (changed.size > 1) {
+        if (sawRespace) expect(insertsSinceRespace).toBeGreaterThanOrEqual(10);
+        sawRespace = true;
+        insertsSinceRespace = 0;
+      } else if (sawRespace) {
+        insertsSinceRespace += 1;
+      }
       expect(changed.has(left.id)).toBe(false);
       expect(changed.has(right.id)).toBe(false);
       rows = applyOrders(rows, changed);
@@ -164,7 +174,33 @@ describe('fractional ordering', () => {
     }
 
     expect(widestChange).toBeLessThanOrEqual(3);
+    expect(sawRespace).toBe(true);
     expect(rows.find((row) => row.id === left.id)).toBe(left);
     expect(rows.find((row) => row.id === right.id)).toBe(right);
+  });
+
+  test('falls back when a large-magnitude midpoint rounds onto a neighbour', () => {
+    const base = -1_760_000_000_000;
+    const ulp = 2 ** (Math.floor(Math.log2(Math.abs(base))) - 52);
+    const rows = [
+      { id: 'outer-left', order: base - 1000 },
+      { id: 'prev', order: base },
+      { id: 'next', order: base + ulp },
+      { id: 'outer-right', order: base + 1000 },
+      { id: 'moving', order: base + 2000 },
+    ];
+
+    const changed = changedOrders(rows, computeOrders(rows, ['moving'], 'prev', 'next'));
+    const applied = applyOrders(rows, changed);
+
+    expect(changed.size).toBeGreaterThan(1);
+    expect(new Set(applied.map((row) => row.order)).size).toBe(applied.length);
+    expect([...applied].sort((a, b) => a.order - b.order).map((row) => row.id)).toEqual([
+      'outer-left',
+      'prev',
+      'moving',
+      'next',
+      'outer-right',
+    ]);
   });
 });

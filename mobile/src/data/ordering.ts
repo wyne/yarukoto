@@ -20,7 +20,31 @@ export interface Ordered {
  */
 const ORDER_EPSILON = 1e-6;
 /** A local respace should survive at least ten more single-row midpoint insertions. */
-const RESPACE_GAP = ORDER_EPSILON * 2 ** 11;
+const RESPACE_HEADROOM = 2 ** 11;
+const MIN_RESPACE_GAP = ORDER_EPSILON * RESPACE_HEADROOM;
+
+/** The distance to the next representable float at this order's magnitude. */
+function ulpAt(value: number): number {
+  const magnitude = Math.abs(value);
+  if (magnitude === 0 || magnitude < 2 ** -1022) return Number.MIN_VALUE;
+  return 2 ** (Math.floor(Math.log2(magnitude)) - 52);
+}
+
+/**
+ * Date-based task orders are around -1e12, where adjacent floats are much
+ * farther apart than ORDER_EPSILON. Scale the repair gap to the local ULP so
+ * the promised midpoint headroom is real at every order magnitude.
+ */
+function respaceGapAt(...bounds: number[]): number {
+  return Math.max(MIN_RESPACE_GAP, ...bounds.map((bound) => ulpAt(bound) * RESPACE_HEADROOM));
+}
+
+function positionsFit(positions: number[], lower?: number, upper?: number): boolean {
+  if (positions.some((position) => !Number.isFinite(position))) return false;
+  if (lower !== undefined && !(positions[0] > lower)) return false;
+  if (upper !== undefined && !(positions[positions.length - 1] < upper)) return false;
+  return positions.every((position, index) => index === 0 || position > positions[index - 1]);
+}
 
 /**
  * Moves rows between two neighbours.
@@ -115,18 +139,24 @@ export function computeOrders(
     step = gap / (moving.length + 1);
     start = prev.order + step;
   } else if (prev) {
-    start = prev.order + 1;
-    step = 1;
+    step = Math.max(1, respaceGapAt(prev.order));
+    start = prev.order + step;
   } else if (next) {
-    start = next.order - moving.length;
-    step = 1;
+    step = Math.max(1, respaceGapAt(next.order));
+    start = next.order - moving.length * step;
   } else {
     // Neither neighbour: the row is alone where it landed — a list dragged into
     // an empty folder, say — and still needs a defined position.
     return new Map(moving.map((id, i) => [id, i]));
   }
 
-  return new Map(moving.map((id, i) => [id, start + i * step]));
+  const positions = moving.map((_, index) => start + index * step);
+  // A midpoint can round onto either neighbour even while the mathematical gap
+  // is larger than the fixed epsilon. Validate the actual floats we will store.
+  if (!positionsFit(positions, prev?.order, next?.order)) {
+    return renumberOrders(scope, moving, prevId);
+  }
+  return new Map(moving.map((id, index) => [id, positions[index]]));
 }
 
 /**
@@ -163,19 +193,21 @@ export function renumberOrders(
 
     if (lower !== undefined && upper !== undefined) {
       step = (upper - lower) / (length + 1);
-      if (step < RESPACE_GAP) return null;
+      if (step < respaceGapAt(lower, upper)) return null;
       start = lower + step;
     } else if (lower !== undefined) {
-      step = 1;
+      step = Math.max(1, respaceGapAt(lower));
       start = lower + step;
     } else if (upper !== undefined) {
-      step = 1;
+      step = Math.max(1, respaceGapAt(upper));
       start = upper - length * step;
     } else {
       step = 1;
       start = 0;
     }
 
+    const positions = Array.from({ length }, (_, index) => start + index * step);
+    if (!positionsFit(positions, lower, upper)) return null;
     return { left, right, start, step };
   };
 
