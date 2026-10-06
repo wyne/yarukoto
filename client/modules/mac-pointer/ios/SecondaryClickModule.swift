@@ -45,3 +45,11 @@ public final class KeyCommandsModule: Module {
     }
   }
 }
+
+public final class ResizeCursorModule: Module {
+  public func definition() -> ModuleDefinition {
+    Name("ResizeCursor")
+
+    View(ResizeCursorView.self) {}
+  }
+}

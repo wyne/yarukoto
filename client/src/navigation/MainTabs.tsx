@@ -41,6 +41,7 @@ import NavSheets from '../components/sidebar/NavSheets';
 import TaskReminderNotifications from './TaskReminderNotifications';
 import MenuCommands, { dispatchCommand } from './MenuCommands';
 import KeyCommandsView from '../../modules/mac-pointer/src/KeyCommandsView';
+import ResizeCursorView from '../../modules/mac-pointer/src/ResizeCursorView';
 import { anyLayerOpen } from '../components/openLayers';
 import AllScreen from '../screens/AllScreen';
 import InboxScreen from '../screens/InboxScreen';
@@ -190,14 +191,14 @@ function Layout() {
       {showPane && (
         <>
           {DESKTOP_UI && (
-            <View
+            <ResizeCursorView
               style={styles.detailResizer}
               accessibilityRole="adjustable"
               accessibilityLabel="Resize task pane"
               {...detailResizePan.panHandlers}
             >
               <View style={styles.detailResizerLine} />
-            </View>
+            </ResizeCursorView>
           )}
           <View
             style={[
