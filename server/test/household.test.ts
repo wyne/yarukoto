@@ -160,6 +160,23 @@ test('a push touching what the pusher cannot see is dropped', async () => {
   assert.deepEqual({ ...(row as object) }, { name: 'Family', shared: 1, folder_id: 'f-home', order_key: 3 });
 });
 
+test('a pull cursor does not skip a write stamped in the same millisecond', async (t) => {
+  const instant = new Date('2026-09-02T12:34:56.789Z');
+  t.mock.timers.enable({ apis: ['Date'], now: instant });
+
+  const h = await household();
+  await h.push(OWNER_AUTH, { tasks: [task('t-boundary')] });
+  const first = await h.sync(OWNER_AUTH);
+  assert.equal(first.now, '2026-09-02T12:34:56.788Z');
+
+  await h.push(OWNER_AUTH, {
+    tasks: [task('t-boundary', { title: 'changed at the boundary', updatedAt: '2026-09-02T13:00:00.000Z' })],
+  });
+  const next = await h.sync(OWNER_AUTH, first.now);
+
+  assert.deepEqual(next.tasks.map((row: Task) => row.title), ['changed at the boundary']);
+});
+
 test('unsharing a list tells everyone else to drop it and its tasks', async () => {
   const h = await household();
   await h.push(OWNER_AUTH, {
