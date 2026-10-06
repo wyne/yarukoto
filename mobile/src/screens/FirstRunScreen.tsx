@@ -1,18 +1,21 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Image, KeyboardAvoidingView, Platform, Pressable, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { makeStyles } from '../theme/styles';
 import { fonts } from '../theme/typography';
-import { useAccent, useColors } from '../theme/ThemeContext';
+import { useAccent, useColors, useScheme } from '../theme/ThemeContext';
 import { ApiError, useSyncStatus, useTasks } from '../data/TaskContext';
 import { JoinLink, codeFromPairingLink, createApi, parseJoinLink } from '../data/api';
 import { confirmAsync } from '../data/confirm';
 import { claimJoinLink, useJoinLink, useSignIn } from '../navigation/joinLinks';
 import { SavedServer, loadSavedServers } from '../data/storage';
-import { IconCheckBig, IconLock, IconServer, IconShield } from '../icons/Icons';
+import { IconLock, IconServer, IconShield } from '../icons/Icons';
 import Sheet from '../components/Sheet';
 import PairingPanel from '../components/household/PairingPanel';
 import QrScanner, { CAN_SCAN } from '../components/household/QrScanner';
+
+const LOGO = require('../../assets/logo.png');
+const LOGO_DARK = require('../../assets/logo-dark.png');
 
 /**
  * When the web build is served by its own API server (the normal docker-compose
@@ -43,6 +46,7 @@ export default function FirstRunScreen() {
   const colors = useColors();
   const styles = useStyles();
   const accent = useAccent();
+  const scheme = useScheme();
   const insets = useSafeAreaInsets();
   const { state, signedOut, disconnect, useSampleData, removeSavedServer } = useTasks();
   const { pending } = useSyncStatus();
@@ -183,9 +187,7 @@ export default function FirstRunScreen() {
     >
       <View style={[styles.content, { paddingTop: insets.top + 24 }]}>
         <View style={{ flex: 1 }} />
-        <View style={styles.logo}>
-          <IconCheckBig size={28} color={accent} strokeWidth={3} />
-        </View>
+        <Image source={scheme === 'dark' ? LOGO_DARK : LOGO} style={styles.logo} accessible={false} />
         <Text style={styles.appName}>{signedOutOf ? 'Signed out' : 'Yarukoto'}</Text>
         <Text style={styles.tagline}>
           {signedOutOf
@@ -386,9 +388,6 @@ const useStyles = makeStyles((c) => ({
     width: 56,
     height: 56,
     borderRadius: 14,
-    backgroundColor: c.inverseSurface,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   appName: {
     fontFamily: fonts.sansBold,
