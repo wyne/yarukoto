@@ -105,6 +105,8 @@ export interface Api {
   removeMember: (id: string) => Promise<HouseholdMember>;
   restoreMember: (id: string) => Promise<HouseholdMember>;
   revokeDevice: (id: string) => Promise<HouseholdDevice>;
+  /** Permanently erases the signed-in person. Gated on the `deleteAccount` feature. */
+  deleteAccount: () => Promise<void>;
 }
 
 /**
@@ -216,6 +218,9 @@ export function createApi(serverUrl: string, token: string): Api {
       (await request(`/api/v1/users/${encodeURIComponent(id)}/restore`, { method: 'POST' })).member,
     revokeDevice: async (id) =>
       (await request(`/api/v1/devices/${encodeURIComponent(id)}`, { method: 'DELETE' })).device,
+    deleteAccount: async () => {
+      await request('/api/v1/me', { method: 'DELETE' });
+    },
   };
 }
 

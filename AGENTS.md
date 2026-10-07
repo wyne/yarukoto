@@ -142,6 +142,11 @@ removing or restoring a person — bump `server_updated_at` on every affected ro
 puts them in the next pull, where they come back as rows to some people and as `removed` ids to
 others. Nothing is ever hard-deleted for visibility; removing a person hides, never destroys.
 
+The one exception is a person deleting their own account (`DELETE /api/v1/me`, behind the
+`deleteAccount` feature). The App Store requires that to erase rather than hide, so it removes
+what only they could see and hands any shared list they made to the owner. An admin removing
+someone else stays soft.
+
 ## Releases
 
 GitHub releases and `v*` tags in this repo are the Home Assistant integration's, and nothing

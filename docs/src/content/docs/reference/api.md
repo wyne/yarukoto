@@ -24,6 +24,7 @@ All endpoints are under `/api/v1` and require `Authorization: Bearer <token>`, e
 | `POST /pair/poll` | *(no token)* `{ pairingId, secret }` → `pending`, or the device's own token once approved. |
 | `POST /pair/approve` | Approve a code `as` `self` (another device of yours), `member` (a new person, with `name`; admin only) or `integration` (Home Assistant; admin only). |
 | `GET /me` | Who the token belongs to, and everyone in the household. |
+| `DELETE /me` | Delete your own account, permanently: your devices, private lists, Inbox, folders and filters are erased, and shared lists you made pass to the owner. The owner can't delete itself. |
 | `GET /household` | People and devices. An admin sees everyone's, including removed people. |
 | `PATCH /users/:id` | Rename yourself (or anyone, as an admin). |
 | `DELETE /users/:id` | Remove a person (admin). Soft: they are signed out and their things hidden. `POST /users/:id/restore` brings them back with everything. |

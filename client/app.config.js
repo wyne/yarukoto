@@ -77,6 +77,7 @@ module.exports = ({ config }) => {
       './plugins/local-notifications-only',
       'expo-notifications',
       './plugins/native-glass-keyboard-dismiss',
+      './plugins/no-background-fetch',
       ...(process.env.MAC_CATALYST === '1' ? ['./plugins/mac-catalyst'] : []),
     ],
     ios: {
