@@ -86,9 +86,10 @@ export default function SavedFilterBar({ criteria, onChange }: Props) {
 }
 
 const useStyles = makeStyles((c) => ({
-  // See FilterBar: a horizontal ScrollView grows to fill its column otherwise.
+  // See FilterBar: a horizontal ScrollView grows (and on web shrinks) with its column otherwise.
   bar: {
     flexGrow: 0,
+    flexShrink: 0,
   },
   row: {
     flexDirection: 'row',

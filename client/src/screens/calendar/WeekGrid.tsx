@@ -349,6 +349,7 @@ function TaskChip({
       <Pressable
         style={[
           styles.chip,
+          !!listColor && styles.chipWithRail,
           task.completed && styles.chipCompleted,
           isSource && { backgroundColor: colors.accentTintBg, borderColor: accent },
         ]}
@@ -504,6 +505,10 @@ const useStyles = makeStyles((c) => ({
     top: 0,
     bottom: 0,
     width: 3,
+  },
+  /** Clears the rail (left 3 + width 3) so the priority dot doesn't sit on it. */
+  chipWithRail: {
+    paddingLeft: 12,
   },
   chipCompleted: {
     opacity: 0.55,

@@ -163,10 +163,12 @@ const useStyles = makeStyles((c) => ({
   /**
    * A row of chips is as tall as a chip. React Native gives every ScrollView
    * `flexGrow: 1`, so in a column with room to spare this one takes all of it and
-   * pushes whatever follows to the bottom of the screen.
+   * pushes whatever follows to the bottom of the screen. On web it also shrinks
+   * by default, so a tall list below squeezes it and the chips get clipped.
    */
   bar: {
     flexGrow: 0,
+    flexShrink: 0,
   },
   row: {
     flexDirection: 'row',
