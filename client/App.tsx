@@ -11,6 +11,7 @@ import { lightPalette } from './src/theme/colors';
 import { ThemeProvider, useColors, useScheme } from './src/theme/ThemeContext';
 import { TaskProvider } from './src/data/TaskContext';
 import TaskReminderNotificationScheduler from './src/data/TaskReminderNotificationScheduler';
+import AppBadge from './src/data/AppBadge';
 import { initStorage } from './src/data/storage';
 import RootNavigator from './src/navigation/RootNavigator';
 import { RootStackParamList } from './src/navigation/types';
@@ -112,6 +113,7 @@ export default function App() {
         <ThemeProvider>
           <TaskProvider>
             <TaskReminderNotificationScheduler />
+            <AppBadge />
             <DateTimePickerProvider>
               <DragProvider>
                 <BottomSheetModalProvider>

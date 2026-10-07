@@ -1,5 +1,5 @@
 import { FolderDef, ListDef, Task } from './types';
-import { fromISODate, startOfDay } from './dateUtils';
+import { fromISODate, isOverdue, startOfDay } from './dateUtils';
 
 /**
  * Lists and folders are soft-deleted like tasks — the row stays so the deletion
@@ -185,6 +185,11 @@ export function tasksUpcomingCount(tasks: Task[], now: Date): number {
   return tasks.filter(
     (t) => !t.completed && !isTrashed(t) && t.dueDate && startOfDay(fromISODate(t.dueDate)).getTime() > today
   ).length;
+}
+
+/** Open tasks whose date has gone by — the number on the app icon. */
+export function overdueCount(tasks: Task[], now: Date): number {
+  return tasks.filter((t) => !isTrashed(t) && isOverdue(now, t)).length;
 }
 
 export function inboxCount(tasks: Task[]): number {
