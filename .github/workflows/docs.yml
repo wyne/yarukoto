@@ -1,0 +1,54 @@
+name: Deploy docs
+
+# Builds docs/ and publishes it to docs.yarukotoapp.com. This repo's own Pages site
+# is the sample-data demo (pages.yml), and a repo gets only one, so the built docs
+# are pushed to the gh-pages branch of wyne/yarukoto-docs, whose Pages serves the
+# custom domain. Nobody edits that repo by hand; docs/ here is the source.
+#
+# Needs DOCS_DEPLOY_KEY: the private half of a deploy key with write access on
+# wyne/yarukoto-docs.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/**'
+      - '.github/workflows/docs.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docs
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: docs/package-lock.json
+
+      - name: Install
+        working-directory: docs
+        run: npm ci
+
+      - name: Build
+        working-directory: docs
+        run: npm run build
+
+      - name: Publish to wyne/yarukoto-docs
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          deploy_key: ${{ secrets.DOCS_DEPLOY_KEY }}
+          external_repository: wyne/yarukoto-docs
+          publish_branch: gh-pages
+          publish_dir: docs/dist
+          # Written on every deploy, so the custom domain survives the branch being replaced.
+          cname: docs.yarukotoapp.com
+          force_orphan: true
