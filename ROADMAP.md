@@ -82,7 +82,7 @@ These are known and accepted. Revisit only if they actually bite.
 
 ## Traps already paid for
 
-Documented in the README so they aren't rediscovered the hard way — worth reading before debugging
+Documented in the docs (`docs/`) so they aren't rediscovered the hard way — worth reading before debugging
 anything that smells like them:
 
 - Never point `sqlite3` at the live database over the Docker bind mount (WAL isn't visible to a

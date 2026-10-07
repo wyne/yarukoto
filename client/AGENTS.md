@@ -22,8 +22,8 @@ Local and sample mode have no server to negotiate with and are fully capable.
 
 ## Mac Catalyst
 
-The iOS project also builds for the Mac (`npm run mac`; details in the README under
-"Building the Mac app"). A few things follow for code in this directory:
+The iOS project also builds for the Mac (`npm run mac`; details in
+`docs/src/content/docs/development/mac.md`). A few things follow for code in this directory:
 
 - **`Platform.OS` is `'ios'` on the Mac.** Anything keyed on it treats a desktop with a
   keyboard and trackpad as a phone. Branch on the capability actually in question —
