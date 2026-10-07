@@ -377,3 +377,55 @@ export function revokeDevice(db: Database.Database, viewer: Viewer, id: string, 
   }
   return deviceFromRow(row);
 }
+
+/**
+ * A person deleting their own account: the one hard delete in the household,
+ * because it is theirs to ask for and an app store requires it to mean what it
+ * says. Removing someone (above) stays soft — that is an admin acting on
+ * another person's data.
+ *
+ * Erased: the person, their devices, their private lists and every task in
+ * them, their Inbox, and their own folders, saved filters and view settings,
+ * along with those tasks' history. Kept: what belongs to the household. A
+ * shared list they made passes to the owner (out of the folder that no longer
+ * exists), and tasks they added or were assigned on shared lists stay, no
+ * longer pointing at them. Those rows are touched so the next pull carries the
+ * change; nobody else could see the erased rows, so nothing else needs telling.
+ *
+ * The owner signs in with the server's own token and cannot be deleted from
+ * the app: whoever runs the server deletes it there.
+ */
+export function deleteOwnAccount(db: Database.Database, viewer: Viewer, now = Date.now()): void {
+  if (viewer.kind !== 'user') throw new HouseholdError('forbidden', 'Only a person has an account to delete');
+  if (viewer.userId === OWNER_ID) {
+    throw new HouseholdError('bad_request', "The household owner's account belongs to the server and cannot be deleted");
+  }
+  const id = viewer.userId;
+  const stamp = new Date(now).toISOString();
+  db.transaction(() => {
+    const privateLists = `SELECT id FROM lists WHERE owner_id = @id AND shared = 0`;
+    const erasedTasks = `SELECT id FROM tasks WHERE (list_id IS NULL AND owner_id = @id) OR list_id IN (${privateLists})`;
+    db.prepare(`DELETE FROM task_revisions WHERE task_id IN (${erasedTasks})`).run({ id });
+    db.prepare(`DELETE FROM tasks WHERE id IN (${erasedTasks})`).run({ id });
+    db.prepare('DELETE FROM lists WHERE owner_id = @id AND shared = 0').run({ id });
+
+    db.prepare('UPDATE lists SET owner_id = @owner, folder_id = NULL, server_updated_at = @stamp WHERE owner_id = @id').run({
+      id,
+      owner: OWNER_ID,
+      stamp,
+    });
+    db.prepare('UPDATE tasks SET owner_id = @owner, server_updated_at = @stamp WHERE owner_id = @id').run({
+      id,
+      owner: OWNER_ID,
+      stamp,
+    });
+    db.prepare('UPDATE tasks SET assignee_id = NULL, server_updated_at = @stamp WHERE assignee_id = @id').run({ id, stamp });
+
+    for (const table of ['folders', 'saved_filters', 'view_prefs']) {
+      db.prepare(`DELETE FROM ${table} WHERE owner_id = ?`).run(id);
+    }
+    db.prepare('DELETE FROM pairings WHERE user_id = ?').run(id);
+    db.prepare('DELETE FROM devices WHERE user_id = ?').run(id);
+    db.prepare('DELETE FROM users WHERE id = ?').run(id);
+  })();
+}

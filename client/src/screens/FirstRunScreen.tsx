@@ -54,7 +54,7 @@ export default function FirstRunScreen() {
   const sameOriginServer = useSameOriginServer();
   /** Signed out of a server this device is still connected to, rather than never signed in. */
   const signedOutOf = state.mode === 'server' && signedOut ? state.serverUrl : null;
-  const [serverUrl, setServerUrl] = useState(signedOutOf ?? 'https://todo.selfhost.dev');
+  const [serverUrl, setServerUrl] = useState(signedOutOf ?? '');
   const [token, setToken] = useState('');
   const [connecting, setConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
