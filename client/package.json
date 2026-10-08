@@ -64,7 +64,8 @@
     "test:coverage": "TZ=America/New_York jest --runInBand --no-watchman --coverage --coverageReporters=text --coverageReporters=json-summary",
     "test:e2e": "npm run build --prefix ../server && expo export --platform web --output-dir dist-e2e && playwright test",
     "typecheck": "tsc --noEmit",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "export:windows": "expo export --platform web --output-dir dist-windows"
   },
   "jest": {
     "preset": "jest-expo",

@@ -7,8 +7,8 @@ name: App builds
 # Each build is attached to the run as an artifact. None becomes a GitHub
 # release: those belong to the Home Assistant integration (see ha-release.yml).
 #
-# iOS and Android go through `eas build --local`, the same build the README
-# describes, run on GitHub's runners instead of a laptop. That keeps the build
+# iOS and Android go through `eas build --local`, the same build the docs
+# describe, run on GitHub's runners instead of a laptop. That keeps the build
 # off EAS's monthly quota while still signing with the credentials EAS stores,
 # so it needs an EXPO_TOKEN secret (expo.dev > Account settings > Access tokens).
 on:

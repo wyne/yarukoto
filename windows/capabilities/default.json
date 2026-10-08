@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "The app is a web page that talks to its own server over fetch; it calls no Tauri commands, so it is granted none.",
+  "windows": ["main"],
+  "permissions": []
+}

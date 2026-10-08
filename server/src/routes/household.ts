@@ -5,6 +5,7 @@ import {
   ApproveAs,
   HouseholdError,
   approvePairing,
+  deleteOwnAccount,
   describeHousehold,
   pollPairing,
   removeMember,
@@ -65,6 +66,13 @@ export function registerHouseholdRoutes(app: FastifyInstance, db: Database.Datab
 
   app.get('/api/v1/me', async (request, reply) => {
     await respond(reply, () => whoAmI(db, viewerOf(request)));
+  });
+
+  app.delete('/api/v1/me', async (request, reply) => {
+    await respond(reply, () => {
+      deleteOwnAccount(db, viewerOf(request));
+      return { deleted: true };
+    });
   });
 
   app.get('/api/v1/household', async (request, reply) => {

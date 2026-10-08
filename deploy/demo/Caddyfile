@@ -1,0 +1,4 @@
+# Caddy fetches and renews the certificate on its own once DNS points here.
+{$DEMO_DOMAIN} {
+	reverse_proxy yarukoto:8080
+}

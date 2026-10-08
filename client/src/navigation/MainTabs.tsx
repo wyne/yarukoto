@@ -41,6 +41,7 @@ import NavSheets from '../components/sidebar/NavSheets';
 import TaskReminderNotifications from './TaskReminderNotifications';
 import MenuCommands, { dispatchCommand } from './MenuCommands';
 import KeyCommandsView from '../../modules/mac-pointer/src/KeyCommandsView';
+import ResizeCursorView from '../../modules/mac-pointer/src/ResizeCursorView';
 import { anyLayerOpen } from '../components/openLayers';
 import AllScreen from '../screens/AllScreen';
 import InboxScreen from '../screens/InboxScreen';
@@ -190,14 +191,14 @@ function Layout() {
       {showPane && (
         <>
           {DESKTOP_UI && (
-            <View
+            <ResizeCursorView
               style={styles.detailResizer}
               accessibilityRole="adjustable"
               accessibilityLabel="Resize task pane"
               {...detailResizePan.panHandlers}
             >
               <View style={styles.detailResizerLine} />
-            </View>
+            </ResizeCursorView>
           )}
           <View
             style={[
@@ -496,7 +497,7 @@ function NativeTabs() {
         component={NativeListNavigator}
         options={{
           title: 'Lists',
-          tabBarLabel: Platform.OS === 'ios' ? '' : 'Lists',
+          tabBarLabel: 'Lists',
           tabBarIcon: Platform.OS === 'ios'
             ? ({ focused }) => ({
                 type: 'sfSymbol',
@@ -510,7 +511,7 @@ function NativeTabs() {
         component={InboxScreen}
         options={{
           title: 'Inbox',
-          tabBarLabel: Platform.OS === 'ios' ? '' : 'Inbox',
+          tabBarLabel: 'Inbox',
           tabBarIcon: Platform.OS === 'ios'
             ? ({ focused }) => ({ type: 'sfSymbol', name: focused ? 'tray.fill' : 'tray' })
             : undefined,
@@ -521,7 +522,7 @@ function NativeTabs() {
         component={TodayScreen}
         options={{
           title: 'Today',
-          tabBarLabel: Platform.OS === 'ios' ? '' : 'Today',
+          tabBarLabel: 'Today',
           tabBarIcon: Platform.OS === 'ios'
             ? ({ focused }) => ({ type: 'sfSymbol', name: focused ? 'clock.fill' : 'clock' })
             : undefined,
@@ -532,7 +533,7 @@ function NativeTabs() {
         component={CalendarScreen}
         options={{
           title: 'Calendar',
-          tabBarLabel: Platform.OS === 'ios' ? '' : 'Calendar',
+          tabBarLabel: 'Calendar',
           tabBarIcon: Platform.OS === 'ios'
             ? { type: 'sfSymbol', name: 'calendar' }
             : undefined,
@@ -543,7 +544,7 @@ function NativeTabs() {
         component={BrowseScreen}
         options={{
           title: 'Search',
-          tabBarLabel: Platform.OS === 'ios' ? '' : 'Search',
+          tabBarLabel: 'Search',
           tabBarIcon: Platform.OS === 'ios'
             ? { type: 'sfSymbol', name: 'magnifyingglass' }
             : undefined,

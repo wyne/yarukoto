@@ -8,7 +8,7 @@ import { useTasks } from '../../data/TaskContext';
 import { ApiError, ApproveAs, HouseholdView, codeFromPairingLink, createApi, createPairingApi, joinLink, parseJoinLink } from '../../data/api';
 import QrCode from './QrCode';
 import QrScanner, { CAN_SCAN } from './QrScanner';
-import { confirmDestructive } from '../../data/confirm';
+import { confirmAsync, confirmDestructive } from '../../data/confirm';
 import { HouseholdDevice, HouseholdMember } from '../../data/types';
 
 interface Props {
@@ -51,12 +51,16 @@ function seenLabel(device: HouseholdDevice): string {
  * their devices out. The admin can also let new people and integrations in,
  * see every device, and remove people — softly: a removed person's lists and
  * tasks are hidden, not deleted, and Restore brings them all back.
+ *
+ * Anyone but the owner can delete their own account, which — unlike removal —
+ * is permanent. The owner signs in with the server's token, so their account
+ * goes when the server does.
  */
 export default function HouseholdSection({ visible, initialCode }: Props) {
   const styles = useStyles();
   const colors = useColors();
   const accent = useAccent();
-  const { state, household, refreshHousehold } = useTasks();
+  const { state, household, refreshHousehold, supportsFeature, disconnect, removeSavedServer } = useTasks();
   const [view, setView] = useState<HouseholdView | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [code, setCode] = useState('');
@@ -73,6 +77,7 @@ export default function HouseholdSection({ visible, initialCode }: Props) {
     deviceName: string;
   } | null>(null);
   const [inviting, setInviting] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const me = household?.me ?? null;
   const admin = me?.role === 'admin';
@@ -234,6 +239,27 @@ export default function HouseholdSection({ visible, initialCode }: Props) {
       act(() => api.revokeDevice(device.id)),
       'Sign out'
     );
+
+  const deleteAccount = async () => {
+    const sure = await confirmAsync(
+      'Delete your account?',
+      "This permanently erases your account, your private lists, your Inbox and your own filters and folders from the server, and signs out all your devices. Shared lists you made stay with the household. This can't be undone.",
+      'Delete account',
+      true
+    );
+    if (!sure) return;
+    setDeleting(true);
+    try {
+      await api.deleteAccount();
+    } catch (err) {
+      setDeleting(false);
+      setLoadError(err instanceof ApiError ? err.message : 'Could not delete your account.');
+      return;
+    }
+    // The token died with the account, so forget this server here too.
+    removeSavedServer(state.serverUrl);
+    disconnect();
+  };
 
   const members = view?.members ?? household.members;
   const live = members.filter((m) => !m.deletedAt);
@@ -448,6 +474,22 @@ export default function HouseholdSection({ visible, initialCode }: Props) {
       ))}
       {view?.devices.length === 0 && <Text style={styles.note}>No devices have signed in with a code yet.</Text>}
       {loadError && <Text style={[styles.note, { color: colors.priorityHigh }]}>{loadError}</Text>}
+
+      {supportsFeature('deleteAccount') && me.id !== OWNER_ID && (
+        <>
+          <Text style={styles.subLabel}>Your account</Text>
+          <View style={styles.row}>
+            <Text style={[styles.rowSub, { flex: 1 }]}>Erase your account and everything only you can see.</Text>
+            {deleting ? (
+              <ActivityIndicator color={colors.priorityHigh} />
+            ) : (
+              <Pressable onPress={deleteAccount} hitSlop={6} accessibilityRole="button">
+                <Text style={styles.danger}>Delete my account</Text>
+              </Pressable>
+            )}
+          </View>
+        </>
+      )}
     </View>
   );
 }

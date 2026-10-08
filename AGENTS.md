@@ -1,7 +1,8 @@
 # Yarukoto
 
 `client/` (Expo client for web, iOS, Android, and Mac), `server/` (Fastify + SQLite), and `shared/` (the types both
-compile against). Subdirectories may add their own `AGENTS.md`; those apply on top of
+compile against). `windows/` packages the client's web export as a Windows app (Tauri); it has no UI of
+its own, so a change to the web build is a change to it. Subdirectories may add their own `AGENTS.md`; those apply on top of
 this file.
 
 ## Backend/Mobile Compatibility
@@ -141,6 +142,11 @@ When a write changes who can see a row without changing the row itself — shari
 removing or restoring a person — bump `server_updated_at` on every affected row. That is what
 puts them in the next pull, where they come back as rows to some people and as `removed` ids to
 others. Nothing is ever hard-deleted for visibility; removing a person hides, never destroys.
+
+The one exception is a person deleting their own account (`DELETE /api/v1/me`, behind the
+`deleteAccount` feature). The App Store requires that to erase rather than hide, so it removes
+what only they could see and hands any shared list they made to the owner. An admin removing
+someone else stays soft.
 
 ## Releases
 

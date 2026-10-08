@@ -1,6 +1,6 @@
 {
   "platforms": ["apple"],
   "apple": {
-    "modules": ["SecondaryClickModule", "EscapeKeyModule", "KeyCommandsModule"]
+    "modules": ["SecondaryClickModule", "EscapeKeyModule", "KeyCommandsModule", "ResizeCursorModule"]
   }
 }

@@ -235,6 +235,54 @@ test('removing a person signs them out and hides their things; restoring brings 
   assert.ok(!devices.some((d: { userId: string }) => d.userId === alex.member.id));
 });
 
+test('deleting your own account erases what only you could see and hands shared lists to the owner', async () => {
+  const h = await household();
+  await h.push(OWNER_AUTH, { lists: [list('l-family', { shared: true })] });
+  const alex = await h.pair(OWNER_AUTH, 'member', 'Alex');
+  await h.push(alex.auth, {
+    folders: [{ id: 'f-alex', name: 'Alex', order: 0, updatedAt: T0 }],
+    lists: [list('l-alex', { folderId: 'f-alex' }), list('l-alex-shared', { shared: true, folderId: 'f-alex' })],
+    tasks: [
+      task('t-inbox', { listId: null }),
+      task('t-private', { listId: 'l-alex' }),
+      task('t-shared', { listId: 'l-alex-shared' }),
+      task('t-family', { listId: 'l-family', assigneeId: alex.member.id }),
+    ],
+  });
+  const count = (sql: string) => (h.db.prepare(sql).get() as { n: number }).n;
+  assert.ok(count("SELECT COUNT(*) AS n FROM task_revisions WHERE task_id = 't-private'") > 0);
+  const before = await h.sync(OWNER_AUTH);
+  assert.ok(before.tasks.some((t: Task) => t.id === 't-shared'));
+  // Server stamps are milliseconds; step past the cursor so the handover lands after it.
+  await new Promise((resolve) => setTimeout(resolve, 5));
+
+  // The owner belongs to the server, so the app cannot delete it.
+  const owner = await h.app.inject({ headers: OWNER_AUTH, method: 'DELETE', url: '/api/v1/me' });
+  assert.equal(owner.statusCode, 400);
+
+  const deleted = await h.app.inject({ headers: alex.auth, method: 'DELETE', url: '/api/v1/me' });
+  assert.equal(deleted.statusCode, 200, deleted.body);
+  assert.equal((await h.app.inject({ headers: alex.auth, method: 'GET', url: '/api/v1/me' })).statusCode, 401);
+
+  // Gone for good, not hidden.
+  assert.equal(count(`SELECT COUNT(*) AS n FROM users WHERE id = '${alex.member.id}'`), 0);
+  assert.equal(count(`SELECT COUNT(*) AS n FROM devices WHERE user_id = '${alex.member.id}'`), 0);
+  assert.equal(count("SELECT COUNT(*) AS n FROM tasks WHERE id IN ('t-inbox', 't-private')"), 0);
+  assert.equal(count("SELECT COUNT(*) AS n FROM task_revisions WHERE task_id IN ('t-inbox', 't-private')"), 0);
+  assert.equal(count("SELECT COUNT(*) AS n FROM lists WHERE id = 'l-alex'"), 0);
+  assert.equal(count("SELECT COUNT(*) AS n FROM folders WHERE id = 'f-alex'"), 0);
+  assert.equal(count(`SELECT COUNT(*) AS n FROM tasks WHERE owner_id = '${alex.member.id}' OR assignee_id = '${alex.member.id}'`), 0);
+
+  // What the household shared stays, and the owner's next pull picks up the handover.
+  const after = await h.sync(OWNER_AUTH, before.now);
+  const handed = after.lists.find((l: ListDef) => l.id === 'l-alex-shared');
+  assert.equal(handed.folderId, null);
+  assert.ok(after.tasks.some((t: Task) => t.id === 't-shared'));
+  assert.equal(after.tasks.find((t: Task) => t.id === 't-family').assigneeId ?? null, null);
+  const people = (await h.app.inject({ headers: OWNER_AUTH, method: 'GET', url: '/api/v1/household' })).json();
+  assert.ok(!people.members.some((m: { id: string }) => m.id === alex.member.id));
+});
+
 test('a device can be signed out, and a member may only sign out their own', async () => {
   const h = await household();
   const ownerPhone = await h.pair(OWNER_AUTH, 'self');
