@@ -12,10 +12,13 @@ data
 # Build output, regenerated inside the image.
 server/dist
 client/dist
+client/dist-e2e
 client/.expo
 client/web-build
 
 .git
 .gitignore
 **/*.log
+**/test-results
+**/playwright-report
 **/.DS_Store

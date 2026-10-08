@@ -54,6 +54,14 @@ jobs:
         working-directory: client
         run: npm run typecheck
 
+      - name: Install browser for end-to-end tests
+        working-directory: client
+        run: npx playwright install --with-deps chromium
+
+      - name: Test web sync end to end
+        working-directory: client
+        run: npm run test:e2e
+
       - name: Build coverage report
         run: node .github/scripts/coverage-report.mjs "$RUNNER_TEMP/coverage-report.md"
 

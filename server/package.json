@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc -p tsconfig.json",
+    "pretest": "npm run build",
     "test": "YARUKOTO_TOKEN=test node --import tsx --test test/*.test.ts",
+    "pretest:coverage": "npm run build",
     "test:coverage": "YARUKOTO_TOKEN=test c8 --all --include='src/**/*.ts' --exclude='src/index.ts' --reporter=text --reporter=json-summary node --import tsx --test test/*.test.ts",
     "start": "node dist/server/src/index.js"
   },

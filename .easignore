@@ -15,6 +15,7 @@ coverage/
 
 # ---- From client/.gitignore ----
 client/dist/
+client/dist-e2e/
 client/web-build/
 client/expo-env.d.ts
 .kotlin/
@@ -34,6 +35,8 @@ yarn-error.*
 client/ios/
 client/android/
 *.ipa
+client/test-results/
+client/playwright-report/
 
 # ---- Only here: git tracks these, a build has no use for them ----
 # Agent worktrees are whole checkouts of the repo, and can run to gigabytes.
