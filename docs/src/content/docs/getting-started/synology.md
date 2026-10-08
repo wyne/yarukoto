@@ -26,9 +26,11 @@ folder is only readable by NAS admins — but keep it out of anything you share.
 If port 8080 is taken (DSM itself uses 5000/5001, and other packages often claim 8080), change the
 left-hand side of `"8080:8080"` and use that port in the URL.
 
-**Reaching it from your phone** means using the NAS's LAN address, not `localhost`. Over plain HTTP
-that's fine on a home network; put it behind DSM's reverse proxy with a certificate before exposing
-it to the internet, since the access token rides on every request.
+**Reaching it from your phone** means using the NAS's LAN address, not `localhost`. An iPhone
+connects to that over plain HTTP on a home network. An Android phone needs HTTPS, so put the NAS
+behind DSM's reverse proxy with a certificate to use one; see [Plain HTTP and your
+phone](/using/signing-in/#plain-http-and-your-phone). Do the same before exposing it to the
+internet, since the access token rides on every request.
 
 ## Updating the NAS
 

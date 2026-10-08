@@ -17,6 +17,10 @@ export default defineConfig({
       sidebar: [
         { label: 'Introduction', link: '/' },
         {
+          label: 'Using the apps',
+          items: ['using/signing-in', 'using/household', 'using/reminders', 'using/deleting-your-account'],
+        },
+        {
           label: 'Getting started',
           items: ['getting-started/docker', 'getting-started/synology'],
         },
