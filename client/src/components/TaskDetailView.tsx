@@ -29,7 +29,6 @@ import {
   IconBell,
   IconChevronDown,
   IconClock,
-  IconDotsHorizontal,
   IconPlus,
   IconRepeat,
   IconTag,
@@ -342,9 +341,8 @@ export default function TaskDetailView({ taskId, onClose, variant, active = true
           </Text>
           <IconChevronDown size={11} color={colors.textTertiary} strokeWidth={2} />
         </Pressable>
-        <View style={[styles.headerSide, styles.headerSideEnd]}>
-          {variant === 'pane' && <IconDotsHorizontal />}
-        </View>
+        {/* Empty: it is here to balance the left flank and keep the crumb centred. */}
+        <View style={styles.headerSide} />
       </View>
 
       <Scroll
@@ -783,9 +781,6 @@ const useStyles = makeStyles((c) => ({
     flexBasis: 'auto',
     flexDirection: 'row',
     alignItems: 'center',
-  },
-  headerSideEnd: {
-    justifyContent: 'flex-end',
   },
   listCrumb: {
     flexShrink: 1,
