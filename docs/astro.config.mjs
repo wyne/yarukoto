@@ -21,6 +21,10 @@ export default defineConfig({
           items: ['getting-started/docker', 'getting-started/synology'],
         },
         {
+          label: 'Using the apps',
+          items: ['using/apps', 'using/household', 'using/reminders', 'using/delete-account', 'using/support'],
+        },
+        {
           label: 'Self-hosting',
           items: ['self-hosting/configuration', 'self-hosting/reverse-proxy', 'self-hosting/backups'],
         },
