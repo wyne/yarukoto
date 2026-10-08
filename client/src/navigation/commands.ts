@@ -25,7 +25,7 @@ export interface Shortcut {
 }
 
 /** Which menu a command sits in on the Mac. `app` is the menu named Yarukoto. */
-export type MenuPlacement = 'app' | 'file' | 'edit' | 'view' | 'task';
+export type MenuPlacement = 'app' | 'file' | 'edit' | 'view' | 'task' | 'help';
 
 export type CommandId =
   | 'settings'
@@ -48,7 +48,10 @@ export type CommandId =
   | 'deleteTask'
   | 'deselect'
   | 'bold'
-  | 'italic';
+  | 'italic'
+  | 'help'
+  | 'support'
+  | 'privacy';
 
 export interface CommandDef {
   id: CommandId;
@@ -126,6 +129,12 @@ export const COMMANDS: readonly CommandDef[] = [
   // fires whatever has focus, and ⌘⌫ is "delete to start of line" in every
   // text field, the note editor included.
   { id: 'deleteTask', title: 'Move to Trash', menu: 'task', group: 'delete', listKeys: [plain('delete')], list: true, keywords: 'delete remove' },
+
+  // In place of the system's "Yarukoto Help", which only says help isn't
+  // available. Each opens a page in the browser (src/data/links.ts).
+  { id: 'help', title: 'Yarukoto Help', menu: 'help', group: 'docs', keywords: 'docs documentation guide setup server' },
+  { id: 'support', title: 'Contact Support', menu: 'help', group: 'support', keywords: 'help bug issue feedback email' },
+  { id: 'privacy', title: 'Privacy Policy', menu: 'help', group: 'support', keywords: 'data' },
 ];
 
 const BY_ID = new Map(COMMANDS.map((c) => [c.id, c]));

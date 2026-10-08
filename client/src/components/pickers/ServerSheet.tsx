@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Pressable, Text, View, useWindowDimensions } from 'react-native';
+import { Text, View, useWindowDimensions } from 'react-native';
+import Pressable from '../HoverPressable';
 import Sheet from '../Sheet';
 import SyncIndicator from '../SyncIndicator';
 import { ACCENT_OPTIONS, SchemePref } from '../../theme/colors';
@@ -9,6 +10,8 @@ import { useColors, useTheme } from '../../theme/ThemeContext';
 import { useSyncStatus, useTasks } from '../../data/TaskContext';
 import { ServerInfo, createApi } from '../../data/api';
 import { lastSyncedLabel } from '../../data/dateUtils';
+import { LINKS, openLink } from '../../data/links';
+import { useHoverBg } from '../../theme/hover';
 import HouseholdSection from '../household/HouseholdSection';
 
 /** e.g. "v1.0.0 · 366ba58" — enough to tell two builds apart at a glance. */
@@ -34,6 +37,14 @@ interface Props {
   pairCode?: string | null;
 }
 
+/** In the order someone needing them would look: how it works, then who to ask. */
+const HELP_LINKS: Array<{ label: string; url: string }> = [
+  { label: 'Setting up a server', url: LINKS.setupGuide },
+  { label: 'Using the apps', url: LINKS.appGuide },
+  { label: 'Get help', url: LINKS.support },
+  { label: 'Privacy policy', url: LINKS.privacy },
+];
+
 const SCHEME_OPTIONS: Array<{ value: SchemePref; label: string }> = [
   { value: 'system', label: 'System' },
   { value: 'light', label: 'Light' },
@@ -58,6 +69,7 @@ export default function ServerSheet({ visible, onClose, pairCode }: Props) {
   const { accent, setAccent, schemePref, setSchemePref } = useTheme();
   const [info, setInfo] = useState<ServerInfo | null | undefined>(undefined);
   const { height } = useWindowDimensions();
+  const hoverBg = useHoverBg();
 
   // Which build the server is running, re-read on every open so it reflects a
   // deploy that happened while the app stayed put. /health needs no token, so this
@@ -167,6 +179,21 @@ export default function ServerSheet({ visible, onClose, pairCode }: Props) {
           </View>
         </>
       )}
+
+      <Text style={[styles.sectionLabel, { marginTop: 18 }]}>Help</Text>
+      <View style={styles.linkBlock}>
+        {HELP_LINKS.map((link, i) => (
+          <Pressable
+            key={link.url}
+            onPress={() => openLink(link.url)}
+            style={hoverBg([styles.linkRow, i > 0 && styles.linkRowDivided])}
+            accessibilityRole="link"
+          >
+            <Text style={styles.linkText}>{link.label}</Text>
+            <Text style={styles.linkGlyph}>↗</Text>
+          </Pressable>
+        ))}
+      </View>
 
       {state.mode === 'server' ? (
         <View style={styles.leaveRow}>
@@ -319,6 +346,34 @@ const useStyles = makeStyles((c) => ({
     fontSize: 13,
     lineHeight: 17,
     color: c.textFaint,
+  },
+  linkBlock: {
+    backgroundColor: c.surfaceMuted,
+    borderWidth: 1,
+    borderColor: c.border,
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  linkRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    paddingVertical: 11,
+  },
+  linkRowDivided: {
+    borderTopWidth: 1,
+    borderTopColor: c.border,
+  },
+  linkText: {
+    fontFamily: fonts.sansRegular,
+    fontSize: 14,
+    color: c.textPrimary,
+  },
+  linkGlyph: {
+    fontFamily: fonts.sansRegular,
+    fontSize: 14,
+    color: c.textTertiary,
   },
 
   sampleNote: {

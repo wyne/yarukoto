@@ -139,9 +139,11 @@ stay web-only.
 | Task | Due Today / Due Tomorrow / Remove Due Date | ⌘T / ⌥⌘T / — |
 | Task | Priority ▸ High, Medium, Low, None | ⌥⌘1, 2, 3, 0 |
 | Task | Move to Trash | ⌫ in the list |
+| Help | Yarukoto Help / Contact Support / Privacy Policy — open the docs, the support page and the privacy policy in the browser | — |
 
 The Task menu works on the list's cursor: the row last clicked or arrowed to, which keeps its tint.
-With a selection it works on all of it. Format is removed, since nothing here styles text. A
+With a selection it works on all of it. Format is removed, since nothing here styles text, and
+Help's own items replace the system's, which has no help book to open. A
 command nothing on screen can answer is dimmed, and a Task command also while a popover or dialog
 is up.
 

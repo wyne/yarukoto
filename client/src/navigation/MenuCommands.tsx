@@ -3,6 +3,7 @@ import { Platform } from 'react-native';
 import { NavigationContext } from '@react-navigation/native';
 import MacMenu from '../../modules/mac-menu/src/MacMenu';
 import { DESKTOP_UI, MAC } from '../data/platform';
+import { LINKS, openLink } from '../data/links';
 import { PendingUndo, usePendingUndo, useTasks } from '../data/TaskContext';
 import { anyLayerOpen } from '../components/openLayers';
 import CommandPalette from '../components/CommandPalette';
@@ -22,7 +23,8 @@ import { useSidebar } from './SidebarContext';
  * task list's cursor — are answered by the screen in front through
  * `useCommand`. New Task and Find also work from a screen without one: they go
  * to a screen that has it and wait there for it to register. Settings, the
- * command menu and Undo belong to the whole app and are answered here.
+ * command menu, the Help links and Undo belong to the whole app and are
+ * answered here.
  *
  * Desktop only: a phone has no keyboard to send these.
  */
@@ -162,6 +164,10 @@ const UNDO_ACTION_NAME: Record<PendingUndo['kind'], string> = {
   delete: 'Move to Trash',
 };
 
+const openSetupGuide = () => openLink(LINKS.setupGuide);
+const openSupport = () => openLink(LINKS.support);
+const openPrivacy = () => openLink(LINKS.privacy);
+
 /** Mounted once, in the main layout, so it never runs over the first-run screen. */
 export default function MenuCommands() {
   const { openServer } = useSidebar();
@@ -171,6 +177,9 @@ export default function MenuCommands() {
 
   useCommandHandler('settings', openServer, DESKTOP_UI);
   useCommandHandler('commandMenu', useCallback(() => setPaletteOpen(true), []), DESKTOP_UI);
+  useCommandHandler('help', openSetupGuide, DESKTOP_UI);
+  useCommandHandler('support', openSupport, DESKTOP_UI);
+  useCommandHandler('privacy', openPrivacy, DESKTOP_UI);
 
   const latest = useRef({ undo });
   latest.current = { undo };
