@@ -42,13 +42,18 @@ const SCHEME_OPTIONS: Array<{ value: SchemePref; label: string }> = [
 
 /**
  * Appearance, and what the app is connected to. Changing servers isn't edited in
- * place: disconnecting returns to the first-run screen, which is where a URL and
- * token get entered.
+ * place: leaving returns to the first-run screen, which is where a URL and token
+ * get entered.
+ *
+ * Leaving comes in two kinds, because "disconnect" alone read as signing out while
+ * quietly keeping the token for the saved-servers list. Switch server keeps it, so
+ * coming back is one tap; Sign out forgets it, so getting back in takes the token
+ * again.
  */
 export default function ServerSheet({ visible, onClose, pairCode }: Props) {
   const colors = useColors();
   const styles = useStyles();
-  const { state, disconnect } = useTasks();
+  const { state, disconnect, removeSavedServer } = useTasks();
   const syncStatus = useSyncStatus();
   const { accent, setAccent, schemePref, setSchemePref } = useTheme();
   const [info, setInfo] = useState<ServerInfo | null | undefined>(undefined);
@@ -154,7 +159,8 @@ export default function ServerSheet({ visible, onClose, pairCode }: Props) {
             )}
           </View>
           <Text style={styles.changeNote}>
-            To connect to a different server, disconnect and enter the new details on the connect screen.
+            Switch server keeps this sign-in saved on this device, so you can come back with one tap. Sign out
+            forgets it here.
           </Text>
           <View style={{ marginTop: 18 }}>
             <HouseholdSection visible={visible} initialCode={pairCode} />
@@ -162,15 +168,39 @@ export default function ServerSheet({ visible, onClose, pairCode }: Props) {
         </>
       )}
 
-      <Pressable
-        style={styles.disconnectBtn}
-        onPress={() => {
-          disconnect();
-          onClose();
-        }}
-      >
-        <Text style={styles.disconnectText}>{sample ? 'Leave sample data' : 'Disconnect'}</Text>
-      </Pressable>
+      {state.mode === 'server' ? (
+        <View style={styles.leaveRow}>
+          <Pressable
+            style={styles.leaveBtn}
+            onPress={() => {
+              disconnect();
+              onClose();
+            }}
+          >
+            <Text style={styles.switchText}>Switch server</Text>
+          </Pressable>
+          <Pressable
+            style={styles.leaveBtn}
+            onPress={() => {
+              removeSavedServer(state.serverUrl);
+              disconnect();
+              onClose();
+            }}
+          >
+            <Text style={styles.disconnectText}>Sign out</Text>
+          </Pressable>
+        </View>
+      ) : (
+        <Pressable
+          style={styles.disconnectBtn}
+          onPress={() => {
+            disconnect();
+            onClose();
+          }}
+        >
+          <Text style={styles.disconnectText}>{sample ? 'Leave sample data' : 'Disconnect'}</Text>
+        </Pressable>
+      )}
     </Sheet>
   );
 }
@@ -301,6 +331,20 @@ const useStyles = makeStyles((c) => ({
     marginTop: 14,
     paddingVertical: 14,
     alignItems: 'center',
+  },
+  leaveRow: {
+    flexDirection: 'row',
+    marginTop: 14,
+  },
+  leaveBtn: {
+    flex: 1,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  switchText: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 15,
+    color: c.textSecondary,
   },
   disconnectText: {
     fontFamily: fonts.sansMedium,
