@@ -9,6 +9,7 @@ import { JoinLink, codeFromPairingLink, createApi, parseJoinLink } from '../data
 import { confirmAsync } from '../data/confirm';
 import { claimJoinLink, useJoinLink, useSignIn } from '../navigation/joinLinks';
 import { SavedServer, loadSavedServers } from '../data/storage';
+import { LINKS, openLink } from '../data/links';
 import { IconLock, IconServer, IconShield } from '../icons/Icons';
 import Sheet from '../components/Sheet';
 import PairingPanel from '../components/household/PairingPanel';
@@ -370,6 +371,18 @@ export default function FirstRunScreen() {
           after that, each new device signs in with a code that someone already signed in approves. Nothing is
           sent anywhere else.
         </Text>
+        <Pressable style={[styles.connectBtn, styles.guideBtn]} onPress={() => openLink(LINKS.setupGuide)}>
+          <Text style={styles.connectText}>Open the setup guide</Text>
+        </Pressable>
+        <View style={styles.helpLinks}>
+          <Pressable onPress={() => openLink(LINKS.support)} hitSlop={6} accessibilityRole="link">
+            <Text style={[styles.helpLink, { color: accent }]}>Get help</Text>
+          </Pressable>
+          <Text style={styles.helpLinkDot}>·</Text>
+          <Pressable onPress={() => openLink(LINKS.privacy)} hitSlop={6} accessibilityRole="link">
+            <Text style={[styles.helpLink, { color: accent }]}>Privacy policy</Text>
+          </Pressable>
+        </View>
       </Sheet>
     </KeyboardAvoidingView>
   );
@@ -573,5 +586,24 @@ const useStyles = makeStyles((c) => ({
     fontSize: 15,
     lineHeight: 21,
     color: c.textSecondary,
+  },
+  guideBtn: {
+    marginTop: 18,
+  },
+  helpLinks: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 14,
+  },
+  helpLink: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 14,
+  },
+  helpLinkDot: {
+    fontFamily: fonts.sansRegular,
+    fontSize: 14,
+    color: c.textFaint,
   },
 }));

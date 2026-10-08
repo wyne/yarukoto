@@ -117,6 +117,14 @@ public enum MacMenuBar {
         afterMenu: .view
       )
     }
+
+    // Help: ours in place of the system's single "Yarukoto Help" item, which
+    // has no help book behind it and only says help isn't available. AppKit
+    // still adds its search field above these.
+    let help = groups(of: "help")
+    if !help.isEmpty, builder.menu(for: .help) != nil {
+      builder.replaceChildren(ofMenu: .help) { _ in help }
+    }
   }
 
   public static func perform(_ command: UICommand) {
