@@ -324,7 +324,9 @@ export default function TaskDetailView({ taskId, onClose, variant, active = true
         <View style={styles.headerSide}>
           {variant === 'pane' && (
             <Pressable onPress={closeDetail} hitSlop={8}>
-              <Text style={[styles.close, { color: accent }]}>Close</Text>
+              <Text style={[styles.close, { color: accent }]} numberOfLines={1}>
+                Close
+              </Text>
             </Pressable>
           )}
         </View>
@@ -767,11 +769,18 @@ const useStyles = makeStyles((c) => ({
     fontSize: 16,
   },
   /**
-   * Wide enough to balance the crumb against the pane's Close button, and
-   * shrinkable so a long list name gets the space instead of pushing off-centre.
+   * Wide enough to balance the crumb against the pane's Close button, and it
+   * grows into any spare room so the crumb stays optically centred.
+   *
+   * It does not shrink, though: the pane is user-resizable, and with `flex: 1`
+   * (basis 0) a narrow pane squeezed this flank below the width of "Close",
+   * which then wrapped to two lines. The crumb is the one thing here that
+   * shrinks, so a narrow pane truncates the list name instead.
    */
   headerSide: {
-    flex: 1,
+    flexGrow: 1,
+    flexShrink: 0,
+    flexBasis: 'auto',
     flexDirection: 'row',
     alignItems: 'center',
   },
