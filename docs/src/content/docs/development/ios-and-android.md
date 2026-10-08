@@ -194,9 +194,9 @@ allow it:
 Neither helps a server exposed over the internet on plain HTTP — that still needs HTTPS, which
 is what you should be doing anyway. See [TLS](/self-hosting/reverse-proxy/).
 
-**Android has no equivalent today.** Since Android 9 a release build refuses cleartext unless the
-manifest sets `usesCleartextTraffic`, and nothing in `app.config.js` does. Debug builds allow it
-(the dev client's manifest turns it on), which is why the gap only shows in a release or store
-build: those reach HTTPS servers only. Android's network security config can name domains but
-not address ranges, so there is no way to allow just the local network the way
-`NSAllowsLocalNetworking` does; allowing it at all means allowing it everywhere.
+**Android has no equivalent, so release builds are HTTPS-only.** Android 9 and later block
+cleartext traffic unless the manifest sets `usesCleartextTraffic` or a network security config
+allows it, and a network security config can only exempt domains, not "anything on the LAN". The
+generated project sets `usesCleartextTraffic="true"` only in the debug and debugOptimized manifests,
+so a dev client reaches `http://192.168.x.x:8080` while a release or EAS production build doesn't.
+Allowing it in release would mean allowing plain HTTP to every host.

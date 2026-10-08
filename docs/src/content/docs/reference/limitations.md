@@ -15,10 +15,13 @@ yet — see [ROADMAP.md](https://github.com/wyne/yarukoto/blob/main/ROADMAP.md).
   drops it independently once the retention window elapses.
 - **Per-task history has no UI.** The Activity tab shows recent changes across everything, but
   one task's full revision list is only at `GET /api/v1/tasks/:id/history`.
-- **Android needs HTTPS.** The Android app can't reach a server over plain `http://`, even on your
-  home network; iPhone and Mac can. See [Plain HTTP and your phone](/using/signing-in/#plain-http-and-your-phone).
-- **Android reminders can be a few minutes late.** Android batches them to save battery. See
-  [Reminders](/using/reminders/#on-android).
+- **Android needs HTTPS.** The Android app won't connect to a plain `http://` server, even on your
+  home network, because Android blocks unencrypted traffic. The iPhone app and browsers can use
+  `http://` on a local network. See [HTTPS and reverse proxies](/self-hosting/reverse-proxy/).
+- **Android reminders can be a few minutes late.** Android groups app alarms to save battery, so a
+  reminder may arrive a few minutes after its time.
+- **No reminders on the web or Windows.** Those apps don't show notifications; reminders still fire
+  on your phone.
 - **No export or import yet.** Your data is one SQLite file you own, and `/api/v1/tasks` reads it
   as JSON, but there is no one-click export or importer from other apps.
 
