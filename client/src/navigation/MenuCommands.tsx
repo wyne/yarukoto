@@ -218,8 +218,22 @@ export default function MenuCommands() {
       const { def } = match;
       if (dispatchCommand(def.id)) e.preventDefault();
     };
+    // react-native-web's TextInput stops every keydown from bubbling, so from a
+    // text field nothing reaches the listener below: ⌘K in the add field did
+    // nothing, nor ⌘B in notes. A key typed in a field is taken on the way down
+    // instead. Only ⌘ shortcuts can match there, since list keys are left to the
+    // field; anything else still waits for the way up, so whatever answers a
+    // key itself gets the first say. AltGr is left alone: on Windows it arrives
+    // as Ctrl+Alt, and AltGr+0 is how many layouts type a brace.
+    const onKeyInField = (e: KeyboardEvent) => {
+      if (typingIn(e.target) && !e.getModifierState?.('AltGraph')) onKey(e);
+    };
+    document.addEventListener('keydown', onKeyInField, true);
     document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('keydown', onKeyInField, true);
+      document.removeEventListener('keydown', onKey);
+    };
   }, []);
 
   // Offered for as long as the toast is, and withdrawn with it. Keyed on the
