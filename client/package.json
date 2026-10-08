@@ -62,7 +62,8 @@
     "test": "TZ=America/New_York jest --runInBand --no-watchman",
     "test:coverage": "TZ=America/New_York jest --runInBand --no-watchman --coverage --coverageReporters=text --coverageReporters=json-summary",
     "typecheck": "tsc --noEmit",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "export:windows": "expo export --platform web --output-dir dist-windows"
   },
   "jest": {
     "preset": "jest-expo",

@@ -1,7 +1,8 @@
 # Yarukoto
 
 `client/` (Expo client for web, iOS, Android, and Mac), `server/` (Fastify + SQLite), and `shared/` (the types both
-compile against). Subdirectories may add their own `AGENTS.md`; those apply on top of
+compile against). `windows/` packages the client's web export as a Windows app (Tauri); it has no UI of
+its own, so a change to the web build is a change to it. Subdirectories may add their own `AGENTS.md`; those apply on top of
 this file.
 
 ## Backend/Mobile Compatibility

@@ -40,6 +40,7 @@ export default defineConfig({
             'development/feature-compatibility',
             'development/ios-and-android',
             'development/mac',
+            'development/windows',
             'development/web-demo',
           ],
         },
