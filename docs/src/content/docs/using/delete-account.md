@@ -20,6 +20,9 @@ If you can't sign in any more, ask whoever runs your household's server. They ca
 data from everyone. Removing hides rather than erases, so it can be undone; erasing is only
 available to you, from **Delete my account**.
 
+Questions about deleting your account go to
+[yarukoto@justinwyne.com](mailto:yarukoto@justinwyne.com).
+
 If **Delete my account** isn't there, the server is older than account deletion and needs
 [updating](/getting-started/docker/#updating).
 

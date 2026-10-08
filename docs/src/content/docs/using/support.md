@@ -3,9 +3,12 @@ title: Getting help
 description: Where to ask a question or report a problem with Yarukoto.
 ---
 
-Questions, bug reports and feature requests all go to
+Questions, bug reports and feature requests go to
 [GitHub issues](https://github.com/wyne/yarukoto/issues). Search there first; someone may have
 asked already.
+
+If you'd rather not post in public, or you're asking about your account or your data, email
+[yarukoto@justinwyne.com](mailto:yarukoto@justinwyne.com).
 
 When you report a problem, it helps to include:
 
