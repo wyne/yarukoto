@@ -4,7 +4,8 @@ description: Caddy, Traefik and nginx examples for putting Yarukoto behind HTTPS
 ---
 
 The container serves plain HTTP, which is fine on a trusted network. **Every request carries a
-bearer token, so put it behind HTTPS before exposing it to the internet.** Nothing about the app
+bearer token, so put it behind HTTPS before exposing it to the internet.** The Android app needs
+HTTPS even at home: it won't connect to a plain `http://` address at all. Nothing about the app
 needs special proxy handling: no WebSockets, no long-lived streams (`/mcp` answers in plain JSON),
 and it works at the root of its own hostname. A subpath (`example.com/todo`) is not supported.
 

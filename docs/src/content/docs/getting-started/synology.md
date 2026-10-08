@@ -27,8 +27,9 @@ If port 8080 is taken (DSM itself uses 5000/5001, and other packages often claim
 left-hand side of `"8080:8080"` and use that port in the URL.
 
 **Reaching it from your phone** means using the NAS's LAN address, not `localhost`. Over plain HTTP
-that's fine on a home network; put it behind DSM's reverse proxy with a certificate before exposing
-it to the internet, since the access token rides on every request.
+that's fine for an iPhone or a browser on a home network; put it behind DSM's reverse proxy with a
+certificate before exposing it to the internet, since the access token rides on every request. The
+Android app only connects over HTTPS, so it needs the reverse proxy even at home.
 
 ## Updating the NAS
 
