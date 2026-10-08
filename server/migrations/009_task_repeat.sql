@@ -1,4 +1,4 @@
--- Repeating tasks (see shared/recurrence.ts).
+-- Repeating tasks (see packages/domain/src/recurrence.ts).
 --
 -- JSON `{ "rule": "FREQ=…", "from": "due" | "completion" }`, or NULL for a task
 -- that doesn't repeat. Like `assignee_id`, a push that leaves the field out keeps

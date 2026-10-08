@@ -1,7 +1,7 @@
 import crypto from 'node:crypto';
 import Database from 'better-sqlite3';
 import { FastifyReply, FastifyRequest } from 'fastify';
-import { HouseholdRole } from '../../shared/types';
+import { HouseholdRole } from '@yarukoto/domain/types';
 import { env } from './env';
 import { OWNER_VIEWER, Viewer } from './access';
 

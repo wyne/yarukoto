@@ -1,4 +1,4 @@
-export { SERVER_FEATURES } from '../../../shared/types';
+export { SERVER_FEATURES } from '@yarukoto/domain/types';
 
 export type {
   Priority,
@@ -17,4 +17,4 @@ export type {
   HouseholdDevice,
   HouseholdMember,
   HouseholdRole,
-} from '../../../shared/types';
+} from '@yarukoto/domain/types';

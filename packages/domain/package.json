@@ -1,0 +1,35 @@
+{
+  "name": "@yarukoto/domain",
+  "version": "1.0.0",
+  "private": true,
+  "main": "dist/types.js",
+  "types": "dist/types.d.ts",
+  "exports": {
+    "./dates": {
+      "types": "./dist/dates.d.ts",
+      "default": "./dist/dates.js"
+    },
+    "./quickAdd": {
+      "types": "./dist/quickAdd.d.ts",
+      "default": "./dist/quickAdd.js"
+    },
+    "./recurrence": {
+      "types": "./dist/recurrence.d.ts",
+      "default": "./dist/recurrence.js"
+    },
+    "./taskFilter": {
+      "types": "./dist/taskFilter.d.ts",
+      "default": "./dist/taskFilter.js"
+    },
+    "./types": {
+      "types": "./dist/types.d.ts",
+      "default": "./dist/types.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json"
+  },
+  "devDependencies": {
+    "typescript": "~5.7.3"
+  }
+}

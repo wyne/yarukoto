@@ -7,7 +7,7 @@ import path from 'node:path';
 import test from 'node:test';
 
 const SERVER_ROOT = path.resolve(__dirname, '..');
-const ENTRYPOINT = path.join(SERVER_ROOT, 'dist/server/src/index.js');
+const ENTRYPOINT = path.join(SERVER_ROOT, 'dist/index.js');
 
 async function availablePort(): Promise<number> {
   const server = net.createServer();

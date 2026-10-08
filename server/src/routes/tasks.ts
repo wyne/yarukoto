@@ -3,7 +3,7 @@ import Database from 'better-sqlite3';
 import { env } from '../env';
 import { wallClockNow } from '../clock';
 import { viewerOf } from '../viewer';
-import { toISODate } from '../../../shared/dates';
+import { toISODate } from '@yarukoto/domain/dates';
 import {
   CreateInput,
   TaskFilter,

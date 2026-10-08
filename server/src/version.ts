@@ -1,16 +1,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-/**
- * package.json sits next to the source in dev (`src/version.ts`) and three levels
- * up from the compiled file in the image (`dist/server/src/version.js`), so both
- * are tried rather than assuming one layout.
- */
+/** package.json is one directory above both `src/` and the compiled `dist/`. */
 function packageVersion(): string {
-  const candidates = [
-    path.resolve(__dirname, '../package.json'),
-    path.resolve(__dirname, '../../../package.json'),
-  ];
+  const candidates = [path.resolve(__dirname, '../package.json')];
   for (const file of candidates) {
     try {
       const parsed = JSON.parse(fs.readFileSync(file, 'utf8'));

@@ -36,7 +36,7 @@ export function toISODate(d: Date): string {
 /** 'YYYY-MM-DD' as local midnight — never `new Date(iso)`, which reads it as UTC. */
 export function fromISODate(iso: string): Date {
   // Indexed rather than destructured: the app's Babel would compile a
-  // destructure here to a runtime helper that cannot resolve from shared/.
+  // destructure here to a runtime helper that cannot resolve from the shared package.
   const parts = iso.split('-').map(Number);
   return new Date(parts[0], parts[1] - 1, parts[2]);
 }

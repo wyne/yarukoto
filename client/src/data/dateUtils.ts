@@ -1,4 +1,4 @@
-import { addDays, startOfDay, toISODate } from '../../../shared/dates';
+import { addDays, startOfDay, toISODate } from '@yarukoto/domain/dates';
 
 export { addDays, startOfDay, toISODate };
 

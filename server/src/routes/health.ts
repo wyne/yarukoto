@@ -1,5 +1,5 @@
 import { FastifyInstance } from 'fastify';
-import { SERVER_FEATURES } from '../../../shared/types';
+import { SERVER_FEATURES } from '@yarukoto/domain/types';
 import { buildInfo } from '../version';
 
 export function registerHealthRoute(app: FastifyInstance): void {

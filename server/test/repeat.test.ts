@@ -3,7 +3,7 @@ import test from 'node:test';
 import Database from 'better-sqlite3';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
-import { Task } from '../../shared/types';
+import { Task } from '@yarukoto/domain/types';
 import { runMigrations } from '../src/db';
 import { buildMcpServer } from '../src/mcp';
 import { registerSyncRoutes } from '../src/routes/sync';

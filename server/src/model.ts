@@ -9,9 +9,9 @@ import {
   SortBy,
   Task,
   ViewPref,
-} from '../../shared/types';
-import { normalizeCriteria } from '../../shared/taskFilter';
-import { normalizeRepeat } from '../../shared/recurrence';
+} from '@yarukoto/domain/types';
+import { normalizeCriteria } from '@yarukoto/domain/taskFilter';
+import { normalizeRepeat } from '@yarukoto/domain/recurrence';
 import { env } from './env';
 
 export interface TaskRow {

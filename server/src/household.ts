@@ -1,6 +1,6 @@
 import crypto from 'node:crypto';
 import Database from 'better-sqlite3';
-import { HouseholdDevice, HouseholdMember, HouseholdRole } from '../../shared/types';
+import { HouseholdDevice, HouseholdMember, HouseholdRole } from '@yarukoto/domain/types';
 import { OWNER_ID, Viewer, isAdmin } from './access';
 import { hashToken } from './auth';
 

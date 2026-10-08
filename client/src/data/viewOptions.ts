@@ -1,5 +1,5 @@
 import { FolderDef, GroupBy, ListDef, Priority, SortBy, Task, ViewPref } from './types';
-import { DueBucket, dueBucket } from '../../../shared/dates';
+import { DueBucket, dueBucket } from '@yarukoto/domain/dates';
 import { orderedLists } from './selectors';
 
 export type { GroupBy, SortBy };

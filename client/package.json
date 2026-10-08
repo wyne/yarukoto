@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "main": "index.ts",
   "dependencies": {
+    "@yarukoto/domain": "*",
     "@expo-google-fonts/ibm-plex-mono": "^0.4.1",
     "@expo-google-fonts/ibm-plex-sans": "^0.4.1",
     "@expo/ui": "~57.0.9",
@@ -50,6 +51,7 @@
     "typescript": "~6.0.3"
   },
   "scripts": {
+    "postinstall": "cd .. && npm run build:domain",
     "start": "expo start",
     "start:dev": "APP_VARIANT=development expo start --dev-client",
     "start:tailscale": "scripts/start-tailscale.sh",
@@ -62,7 +64,7 @@
     "mac:release": "scripts/release-mac.sh",
     "test": "TZ=America/New_York jest --runInBand --no-watchman",
     "test:coverage": "TZ=America/New_York jest --runInBand --no-watchman --coverage --coverageReporters=text --coverageReporters=json-summary",
-    "test:e2e": "npm run build --prefix ../server && expo export --platform web --output-dir dist-e2e && playwright test",
+    "test:e2e": "npm run build --workspace yarukoto-server && expo export --platform web --output-dir dist-e2e && playwright test",
     "typecheck": "tsc --noEmit",
     "web": "expo start --web",
     "export:windows": "expo export --platform web --output-dir dist-windows"

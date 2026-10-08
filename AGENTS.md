@@ -1,9 +1,9 @@
 # Yarukoto
 
-`client/` (Expo client for web, iOS, Android, and Mac), `server/` (Fastify + SQLite), and `shared/` (the types both
-compile against). `windows/` packages the client's web export as a Windows app (Tauri); it has no UI of
-its own, so a change to the web build is a change to it. Subdirectories may add their own `AGENTS.md`; those apply on top of
-this file.
+`client/` (Expo client for web, iOS, Android, and Mac), `server/` (Fastify + SQLite), and
+`packages/domain/` (the shared domain package both compile against). `windows/` packages the client's
+web export as a Windows app (Tauri), and `docs/` contains the Starlight documentation site.
+Subdirectories may add their own `AGENTS.md`; those apply on top of this file.
 
 ## Backend/Mobile Compatibility
 
@@ -15,7 +15,7 @@ return the field.
 
 The protocol, whenever a feature needs backend storage:
 
-1. Add a stable id to `SERVER_FEATURES` in `shared/types.ts`. Ids are permanent —
+1. Add a stable id to `SERVER_FEATURES` in `packages/domain/src/types.ts`. Ids are permanent —
    they outlive every deployed client, so don't rename or recycle one.
 2. Advertise it from `GET /api/v1/health` only once the backend can actually
    persist *and* sync the data. Advertising early is what corrupts data.
@@ -118,13 +118,13 @@ routes, so there is no UI to gate and no field to strip.
 
 Saved filters are the one synced record these routes read but never write:
 `GET /api/v1/filters/:id/tasks` evaluates the stored criteria with the shared
-`filterTasks` (`shared/taskFilter.ts`), not with SQL, so a filter admits the same
+`filterTasks` (`packages/domain/src/taskFilter.ts`), not with SQL, so a filter admits the same
 tasks on the server as it does in the app. Keep it that way — a second
 implementation of "due today" would drift from the first.
 
 Relative dates ("today", "fri") resolve in `YARUKOTO_TZ` via `wallClockNow`, never
 in the server process's own zone, which in a container is usually UTC. The quick-add
-parser lives in `shared/` so both sides read the same syntax.
+parser lives in `packages/domain/` so both sides read the same syntax.
 
 ## Household
 
