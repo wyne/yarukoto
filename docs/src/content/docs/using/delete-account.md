@@ -48,3 +48,7 @@ server can change that with `BACKUP_KEEP`; see [Backups](/self-hosting/backups/)
 
 Signing out of a device or deleting the app only removes that device's copy. Your account stays on
 the server until you delete it.
+
+Yarukoto's developer never receives your tasks or account. They live only on your household's
+server, so only that server can erase them. For questions about deleting your data, email
+[yarukoto@justinwyne.com](mailto:yarukoto@justinwyne.com).

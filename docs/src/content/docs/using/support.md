@@ -7,6 +7,9 @@ Questions, bug reports and feature requests all go to
 [GitHub issues](https://github.com/wyne/yarukoto/issues). Search there first; someone may have
 asked already.
 
+If you'd rather not use GitHub, email
+[yarukoto@justinwyne.com](mailto:yarukoto@justinwyne.com).
+
 When you report a problem, it helps to include:
 
 - which app you're using: iPhone, Android, Mac, Windows or web
