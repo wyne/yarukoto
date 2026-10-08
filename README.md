@@ -57,7 +57,8 @@ building from source, and there are separate steps for a
   [architecture and sync](https://docs.yarukotoapp.com/development/architecture/),
   [feature compatibility](https://docs.yarukotoapp.com/development/feature-compatibility/),
   [iOS and Android builds](https://docs.yarukotoapp.com/development/ios-and-android/),
-  [the Mac app](https://docs.yarukotoapp.com/development/mac/)
+  [the Mac app](https://docs.yarukotoapp.com/development/mac/),
+  [the Windows app](https://docs.yarukotoapp.com/development/windows/)
 
 The docs are Markdown in [`docs/`](docs/), so a change and its documentation land in the same pull
 request. Merging to `main` publishes them.
@@ -68,6 +69,7 @@ request. Merging to `main` publishes them.
 client/    Expo + React Native client for web, iOS, Android, and Mac
 server/    Fastify + better-sqlite3 API server
 shared/    Types and the quick-add parser, used by both sides
+windows/   Tauri shell that packages the web build as a Windows app
 docs/      The documentation site (Starlight)
 custom_components/yarukoto/   Home Assistant integration (installed through HACS)
 homeassistant-tests/          its tests

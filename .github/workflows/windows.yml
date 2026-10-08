@@ -1,0 +1,67 @@
+name: Windows app
+
+# Builds the Windows app (windows/, a Tauri shell around the web export) and
+# attaches its installers to the run. It runs on pull requests that touch the
+# shell, so a change to it is proven to build, and on demand from Actions >
+# Windows app > Run workflow for a build of whatever main is now.
+#
+# The installers are unsigned, so SmartScreen warns on first launch: "More
+# info", then "Run anyway". Like the other app builds, none becomes a GitHub
+# release; those belong to the Home Assistant integration (see ha-release.yml).
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'windows/**'
+      - '.github/workflows/windows.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Windows
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            client/package-lock.json
+            windows/package-lock.json
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: windows
+
+      - name: Install client
+        working-directory: client
+        run: npm ci
+
+      - name: Install Tauri CLI
+        working-directory: windows
+        run: npm ci
+
+      # beforeBuildCommand in tauri.conf.json exports the web client first.
+      - name: Build
+        working-directory: windows
+        run: npm run build
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: |
+            windows/target/release/bundle/nsis/*.exe
+            windows/target/release/bundle/msi/*.msi
+          if-no-files-found: error

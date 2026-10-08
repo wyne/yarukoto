@@ -1,0 +1,29 @@
+[package]
+name = "yarukoto-windows"
+version = "1.0.0"
+description = "The Yarukoto web client in a native Windows window"
+edition = "2021"
+publish = false
+
+[build-dependencies]
+tauri-build = { version = "2.7", features = [] }
+
+[dependencies]
+tauri = { version = "2.12", features = [] }
+tauri-plugin-opener = "2.7"
+tauri-plugin-single-instance = "2.5"
+tauri-plugin-window-state = "2.5"
+
+# Reaching past Tauri to WebView2's own settings (see webview2.rs). These must
+# be the versions wry itself depends on, or the controller Tauri hands back is
+# a different type from the one this code names.
+[target.'cfg(windows)'.dependencies]
+webview2-com = "0.39"
+windows = "0.62"
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+panic = "abort"
+strip = true
