@@ -1,31 +1,27 @@
 name: Windows app
 
 # Builds the Windows app (windows/, a Tauri shell around the web export) and
-# attaches its installers to the run. It runs on pull requests that touch the
-# shell or web client, so a change to either is proven to build, and on demand from Actions >
-# Windows app > Run workflow for a build of whatever main is now.
+# attaches its installers to the run. Deliberately manual, like the other app
+# builds: Actions > Windows app > Run workflow. A Windows build takes long
+# enough that running it on every pull request held up review.
+#
+# desktop-release.yml calls this too, with a version, and publishes the result
+# to wyne/yarukoto-desktop. A run started here is only attached to the run.
 #
 # The installers are unsigned, so SmartScreen warns on first launch: "More
-# info", then "Run anyway". Like the other app builds, none becomes a GitHub
-# release; those belong to the Home Assistant integration (see ha-release.yml).
+# info", then "Run anyway".
 on:
-  pull_request:
-    branches: [main]
-    paths:
-      - 'client/**'
-      - 'packages/domain/**'
-      - 'windows/**'
-      - 'package.json'
-      - 'package-lock.json'
-      - '.github/workflows/windows.yml'
   workflow_dispatch:
+  workflow_call:
+    inputs:
+      version:
+        description: Version to stamp on the installers, in place of tauri.conf.json's
+        type: string
+        required: false
+        default: ''
 
 permissions:
   contents: read
-
-concurrency:
-  group: windows-${{ github.ref }}
-  cancel-in-progress: true
 
 jobs:
   build:
@@ -53,7 +49,15 @@ jobs:
       # beforeBuildCommand in tauri.conf.json exports the web client first.
       - name: Build
         working-directory: windows
-        run: npm run build
+        shell: bash
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          if [ -n "$VERSION" ]; then
+            npm run build -- --config "{\"version\":\"$VERSION\"}"
+          else
+            npm run build
+          fi
 
       - uses: actions/upload-artifact@v4
         with:

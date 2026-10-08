@@ -67,6 +67,34 @@ MAC_VERSION=1.0.1 MAC_BUILD_NUMBER=2026092701 npm run mac:release
 ```
 
 Set `APPLE_TEAM_ID` or `NOTARY_PROFILE` only when using a different Apple team or keychain profile.
+To notarize with an App Store Connect API key instead of a keychain profile, set `NOTARY_KEY` (the
+`.p8` file's path), `NOTARY_KEY_ID` and `NOTARY_ISSUER`.
+
+### Publishing the download
+
+**Actions → Desktop release → Run workflow** (`.github/workflows/desktop-release.yml`) runs the same
+script on a GitHub Mac runner, builds the Windows installers alongside it, and publishes all of them
+as one release of [wyne/yarukoto-desktop](https://github.com/wyne/yarukoto-desktop/releases). The
+version defaults to `app.json`'s; running a version again replaces its files. Releases go to that
+repo rather than this one because this repo's releases are the Home Assistant integration's.
+
+The files keep the same names on every release, so these links always fetch the newest one, and the
+website and [Getting the apps](/using/apps/) use them:
+
+- `https://github.com/wyne/yarukoto-desktop/releases/latest/download/Yarukoto-mac.dmg`
+- `https://github.com/wyne/yarukoto-desktop/releases/latest/download/Yarukoto-windows-setup.exe`
+- `https://github.com/wyne/yarukoto-desktop/releases/latest/download/Yarukoto-windows.msi`
+
+The workflow needs these repository secrets:
+
+| Secret | What it is |
+|---|---|
+| `MAC_CERTIFICATE_P12` | The Developer ID Application certificate with its private key, exported from Keychain Access as a `.p12` and base64-encoded (`base64 -i cert.p12 \| pbcopy`). |
+| `MAC_CERTIFICATE_PASSWORD` | The password chosen for that export. |
+| `APPLE_API_KEY_P8` | The text of an App Store Connect API key (`.p8`) from **Users and Access → Integrations → App Store Connect API**. Developer access is enough to notarize. |
+| `APPLE_API_KEY_ID` | That key's ID. |
+| `APPLE_API_ISSUER_ID` | The issuer ID shown above the key list. |
+| `DESKTOP_RELEASE_TOKEN` | A fine-grained personal access token with **Contents: Read and write** on `wyne/yarukoto-desktop` only. |
 The release prebuild also enables App Sandbox, outgoing network connections, and the hardened runtime
 for Catalyst. The existing `NSLocalNetworkUsageDescription` and `NSAllowsLocalNetworking` entries
 remain responsible for the user-facing LAN prompt and LAN HTTP exception.

@@ -1,0 +1,185 @@
+name: Desktop release
+
+# Builds a signed, notarized Mac app and the Windows installers, then publishes
+# them as a release of wyne/yarukoto-desktop: Actions > Desktop release > Run
+# workflow. The website and docs link to that repo's latest release, so the
+# files keep the same names on every release and those links never change:
+#
+#   https://github.com/wyne/yarukoto-desktop/releases/latest/download/Yarukoto-mac.dmg
+#   https://github.com/wyne/yarukoto-desktop/releases/latest/download/Yarukoto-windows-setup.exe
+#   https://github.com/wyne/yarukoto-desktop/releases/latest/download/Yarukoto-windows.msi
+#
+# They're published to a separate repo because releases here are the Home
+# Assistant integration's (see ha-release.yml): HACS would offer a desktop
+# release to every Home Assistant user as an integration update.
+#
+# Secrets (Settings > Secrets and variables > Actions):
+#   MAC_CERTIFICATE_P12       base64 of the "Developer ID Application" certificate
+#                             and its private key, exported from Keychain Access as .p12
+#   MAC_CERTIFICATE_PASSWORD  the password that export was given
+#   APPLE_API_KEY_P8          contents of an App Store Connect API key (.p8), for notarization
+#   APPLE_API_KEY_ID          that key's ID
+#   APPLE_API_ISSUER_ID       the issuer ID shown above the keys list
+#   DESKTOP_RELEASE_TOKEN     a fine-grained token with Contents: read and write on
+#                             wyne/yarukoto-desktop only
+#
+# Windows stays unsigned for now, so SmartScreen warns on first launch.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version to publish (e.g. 1.0.1). Empty uses client/app.json's.
+        type: string
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: desktop-release
+  cancel-in-progress: false
+
+env:
+  RELEASE_REPO: wyne/yarukoto-desktop
+
+jobs:
+  version:
+    name: Version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v5
+      - id: version
+        env:
+          INPUT: ${{ inputs.version }}
+        run: |
+          VERSION="${INPUT:-$(node -p "require('./client/app.json').expo.version")}"
+          VERSION="${VERSION#v}"
+          # The MSI and the Mac bundle both require plain major.minor.patch.
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Version must look like 1.2.3, got: $VERSION" >&2
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+  mac:
+    name: Mac
+    needs: version
+    runs-on: macos-latest
+    timeout-minutes: 120
+    env:
+      # CocoaPods aborts on a Podfile path check without a UTF-8 locale.
+      LANG: en_US.UTF-8
+      LC_ALL: en_US.UTF-8
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install
+        run: npm ci --workspace yarukoto-client --workspace @yarukoto/domain
+
+      # A throwaway keychain holding only the Developer ID identity, added to
+      # the search list so release-mac.sh finds it the way it finds the login
+      # keychain's on a laptop.
+      - name: Import signing certificate
+        env:
+          MAC_CERTIFICATE_P12: ${{ secrets.MAC_CERTIFICATE_P12 }}
+          MAC_CERTIFICATE_PASSWORD: ${{ secrets.MAC_CERTIFICATE_PASSWORD }}
+          APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
+        run: |
+          KEYCHAIN="$RUNNER_TEMP/signing.keychain-db"
+          KEYCHAIN_PASSWORD=$(openssl rand -hex 24)
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          echo "$MAC_CERTIFICATE_P12" | base64 --decode > "$RUNNER_TEMP/certificate.p12"
+          security import "$RUNNER_TEMP/certificate.p12" -k "$KEYCHAIN" \
+            -P "$MAC_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          rm "$RUNNER_TEMP/certificate.p12"
+          security set-key-partition-list -S apple-tool:,apple: -s \
+            -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN" > /dev/null
+          security list-keychains -d user -s "$KEYCHAIN" \
+            $(security list-keychains -d user | tr -d '"')
+          printf '%s' "$APPLE_API_KEY_P8" > "$RUNNER_TEMP/notary.p8"
+
+      - name: Build, sign and notarize
+        working-directory: client
+        env:
+          MAC_VERSION: ${{ needs.version.outputs.version }}
+          NOTARY_KEY: ${{ runner.temp }}/notary.p8
+          NOTARY_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          NOTARY_ISSUER: ${{ secrets.APPLE_API_ISSUER_ID }}
+        run: scripts/release-mac.sh
+
+      - name: Collect
+        working-directory: client
+        run: |
+          mkdir -p "$RUNNER_TEMP/out"
+          cp dist/macos/*/*.dmg "$RUNNER_TEMP/out/Yarukoto-mac.dmg"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mac-release
+          path: ${{ runner.temp }}/out/Yarukoto-mac.dmg
+          if-no-files-found: error
+
+      - name: Remove signing material
+        if: always()
+        run: |
+          security delete-keychain "$RUNNER_TEMP/signing.keychain-db" || true
+          rm -f "$RUNNER_TEMP/notary.p8" "$RUNNER_TEMP/certificate.p12"
+
+  windows:
+    name: Windows
+    needs: version
+    uses: ./.github/workflows/windows.yml
+    with:
+      version: ${{ needs.version.outputs.version }}
+
+  publish:
+    name: Publish
+    needs: [version, mac, windows]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Name the files
+        run: |
+          mkdir out
+          cp artifacts/mac-release/Yarukoto-mac.dmg out/
+          cp artifacts/windows/*.exe out/Yarukoto-windows-setup.exe
+          cp artifacts/windows/*.msi out/Yarukoto-windows.msi
+          (cd out && sha256sum * > SHA256SUMS.txt)
+          cat out/SHA256SUMS.txt
+
+      # Re-running a version replaces its files rather than failing, so a
+      # broken build can be fixed without inventing a new version number.
+      - name: Publish to ${{ env.RELEASE_REPO }}
+        env:
+          GH_TOKEN: ${{ secrets.DESKTOP_RELEASE_TOKEN }}
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          TAG="v$VERSION"
+          NOTES="Built from [wyne/yarukoto@${GITHUB_SHA::7}](https://github.com/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA}).
+
+          - **Mac:** \`Yarukoto-mac.dmg\`, signed and notarized. Open it and drag Yarukoto to Applications.
+          - **Windows:** \`Yarukoto-windows-setup.exe\` (or the \`.msi\`). It isn't signed yet, so Windows warns on first launch: choose **More info**, then **Run anyway**."
+          if gh release view "$TAG" --repo "$RELEASE_REPO" > /dev/null 2>&1; then
+            gh release upload "$TAG" out/* --repo "$RELEASE_REPO" --clobber
+          else
+            gh release create "$TAG" out/* --repo "$RELEASE_REPO" \
+              --title "Yarukoto $VERSION" --notes "$NOTES" --latest
+          fi
