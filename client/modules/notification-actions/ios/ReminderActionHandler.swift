@@ -1,5 +1,6 @@
 import ExpoModulesCore
 import ExpoNotifications
+import Security
 import UIKit
 import UserNotifications
 
@@ -45,6 +46,9 @@ public final class ReminderActionHandler: NSObject, NotificationDelegate {
 
   static let queueKey = "yarukoto.pendingNotificationActions"
   static let serverUrlKey = "yarukoto.native.serverUrl"
+  /// The token lives in the Keychain under this account. Builds before that kept
+  /// it in UserDefaults under the same name, which `storedToken()` still reads until JS
+  /// next hands over credentials and clears it.
   static let tokenKey = "yarukoto.native.token"
 
   private let defaults = UserDefaults.standard
@@ -146,7 +150,7 @@ public final class ReminderActionHandler: NSObject, NotificationDelegate {
   private func pushCompletion(taskId: String, completedAt: String) {
     guard
       let serverUrl = defaults.string(forKey: Self.serverUrlKey),
-      let token = defaults.string(forKey: Self.tokenKey),
+      let token = storedToken(),
       !serverUrl.isEmpty, !token.isEmpty,
       let escaped = taskId.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed),
       let url = URL(string: "\(serverUrl.trimmingTrailingSlashes())/api/v1/tasks/\(escaped)/complete")
@@ -206,13 +210,62 @@ public final class ReminderActionHandler: NSObject, NotificationDelegate {
   }
 
   func setCredentials(serverUrl: String?, token: String?) {
+    defaults.removeObject(forKey: Self.tokenKey)
     if let serverUrl, let token, !serverUrl.isEmpty, !token.isEmpty {
       defaults.set(serverUrl, forKey: Self.serverUrlKey)
-      defaults.set(token, forKey: Self.tokenKey)
+      Keychain.write(Self.tokenKey, token)
     } else {
       defaults.removeObject(forKey: Self.serverUrlKey)
-      defaults.removeObject(forKey: Self.tokenKey)
+      Keychain.delete(Self.tokenKey)
     }
+  }
+
+  private func storedToken() -> String? {
+    Keychain.read(Self.tokenKey) ?? defaults.string(forKey: Self.tokenKey)
+  }
+}
+
+/**
+ The access token, kept in the Keychain rather than UserDefaults, which is a
+ plain file that rides along in device backups. Readable after the first unlock
+ since boot, because a lock-screen "Mark done" is exactly when this runs, and
+ never restored to another device.
+ */
+private enum Keychain {
+  static let service = "yarukoto.native"
+
+  static func query(_ account: String) -> [String: Any] {
+    [
+      kSecClass as String: kSecClassGenericPassword,
+      kSecAttrService as String: service,
+      kSecAttrAccount as String: account,
+    ]
+  }
+
+  static func read(_ account: String) -> String? {
+    var request = query(account)
+    request[kSecReturnData as String] = true
+    request[kSecMatchLimit as String] = kSecMatchLimitOne
+    var result: AnyObject?
+    guard SecItemCopyMatching(request as CFDictionary, &result) == errSecSuccess,
+      let data = result as? Data
+    else { return nil }
+    return String(data: data, encoding: .utf8)
+  }
+
+  static func write(_ account: String, _ value: String) {
+    let attributes: [String: Any] = [
+      kSecValueData as String: Data(value.utf8),
+      kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
+    ]
+    let status = SecItemUpdate(query(account) as CFDictionary, attributes as CFDictionary)
+    if status == errSecItemNotFound {
+      SecItemAdd(query(account).merging(attributes) { _, new in new } as CFDictionary, nil)
+    }
+  }
+
+  static func delete(_ account: String) {
+    SecItemDelete(query(account) as CFDictionary)
   }
 }
 

@@ -11,6 +11,7 @@ import {
   taskSnoozeNotificationIdentifier,
 } from './notificationActions';
 import { parseTaskReminderNotificationData } from './taskReminderNotifications';
+import { readStoredToken } from './storage';
 
 export const NOTIFICATION_ACTION_TASK = 'yarukoto-notification-action';
 
@@ -107,7 +108,7 @@ async function pushCompletion(taskId: string, completedAt: string): Promise<void
   try {
     const [serverUrl, token] = await Promise.all([
       AsyncStorage.getItem('yarukoto.serverUrl'),
-      AsyncStorage.getItem('yarukoto.token'),
+      readStoredToken(),
     ]);
     if (!serverUrl || !token) return;
 
