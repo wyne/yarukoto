@@ -47,7 +47,11 @@ export const env = {
    * The container's own zone is usually UTC, which is nobody's wall clock.
    */
   timeZone: process.env.YARUKOTO_TZ ?? process.env.TZ ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
-  migrationsDir: process.env.MIGRATIONS_DIR ?? path.resolve(process.cwd(), 'migrations'),
+  /**
+   * Beside `src/` and the compiled `dist/` alike, so it doesn't depend on the directory the
+   * process starts in: the image runs from `/app`, where a cwd-relative default finds nothing.
+   */
+  migrationsDir: process.env.MIGRATIONS_DIR ?? path.resolve(__dirname, '../migrations'),
   /** Next to the database by default, so the one volume people already mount holds both. */
   backupDir: process.env.BACKUP_DIR ?? path.join(path.dirname(databasePath), 'backups'),
   backupIntervalHours: Number(process.env.BACKUP_INTERVAL_HOURS ?? 24),

@@ -44,8 +44,10 @@ test('the compiled production server boots, migrates, serves the web app, and sy
   fs.writeFileSync(path.join(webRoot, 'index.html'), '<!doctype html><title>production bootstrap fixture</title>');
 
   const port = await availablePort();
+  // Started from somewhere other than server/, as the image starts it from /app, and with no
+  // MIGRATIONS_DIR, so the defaults that locate the migrations are what get exercised.
   const child = spawn(process.execPath, [ENTRYPOINT], {
-    cwd: SERVER_ROOT,
+    cwd: stateDir,
     env: {
       ...process.env,
       YARUKOTO_TOKEN: 'production-test-token',
@@ -53,7 +55,6 @@ test('the compiled production server boots, migrates, serves the web app, and sy
       DATABASE_PATH: path.join(stateDir, 'yarukoto.db'),
       BACKUP_INTERVAL_HOURS: '0',
       LOG_LEVEL: 'silent',
-      MIGRATIONS_DIR: path.join(SERVER_ROOT, 'migrations'),
       WEB_ROOT: webRoot,
     },
     stdio: ['ignore', 'ignore', 'pipe'],
