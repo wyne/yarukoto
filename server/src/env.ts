@@ -21,15 +21,17 @@ function required(name: string): string {
 
 /**
  * Fastify's `trustProxy`: off unless asked, because trusting `X-Forwarded-For`
- * from anyone lets a client claim any address. `true` trusts every hop, a
- * number trusts that many, anything else is a comma-separated list of proxy
- * addresses or CIDRs.
+ * from anyone lets a client claim any address. `true` trusts every hop, anything
+ * else is a comma-separated list of proxy addresses or CIDRs.
+ *
+ * A bare hop count ("1") used to be accepted too. Fastify now treats one as
+ * "trust nothing", since a count can't tell a proxy from a client that sent
+ * enough headers, so it is read as off here rather than as an address.
  */
-export function parseTrustProxy(value: string | undefined): boolean | number | string {
+export function parseTrustProxy(value: string | undefined): boolean | string {
   const trimmed = value?.trim();
-  if (!trimmed || trimmed === 'false') return false;
+  if (!trimmed || trimmed === 'false' || /^\d+$/.test(trimmed)) return false;
   if (trimmed === 'true') return true;
-  if (/^\d+$/.test(trimmed)) return Number(trimmed);
   return trimmed;
 }
 

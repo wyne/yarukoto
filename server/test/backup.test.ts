@@ -92,10 +92,10 @@ test('fromEnvOrFile reads NAME_FILE, trims it, and refuses both at once', () => 
   assert.throws(() => fromEnvOrFile('X', { X: 'plain', X_FILE: secret }), /not both/);
 });
 
-test('parseTrustProxy is off by default and accepts true, hop counts and address lists', () => {
+test('parseTrustProxy is off by default and accepts true and address lists, but not hop counts', () => {
   assert.equal(parseTrustProxy(undefined), false);
   assert.equal(parseTrustProxy('false'), false);
   assert.equal(parseTrustProxy('true'), true);
-  assert.equal(parseTrustProxy('1'), 1);
+  assert.equal(parseTrustProxy('1'), false);
   assert.equal(parseTrustProxy('172.16.0.0/12, 127.0.0.1'), '172.16.0.0/12, 127.0.0.1');
 });

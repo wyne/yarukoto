@@ -19,5 +19,5 @@ Set these in `docker-compose.yml` or your `.env`.
 | `BACKUP_DIR` | `backups/` next to the database | Where snapshots go. Mount a second volume here to put them on other storage. |
 | `PUID` / `PGID` | `1000` / `1000` | The user and group the server runs as inside the container, and that it makes the owner of `/data`. Set them to your host user's ids (`id -u`, `id -g`). Ignored if you start the container with `--user`. |
 | `LOG_LEVEL` | `info` | `trace`, `debug`, `info`, `warn`, `error` or `fatal`. Logs are JSON on stdout. |
-| `TRUST_PROXY` | off | Behind a reverse proxy, set this so logs show the client's address rather than the proxy's: `true` trusts every hop, a number trusts that many, or give the proxy's addresses or CIDRs (`172.16.0.0/12`). Leave it off when nothing sits in front, or clients can claim any address. |
+| `TRUST_PROXY` | off | Behind a reverse proxy, set this so logs show the client's address rather than the proxy's: `true` trusts every hop, or give the proxy's addresses or CIDRs (`172.16.0.0/12`). A hop count such as `1` is no longer accepted and leaves it off. Leave it off when nothing sits in front, or clients can claim any address. |
 | `WEB_ROOT` | `/app/web` *(set in the image)* | Where the built web client lives. If missing, the server runs API-only and says so in its logs. |

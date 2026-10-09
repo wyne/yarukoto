@@ -14,5 +14,12 @@
     "build": "npm run build:domain && npm run build --workspace yarukoto-server",
     "test": "npm run build:domain && npm test --workspace yarukoto-client && npm test --workspace yarukoto-server",
     "typecheck": "npm run build:domain && npm run typecheck --workspace yarukoto-client && npm run build --workspace yarukoto-server"
+  },
+  "overrides": {
+    "react": "19.2.3",
+    "react-dom": "19.2.3"
+  },
+  "devDependencies": {
+    "@types/react": "~19.2.2"
   }
 }
