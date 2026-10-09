@@ -53,6 +53,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.version.outputs.version }}
+      source_sha: ${{ steps.version.outputs.source_sha }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -69,6 +70,7 @@ jobs:
             exit 1
           fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "source_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
   mac:
     name: Mac
@@ -179,24 +181,32 @@ jobs:
           (cd out && sha256sum * > SHA256SUMS.txt)
           cat out/SHA256SUMS.txt
 
-      # Re-running a version replaces its files rather than failing, so a
-      # broken build can be fixed without inventing a new version number.
+      # Release Please creates a draft first. It only becomes the public latest
+      # release after every desktop artifact and its instructions are present.
+      # Re-running replaces the assets and the marked notes section.
       - name: Publish to this repository
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           VERSION: ${{ needs.version.outputs.version }}
-          SOURCE_REF: ${{ inputs.ref }}
+          SOURCE_SHA: ${{ needs.version.outputs.source_sha }}
         run: |
           TAG="v$VERSION"
-          NOTES="Built from [wyne/yarukoto@${GITHUB_SHA::7}](https://github.com/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA}).
-
-          - **Mac:** \`Yarukoto-mac.dmg\`, signed and notarized. Open it and drag Yarukoto to Applications.
-          - **Windows:** \`Yarukoto-windows-setup.exe\` (or the \`.msi\`). It isn't signed yet, so Windows warns on first launch: choose **More info**, then **Run anyway**."
-          if gh release view "$TAG" > /dev/null 2>&1; then
-            gh release upload "$TAG" out/* --clobber
-          else
-            TARGET="${SOURCE_REF:-$GITHUB_SHA}"
-            gh release create "$TAG" out/* --target "$TARGET" \
-              --title "Yarukoto $VERSION" --notes "$NOTES" --latest
+          if ! gh release view "$TAG" > /dev/null 2>&1; then
+            gh release create "$TAG" --target "$SOURCE_SHA" \
+              --title "Yarukoto $VERSION" --notes '' --draft
           fi
+          gh release upload "$TAG" out/* --clobber
+
+          gh release view "$TAG" --json body --jq .body > "$RUNNER_TEMP/current-notes.md"
+          {
+            sed '/<!-- desktop-downloads -->/,$d' "$RUNNER_TEMP/current-notes.md"
+            printf '\n<!-- desktop-downloads -->\n\n## Desktop downloads\n\n'
+            printf 'Built from [wyne/yarukoto@%.7s](https://github.com/%s/commit/%s).\n\n' \
+              "$SOURCE_SHA" "$GITHUB_REPOSITORY" "$SOURCE_SHA"
+            printf '%s\n' '- **Mac:** `Yarukoto-mac.dmg`, signed and notarized. Open it and drag Yarukoto to Applications.'
+            printf '%s\n' '- **Windows:** `Yarukoto-windows-setup.exe` (or the `.msi`). It is not signed yet, so Windows warns on first launch: choose **More info**, then **Run anyway**.'
+          } > "$RUNNER_TEMP/release-notes.md"
+
+          gh release edit "$TAG" --notes-file "$RUNNER_TEMP/release-notes.md" \
+            --draft=false --latest

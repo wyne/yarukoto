@@ -85,12 +85,16 @@ app and attaches them to the [Yarukoto release](https://github.com/wyne/yarukoto
 also run **Actions → Desktop release → Run workflow** to rebuild a version. The version defaults to
 the root `package.json`; running a version again replaces its files.
 
-The files keep the same names on every release, so these links always fetch the newest one, and the
-website and [Getting the apps](/using/apps/) use them:
+During the `v1.0.0` cutover, the website and [Getting the apps](/using/apps/) keep using the
+existing downloads in the legacy desktop repository:
 
-- `https://github.com/wyne/yarukoto/releases/latest/download/Yarukoto-mac.dmg`
-- `https://github.com/wyne/yarukoto/releases/latest/download/Yarukoto-windows-setup.exe`
-- `https://github.com/wyne/yarukoto/releases/latest/download/Yarukoto-windows.msi`
+- `https://github.com/wyne/yarukoto-desktop/releases/latest/download/Yarukoto-mac.dmg`
+- `https://github.com/wyne/yarukoto-desktop/releases/latest/download/Yarukoto-windows-setup.exe`
+- `https://github.com/wyne/yarukoto-desktop/releases/latest/download/Yarukoto-windows.msi`
+
+Those stable public links remain on the legacy desktop repository through the `v1.0.0` cutover.
+After this repository has a complete app release, switch the website and docs to its matching
+`releases/latest/download/` URLs.
 
 The workflow needs these repository secrets:
 

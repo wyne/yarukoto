@@ -160,9 +160,13 @@ derive from it. EAS owns the independent, monotonically increasing iOS and Andro
 
 Release Please maintains a `chore: release X.Y.Z` PR from conventional commit titles. Merging that
 PR creates the tag and GitHub release, queues iOS and Android production builds/submissions, and
-builds the signed Mac and Windows downloads onto the same release. Never edit the release PR's
-generated version or tag by hand. Keep the desktop artifact names stable because the docs use
-`releases/latest/download/<file>` links.
+builds the signed Mac and Windows downloads onto the same release. The release stays a draft until
+the desktop assets are attached, so `latest` never points at missing downloads. Never edit the
+release PR's generated version or tag by hand. Keep the desktop artifact names stable.
+
+PR titles must be conventional because the squash commit is what Release Please reads: `fix:` and
+`feat:` produce app version bumps; `chore:`, `docs:`, and `ci:` do not. Squash merges must keep the
+PR title as the commit title.
 
 The server is released continuously from `main` and identified by the commit stamped into
 `/api/v1/health`; app tags do not version it. The Home Assistant integration, its tests, HACS
