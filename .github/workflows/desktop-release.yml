@@ -160,8 +160,13 @@ jobs:
         run: |
           mkdir out
           cp artifacts/mac-release/Yarukoto-mac.dmg out/
-          cp artifacts/windows/*.exe out/Yarukoto-windows-setup.exe
-          cp artifacts/windows/*.msi out/Yarukoto-windows.msi
+          # upload-artifact keeps the bundle/nsis and bundle/msi folders, so the
+          # installers are a level down. Find them rather than assume the layout.
+          EXE=$(find artifacts/windows -name '*.exe' | head -1)
+          MSI=$(find artifacts/windows -name '*.msi' | head -1)
+          test -n "$EXE" && test -n "$MSI"
+          cp "$EXE" out/Yarukoto-windows-setup.exe
+          cp "$MSI" out/Yarukoto-windows.msi
           (cd out && sha256sum * > SHA256SUMS.txt)
           cat out/SHA256SUMS.txt
 
