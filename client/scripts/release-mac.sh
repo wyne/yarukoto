@@ -136,11 +136,22 @@ codesign --verify --deep --strict --verbose=2 "$APP"
 # particular, Xcode 27's stapler corrupts this Catalyst app when asked to attach
 # a ticket directly to the .app. Stapling the signed DMG gives Gatekeeper the
 # same offline proof while leaving the inner app's signature untouched.
-hdiutil create \
-  -volname "$SCHEME" \
-  -srcfolder "$APP" \
-  -ov \
-  -format UDZO \
+#
+# The image opens to a window with a background, the app, and a link to
+# Applications to drag it onto (scripts/dmg-settings.py). dmgbuild writes that
+# layout without driving Finder, so it works on a CI runner too; it's installed
+# into a throwaway virtualenv rather than touching the system Python.
+DMGBUILD_VENV="$RELEASE_ROOT/.dmgbuild"
+if [ ! -x "$DMGBUILD_VENV/bin/dmgbuild" ]; then
+  python3 -m venv "$DMGBUILD_VENV"
+  "$DMGBUILD_VENV/bin/pip" install --quiet dmgbuild==1.6.7
+fi
+rm -f "$DOWNLOAD_DMG"
+"$DMGBUILD_VENV/bin/dmgbuild" \
+  -s scripts/dmg-settings.py \
+  -D app="$APP" \
+  -D background=assets/dmg/background.png \
+  "$SCHEME" \
   "$DOWNLOAD_DMG"
 codesign --force --timestamp --sign "$IDENTITY" "$DOWNLOAD_DMG"
 if [ -n "${NOTARY_KEY:-}" ]; then

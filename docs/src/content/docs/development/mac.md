@@ -58,6 +58,12 @@ checksum under `client/dist/macos/<version>-<build>/`. It reads the signing iden
 login keychain and the notarization credential from the `yarukoto-notary` keychain profile; neither
 secret lives in the repository.
 
+The disk image opens to a window with the app, a link to Applications and a background with an
+arrow between them, so installing is one drag. [dmgbuild](https://github.com/dmgbuild/dmgbuild)
+writes that window's layout (`client/scripts/dmg-settings.py`) without driving Finder, which is
+what lets CI build it too; the script installs it into a virtualenv under `dist/` on first use. The
+background is rendered from `client/assets/dmg/background.html`, at 1x and 2x.
+
 The version defaults to `expo.version` in `app.json`. The build number defaults to a UTC timestamp so
 successive local releases increase naturally. Either can be made explicit:
 
