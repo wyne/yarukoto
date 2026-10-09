@@ -70,9 +70,18 @@ both, and tap **Connect**. Add that the reviewer account can be deleted from Set
 Account, and is recreated every night. "Explore with sample data" also works with no
 server at all.
 
-A VM set up before the reviewer existed gets its token on its next boot
-(`sudo google_metadata_script_runner startup` does the same without a restart), which
-also re-seeds the data once.
+A VM set up before the reviewer existed needs the new startup script first, because the
+VM keeps the copy it was created with (only the other files are fetched fresh):
+
+```sh
+curl -fsSLO https://raw.githubusercontent.com/wyne/yarukoto/main/deploy/demo/startup.sh
+gcloud compute instances add-metadata yarukoto-demo --zone=us-central1-a \
+  --metadata-from-file=startup-script=startup.sh
+gcloud compute ssh yarukoto-demo --zone=us-central1-a \
+  --command='sudo google_metadata_script_runner startup'
+```
+
+That adds the token and re-seeds the data once.
 
 ## Looking after it
 
@@ -82,5 +91,6 @@ also re-seeds the data once.
   `/opt/yarukoto-demo`.
 - **New tokens:** delete `/opt/yarukoto-demo/.env`, re-run the startup script with
   `sudo google_metadata_script_runner startup`, and update the review notes.
-- The startup script fetches these files from `main` on every boot, so changes here
-  reach the VM on its next restart.
+- The startup script fetches the other files from `main` on every boot, so changes to
+  them reach the VM on its next restart. Changes to `startup.sh` itself need the
+  `add-metadata` step above.
