@@ -21,8 +21,12 @@ jobs:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
+      # A pull_request run checks out GitHub's merge commit by default, whose
+      # subject is "Merge <head> into <base>". The squash uses the PR's own
+      # commit, so check that one out instead.
       - uses: actions/checkout@v5
         with:
+          ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 1
 
       - name: Check title
