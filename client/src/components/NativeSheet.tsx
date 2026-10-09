@@ -60,6 +60,8 @@ interface Props {
   footerComponent?: React.FC<BottomSheetFooterProps>;
   /** How this sheet should be presented when another modal sheet is already open. */
   stackBehavior?: 'push' | 'switch' | 'replace';
+  /** A back button at the leading edge of the title row, for a sheet that pages within itself. */
+  onBack?: () => void;
   /** Optional action at the trailing edge of the title row. */
   onDone?: () => void;
   doneLabel?: string;
@@ -95,6 +97,7 @@ export default function NativeSheet({
   background,
   footerComponent,
   stackBehavior,
+  onBack,
   onDone,
   doneLabel = 'Done',
   onCancel,
@@ -121,9 +124,10 @@ export default function NativeSheet({
    * without listing them as dependencies — callers pass fresh arrow functions
    * every render, and a changed identity there remounts the whole handle.
    */
-  const headerRef = useRef({ onCancel, onConfirm, onDone });
-  headerRef.current = { onCancel, onConfirm, onDone };
+  const headerRef = useRef({ onBack, onCancel, onConfirm, onDone });
+  headerRef.current = { onBack, onCancel, onConfirm, onDone };
   // Which buttons the header draws, as values rather than identities.
+  const hasBack = !!onBack;
   const hasCancel = !!onCancel;
   const hasConfirm = !!onConfirm;
   const hasDone = !!onDone;
@@ -200,6 +204,7 @@ export default function NativeSheet({
           <SheetHeader
             title={title}
             style={styles.scrollHeader}
+            onBack={hasBack ? () => headerRef.current.onBack?.() : undefined}
             onCancel={hasCancel ? () => headerRef.current.onCancel?.() : undefined}
             cancelLabel={cancelLabel}
             onConfirm={hasConfirm ? () => headerRef.current.onConfirm?.() : undefined}
@@ -211,7 +216,7 @@ export default function NativeSheet({
         )}
       </BottomSheetHandle>
     ),
-    [styles, grabber, title, hasCancel, cancelLabel, hasConfirm, confirmLabel, confirmDisabled, hasDone, doneLabel]
+    [styles, grabber, title, hasBack, hasCancel, cancelLabel, hasConfirm, confirmLabel, confirmDisabled, hasDone, doneLabel]
   );
 
   return (
@@ -299,6 +304,7 @@ export default function NativeSheet({
             <SheetHeader
               title={title}
               style={styles.header}
+              onBack={onBack}
               onCancel={onCancel}
               cancelLabel={cancelLabel}
               onConfirm={onConfirm}

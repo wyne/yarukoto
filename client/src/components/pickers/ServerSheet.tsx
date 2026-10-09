@@ -1,409 +1,334 @@
 import React, { useEffect, useState } from 'react';
 import { Text, View, useWindowDimensions } from 'react-native';
 import Pressable from '../HoverPressable';
-import Sheet from '../Sheet';
+import Sheet, { useDesktopPresentation } from '../Sheet';
 import SyncIndicator from '../SyncIndicator';
-import { ACCENT_OPTIONS, SchemePref } from '../../theme/colors';
+import { IconPeople, IconPerson, IconServer, IconSettings } from '../../icons/Icons';
 import { makeStyles } from '../../theme/styles';
 import { fonts } from '../../theme/typography';
-import { useColors, useTheme } from '../../theme/ThemeContext';
-import { useSyncStatus, useTasks } from '../../data/TaskContext';
-import { ServerInfo, createApi } from '../../data/api';
-import { lastSyncedLabel } from '../../data/dateUtils';
-import { LINKS, openLink } from '../../data/links';
+import { useAccent, useColors } from '../../theme/ThemeContext';
 import { useHoverBg } from '../../theme/hover';
-import HouseholdSection from '../household/HouseholdSection';
-
-/** e.g. "v1.0.0 · 366ba58" — enough to tell two builds apart at a glance. */
-function buildLabel(info: ServerInfo): string {
-  const parts = [info.version ? `v${info.version}` : null, info.commitShort].filter(Boolean);
-  return parts.length ? parts.join(' · ') : 'version unknown';
-}
-
-/** Local calendar date, since the exact minute isn't what you're checking for. */
-function formatBuiltAt(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
-}
+import { useSyncStatus, useTasks } from '../../data/TaskContext';
+import { lastSyncedLabel } from '../../data/dateUtils';
+import { MAC } from '../../data/platform';
+import AccountPane from '../settings/AccountPane';
+import AddDevicePane, { ApproveFor } from '../settings/AddDevicePane';
+import { AppearanceGroup, HelpGroup } from '../settings/GeneralPane';
+import { DevicesPane, PeoplePane } from '../settings/HouseholdPanes';
+import ServerPane from '../settings/ServerPane';
+import { Group, Note, PAGE_GAP, Row } from '../settings/parts';
+import { useHouseholdAdmin } from '../settings/useHouseholdAdmin';
 
 /** As in ListPickerSheet: how tall the sheet may grow before it scrolls instead. */
 const MAX_HEIGHT_RATIO = 0.85;
 
+/** Wide enough for a row's label, value and button on one line, as a settings window is. */
+const DIALOG_WIDTH = 560;
+/** About the Household tab's height, so switching tabs doesn't move the title and tabs under the pointer. */
+const DIALOG_MIN_HEIGHT = 620;
+
 interface Props {
   visible: boolean;
   onClose: () => void;
-  /** A sign-in code from a scanned QR, handed on to the Household section. */
+  /** A sign-in code from a scanned QR, handed on to Add a device. */
   pairCode?: string | null;
 }
 
-/** In the order someone needing them would look: how it works, then who to ask. */
-const HELP_LINKS: Array<{ label: string; url: string }> = [
-  { label: 'Setting up a server', url: LINKS.setupGuide },
-  { label: 'Using the apps', url: LINKS.appGuide },
-  { label: 'Get help', url: LINKS.support },
-  { label: 'Privacy policy', url: LINKS.privacy },
-];
+type Tab = 'general' | 'account' | 'household' | 'server';
+/** A page pushed inside the phone sheet; `root` is the summary list it opens on. */
+type Page = 'root' | 'account' | 'people' | 'devices' | 'add' | 'server';
 
-const SCHEME_OPTIONS: Array<{ value: SchemePref; label: string }> = [
-  { value: 'system', label: 'System' },
-  { value: 'light', label: 'Light' },
-  { value: 'dark', label: 'Dark' },
+const PAGE_TITLES: Record<Page, string> = {
+  root: 'Settings',
+  account: 'Account',
+  people: 'People',
+  devices: 'Devices',
+  add: 'Add a device',
+  server: 'Server',
+};
+
+const TABS: Array<{ id: Tab; label: string; Icon: typeof IconSettings }> = [
+  { id: 'general', label: 'General', Icon: IconSettings },
+  { id: 'account', label: 'Account', Icon: IconPerson },
+  { id: 'household', label: 'Household', Icon: IconPeople },
+  { id: 'server', label: 'Server', Icon: IconServer },
 ];
 
 /**
- * Appearance, and what the app is connected to. Changing servers isn't edited in
- * place: leaving returns to the first-run screen, which is where a URL and token
- * get entered.
+ * Settings, in four groups: General (how this device looks), Account (who is
+ * signed in, and signing out), Household (people and their devices) and Server
+ * (what this device is connected to).
  *
- * Leaving comes in two kinds, because "disconnect" alone read as signing out while
- * quietly keeping the token for the saved-servers list. Switch server keeps it, so
- * coming back is one tap; Sign out forgets it, so getting back in takes the token
- * again.
+ * A phone opens on a short summary list, and each row pushes a page inside the
+ * same sheet with the way back in its title row. The Mac and the web get a
+ * settings window instead, with the groups as tabs across its top, the way a
+ * desktop app's settings are laid out.
+ *
+ * Sample and local mode have no server, account or household, so they get the
+ * General group alone and the way out.
  */
 export default function ServerSheet({ visible, onClose, pairCode }: Props) {
-  const colors = useColors();
-  const styles = useStyles();
-  const { state, disconnect, removeSavedServer } = useTasks();
-  const syncStatus = useSyncStatus();
-  const { accent, setAccent, schemePref, setSchemePref } = useTheme();
-  const [info, setInfo] = useState<ServerInfo | null | undefined>(undefined);
+  const desktop = useDesktopPresentation();
+  const { state, household: who, disconnect } = useTasks();
+  const household = useHouseholdAdmin(visible);
   const { height } = useWindowDimensions();
-  const hoverBg = useHoverBg();
+  const [tab, setTab] = useState<Tab>('general');
+  const [page, setPage] = useState<Page>('root');
+  /** Desktop only: Household is showing Add a device in place of its lists. */
+  const [adding, setAdding] = useState(false);
+  const [addFor, setAddFor] = useState<ApproveFor>('self');
 
-  // Which build the server is running, re-read on every open so it reflects a
-  // deploy that happened while the app stayed put. /health needs no token, so this
-  // works even when the stored one has been rejected.
-  useEffect(() => {
-    if (!visible || state.mode !== 'server' || !state.serverUrl) {
-      setInfo(undefined);
-      return;
-    }
-    let cancelled = false;
-    setInfo(undefined);
-    createApi(state.serverUrl, '')
-      .health()
-      .then((result) => {
-        if (!cancelled) setInfo(result);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [visible, state.mode, state.serverUrl]);
-
+  const server = state.mode === 'server';
+  const hasHousehold = server && !!who?.me;
   const sample = state.mode === 'sample';
 
+  // Each open starts from the top, unless it was opened to approve a scanned code.
+  useEffect(() => {
+    if (!visible) return;
+    if (pairCode && hasHousehold) {
+      setAddFor('self');
+      setTab('household');
+      setAdding(true);
+      setPage('add');
+    } else {
+      setTab('general');
+      setAdding(false);
+      setPage('root');
+    }
+  }, [visible, pairCode, hasHousehold]);
+
+  const startAdding = (as: ApproveFor) => {
+    setAddFor(as);
+    setAdding(true);
+    setPage('add');
+  };
+
+  const leave = () => {
+    disconnect();
+    onClose();
+  };
+
+  if (!server) {
+    return (
+      <Sheet
+        visible={visible}
+        onClose={onClose}
+        title={sample ? 'Sample data' : 'Settings'}
+        scroll
+        maxHeight={Math.round(height * MAX_HEIGHT_RATIO)}
+      >
+        <View style={{ gap: PAGE_GAP }}>
+          {sample && (
+            <Note>
+              You're exploring with sample data. Leaving it takes you back to the connect screen, where you can point
+              Yarukoto at your own server.
+            </Note>
+          )}
+          <AppearanceGroup label="Appearance" />
+          {!MAC && <HelpGroup />}
+          <Group>
+            <Row title={sample ? 'Leave sample data' : 'Disconnect'} tone="danger" onPress={leave} />
+          </Group>
+        </View>
+      </Sheet>
+    );
+  }
+
+  const addPane = <AddDevicePane household={household} initialFor={addFor} initialCode={pairCode} />;
+
+  if (desktop) {
+    const tabs = TABS.filter((t) => t.id !== 'household' || hasHousehold);
+    return (
+      <Sheet
+        visible={visible}
+        onClose={onClose}
+        title={adding && tab === 'household' ? 'Add a device' : (tabs.find((t) => t.id === tab)?.label ?? 'Settings')}
+        onBack={adding && tab === 'household' ? () => setAdding(false) : undefined}
+        dialogWidth={DIALOG_WIDTH}
+        dialogMinHeight={DIALOG_MIN_HEIGHT}
+        toolbar={
+          <TabStrip
+            tabs={tabs}
+            current={tab}
+            onPick={(id) => {
+              setTab(id);
+              setAdding(false);
+            }}
+          />
+        }
+      >
+        <View style={{ gap: PAGE_GAP }}>
+          {tab === 'general' && (
+            <>
+              <AppearanceGroup />
+              {/* The Mac's Help menu already carries these. */}
+              {!MAC && <HelpGroup />}
+            </>
+          )}
+          {tab === 'account' && <AccountPane household={household} onLeft={onClose} />}
+          {tab === 'household' &&
+            (adding ? (
+              addPane
+            ) : (
+              <>
+                <PeoplePane household={household} desktop onAdd={startAdding} />
+                <DevicesPane household={household} desktop onAdd={startAdding} />
+              </>
+            ))}
+          {tab === 'server' && <ServerPane onLeft={onClose} />}
+        </View>
+      </Sheet>
+    );
+  }
+
+  const back = page === 'root' ? undefined : () => setPage('root');
+
   return (
-    // Scrolls: with the household section it runs well past a phone's height.
     <Sheet
       visible={visible}
       onClose={onClose}
-      title={sample ? 'Sample data' : 'Settings'}
+      title={PAGE_TITLES[page]}
+      onBack={back}
       scroll
       keyboard
       maxHeight={Math.round(height * MAX_HEIGHT_RATIO)}
     >
-      {sample && (
-        <Text style={styles.sampleNote}>
-          You're exploring with sample data. Leaving it takes you back to the connect screen, where you can point
-          Yarukoto at your own server.
-        </Text>
-      )}
-
-      <Text style={styles.sectionLabel}>Appearance</Text>
-      <View style={styles.schemeRow} accessibilityRole="radiogroup">
-        {SCHEME_OPTIONS.map((option) => {
-          const selected = option.value === schemePref;
-          return (
-            <Pressable
-              key={option.value}
-              onPress={() => setSchemePref(option.value)}
-              style={[styles.schemeOption, selected && styles.schemeOptionSelected]}
-              accessibilityRole="radio"
-              accessibilityState={{ checked: selected }}
-            >
-              <Text style={[styles.schemeText, selected && styles.schemeTextSelected]}>{option.label}</Text>
-            </Pressable>
-          );
-        })}
-      </View>
-
-      <Text style={styles.sectionLabel}>Accent</Text>
-      <View style={styles.accentRow}>
-        {ACCENT_OPTIONS.map((option) => (
-          <Pressable
-            key={option}
-            onPress={() => setAccent(option)}
-            style={[styles.swatchRing, option === accent && { borderColor: colors.textPrimary }]}
-            accessibilityLabel={`Accent colour ${option}`}
-            accessibilityState={{ selected: option === accent }}
-          >
-            <View style={[styles.swatch, { backgroundColor: option }]} />
-          </Pressable>
-        ))}
-      </View>
-
-      {state.mode === 'server' && <Text style={styles.sectionLabel}>Server</Text>}
-
-      {state.mode === 'server' && (
-        <>
-          <View style={styles.statusRow}>
-            <SyncIndicator mode={state.mode} serverUrl={state.serverUrl} />
-            <Text style={styles.statusTime}>{lastSyncedLabel(new Date(), syncStatus.lastSyncedAt)}</Text>
-          </View>
-          <View style={styles.detailBlock}>
-            <View style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Address</Text>
-              <Text style={styles.detailValue} selectable numberOfLines={1}>
-                {state.serverUrl}
-              </Text>
-            </View>
-            {info && (
-              <>
-                <View style={[styles.detailRow, { marginTop: 6 }]}>
-                  <Text style={styles.detailLabel}>Server build</Text>
-                  <Text style={styles.detailValue} selectable numberOfLines={1}>
-                    {buildLabel(info)}
-                  </Text>
-                </View>
-                {info.builtAt && <Text style={styles.detailMeta}>Built {formatBuiltAt(info.builtAt)}</Text>}
-              </>
-            )}
-          </View>
-          <Text style={styles.changeNote}>
-            Switch server keeps this sign-in saved on this device, so you can come back with one tap. Sign out
-            forgets it here.
-          </Text>
-          <View style={{ marginTop: 18 }}>
-            <HouseholdSection visible={visible} initialCode={pairCode} />
-          </View>
-        </>
-      )}
-
-      <Text style={[styles.sectionLabel, { marginTop: 18 }]}>Help</Text>
-      <View style={styles.linkBlock}>
-        {HELP_LINKS.map((link, i) => (
-          <Pressable
-            key={link.url}
-            onPress={() => openLink(link.url)}
-            style={hoverBg([styles.linkRow, i > 0 && styles.linkRowDivided])}
-            accessibilityRole="link"
-          >
-            <Text style={styles.linkText}>{link.label}</Text>
-            <Text style={styles.linkGlyph}>↗</Text>
-          </Pressable>
-        ))}
-      </View>
-
-      {state.mode === 'server' ? (
-        <View style={styles.leaveRow}>
-          <Pressable
-            style={styles.leaveBtn}
-            onPress={() => {
-              disconnect();
-              onClose();
-            }}
-          >
-            <Text style={styles.switchText}>Switch server</Text>
-          </Pressable>
-          <Pressable
-            style={styles.leaveBtn}
-            onPress={() => {
-              removeSavedServer(state.serverUrl);
-              disconnect();
-              onClose();
-            }}
-          >
-            <Text style={styles.disconnectText}>Sign out</Text>
-          </Pressable>
-        </View>
-      ) : (
-        <Pressable
-          style={styles.disconnectBtn}
-          onPress={() => {
-            disconnect();
-            onClose();
-          }}
-        >
-          <Text style={styles.disconnectText}>{sample ? 'Leave sample data' : 'Disconnect'}</Text>
-        </Pressable>
-      )}
+      {page === 'root' && <PhoneRoot household={household} hasHousehold={hasHousehold} onOpen={setPage} onAdd={startAdding} />}
+      {page === 'account' && <AccountPane household={household} onLeft={onClose} />}
+      {page === 'people' && <PeoplePane household={household} desktop={false} onAdd={startAdding} />}
+      {page === 'devices' && <DevicesPane household={household} desktop={false} onAdd={startAdding} />}
+      {page === 'add' && addPane}
+      {page === 'server' && <ServerPane onLeft={onClose} />}
     </Sheet>
   );
 }
 
+/** The phone's summary list: everything at a glance, nothing on it that ends anything. */
+function PhoneRoot({
+  household,
+  hasHousehold,
+  onOpen,
+  onAdd,
+}: {
+  household: ReturnType<typeof useHouseholdAdmin>;
+  hasHousehold: boolean;
+  onOpen: (page: Page) => void;
+  onAdd: (as: ApproveFor) => void;
+}) {
+  const styles = useStyles();
+  const accent = useAccent();
+  const { state } = useTasks();
+  const syncStatus = useSyncStatus();
+  const { me } = household;
+
+  return (
+    <View style={{ gap: PAGE_GAP }}>
+      <Group>
+        <Row
+          chevron
+          onPress={() => onOpen('account')}
+          accessibilityLabel="Account"
+          leading={
+            <View style={[styles.avatar, { backgroundColor: `${accent}22` }]}>
+              <Text style={[styles.avatarText, { color: accent }]}>{(me?.name ?? '?').slice(0, 1).toUpperCase()}</Text>
+            </View>
+          }
+          title={me?.name ?? 'Signed in'}
+          subtitle={me ? (me.role === 'admin' ? 'Admin' : 'Member') : 'Account and sign out'}
+        />
+      </Group>
+
+      <AppearanceGroup label="General" />
+
+      {hasHousehold && (
+        <Group label="Household">
+          <Row title="People" value={String(household.live.length)} chevron onPress={() => onOpen('people')} />
+          <Row
+            divided
+            title="Devices"
+            value={household.devices ? String(household.devices.length) : null}
+            chevron
+            onPress={() => onOpen('devices')}
+          />
+          <Row divided title="Add a device…" tone="action" onPress={() => onAdd('self')} />
+        </Group>
+      )}
+
+      <Group label="Server">
+        <Row value={lastSyncedLabel(new Date(), syncStatus.lastSyncedAt)} chevron onPress={() => onOpen('server')} accessibilityLabel="Server">
+          <View style={{ flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <SyncIndicator mode={state.mode} serverUrl={state.serverUrl} />
+          </View>
+        </Row>
+      </Group>
+
+      <HelpGroup />
+    </View>
+  );
+}
+
+/** The row of icon tabs across the top of a desktop settings window. */
+function TabStrip({ tabs, current, onPick }: { tabs: typeof TABS; current: Tab; onPick: (tab: Tab) => void }) {
+  const styles = useStyles();
+  const colors = useColors();
+  const accent = useAccent();
+  const hoverBg = useHoverBg();
+  return (
+    <View style={styles.tabs} accessibilityRole="tablist">
+      {tabs.map(({ id, label, Icon }) => {
+        const on = id === current;
+        const color = on ? accent : colors.textSecondary;
+        return (
+          <Pressable
+            key={id}
+            onPress={() => onPick(id)}
+            style={hoverBg([styles.tab, on && { backgroundColor: `${accent}1F` }], on)}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: on }}
+            accessibilityLabel={label}
+          >
+            <Icon size={20} color={color} />
+            <Text style={[styles.tabText, { color }]}>{label}</Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
 const useStyles = makeStyles((c) => ({
-  sectionLabel: {
-    marginBottom: 8,
-    fontFamily: fonts.monoRegular,
-    fontSize: 11.5,
-    letterSpacing: 0.6,
-    textTransform: 'uppercase',
-    color: c.textTertiary,
-  },
-  schemeRow: {
-    flexDirection: 'row',
-    marginBottom: 18,
-    padding: 3,
-    backgroundColor: c.surfaceMuted,
-    borderWidth: 1,
-    borderColor: c.border,
-    borderRadius: 8,
-  },
-  schemeOption: {
-    flex: 1,
-    height: 36,
+  avatar: {
+    width: 34,
+    height: 34,
+    borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'transparent',
-    borderRadius: 6,
   },
-  schemeOptionSelected: {
-    backgroundColor: c.surface,
-    borderColor: c.dividerStrong,
-    shadowColor: c.shadow,
-    shadowOpacity: c.shadowOpacity,
-    shadowOffset: { width: 0, height: 1 },
-    shadowRadius: 2,
-    elevation: 1,
+  avatarText: {
+    fontFamily: fonts.sansSemiBold,
+    fontSize: 15,
   },
-  schemeText: {
-    fontFamily: fonts.sansRegular,
-    fontSize: 13.5,
-    color: c.textSecondary,
-  },
-  schemeTextSelected: {
-    fontFamily: fonts.sansMedium,
-    color: c.textPrimary,
-  },
-  accentRow: {
+  tabs: {
     flexDirection: 'row',
-    gap: 10,
-    marginBottom: 18,
-  },
-  /** The ring, not the swatch, carries the selection — the fill stays true to the colour. */
-  swatchRing: {
-    padding: 3,
-    borderWidth: 1.5,
-    borderColor: 'transparent',
-    borderRadius: 999,
-  },
-  swatch: {
-    width: 24,
-    height: 24,
-    borderRadius: 999,
-  },
-  statusRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+    justifyContent: 'center',
+    gap: 4,
+    paddingHorizontal: 12,
+    paddingBottom: 10,
     marginBottom: 14,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    backgroundColor: c.surfaceMuted,
-    borderWidth: 1,
-    borderColor: c.border,
+    borderBottomWidth: 1,
+    borderBottomColor: c.divider,
+  },
+  tab: {
+    minWidth: 76,
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 10,
+    paddingTop: 6,
+    paddingBottom: 5,
     borderRadius: 8,
   },
-  statusTime: {
-    fontFamily: fonts.monoRegular,
-    fontSize: 12,
-    color: c.textTertiary,
-  },
-  detailBlock: {
-    // The status row above it already carries the gap.
-    marginTop: -6,
-    paddingHorizontal: 2,
-  },
-  detailRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 8,
-  },
-  detailLabel: {
-    fontFamily: fonts.sansRegular,
-    fontSize: 13,
-    color: c.textTertiary,
-  },
-  detailValue: {
-    flexShrink: 1,
-    fontFamily: fonts.monoRegular,
-    fontSize: 13,
-    color: c.textSecondary,
-  },
-  detailMeta: {
-    marginTop: 2,
-    fontFamily: fonts.sansRegular,
-    fontSize: 12,
-    color: c.textFaint,
-  },
-  changeNote: {
-    marginTop: 14,
-    paddingHorizontal: 2,
-    fontFamily: fonts.sansRegular,
-    fontSize: 13,
-    lineHeight: 17,
-    color: c.textFaint,
-  },
-  linkBlock: {
-    backgroundColor: c.surfaceMuted,
-    borderWidth: 1,
-    borderColor: c.border,
-    borderRadius: 8,
-    overflow: 'hidden',
-  },
-  linkRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 12,
-    paddingVertical: 11,
-  },
-  linkRowDivided: {
-    borderTopWidth: 1,
-    borderTopColor: c.border,
-  },
-  linkText: {
-    fontFamily: fonts.sansRegular,
-    fontSize: 14,
-    color: c.textPrimary,
-  },
-  linkGlyph: {
-    fontFamily: fonts.sansRegular,
-    fontSize: 14,
-    color: c.textTertiary,
-  },
-
-  sampleNote: {
-    fontFamily: fonts.sansRegular,
-    fontSize: 14,
-    lineHeight: 18,
-    color: c.textSecondary,
-  },
-  disconnectBtn: {
-    marginTop: 14,
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  leaveRow: {
-    flexDirection: 'row',
-    marginTop: 14,
-  },
-  leaveBtn: {
-    flex: 1,
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  switchText: {
+  tabText: {
     fontFamily: fonts.sansMedium,
-    fontSize: 15,
-    color: c.textSecondary,
-  },
-  disconnectText: {
-    fontFamily: fonts.sansMedium,
-    fontSize: 15,
-    color: c.priorityHigh,
+    fontSize: 12,
   },
 }));

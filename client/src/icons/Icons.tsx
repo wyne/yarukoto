@@ -418,6 +418,18 @@ export function IconPeople({ size = 16, color: colorProp, strokeWidth = 1.5 }: I
   );
 }
 
+/** One person — an account. IconPeople's lead figure, on its own. */
+export function IconPerson({ size = 16, color: colorProp, strokeWidth = 1.5 }: IconProps) {
+  const c = useColors();
+  const color = colorProp ?? c.textTertiary;
+  return (
+    <Svg width={size} height={size} viewBox="0 0 16 16" fill="none">
+      <Circle cx={8} cy={5.5} r={2.75} stroke={color} strokeWidth={strokeWidth} />
+      <Path d="M2.75 14c.6-2.6 2.6-4.1 5.25-4.1s4.65 1.5 5.25 4.1" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" />
+    </Svg>
+  );
+}
+
 /** Two arrows chasing round — a repeating task. */
 export function IconRepeat({ size = 18, color: colorProp, strokeWidth = 1.6 }: IconProps) {
   const c = useColors();
