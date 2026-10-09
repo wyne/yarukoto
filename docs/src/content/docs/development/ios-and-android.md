@@ -48,9 +48,22 @@ eas init          # links the project and writes extra.eas.projectId into app.js
 
 All three need an Apple account: even the ad hoc profiles have to be signed against a team.
 
-`cli.appVersionSource` is `remote`, so EAS keeps the build number on its side and bumps it per
-production build. `version` in `app.config.js` seeds it on the first build and is otherwise
-ignored — that is deliberate, it keeps build-number churn out of git.
+The root `package.json` is the user-facing SemVer, and `app.config.js` supplies it to Expo.
+`cli.appVersionSource` is `remote`, so EAS separately keeps the native iOS build number and Android
+version code on its side and increments them for every production build. That keeps build-number
+churn out of git without letting the store version drift from the release tag.
+
+## Production releases
+
+Release Please maintains a `chore: release X.Y.Z` pull request from conventional commit titles
+such as `fix: ...` and `feat: ...`. Merging that generated PR creates `vX.Y.Z` and the GitHub
+release, then queues both store builds with `--auto-submit`. iOS lands in App Store Connect and
+Android lands on Google Play's internal testing track; submitting either one for review or
+promoting it to production remains a deliberate store-console action.
+
+The production workflow can also be run manually for one platform to retry a tagged release. EAS
+still owns the native build numbers, so a retry gets a new build number without inventing a new
+SemVer.
 
 ## Which commands need a prebuild
 

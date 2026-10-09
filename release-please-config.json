@@ -1,0 +1,42 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "packages": {
+    ".": {
+      "release-type": "node",
+      "package-name": "yarukoto",
+      "initial-version": "1.0.0",
+      "changelog-path": "CHANGELOG.md",
+      "exclude-paths": [
+        "server/**",
+        "docs/**",
+        "deploy/**",
+        "docker-compose*.yml",
+        ".dockerignore",
+        ".env.example"
+      ],
+      "include-component-in-tag": false,
+      "include-v-in-tag": true,
+      "bump-minor-pre-major": false,
+      "draft": true,
+      "force-tag-creation": true,
+      "prerelease": false,
+      "pull-request-title-pattern": "chore: release ${version}",
+      "pull-request-header": "Merging this PR bumps the app version, tags the merge commit, creates a draft GitHub release, and starts the production builds. The desktop job publishes the release after its downloads are attached. The root `package.json` is the single source of truth for the version Expo ships.",
+      "changelog-sections": [
+        { "type": "feat", "section": "Features" },
+        { "type": "fix", "section": "Bug Fixes" },
+        { "type": "perf", "section": "Performance" },
+        { "type": "revert", "section": "Reverts" },
+        { "type": "refactor", "section": "Refactors" },
+        { "type": "docs", "section": "Documentation" },
+        { "type": "build", "section": "Infrastructure" },
+        { "type": "ci", "section": "Infrastructure" },
+        { "type": "deps", "section": "Dependencies" },
+        { "type": "chore", "section": "Miscellaneous" },
+        { "type": "test", "section": "Tests", "hidden": true },
+        { "type": "style", "section": "Styling", "hidden": true }
+      ]
+    }
+  },
+  "bootstrap-sha": "b3b451d0b778968f4042e1c404a571cae3641492"
+}

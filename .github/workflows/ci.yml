@@ -16,6 +16,40 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  pr-title:
+    name: Conventional PR title
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 1
+
+      - name: Check title
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_COMMITS: ${{ github.event.pull_request.commits }}
+        run: |
+          PATTERN='^(feat|fix|perf|revert|refactor|docs|build|ci|deps|chore|test|style)(\([^)]+\))?!?: .+'
+          check_title() {
+            local label="$1"
+            local title="$2"
+            if [[ ! "$title" =~ $PATTERN ]]; then
+              echo "$label must be conventional; got: $title" >&2
+              echo "Use a title such as 'fix: keep reminders after sync' or 'feat(client): add widgets'." >&2
+              exit 1
+            fi
+          }
+
+          check_title "PR title" "$PR_TITLE"
+
+          # The repository uses GitHub's COMMIT_OR_PR_TITLE squash setting:
+          # a one-commit PR keeps that commit's title, while a multi-commit PR
+          # uses the PR title. Validate the second possible source as well.
+          if [ "$PR_COMMITS" = 1 ]; then
+            check_title "Single commit title" "$(git log -1 --format=%s)"
+          fi
+
   tests:
     name: Tests
     runs-on: ubuntu-latest
@@ -91,22 +125,3 @@ jobs:
                 body,
               });
             }
-
-  home-assistant:
-    name: Home Assistant integration
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-
-      - uses: actions/setup-python@v6
-        with:
-          python-version: '3.13'
-          cache: pip
-          cache-dependency-path: homeassistant-tests/requirements.txt
-
-      - name: Install test harness
-        run: pip install -r homeassistant-tests/requirements.txt
-
-      - name: Test integration
-        working-directory: homeassistant-tests
-        run: python -m pytest -q

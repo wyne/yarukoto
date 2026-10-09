@@ -8,7 +8,8 @@ a working instance. The same codebase builds the iOS, Android and Mac apps via E
 ![Yarukoto's Mac window: the sidebar with shared and private lists, next to every task in the household](docs/public/mac-window.webp)
 
 **[Documentation](https://docs.yarukotoapp.com)** · [Live demo](https://wyne.github.io/yarukoto/) ·
-[Website](https://yarukotoapp.com) · [Roadmap](ROADMAP.md)
+[Website](https://yarukotoapp.com) · [Home Assistant integration](https://github.com/wyne/yarukoto-home-assistant) ·
+[Roadmap](ROADMAP.md)
 
 > **Status:** working and usable, but young. One household per server: everyone gets their own
 > account and private lists, and signs in by QR code rather than password. See
@@ -71,8 +72,6 @@ server/             Fastify + better-sqlite3 API server
 packages/domain/    Types and domain logic shared by the client and server
 windows/            Tauri shell that packages the web build as a Windows app
 docs/               The documentation site (Starlight)
-custom_components/yarukoto/   Home Assistant integration (installed through HACS)
-homeassistant-tests/          its tests
 ```
 
 The JavaScript projects are one npm workspace. Run `npm install` once at the repository root,

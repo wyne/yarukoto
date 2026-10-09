@@ -3,7 +3,8 @@ title: Home Assistant
 description: Show Yarukoto lists and saved filters as Home Assistant to-do lists.
 ---
 
-`custom_components/yarukoto` shows Yarukoto lists and saved filters as Home Assistant to-do lists.
+The [Yarukoto Home Assistant integration](https://github.com/wyne/yarukoto-home-assistant)
+shows Yarukoto lists and saved filters as Home Assistant to-do lists.
 Changes made in Home Assistant show up in the app on its next sync. It polls every 30 seconds.
 
 - **A list** works both ways: tick items off, edit and delete them, and add new ones, which go
@@ -14,7 +15,7 @@ Changes made in Home Assistant show up in the app on its next sync. It polls eve
 
 To install it:
 
-1. In HACS, open **Custom repositories**, add `https://github.com/wyne/yarukoto` as an
+1. In HACS, open **Custom repositories**, add `https://github.com/wyne/yarukoto-home-assistant` as an
    **Integration**, and install **Yarukoto**. Restart Home Assistant.
 2. Add the **Yarukoto** integration and enter your server's address.
 3. Home Assistant shows a sign-in code. On a device signed in as an admin, open Settings and
@@ -33,6 +34,6 @@ sign in again. Deleting an item moves the task to the app's Trash.
 Due times are shown and written in Home Assistant's own time zone, so set it to match
 `YARUKOTO_TZ`. It needs a server new enough to advertise `household` in `/api/v1/health`.
 
-HACS offers an update whenever a new release is published. Releasing is just bumping `version`
-in `custom_components/yarukoto/manifest.json`: once that reaches main, `ha-release.yml` tags it
-and publishes the release.
+HACS offers an update whenever a new release is published. Integration code and releases are in
+[`wyne/yarukoto-home-assistant`](https://github.com/wyne/yarukoto-home-assistant); bumping the
+manifest version there creates the matching release automatically.

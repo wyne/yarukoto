@@ -21,7 +21,7 @@ export LC_ALL="${LC_ALL:-$LANG}"
 
 TEAM_ID="${APPLE_TEAM_ID:-NMBVD647S6}"
 NOTARY_PROFILE="${NOTARY_PROFILE:-yarukoto-notary}"
-MAC_VERSION="${MAC_VERSION:-$(node -p "require('./app.json').expo.version")}"
+MAC_VERSION="${MAC_VERSION:-$(node -p "require('../package.json').version")}"
 MAC_BUILD_NUMBER="${MAC_BUILD_NUMBER:-$(date -u +%Y%m%d%H%M)}"
 IDENTITY="Developer ID Application: Justin Wyne ($TEAM_ID)"
 

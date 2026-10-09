@@ -4,8 +4,7 @@ name: Publish container image
 # compiling on the box. Building on a low-power device is the thing this avoids:
 # the web bundle alone needs the Metro bundler and a few hundred npm packages.
 #
-# Only main, never tags: the repo's v* tags and GitHub releases belong to the
-# Home Assistant integration (see ha-release.yml), not to the server, which is
+# Only main, never tags: app releases do not version the server, which is
 # identified by the sha stamped into /api/v1/health.
 on:
   push:

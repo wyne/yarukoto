@@ -1,17 +1,12 @@
 name: Desktop release
 
-# Builds a signed, notarized Mac app and the Windows installers, then publishes
-# them as a release of wyne/yarukoto-desktop: Actions > Desktop release > Run
-# workflow. The website and docs link to that repo's latest release, so the
-# files keep the same names on every release and those links never change:
+# Builds a signed, notarized Mac app and the Windows installers, then attaches
+# them to this repository's app release. The website and docs link to its
+# latest release, so the files keep the same names and those links never change:
 #
-#   https://github.com/wyne/yarukoto-desktop/releases/latest/download/Yarukoto-mac.dmg
-#   https://github.com/wyne/yarukoto-desktop/releases/latest/download/Yarukoto-windows-setup.exe
-#   https://github.com/wyne/yarukoto-desktop/releases/latest/download/Yarukoto-windows.msi
-#
-# They're published to a separate repo because releases here are the Home
-# Assistant integration's (see ha-release.yml): HACS would offer a desktop
-# release to every Home Assistant user as an integration update.
+#   https://github.com/wyne/yarukoto/releases/latest/download/Yarukoto-mac.dmg
+#   https://github.com/wyne/yarukoto/releases/latest/download/Yarukoto-windows-setup.exe
+#   https://github.com/wyne/yarukoto/releases/latest/download/Yarukoto-windows.msi
 #
 # Secrets (Settings > Secrets and variables > Actions):
 #   MAC_CERTIFICATE_P12       base64 of the "Developer ID Application" certificate
@@ -20,28 +15,37 @@ name: Desktop release
 #   APPLE_API_KEY_P8          contents of an App Store Connect API key (.p8), for notarization
 #   APPLE_API_KEY_ID          that key's ID
 #   APPLE_API_ISSUER_ID       the issuer ID shown above the keys list
-#   DESKTOP_RELEASE_TOKEN     a fine-grained token with Contents: read and write on
-#                             wyne/yarukoto-desktop only
-#
 # Windows stays unsigned for now, so SmartScreen warns on first launch.
 on:
   workflow_dispatch:
     inputs:
       version:
-        description: Version to publish (e.g. 1.0.1). Empty uses client/app.json's.
+        description: Version to publish (e.g. 1.0.1). Empty uses package.json.
         type: string
         required: false
         default: ''
+      ref:
+        description: Git ref to build. Empty uses the selected branch.
+        type: string
+        required: false
+        default: ''
+  workflow_call:
+    inputs:
+      version:
+        description: Version to publish
+        type: string
+        required: true
+      ref:
+        description: Git ref to build
+        type: string
+        required: true
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: desktop-release
   cancel-in-progress: false
-
-env:
-  RELEASE_REPO: wyne/yarukoto-desktop
 
 jobs:
   version:
@@ -49,13 +53,16 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.version.outputs.version }}
+      source_sha: ${{ steps.version.outputs.source_sha }}
     steps:
       - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.ref || github.ref }}
       - id: version
         env:
           INPUT: ${{ inputs.version }}
         run: |
-          VERSION="${INPUT:-$(node -p "require('./client/app.json').expo.version")}"
+          VERSION="${INPUT:-$(node -p "require('./package.json').version")}"
           VERSION="${VERSION#v}"
           # The MSI and the Mac bundle both require plain major.minor.patch.
           if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
@@ -63,6 +70,7 @@ jobs:
             exit 1
           fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "source_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
   mac:
     name: Mac
@@ -75,6 +83,8 @@ jobs:
       LC_ALL: en_US.UTF-8
     steps:
       - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.ref || github.ref }}
 
       - uses: maxim-lobanov/setup-xcode@v1
         with:
@@ -146,6 +156,7 @@ jobs:
     uses: ./.github/workflows/windows.yml
     with:
       version: ${{ needs.version.outputs.version }}
+      ref: ${{ inputs.ref || github.ref }}
 
   publish:
     name: Publish
@@ -170,21 +181,32 @@ jobs:
           (cd out && sha256sum * > SHA256SUMS.txt)
           cat out/SHA256SUMS.txt
 
-      # Re-running a version replaces its files rather than failing, so a
-      # broken build can be fixed without inventing a new version number.
-      - name: Publish to ${{ env.RELEASE_REPO }}
+      # Release Please creates a draft first. It only becomes the public latest
+      # release after every desktop artifact and its instructions are present.
+      # Re-running replaces the assets and the marked notes section.
+      - name: Publish to this repository
         env:
-          GH_TOKEN: ${{ secrets.DESKTOP_RELEASE_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
           VERSION: ${{ needs.version.outputs.version }}
+          SOURCE_SHA: ${{ needs.version.outputs.source_sha }}
         run: |
           TAG="v$VERSION"
-          NOTES="Built from [wyne/yarukoto@${GITHUB_SHA::7}](https://github.com/${GITHUB_REPOSITORY}/commit/${GITHUB_SHA}).
-
-          - **Mac:** \`Yarukoto-mac.dmg\`, signed and notarized. Open it and drag Yarukoto to Applications.
-          - **Windows:** \`Yarukoto-windows-setup.exe\` (or the \`.msi\`). It isn't signed yet, so Windows warns on first launch: choose **More info**, then **Run anyway**."
-          if gh release view "$TAG" --repo "$RELEASE_REPO" > /dev/null 2>&1; then
-            gh release upload "$TAG" out/* --repo "$RELEASE_REPO" --clobber
-          else
-            gh release create "$TAG" out/* --repo "$RELEASE_REPO" \
-              --title "Yarukoto $VERSION" --notes "$NOTES" --latest
+          if ! gh release view "$TAG" > /dev/null 2>&1; then
+            gh release create "$TAG" --target "$SOURCE_SHA" \
+              --title "Yarukoto $VERSION" --notes '' --draft
           fi
+          gh release upload "$TAG" out/* --clobber
+
+          gh release view "$TAG" --json body --jq .body > "$RUNNER_TEMP/current-notes.md"
+          {
+            sed '/<!-- desktop-downloads -->/,$d' "$RUNNER_TEMP/current-notes.md"
+            printf '\n<!-- desktop-downloads -->\n\n## Desktop downloads\n\n'
+            printf 'Built from [wyne/yarukoto@%.7s](https://github.com/%s/commit/%s).\n\n' \
+              "$SOURCE_SHA" "$GITHUB_REPOSITORY" "$SOURCE_SHA"
+            printf '%s\n' '- **Mac:** `Yarukoto-mac.dmg`, signed and notarized. Open it and drag Yarukoto to Applications.'
+            printf '%s\n' '- **Windows:** `Yarukoto-windows-setup.exe` (or the `.msi`). It is not signed yet, so Windows warns on first launch: choose **More info**, then **Run anyway**.'
+          } > "$RUNNER_TEMP/release-notes.md"
+
+          gh release edit "$TAG" --notes-file "$RUNNER_TEMP/release-notes.md" \
+            --draft=false --latest

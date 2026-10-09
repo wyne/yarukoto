@@ -64,7 +64,8 @@ writes that window's layout (`client/scripts/dmg-settings.py`) without driving F
 what lets CI build it too; the script installs it into a virtualenv under `dist/` on first use. The
 background is rendered from `client/assets/dmg/background.html`, at 1x and 2x.
 
-The version defaults to `expo.version` in `app.json`. The build number defaults to a UTC timestamp so
+The version defaults to the root `package.json`, the same source Release Please and Expo use. The
+build number defaults to a UTC timestamp so
 successive local releases increase naturally. Either can be made explicit:
 
 ```bash
@@ -78,18 +79,22 @@ To notarize with an App Store Connect API key instead of a keychain profile, set
 
 ### Publishing the download
 
-**Actions → Desktop release → Run workflow** (`.github/workflows/desktop-release.yml`) runs the same
-script on a GitHub Mac runner, builds the Windows installers alongside it, and publishes all of them
-as one release of [wyne/yarukoto-desktop](https://github.com/wyne/yarukoto-desktop/releases). The
-version defaults to `app.json`'s; running a version again replaces its files. Releases go to that
-repo rather than this one because this repo's releases are the Home Assistant integration's.
+Merging Release Please's `chore: release X.Y.Z` PR runs
+`.github/workflows/desktop-release.yml`: it builds the Windows installers alongside the signed Mac
+app and attaches them to the [Yarukoto release](https://github.com/wyne/yarukoto/releases). You can
+also run **Actions → Desktop release → Run workflow** to rebuild a version. The version defaults to
+the root `package.json`; running a version again replaces its files.
 
-The files keep the same names on every release, so these links always fetch the newest one, and the
-website and [Getting the apps](/using/apps/) use them:
+During the `v1.0.0` cutover, the website and [Getting the apps](/using/apps/) keep using the
+existing downloads in the legacy desktop repository:
 
 - `https://github.com/wyne/yarukoto-desktop/releases/latest/download/Yarukoto-mac.dmg`
 - `https://github.com/wyne/yarukoto-desktop/releases/latest/download/Yarukoto-windows-setup.exe`
 - `https://github.com/wyne/yarukoto-desktop/releases/latest/download/Yarukoto-windows.msi`
+
+Those stable public links remain on the legacy desktop repository through the `v1.0.0` cutover.
+After this repository has a complete app release, switch the website and docs to its matching
+`releases/latest/download/` URLs.
 
 The workflow needs these repository secrets:
 
@@ -100,7 +105,12 @@ The workflow needs these repository secrets:
 | `APPLE_API_KEY_P8` | The text of an App Store Connect API key (`.p8`) from **Users and Access → Integrations → App Store Connect API**. Developer access is enough to notarize. |
 | `APPLE_API_KEY_ID` | That key's ID. |
 | `APPLE_API_ISSUER_ID` | The issuer ID shown above the key list. |
-| `DESKTOP_RELEASE_TOKEN` | A fine-grained personal access token with **Contents: Read and write** on `wyne/yarukoto-desktop` only. |
+
+The release workflow additionally needs `EXPO_TOKEN` for the iOS and Android EAS builds. An
+optional fine-grained `RELEASE_PLEASE_TOKEN` with repository contents and pull request write access
+lets Release Please's generated PR trigger normal CI; without it, the PR is still created but its
+checks need to be run or verified separately.
+
 The release prebuild also enables App Sandbox, outgoing network connections, and the hardened runtime
 for Catalyst. The existing `NSLocalNetworkUsageDescription` and `NSAllowsLocalNetworking` entries
 remain responsible for the user-facing LAN prompt and LAN HTTP exception.

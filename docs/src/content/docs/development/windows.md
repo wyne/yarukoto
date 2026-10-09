@@ -34,7 +34,9 @@ request. The installers are attached to the run. They are unsigned, so SmartScre
 first launch: **More info → Run anyway**.
 
 **Actions → Desktop release** builds them again with the release's version and publishes them,
-together with the Mac app, to [wyne/yarukoto-desktop](https://github.com/wyne/yarukoto-desktop/releases).
+together with the Mac app, to the [Yarukoto release](https://github.com/wyne/yarukoto/releases).
+Until the first complete app release is published, public download links remain on
+[`wyne/yarukoto-desktop`](https://github.com/wyne/yarukoto-desktop/releases).
 See [Publishing the download](/development/mac/#publishing-the-download).
 
 ## What the shell changes
