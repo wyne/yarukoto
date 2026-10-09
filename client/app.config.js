@@ -28,6 +28,8 @@
  * Catalyst (see plugins/mac-catalyst). It is off by default because it slows the
  * phone build down, and it composes with any APP_VARIANT.
  */
+const { version: appVersion } = require('../package.json');
+
 // Everything that differs per variant. `production` is absent on purpose: it
 // falls through to whatever app.json already declares.
 const VARIANTS = {
@@ -55,12 +57,12 @@ module.exports = ({ config }) => {
 
   return {
     ...config,
-    // Mac releases are built locally rather than through EAS. Let the release
-    // script supply a monotonically increasing build number without changing
-    // the phone build's remotely managed versioning.
+    // Mac releases are built locally rather than through EAS, so the release
+    // script may override their SemVer. Their build number is handled below;
+    // phone build numbers remain remotely managed by EAS.
     version: macCatalyst && process.env.MAC_VERSION
       ? process.env.MAC_VERSION
-      : config.version,
+      : appVersion,
     experiments: {
       ...config.experiments,
       baseUrl: process.env.EXPO_BASE_URL ?? '',

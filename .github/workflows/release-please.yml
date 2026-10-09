@@ -1,0 +1,59 @@
+# App release automation. Release Please keeps a release PR current from
+# conventional commit titles. Merging that PR creates the tag and GitHub
+# release, then queues the mobile and desktop production builds.
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: release-please
+  cancel-in-progress: false
+
+jobs:
+  release-please:
+    name: Maintain release PR
+    runs-on: ubuntu-latest
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
+      version: ${{ steps.release.outputs.version }}
+    steps:
+      - name: Run release-please
+        id: release
+        uses: googleapis/release-please-action@v5
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+          # A release PR opened by GITHUB_TOKEN does not trigger CI. A
+          # fine-grained PAT makes those checks run; the fallback still keeps
+          # release automation functional if that secret has not been added.
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN || secrets.GITHUB_TOKEN }}
+
+  mobile:
+    name: Mobile stores
+    needs: release-please
+    if: needs.release-please.outputs.release_created == 'true'
+    uses: ./.github/workflows/release-build.yml
+    with:
+      ref: ${{ needs.release-please.outputs.tag_name }}
+      tag: ${{ needs.release-please.outputs.tag_name }}
+      platform: all
+    secrets: inherit
+
+  desktop:
+    name: Desktop downloads
+    needs: release-please
+    if: needs.release-please.outputs.release_created == 'true'
+    uses: ./.github/workflows/desktop-release.yml
+    with:
+      ref: ${{ needs.release-please.outputs.tag_name }}
+      version: ${{ needs.release-please.outputs.version }}
+    secrets: inherit
+

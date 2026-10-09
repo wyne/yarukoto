@@ -16,6 +16,22 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  pr-title:
+    name: Conventional PR title
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check title
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          PATTERN='^(feat|fix|perf|revert|refactor|docs|build|ci|deps|chore|test|style)(\([^)]+\))?!?: .+'
+          if [[ ! "$PR_TITLE" =~ $PATTERN ]]; then
+            echo "Use a conventional title such as 'fix: keep reminders after sync' or 'feat(client): add widgets'." >&2
+            echo "Release Please uses the squash commit title to calculate the next app version." >&2
+            exit 1
+          fi
+
   tests:
     name: Tests
     runs-on: ubuntu-latest
@@ -91,22 +107,3 @@ jobs:
                 body,
               });
             }
-
-  home-assistant:
-    name: Home Assistant integration
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-
-      - uses: actions/setup-python@v6
-        with:
-          python-version: '3.13'
-          cache: pip
-          cache-dependency-path: homeassistant-tests/requirements.txt
-
-      - name: Install test harness
-        run: pip install -r homeassistant-tests/requirements.txt
-
-      - name: Test integration
-        working-directory: homeassistant-tests
-        run: python -m pytest -q

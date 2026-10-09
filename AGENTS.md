@@ -154,13 +154,16 @@ An admin removing someone else stays soft.
 
 ## Releases
 
-GitHub releases and `v*` tags in this repo are the Home Assistant integration's, and nothing
-else's: HACS reads every release as a new version of it. `.github/workflows/ha-release.yml`
-publishes one when the `version` in `custom_components/yarukoto/manifest.json` changes on main,
-so bump that version in the PR rather than tagging by hand. The phone apps ship through the stores
-and the server is identified by its commit, so neither gets a GitHub release.
+GitHub releases and `v*` tags in this repo are app releases. The root `package.json` is the one
+source of the user-facing SemVer: `client/app.config.js`, the Mac build, and the Windows build all
+derive from it. EAS owns the independent, monotonically increasing iOS and Android build numbers.
 
-The Mac and Windows downloads are released to a separate repo, `wyne/yarukoto-desktop`, by
-`.github/workflows/desktop-release.yml`, which is run by hand. It publishes the same file names
-every time, so `releases/latest/download/<file>` there is the permanent link the website and docs
-use. Don't rename those files.
+Release Please maintains a `chore: release X.Y.Z` PR from conventional commit titles. Merging that
+PR creates the tag and GitHub release, queues iOS and Android production builds/submissions, and
+builds the signed Mac and Windows downloads onto the same release. Never edit the release PR's
+generated version or tag by hand. Keep the desktop artifact names stable because the docs use
+`releases/latest/download/<file>` links.
+
+The server is released continuously from `main` and identified by the commit stamped into
+`/api/v1/health`; app tags do not version it. The Home Assistant integration, its tests, HACS
+metadata, and HACS releases live in `wyne/yarukoto-home-assistant`.

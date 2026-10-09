@@ -4,9 +4,8 @@ name: App builds
 # workflow. Deliberately manual. Main moves often, and a native build of every
 # merge would be slow, noisy and mostly unused.
 #
-# Each build is attached to the run as an artifact. None becomes a GitHub
-# release: those belong to the Home Assistant integration (see ha-release.yml).
-# The signed Mac download comes from desktop-release.yml instead.
+# Each build is attached to the run as an artifact. Production store and signed
+# desktop builds are launched by the release workflow instead.
 #
 # iOS and Android go through `eas build --local`, the same build the docs
 # describe, run on GitHub's runners instead of a laptop. That keeps the build

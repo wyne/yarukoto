@@ -11,14 +11,16 @@ server/             Fastify + better-sqlite3 API server
 packages/domain/    Types and domain logic shared by the client and server
 windows/            Tauri shell around the client's web export
 docs/               Starlight documentation site
-custom_components/yarukoto/   Home Assistant integration (installed through HACS)
-homeassistant-tests/          its tests, run with pytest-homeassistant-custom-component
 ```
 
 The JavaScript projects form one npm workspace, with one install and one lockfile at the root.
 Keeping the domain types and pure logic in `packages/domain/` means the client and server can't
 drift apart silently — the server compiles against the same `Task` shape and filtering rules the
 UI uses.
+
+The Home Assistant integration and its HACS releases live separately in
+[`wyne/yarukoto-home-assistant`](https://github.com/wyne/yarukoto-home-assistant), while this
+repository remains the source of its user documentation.
 
 
 ## How sync works
