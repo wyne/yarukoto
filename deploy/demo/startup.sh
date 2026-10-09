@@ -31,6 +31,11 @@ if [ ! -f .env ]; then
   } > .env
   chmod 600 .env
 fi
+# Added after the first servers went up, so an existing .env gains it too.
+if ! grep -q '^YARUKOTO_REVIEWER_TOKEN=' .env; then
+  echo "YARUKOTO_REVIEWER_TOKEN=$(openssl rand -hex 24)" >> .env
+  rm -f data/yarukoto.db  # so the reset below creates the reviewer
+fi
 
 # Nightly at 3am Pacific (11:00 UTC) — after a US reviewer's day.
 echo "0 11 * * * root $DIR/reset.sh >> /var/log/yarukoto-demo-reset.log 2>&1" > /etc/cron.d/yarukoto-demo

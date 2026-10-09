@@ -143,10 +143,14 @@ removing or restoring a person — bump `server_updated_at` on every affected ro
 puts them in the next pull, where they come back as rows to some people and as `removed` ids to
 others. Nothing is ever hard-deleted for visibility; removing a person hides, never destroys.
 
-The one exception is a person deleting their own account (`DELETE /api/v1/me`, behind the
-`deleteAccount` feature). The App Store requires that to erase rather than hide, so it removes
-what only they could see and hands any shared list they made to the owner. An admin removing
-someone else stays soft.
+The exceptions are erasure, which app stores require to mean what it says. A person deleting
+their own account (`DELETE /api/v1/me`, behind `deleteAccount`) deletes what only they could see
+and tombstones what others could: their tasks on shared lists, and a shared list they made unless
+someone else's tasks are in it (then it passes to the owner). The owner, whose account is the
+server's, erases the whole household instead (`DELETE /api/v1/household`, behind
+`eraseHousehold`). A tombstone is a row scrubbed of content and visible to nobody, so other
+devices get it under `removed` and a stale push can't bring it back; retention purges it later.
+An admin removing someone else stays soft.
 
 ## Releases
 

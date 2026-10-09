@@ -83,3 +83,25 @@ const res = await fetch(`${base}/api/v1/sync`, {
 if (!res.ok) throw new Error(`Seeding failed: ${res.status} ${await res.text()}`);
 const body = await res.json();
 console.log(`Seeded ${body.tasks?.length ?? 0} tasks in ${body.lists?.length ?? 0} lists for ${today} (${zone}).`);
+
+// The reviewer's own things: an Inbox, a private list, and a task on a shared
+// list, so deleting the account visibly takes all three with it.
+const reviewerToken = process.env.YARUKOTO_REVIEWER_TOKEN;
+if (reviewerToken) {
+  n = 100;
+  const mine = await fetch(`${base}/api/v1/sync`, {
+    method: 'POST',
+    headers: { authorization: `Bearer ${reviewerToken}`, 'content-type': 'application/json' },
+    body: JSON.stringify({
+      lists: [{ id: 'l-reviewer', name: 'My errands', color: '#0F8A8A', folderId: null, order: 2, updatedAt: stamp }],
+      tasks: [
+        task({ title: 'Pick up dry cleaning', listId: 'l-reviewer', dueDate: day(0) }),
+        task({ title: 'Return library books', listId: 'l-reviewer', dueDate: day(2) }),
+        task({ title: 'Plan weekend hike', dueDate: day(4) }),
+        task({ title: 'Sparkling water', listId: 'l-groceries' }),
+      ],
+    }),
+  });
+  if (!mine.ok) throw new Error(`Seeding the reviewer failed: ${mine.status} ${await mine.text()}`);
+  console.log('Seeded the reviewer account.');
+}

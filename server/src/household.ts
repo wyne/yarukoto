@@ -1,8 +1,11 @@
 import crypto from 'node:crypto';
+import fs from 'node:fs';
+import path from 'node:path';
 import Database from 'better-sqlite3';
 import { HouseholdDevice, HouseholdMember, HouseholdRole } from '@yarukoto/domain/types';
 import { OWNER_ID, Viewer, isAdmin } from './access';
 import { hashToken } from './auth';
+import { listBackups } from './backup';
 
 /**
  * People, devices, and signing in by approval.
@@ -379,21 +382,54 @@ export function revokeDevice(db: Database.Database, viewer: Viewer, id: string, 
 }
 
 /**
- * A person deleting their own account: the one hard delete in the household,
- * because it is theirs to ask for and an app store requires it to mean what it
+ * Scrubs tasks down to invisible tombstones: every field a person wrote is
+ * cleared, and with no list and no owner the row is visible to nobody. It is
+ * kept rather than deleted so other people's devices, which hold copies, get
+ * its id under the next pull's `removed` and drop it; a stale push of the old
+ * copy is refused because nobody can see the stored row. Trash retention
+ * hard-deletes it later. Their history goes now.
+ *
+ * `where` selects the tasks and binds the params passed alongside it.
+ */
+function tombstoneTasks(db: Database.Database, where: string, params: Record<string, unknown>, stamp: string): void {
+  const ids = `SELECT id FROM tasks WHERE ${where}`;
+  db.prepare(`DELETE FROM task_revisions WHERE task_id IN (${ids})`).run(params);
+  db.prepare(
+    `UPDATE tasks SET title = '', notes = '', tags = '[]', subtasks = '[]', reminders = '[]', repeat = NULL,
+       due_date = NULL, due_time = NULL, list_id = NULL, owner_id = NULL, assignee_id = NULL,
+       completed = 0, completed_at = NULL, updated_at = @stamp, deleted_at = @stamp, server_updated_at = @stamp
+     WHERE id IN (${ids})`
+  ).run({ ...params, stamp });
+}
+
+/** The list version of `tombstoneTasks`: unshared, owned by no one, nameless. */
+function tombstoneLists(db: Database.Database, where: string, params: Record<string, unknown>, stamp: string): void {
+  db.prepare(
+    `UPDATE lists SET name = '', owner_id = '', shared = 0, folder_id = NULL,
+       updated_at = @stamp, deleted_at = @stamp, server_updated_at = @stamp
+     WHERE ${where}`
+  ).run({ ...params, stamp });
+}
+
+/**
+ * A person deleting their own account: the one erasure in the household,
+ * because it is theirs to ask for and app stores require it to mean what it
  * says. Removing someone (above) stays soft — that is an admin acting on
  * another person's data.
  *
  * Erased: the person, their devices, their private lists and every task in
- * them, their Inbox, and their own folders, saved filters and view settings,
- * along with those tasks' history. Kept: what belongs to the household. A
- * shared list they made passes to the owner (out of the folder that no longer
- * exists), and tasks they added or were assigned on shared lists stay, no
- * longer pointing at them. Those rows are touched so the next pull carries the
- * change; nobody else could see the erased rows, so nothing else needs telling.
+ * them, their Inbox, their own folders, saved filters and view settings, and
+ * every task they added to a shared list, with those tasks' history. A shared
+ * list they made is erased too when nothing of anyone else's is in it;
+ * otherwise it passes to the owner (out of the folder that no longer exists),
+ * because other people's tasks live there. Tasks of others they were assigned
+ * stay, unassigned.
  *
- * The owner signs in with the server's own token and cannot be deleted from
- * the app: whoever runs the server deletes it there.
+ * What only they could see is deleted outright. What others could see is
+ * tombstoned (`tombstoneTasks`), so it leaves those people's devices too.
+ *
+ * The owner signs in with the server's own token and cannot be deleted: the
+ * owner erases the whole household instead (`eraseHousehold`).
  */
 export function deleteOwnAccount(db: Database.Database, viewer: Viewer, now = Date.now()): void {
   if (viewer.kind !== 'user') throw new HouseholdError('forbidden', 'Only a person has an account to delete');
@@ -409,12 +445,12 @@ export function deleteOwnAccount(db: Database.Database, viewer: Viewer, now = Da
     db.prepare(`DELETE FROM tasks WHERE id IN (${erasedTasks})`).run({ id });
     db.prepare('DELETE FROM lists WHERE owner_id = @id AND shared = 0').run({ id });
 
+    // Everything left that they own is on a shared list.
+    tombstoneTasks(db, 'owner_id = @id', { id }, stamp);
+    // A shared list of theirs that now holds nothing but tombstones goes the same way.
+    const othersIn = `SELECT 1 FROM tasks t WHERE t.list_id = lists.id`;
+    tombstoneLists(db, `owner_id = @id AND NOT EXISTS (${othersIn})`, { id }, stamp);
     db.prepare('UPDATE lists SET owner_id = @owner, folder_id = NULL, server_updated_at = @stamp WHERE owner_id = @id').run({
-      id,
-      owner: OWNER_ID,
-      stamp,
-    });
-    db.prepare('UPDATE tasks SET owner_id = @owner, server_updated_at = @stamp WHERE owner_id = @id').run({
       id,
       owner: OWNER_ID,
       stamp,
@@ -428,4 +464,46 @@ export function deleteOwnAccount(db: Database.Database, viewer: Viewer, now = Da
     db.prepare('DELETE FROM devices WHERE user_id = ?').run(id);
     db.prepare('DELETE FROM users WHERE id = ?').run(id);
   })();
+}
+
+/**
+ * The owner's account belongs to the server, so the owner's version of
+ * "delete my account" erases the household: every task, list, folder, saved
+ * filter and view setting, every other person and every signed-in device, and
+ * the server's backup snapshots. The server keeps running, empty, on the same
+ * token; shutting it down is up to whoever runs it.
+ *
+ * Tasks and lists are tombstoned rather than deleted so the owner's other
+ * devices on the server token drop their copies on the next pull instead of
+ * pushing them back. Folders, filters and view settings are owner-only and
+ * come back to those devices as deleted rows, for the same reason.
+ */
+export function eraseHousehold(db: Database.Database, viewer: Viewer, backupDir: string | null, now = Date.now()): void {
+  if (viewer.kind !== 'user' || viewer.userId !== OWNER_ID) {
+    throw new HouseholdError('forbidden', 'Only the household owner can erase the household');
+  }
+  const stamp = new Date(now).toISOString();
+  db.transaction(() => {
+    tombstoneTasks(db, '1 = 1', {}, stamp);
+    db.prepare('DELETE FROM task_revisions').run();
+    tombstoneLists(db, '1 = 1', {}, stamp);
+    db.prepare(
+      `UPDATE folders SET name = '', updated_at = @stamp, deleted_at = @stamp, server_updated_at = @stamp`
+    ).run({ stamp });
+    db.prepare(
+      `UPDATE saved_filters SET name = '', criteria = '{}', updated_at = @stamp, deleted_at = @stamp, server_updated_at = @stamp`
+    ).run({ stamp });
+    db.prepare(
+      `UPDATE view_prefs SET arrangements = '{}', updated_at = @stamp, deleted_at = @stamp, server_updated_at = @stamp`
+    ).run({ stamp });
+    db.prepare('DELETE FROM pairings').run();
+    db.prepare('DELETE FROM devices').run();
+    db.prepare('DELETE FROM users WHERE id != ?').run(OWNER_ID);
+    db.prepare("UPDATE users SET name = 'Owner' WHERE id = ?").run(OWNER_ID);
+  })();
+  // Freed pages still hold the old bytes until the file is rewritten.
+  db.exec('VACUUM');
+  if (backupDir) {
+    for (const name of listBackups(backupDir)) fs.rmSync(path.join(backupDir, name), { force: true });
+  }
 }

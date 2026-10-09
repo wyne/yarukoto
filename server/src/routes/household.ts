@@ -1,12 +1,14 @@
 import { FastifyInstance, FastifyReply } from 'fastify';
 import Database from 'better-sqlite3';
 import { viewerOf } from '../viewer';
+import { env } from '../env';
 import {
   ApproveAs,
   HouseholdError,
   approvePairing,
   deleteOwnAccount,
   describeHousehold,
+  eraseHousehold,
   pollPairing,
   removeMember,
   renameMember,
@@ -72,6 +74,14 @@ export function registerHouseholdRoutes(app: FastifyInstance, db: Database.Datab
     await respond(reply, () => {
       deleteOwnAccount(db, viewerOf(request));
       return { deleted: true };
+    });
+  });
+
+  // The owner's counterpart to deleting an account: erases everything on the server.
+  app.delete('/api/v1/household', async (request, reply) => {
+    await respond(reply, () => {
+      eraseHousehold(db, viewerOf(request), env.backupDir);
+      return { erased: true };
     });
   });
 
