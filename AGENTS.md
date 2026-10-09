@@ -153,5 +153,10 @@ someone else stays soft.
 GitHub releases and `v*` tags in this repo are the Home Assistant integration's, and nothing
 else's: HACS reads every release as a new version of it. `.github/workflows/ha-release.yml`
 publishes one when the `version` in `custom_components/yarukoto/manifest.json` changes on main,
-so bump that version in the PR rather than tagging by hand. The app ships through the stores and
-the server is identified by its commit, so neither gets a GitHub release.
+so bump that version in the PR rather than tagging by hand. The phone apps ship through the stores
+and the server is identified by its commit, so neither gets a GitHub release.
+
+The Mac and Windows downloads are released to a separate repo, `wyne/yarukoto-desktop`, by
+`.github/workflows/desktop-release.yml`, which is run by hand. It publishes the same file names
+every time, so `releases/latest/download/<file>` there is the permanent link the website and docs
+use. Don't rename those files.

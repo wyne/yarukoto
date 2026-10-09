@@ -7,7 +7,9 @@
 #
 # Prerequisites:
 #   - Developer ID Application identity in the login keychain
-#   - `notarytool` keychain profile (default: yarukoto-notary)
+#   - `notarytool` keychain profile (default: yarukoto-notary), or an App Store
+#     Connect API key in NOTARY_KEY (a path to the .p8), NOTARY_KEY_ID and
+#     NOTARY_ISSUER, which is how CI notarizes (.github/workflows/desktop-release.yml)
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
@@ -141,9 +143,12 @@ hdiutil create \
   -format UDZO \
   "$DOWNLOAD_DMG"
 codesign --force --timestamp --sign "$IDENTITY" "$DOWNLOAD_DMG"
-xcrun notarytool submit "$DOWNLOAD_DMG" \
-  --keychain-profile "$NOTARY_PROFILE" \
-  --wait
+if [ -n "${NOTARY_KEY:-}" ]; then
+  NOTARY_AUTH=(--key "$NOTARY_KEY" --key-id "$NOTARY_KEY_ID" --issuer "$NOTARY_ISSUER")
+else
+  NOTARY_AUTH=(--keychain-profile "$NOTARY_PROFILE")
+fi
+xcrun notarytool submit "$DOWNLOAD_DMG" "${NOTARY_AUTH[@]}" --wait
 xcrun stapler staple "$DOWNLOAD_DMG"
 xcrun stapler validate "$DOWNLOAD_DMG"
 spctl --assess --type execute --verbose=4 "$APP"

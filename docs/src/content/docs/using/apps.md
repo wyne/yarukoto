@@ -10,7 +10,15 @@ sync with your server whenever it's reachable.
 - **iPhone and Android:** install Yarukoto from the App Store or Google Play.
 - **In a browser:** open your server's address. The server hosts the web app itself, so there's
   nothing to install.
-- **Mac and Windows:** the desktop apps work like the web app, in their own window.
+- **Mac:** [download Yarukoto for Mac](https://github.com/wyne/yarukoto-desktop/releases/latest/download/Yarukoto-mac.dmg),
+  open the disk image and drag Yarukoto to Applications. It's signed and notarized by Apple.
+- **Windows:** [download the installer](https://github.com/wyne/yarukoto-desktop/releases/latest/download/Yarukoto-windows-setup.exe)
+  and run it. It installs for your account only, with no admin prompt. The installer isn't signed
+  yet, so Windows shows "Windows protected your PC" the first time: choose **More info**, then
+  **Run anyway**.
+
+The desktop apps work like the web app, in their own window. Every release, with checksums and an
+`.msi` for Windows, is on the [releases page](https://github.com/wyne/yarukoto-desktop/releases).
 
 You need a [Yarukoto server](/getting-started/docker/) to connect to. To look around first, see
 [Trying it without a server](#trying-it-without-a-server).

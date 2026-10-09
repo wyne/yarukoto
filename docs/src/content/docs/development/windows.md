@@ -28,10 +28,14 @@ npm run dev --workspace yarukoto-windows    # starts Expo's web dev server and o
 `.msi` under `windows/target/release/bundle/`. The installer fetches WebView2 if the PC somehow
 lacks it.
 
-CI does the same on `windows-latest` (`.github/workflows/windows.yml`) for every pull request that
-touches the web client or Windows shell, and on demand from **Actions → Windows app → Run
-workflow**. The installers are attached to the run. They are unsigned, so SmartScreen warns on
+CI does the same on `windows-latest` (`.github/workflows/windows.yml`), on demand only from
+**Actions → Windows app → Run workflow**, because a build takes too long to run on every pull
+request. The installers are attached to the run. They are unsigned, so SmartScreen warns on
 first launch: **More info → Run anyway**.
+
+**Actions → Desktop release** builds them again with the release's version and publishes them,
+together with the Mac app, to [wyne/yarukoto-desktop](https://github.com/wyne/yarukoto-desktop/releases).
+See [Publishing the download](/development/mac/#publishing-the-download).
 
 ## What the shell changes
 
@@ -62,4 +66,4 @@ cross-origin requests from any origin.
 - **A menu bar.** Windows apps often go without one, and every command is in the command menu
   (Ctrl+K). If it's wanted, it would be built from `client/src/navigation/commands.ts` the way the
   Mac's is.
-- **Signing and updates.** The build is unsigned and doesn't update itself.
+- **Signing and updates.** The installer is unsigned and the app doesn't update itself.
