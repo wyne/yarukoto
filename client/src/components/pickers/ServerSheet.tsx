@@ -15,7 +15,7 @@ import AccountPane from '../settings/AccountPane';
 import AddDevicePane, { ApproveFor } from '../settings/AddDevicePane';
 import { AppearanceGroup, HelpGroup } from '../settings/GeneralPane';
 import { DevicesPane, PeoplePane } from '../settings/HouseholdPanes';
-import ServerPane from '../settings/ServerPane';
+import ServerPane, { LeaveGroup } from '../settings/ServerPane';
 import { Group, Note, PAGE_GAP, Row } from '../settings/parts';
 import { useHouseholdAdmin } from '../settings/useHouseholdAdmin';
 
@@ -137,7 +137,8 @@ export default function ServerSheet({ visible, onClose, pairCode }: Props) {
   const addPane = <AddDevicePane household={household} initialFor={addFor} initialCode={pairCode} />;
 
   if (desktop) {
-    const tabs = TABS.filter((t) => t.id !== 'household' || hasHousehold);
+    // Account and Household need a server with households to say anything.
+    const tabs = TABS.filter((t) => (t.id !== 'household' && t.id !== 'account') || hasHousehold);
     return (
       <Sheet
         visible={visible}
@@ -193,7 +194,7 @@ export default function ServerSheet({ visible, onClose, pairCode }: Props) {
       keyboard
       maxHeight={Math.round(height * MAX_HEIGHT_RATIO)}
     >
-      {page === 'root' && <PhoneRoot household={household} hasHousehold={hasHousehold} onOpen={setPage} onAdd={startAdding} />}
+      {page === 'root' && <PhoneRoot household={household} hasHousehold={hasHousehold} onOpen={setPage} onAdd={startAdding} onLeft={onClose} />}
       {page === 'account' && <AccountPane household={household} onLeft={onClose} />}
       {page === 'people' && <PeoplePane household={household} desktop={false} onAdd={startAdding} />}
       {page === 'devices' && <DevicesPane household={household} desktop={false} onAdd={startAdding} />}
@@ -203,17 +204,19 @@ export default function ServerSheet({ visible, onClose, pairCode }: Props) {
   );
 }
 
-/** The phone's summary list: everything at a glance, nothing on it that ends anything. */
+/** The phone's summary list: everything at a glance, with the ways off this server at the foot. */
 function PhoneRoot({
   household,
   hasHousehold,
   onOpen,
   onAdd,
+  onLeft,
 }: {
   household: ReturnType<typeof useHouseholdAdmin>;
   hasHousehold: boolean;
   onOpen: (page: Page) => void;
   onAdd: (as: ApproveFor) => void;
+  onLeft: () => void;
 }) {
   const styles = useStyles();
   const accent = useAccent();
@@ -223,20 +226,22 @@ function PhoneRoot({
 
   return (
     <View style={{ gap: PAGE_GAP }}>
-      <Group>
-        <Row
-          chevron
-          onPress={() => onOpen('account')}
-          accessibilityLabel="Account"
-          leading={
-            <View style={[styles.avatar, { backgroundColor: `${accent}22` }]}>
-              <Text style={[styles.avatarText, { color: accent }]}>{(me?.name ?? '?').slice(0, 1).toUpperCase()}</Text>
-            </View>
-          }
-          title={me?.name ?? 'Signed in'}
-          subtitle={me ? (me.role === 'admin' ? 'Admin' : 'Member') : 'Account and sign out'}
-        />
-      </Group>
+      {me && (
+        <Group>
+          <Row
+            chevron
+            onPress={() => onOpen('account')}
+            accessibilityLabel="Account"
+            leading={
+              <View style={[styles.avatar, { backgroundColor: `${accent}22` }]}>
+                <Text style={[styles.avatarText, { color: accent }]}>{me.name.slice(0, 1).toUpperCase()}</Text>
+              </View>
+            }
+            title={me.name}
+            subtitle={me.role === 'admin' ? 'Admin' : 'Member'}
+          />
+        </Group>
+      )}
 
       <AppearanceGroup label="General" />
 
@@ -263,6 +268,8 @@ function PhoneRoot({
       </Group>
 
       <HelpGroup />
+
+      <LeaveGroup onLeft={onLeft} />
     </View>
   );
 }

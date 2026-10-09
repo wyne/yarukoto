@@ -27,7 +27,7 @@ function formatBuiltAt(iso: string): string {
  * the saved-servers list so coming back is one tap.
  */
 export default function ServerPane({ onLeft }: { onLeft: () => void }) {
-  const { state, disconnect } = useTasks();
+  const { state } = useTasks();
   const syncStatus = useSyncStatus();
   const [info, setInfo] = useState<ServerInfo | null | undefined>(undefined);
 
@@ -60,16 +60,38 @@ export default function ServerPane({ onLeft }: { onLeft: () => void }) {
         {info?.builtAt && <Row divided title="Built" value={formatBuiltAt(info.builtAt)} />}
       </Group>
 
-      <Group note="Keeps this sign-in saved on this device, so you can come back with one tap.">
-        <Row
-          title="Switch server"
-          tone="action"
-          onPress={() => {
-            disconnect();
-            onLeft();
-          }}
-        />
-      </Group>
+      <LeaveGroup onLeft={onLeft} />
     </View>
+  );
+}
+
+/**
+ * The two ways off this server, side by side so the difference is read in one
+ * place: Switch server keeps the sign-in saved for coming back with one tap;
+ * Sign out forgets it here, so getting back in takes the token or a new code.
+ */
+export function LeaveGroup({ onLeft }: { onLeft: () => void }) {
+  const { state, disconnect, removeSavedServer } = useTasks();
+  return (
+    <Group note="Switch server keeps this sign-in saved on this device, so you can come back with one tap. Sign out forgets it here.">
+      <Row
+        title="Switch server"
+        tone="action"
+        onPress={() => {
+          disconnect();
+          onLeft();
+        }}
+      />
+      <Row
+        divided
+        title="Sign out"
+        tone="danger"
+        onPress={() => {
+          removeSavedServer(state.serverUrl);
+          disconnect();
+          onLeft();
+        }}
+      />
+    </Group>
   );
 }

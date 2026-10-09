@@ -61,10 +61,10 @@ real server afterwards, open Settings and choose **Leave sample data**.
 
 ## Signing out
 
-**Settings → Account → Sign out** forgets the server on this device and removes its copy of your
-tasks. It doesn't ask first, and changes that haven't synced yet are lost, so check that the sync
+**Sign out**, at the bottom of Settings (on a computer, on the **Server** tab), forgets the server
+on this device and removes its copy of your tasks. It doesn't ask first, and changes that haven't synced yet are lost, so check that the sync
 dot at the bottom of the sidebar says everything is synced before you sign out. To use a different
-server but keep this one saved for later, choose **Settings → Server → Switch server** instead.
+server but keep this one saved for later, choose **Switch server**, just above it, instead.
 
 Signing out doesn't remove the device's sign-in from the server. To revoke it, sign the device
 out under **Settings → Household → Devices** from another device. A device signed out that way

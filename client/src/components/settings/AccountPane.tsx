@@ -13,24 +13,15 @@ interface Props {
 }
 
 /**
- * Who is signed in here, and the two ways of ending that: signing this device
- * out, and — for anyone but the owner — deleting the account outright.
- *
- * Switch server lives under Server instead. It keeps the sign-in saved, so it is
- * a change of connection rather than an ending, and the two side by side read as
- * the same button twice.
+ * Who is signed in here, and — for anyone but the owner — deleting the account
+ * outright. Signing this device out sits with Switch server (`LeaveGroup`), where
+ * the difference between the two is explained once.
  */
 export default function AccountPane({ household, onLeft }: Props) {
   const { state, supportsFeature, disconnect, removeSavedServer } = useTasks();
   const [deleting, setDeleting] = useState(false);
   const { me, deviceId } = household;
   const thisDevice = deviceId ? household.devices?.find((d) => d.id === deviceId)?.name : null;
-
-  const signOut = () => {
-    removeSavedServer(state.serverUrl);
-    disconnect();
-    onLeft();
-  };
 
   const deleteAccount = async () => {
     const sure = await confirmAsync(
@@ -67,10 +58,6 @@ export default function AccountPane({ household, onLeft }: Props) {
           <Row divided title="This device" value={deviceId ? (thisDevice ?? 'Signed in with a code') : 'Server token'} />
         </Group>
       )}
-
-      <Group note="Forgets this server on this device. Signing back in takes the token or a new code. To keep it saved and use another server, choose Switch server under Server.">
-        <Row title="Sign out" tone="danger" onPress={signOut} />
-      </Group>
 
       {me && me.id !== OWNER_ID && supportsFeature('deleteAccount') && (
         <Group note="Erases your account and everything only you can see. Shared lists you made stay with the household.">
