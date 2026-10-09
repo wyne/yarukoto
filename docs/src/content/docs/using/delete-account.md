@@ -10,7 +10,8 @@ you delete it there. No copy is kept anywhere else.
 
 1. Open Yarukoto on any device you're signed in on. Without the app, open your household's server
    address in a browser and sign in.
-2. Open the sidebar, tap the gear at the bottom, and go to **Household**.
+2. Open the sidebar, tap the gear at the bottom, and go to **Account** (your name, at the top on a
+   phone).
 3. Tap **Delete my account** and confirm.
 
 That device is signed out straight away, along with every other device signed in as you.

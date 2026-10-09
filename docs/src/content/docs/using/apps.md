@@ -29,13 +29,13 @@ The first screen offers three ways in. Which one fits depends on whether somethi
 signed in.
 
 **Scan a QR code** (phones). On a device that's already signed in, open the sidebar, tap the gear at
-the bottom for Settings, and under **Household** choose **Show a QR to scan**. Scan it with the new
+the bottom for Settings, choose **Add a device**, and tap **Show a QR to scan**. Scan it with the new
 phone's camera. It opens Yarukoto and signs in with nothing to type, server address included. A QR
 works once and expires after a few minutes.
 
 **Sign in with a code.** Type your server's address and tap **Sign in with a code**. The app shows
-a short code. On a device that's already signed in, enter that code under **Settings → Household**
-and tap **Approve** (or tap **Scan its QR instead**). Use this for a device without a camera, or when
+a short code. On a device that's already signed in, open **Settings → Add a device**, tap **Enter a
+code instead**, enter that code and tap **Approve** (or tap **Scan its QR instead**). Use this for a device without a camera, or when
 the signed-in device is a computer.
 
 **Use an access token.** Type the server's address and the `YARUKOTO_TOKEN` from the server's
@@ -61,11 +61,12 @@ real server afterwards, open Settings and choose **Leave sample data**.
 
 ## Signing out
 
-**Settings → Disconnect** forgets the server on this device and removes its copy of your tasks.
-It doesn't ask first, and changes that haven't synced yet are lost, so check that the sync dot at
-the bottom of the sidebar says everything is synced before you disconnect.
+**Sign out**, at the bottom of Settings (on a computer, on the **Server** tab), forgets the server
+on this device and removes its copy of your tasks. It doesn't ask first, and changes that haven't synced yet are lost, so check that the sync
+dot at the bottom of the sidebar says everything is synced before you sign out. To use a different
+server but keep this one saved for later, choose **Switch server**, just above it, instead.
 
-Disconnecting doesn't remove the device's sign-in from the server. To revoke it, sign the device
+Signing out doesn't remove the device's sign-in from the server. To revoke it, sign the device
 out under **Settings → Household → Devices** from another device. A device signed out that way
 shows **Signed out** the next time it opens. Its tasks are still on it, and signing in again picks
 up where it left off.

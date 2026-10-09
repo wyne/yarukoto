@@ -22,6 +22,13 @@ interface Props {
   popoverWidth?: number;
   /** Width of the desktop dialog, for content that wants more room than a picker. */
   dialogWidth?: number;
+  /** Least height of the desktop dialog, so a dialog whose content changes keeps its place. */
+  dialogMinHeight?: number;
+  /**
+   * Drawn under the title in the desktop dialog and kept in place while its body
+   * scrolls, such as the tab strip of a settings window. Ignored elsewhere.
+   */
+  toolbar?: React.ReactNode;
   /** Called once the surface has been presented — the moment to focus an input. */
   onShow?: () => void;
   /**
@@ -90,6 +97,8 @@ export default function Sheet({
   anchor,
   popoverWidth,
   dialogWidth,
+  dialogMinHeight,
+  toolbar,
   onShow,
   onBack,
   keyboard,
@@ -143,7 +152,23 @@ export default function Sheet({
     }
 
     return (
-      <Dialog visible={visible} onClose={onClose} onShow={onShow} width={dialogWidth} header={header}>
+      <Dialog
+        visible={visible}
+        onClose={onClose}
+        onShow={onShow}
+        width={dialogWidth}
+        minHeight={dialogMinHeight}
+        header={
+          toolbar ? (
+            <>
+              {header}
+              {toolbar}
+            </>
+          ) : (
+            header
+          )
+        }
+      >
         {children}
       </Dialog>
     );
@@ -159,6 +184,7 @@ export default function Sheet({
       keyboard={keyboard}
       stackBehavior={stackBehavior}
       scroll={scroll}
+      onBack={onBack}
       maxHeight={maxHeight}
       onDone={onDone}
       doneLabel={doneLabel}

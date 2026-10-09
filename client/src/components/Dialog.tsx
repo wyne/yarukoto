@@ -10,6 +10,12 @@ interface Props {
   /** Called once the dialog has been presented — the moment to focus an input. */
   onShow?: () => void;
   width?: number;
+  /**
+   * Keeps the card at least this tall, for content that changes as you use it —
+   * a settings window's tabs — so its title and tabs stay put rather than
+   * jumping with every switch. Still capped by the window.
+   */
+  minHeight?: number;
   /** Drawn above the body and kept in place while the body scrolls. */
   header?: React.ReactNode;
   children: React.ReactNode;
@@ -28,7 +34,7 @@ const MARGIN_Y = 48;
  * where a pointer is. Click-away and Escape close it, as they close any other
  * desktop layer.
  */
-export default function Dialog({ visible, onClose, onShow, width: preferred = 440, header, children }: Props) {
+export default function Dialog({ visible, onClose, onShow, width: preferred = 440, minHeight, header, children }: Props) {
   const styles = useStyles();
   const colors = useColors();
   const window = useWindowDimensions();
@@ -44,7 +50,7 @@ export default function Dialog({ visible, onClose, onShow, width: preferred = 44
           onPress={onClose}
           accessibilityLabel="Close"
         />
-        <View style={[styles.card, { width, maxHeight }]}>
+        <View style={[styles.card, { width, maxHeight, minHeight: minHeight ? Math.min(minHeight, maxHeight) : undefined }]}>
           {header}
           {/* Grows to its content, and scrolls only once that passes the cap. */}
           <ScrollView style={styles.body} contentContainerStyle={styles.bodyContent} keyboardShouldPersistTaps="handled">

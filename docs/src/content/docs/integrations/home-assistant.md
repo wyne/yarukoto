@@ -17,11 +17,13 @@ To install it:
 1. In HACS, open **Custom repositories**, add `https://github.com/wyne/yarukoto` as an
    **Integration**, and install **Yarukoto**. Restart Home Assistant.
 2. Add the **Yarukoto** integration and enter your server's address.
-3. Home Assistant shows a sign-in code. On a phone signed in as an admin, open
-   **Settings > Household** and enter the code under Add a device, approving it as either:
+3. Home Assistant shows a sign-in code. On a device signed in as an admin, open Settings and
+   choose **Add a device** (on a computer, the **+** under Devices on the **Household** tab). Pick
+   who it's for and enter the code:
    - **Integration**, which sees only lists shared with the household, never anyone's private
      lists or Inbox. Right for a Home Assistant other people use.
-   - **My device**, which sees everything you see, private lists and Inbox included.
+   - **Me**, which sees everything you see, private lists and Inbox included. Choose
+     **Enter a code instead** to get the code field.
 4. Pick which lists and saved filters become to-do lists. Saved filters are made in the app,
    under Browse.
 
