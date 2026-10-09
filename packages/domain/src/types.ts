@@ -11,7 +11,7 @@ export type Priority = 'none' | 'low' | 'medium' | 'high';
  * the client hides the UI but keeps sending the field, since a wrongly stripped field
  * is unrecoverable and a wrongly hidden row is not. See AGENTS.md.
  */
-export const SERVER_FEATURES = ['taskReminders', 'savedFilters', 'household', 'taskRepeat', 'deleteAccount'] as const;
+export const SERVER_FEATURES = ['taskReminders', 'savedFilters', 'household', 'taskRepeat', 'deleteAccount', 'eraseHousehold'] as const;
 export type ServerFeature = (typeof SERVER_FEATURES)[number];
 
 export interface Subtask {

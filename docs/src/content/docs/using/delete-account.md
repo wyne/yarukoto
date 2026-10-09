@@ -26,25 +26,37 @@ If **Delete my account** isn't there, the server is older than account deletion 
 
 ## If you run the server
 
-The household owner's account is the server itself, so it has no **Delete my account**. To delete
-it, stop the server and delete its `data` folder. That erases every account and every task on it,
-including the backups in `data/backups`.
+The household owner's account is the server's own, so deleting it means erasing everything on the
+server:
+
+1. Open Yarukoto on a device signed in as the owner, open **Settings**, and go to **Account**.
+2. Tap **Erase all data** and confirm.
+
+That erases every list, task, folder and saved filter, removes everyone else in the household, signs
+out every device, and deletes the server's backups. The server keeps running, empty, with the same
+access token; to get rid of it entirely, stop it and delete its `data` folder.
+
+If **Erase all data** isn't there, the server needs [updating](/getting-started/docker/#updating).
+Until then, stopping the server and deleting its `data` folder does the same.
 
 ## What's deleted and what's kept
 
-**Erased immediately:**
+When a member deletes their account, **erased immediately:**
 
 - your account and every device's sign-in
 - your Inbox, your private lists, and every task in them, along with their history
+- every task you added to a shared list, which disappears from everyone's devices
+- lists you shared, unless someone else's tasks are in them
 - your folders, saved filters and view settings
 
-**Kept, because they belong to the household:**
+**Kept, because others use it:**
 
-- lists you shared, which pass to the household owner
-- tasks you added to shared lists
+- a list you shared that holds other people's tasks, which passes to the household owner
+- other people's tasks you were assigned, which become unassigned
 
 **Backups:** the server takes a backup once a day and keeps the newest seven by default, so a copy of
-your data stays in those backups for about a week after you delete your account. Whoever runs the
+your data stays in those backups for about a week after you delete your account. Erasing all data as
+the owner deletes the backups too. Whoever runs the
 server can change that with `BACKUP_KEEP`; see [Backups](/self-hosting/backups/).
 
 Signing out of a device or deleting the app only removes that device's copy. Your account stays on

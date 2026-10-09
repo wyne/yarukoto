@@ -9,6 +9,8 @@ services:
       PORT: 8080
       DATABASE_PATH: /data/yarukoto.db
       YARUKOTO_TZ: ${YARUKOTO_TZ:-America/Los_Angeles}
+      # Read by seed.mjs only; the reviewer's sign-in is a device row reset.sh writes.
+      YARUKOTO_REVIEWER_TOKEN: ${YARUKOTO_REVIEWER_TOKEN:-}
       # The data is thrown away nightly; nothing here is worth a snapshot.
       BACKUP_INTERVAL_HOURS: 0
       TRUST_PROXY: "true"

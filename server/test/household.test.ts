@@ -1,4 +1,7 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import test from 'node:test';
 import Database from 'better-sqlite3';
 import { ListDef, Task } from '@yarukoto/domain/types';
@@ -8,7 +11,7 @@ import { registerHistoryRoutes } from '../src/routes/history';
 import { registerSyncRoutes } from '../src/routes/sync';
 import { registerTaskRoutes } from '../src/routes/tasks';
 import { OWNER_VIEWER } from '../src/access';
-import { PAIRING_TTL_MS, approvePairing, describeHousehold, startPairing, pollPairing } from '../src/household';
+import { PAIRING_TTL_MS, approvePairing, describeHousehold, eraseHousehold, startPairing, pollPairing } from '../src/household';
 import { authedApp, OWNER_AUTH } from './helpers';
 
 const T0 = '2026-09-01T00:00:00.000Z';
@@ -252,18 +255,28 @@ test('removing a person signs them out and hides their things; restoring brings 
   assert.ok(!devices.some((d: { userId: string }) => d.userId === alex.member.id));
 });
 
-test('deleting your own account erases what only you could see and hands shared lists to the owner', async () => {
+test('deleting your own account erases what was theirs, including what they added to shared lists', async () => {
   const h = await household();
   await h.push(OWNER_AUTH, { lists: [list('l-family', { shared: true })] });
   const alex = await h.pair(OWNER_AUTH, 'member', 'Alex');
   await h.push(alex.auth, {
     folders: [{ id: 'f-alex', name: 'Alex', order: 0, updatedAt: T0 }],
-    lists: [list('l-alex', { folderId: 'f-alex' }), list('l-alex-shared', { shared: true, folderId: 'f-alex' })],
+    lists: [
+      list('l-alex', { folderId: 'f-alex' }),
+      list('l-alex-shared', { shared: true, folderId: 'f-alex' }),
+      list('l-alex-busy', { shared: true, folderId: 'f-alex' }),
+    ],
     tasks: [
       task('t-inbox', { listId: null }),
       task('t-private', { listId: 'l-alex' }),
-      task('t-shared', { listId: 'l-alex-shared' }),
+      task('t-shared', { listId: 'l-alex-shared', notes: 'alex wrote this' }),
+      task('t-alex-family', { listId: 'l-family' }),
+    ],
+  });
+  await h.push(OWNER_AUTH, {
+    tasks: [
       task('t-family', { listId: 'l-family', assigneeId: alex.member.id }),
+      task('t-owner-in-alex', { listId: 'l-alex-busy' }),
     ],
   });
   const count = (sql: string) => (h.db.prepare(sql).get() as { n: number }).n;
@@ -281,23 +294,76 @@ test('deleting your own account erases what only you could see and hands shared 
   assert.equal(deleted.statusCode, 200, deleted.body);
   assert.equal((await h.app.inject({ headers: alex.auth, method: 'GET', url: '/api/v1/me' })).statusCode, 401);
 
-  // Gone for good, not hidden.
+  // What only they could see is gone for good.
   assert.equal(count(`SELECT COUNT(*) AS n FROM users WHERE id = '${alex.member.id}'`), 0);
   assert.equal(count(`SELECT COUNT(*) AS n FROM devices WHERE user_id = '${alex.member.id}'`), 0);
   assert.equal(count("SELECT COUNT(*) AS n FROM tasks WHERE id IN ('t-inbox', 't-private')"), 0);
-  assert.equal(count("SELECT COUNT(*) AS n FROM task_revisions WHERE task_id IN ('t-inbox', 't-private')"), 0);
   assert.equal(count("SELECT COUNT(*) AS n FROM lists WHERE id = 'l-alex'"), 0);
   assert.equal(count("SELECT COUNT(*) AS n FROM folders WHERE id = 'f-alex'"), 0);
   assert.equal(count(`SELECT COUNT(*) AS n FROM tasks WHERE owner_id = '${alex.member.id}' OR assignee_id = '${alex.member.id}'`), 0);
 
-  // What the household shared stays, and the owner's next pull picks up the handover.
+  // What they added where others could see it is scrubbed, and has no history left.
+  assert.equal(count("SELECT COUNT(*) AS n FROM tasks WHERE id IN ('t-shared', 't-alex-family') AND (title != '' OR notes != '')"), 0);
+  assert.equal(count("SELECT COUNT(*) AS n FROM task_revisions WHERE task_id IN ('t-inbox', 't-private', 't-shared', 't-alex-family')"), 0);
+  assert.equal(count("SELECT COUNT(*) AS n FROM lists WHERE id = 'l-alex-shared' AND name != ''"), 0);
+
+  // The owner's next pull drops them, and keeps the list that still holds the owner's task.
   const after = await h.sync(OWNER_AUTH, before.now);
-  const handed = after.lists.find((l: ListDef) => l.id === 'l-alex-shared');
+  assert.deepEqual([...after.removed.tasks].sort(), ['t-alex-family', 't-shared']);
+  assert.deepEqual(after.removed.lists, ['l-alex-shared']);
+  const handed = after.lists.find((l: ListDef) => l.id === 'l-alex-busy');
+  assert.equal(handed.ownerId, 'u-owner');
   assert.equal(handed.folderId, null);
-  assert.ok(after.tasks.some((t: Task) => t.id === 't-shared'));
   assert.equal(after.tasks.find((t: Task) => t.id === 't-family').assigneeId ?? null, null);
+  const full = await h.sync(OWNER_AUTH);
+  assert.ok(!full.tasks.some((t: Task) => t.id === 't-shared' || t.id === 't-alex-family'));
+  assert.ok(full.tasks.some((t: Task) => t.id === 't-owner-in-alex'));
+
+  // A stale copy pushed back from another phone does not bring a tombstone back.
+  await h.push(OWNER_AUTH, { tasks: [task('t-shared', { listId: 'l-family', updatedAt: '2099-01-01T00:00:00.000Z' })] });
+  assert.equal(count("SELECT COUNT(*) AS n FROM tasks WHERE id = 't-shared' AND list_id IS NOT NULL"), 0);
   const people = (await h.app.inject({ headers: OWNER_AUTH, method: 'GET', url: '/api/v1/household' })).json();
   assert.ok(!people.members.some((m: { id: string }) => m.id === alex.member.id));
+});
+
+test('the owner can erase the whole household, and nobody else can', async () => {
+  const h = await household();
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'yarukoto-erase-'));
+  fs.writeFileSync(path.join(dir, 'yarukoto-2026-10-01T00-00-00Z.db'), 'old');
+  fs.writeFileSync(path.join(dir, 'unrelated.txt'), 'keep');
+  const alex = await h.pair(OWNER_AUTH, 'member', 'Alex');
+  const phone = await h.pair(OWNER_AUTH, 'self');
+  await h.push(OWNER_AUTH, {
+    folders: [{ id: 'f-home', name: 'Home', order: 0, updatedAt: T0 }],
+    lists: [list('l-home', { folderId: 'f-home', shared: true })],
+    tasks: [task('t-inbox', { notes: 'secret' }), task('t-home', { listId: 'l-home' })],
+  });
+  const before = await h.sync(OWNER_AUTH);
+  await new Promise((resolve) => setTimeout(resolve, 5));
+
+  const refused = await h.app.inject({ headers: alex.auth, method: 'DELETE', url: '/api/v1/household' });
+  assert.equal(refused.statusCode, 403);
+
+  eraseHousehold(h.db, OWNER_VIEWER, dir);
+  const count = (sql: string) => (h.db.prepare(sql).get() as { n: number }).n;
+  assert.equal(count("SELECT COUNT(*) AS n FROM tasks WHERE title != '' OR notes != '' OR deleted_at IS NULL"), 0);
+  assert.equal(count('SELECT COUNT(*) AS n FROM task_revisions'), 0);
+  assert.equal(count("SELECT COUNT(*) AS n FROM lists WHERE name != '' OR deleted_at IS NULL"), 0);
+  assert.equal(count("SELECT COUNT(*) AS n FROM folders WHERE name != '' OR deleted_at IS NULL"), 0);
+  assert.equal(count('SELECT COUNT(*) AS n FROM devices'), 0);
+  assert.equal(count("SELECT COUNT(*) AS n FROM users WHERE id != 'u-owner'"), 0);
+  assert.deepEqual(fs.readdirSync(dir), ['unrelated.txt']);
+
+  // Every other device is signed out; the server token still works, on an empty server.
+  assert.equal((await h.app.inject({ headers: alex.auth, method: 'GET', url: '/api/v1/me' })).statusCode, 401);
+  assert.equal((await h.app.inject({ headers: phone.auth, method: 'GET', url: '/api/v1/me' })).statusCode, 401);
+  const after = await h.sync(OWNER_AUTH, before.now);
+  assert.deepEqual([...after.removed.tasks].sort(), ['t-home', 't-inbox']);
+  assert.deepEqual(after.removed.lists, ['l-home']);
+  assert.ok(after.folders.every((f: { deletedAt?: string }) => f.deletedAt));
+  const full = await h.sync(OWNER_AUTH);
+  assert.equal(full.tasks.length, 0);
+  assert.equal(full.lists.length, 0);
 });
 
 test('a device can be signed out, and a member may only sign out their own', async () => {

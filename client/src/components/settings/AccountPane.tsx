@@ -13,9 +13,10 @@ interface Props {
 }
 
 /**
- * Who is signed in here, and — for anyone but the owner — deleting the account
- * outright. Signing this device out sits with Switch server (`LeaveGroup`), where
- * the difference between the two is explained once.
+ * Who is signed in here, and erasing it: a member deletes their own account, and
+ * the owner — whose account is the server's own — erases the whole household.
+ * Signing this device out sits with Switch server (`LeaveGroup`), where the
+ * difference between the two is explained once.
  */
 export default function AccountPane({ household, onLeft }: Props) {
   const { state, supportsFeature, disconnect, removeSavedServer } = useTasks();
@@ -23,23 +24,28 @@ export default function AccountPane({ household, onLeft }: Props) {
   const { me, deviceId } = household;
   const thisDevice = deviceId ? household.devices?.find((d) => d.id === deviceId)?.name : null;
 
-  const deleteAccount = async () => {
+  const isOwner = me?.id === OWNER_ID;
+  const feature = isOwner ? 'eraseHousehold' : 'deleteAccount';
+
+  const erase = async () => {
     const sure = await confirmAsync(
-      'Delete your account?',
-      "This permanently erases your account, your private lists, your Inbox and your own filters and folders from the server, and signs out all your devices. Shared lists you made stay with the household. This can't be undone.",
-      'Delete account',
+      isOwner ? 'Erase everything on this server?' : 'Delete your account?',
+      isOwner
+        ? "This permanently erases every list, task, folder and filter on this server, removes everyone else in the household, signs out every device, and deletes the server's backups. This can't be undone."
+        : "This permanently erases your account, your private lists, your Inbox, your own filters and folders, and every task you added to a shared list, and signs out all your devices. This can't be undone.",
+      isOwner ? 'Erase everything' : 'Delete account',
       true
     );
     if (!sure) return;
     setDeleting(true);
     try {
-      await household.api.deleteAccount();
+      await (isOwner ? household.api.eraseHousehold() : household.api.deleteAccount());
     } catch (err) {
       setDeleting(false);
       household.setError(err instanceof ApiError ? err.message : 'Could not delete your account.');
       return;
     }
-    // The token died with the account, so forget this server here too.
+    // A member's token died with the account; the owner's server is empty. Either way, forget it here.
     removeSavedServer(state.serverUrl);
     disconnect();
     onLeft();
@@ -59,10 +65,23 @@ export default function AccountPane({ household, onLeft }: Props) {
         </Group>
       )}
 
-      {me && me.id !== OWNER_ID && supportsFeature('deleteAccount') && (
-        <Group note="Erases your account and everything only you can see. Shared lists you made stay with the household.">
-          <Row title="Delete my account" tone="danger" onPress={deleteAccount} busy={deleting} />
+      {me && supportsFeature(feature) && (
+        <Group
+          note={
+            isOwner
+              ? "Your account is this server's own, so deleting it means erasing all of the household's data. The server keeps running, empty."
+              : "Erases your account, everything only you can see, and every task you added to a shared list. Shared lists you made stay with the household if anyone else's tasks are in them."
+          }
+        >
+          <Row title={isOwner ? 'Erase all data' : 'Delete my account'} tone="danger" onPress={erase} busy={deleting} />
         </Group>
+      )}
+      {me && !supportsFeature(feature) && (
+        <Note>
+          {isOwner
+            ? 'To erase all data from the app, update the server. Until then, stop the server and delete its data folder.'
+            : 'This server needs an update before you can delete your account from the app. Ask whoever runs it, or see yarukotoapp.com/privacy.html.'}
+        </Note>
       )}
 
       {household.error ? <Note tone="error">{household.error}</Note> : null}
