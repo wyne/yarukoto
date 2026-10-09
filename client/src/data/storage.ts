@@ -1,4 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as SecureStore from 'expo-secure-store';
+import { Platform } from 'react-native';
 import { ACCENT_OPTIONS, AccentColor, DEFAULT_ACCENT, SchemePref } from '../theme/colors';
 import { SnoozedReminder } from './notificationActions';
 import { Household, parseHousehold } from './household';
@@ -25,6 +27,10 @@ import { EMPTY_CRITERIA, TaskCriteria, isEmptyCriteria, normalizeCriteria } from
  * The alternative, making every caller async, would mean a loading state
  * threaded through `initState()` and the provider for the sake of a few hundred
  * bytes read once per launch.
+ *
+ * Credentials — the access token and each saved server's token — live in the
+ * Keychain / Android Keystore through SecureStore instead, behind the same
+ * cache. On web there is no secure store, so they stay in localStorage there.
  */
 
 const URL_KEY = 'yarukoto.serverUrl';
@@ -59,6 +65,54 @@ const ALL_KEYS = [
   SNOOZES_KEY,
 ];
 
+/** Kept in SecureStore rather than AsyncStorage, on platforms that have one. */
+const SECURE_KEYS = new Set([TOKEN_KEY, SAVED_SERVERS_KEY]);
+const hasSecureStore = Platform.OS === 'ios' || Platform.OS === 'android';
+/**
+ * Readable after the first unlock since boot, so a reminder action handled in
+ * the background while the phone is locked can still sign its request. Never
+ * restored to another device: a new phone signs in again.
+ */
+const SECURE_OPTIONS: SecureStore.SecureStoreOptions = {
+  keychainAccessible: SecureStore.AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY,
+};
+
+function isSecure(key: string): boolean {
+  return hasSecureStore && SECURE_KEYS.has(key);
+}
+
+/**
+ * Reads a credential, moving it out of AsyncStorage on the first launch after
+ * an update. The AsyncStorage copy is deleted only once SecureStore holds it,
+ * and if SecureStore can't be read the old copy is used, so a keychain hiccup
+ * never signs anyone out.
+ */
+async function readSecure(key: string, legacy: string | null): Promise<string | null> {
+  try {
+    const stored = await SecureStore.getItemAsync(key, SECURE_OPTIONS);
+    if (stored !== null) {
+      if (legacy !== null) await AsyncStorage.removeItem(key).catch(() => {});
+      return stored;
+    }
+    if (legacy !== null) {
+      await SecureStore.setItemAsync(key, legacy, SECURE_OPTIONS);
+      await AsyncStorage.removeItem(key).catch(() => {});
+    }
+  } catch {
+    // Fall through to whatever AsyncStorage still has.
+  }
+  return legacy;
+}
+
+/**
+ * The access token, read without `initStorage()`. For the Android headless
+ * task that answers a notification action, which runs without the app's cache.
+ */
+export async function readStoredToken(): Promise<string | null> {
+  const legacy = await AsyncStorage.getItem(TOKEN_KEY).catch(() => null);
+  return isSecure(TOKEN_KEY) ? readSecure(TOKEN_KEY, legacy) : legacy;
+}
+
 const SERVER_SNAPSHOT_SCHEMA = 1;
 const FIRST_TAB_VIEW_SCHEMA = 1;
 
@@ -74,6 +128,9 @@ export async function initStorage(): Promise<void> {
   try {
     const entries = await AsyncStorage.multiGet(ALL_KEYS);
     cache = Object.fromEntries(entries);
+    for (const key of SECURE_KEYS) {
+      if (isSecure(key)) cache[key] = await readSecure(key, cache[key] ?? null);
+    }
   } catch {
     // Blocked or unavailable storage (private-mode Safari, for one) shouldn't
     // stop the app from starting — it just won't remember anything.
@@ -93,11 +150,14 @@ function write(key: string, value: string): void {
   cache[key] = value;
   // Fire-and-forget: the cache is already authoritative for this session, so a
   // failed write costs a re-connect next launch rather than breaking anything now.
-  AsyncStorage.setItem(key, value).catch(() => {});
+  if (isSecure(key)) SecureStore.setItemAsync(key, value, SECURE_OPTIONS).catch(() => {});
+  else AsyncStorage.setItem(key, value).catch(() => {});
 }
 
 function remove(key: string): void {
   cache[key] = null;
+  if (isSecure(key)) SecureStore.deleteItemAsync(key, SECURE_OPTIONS).catch(() => {});
+  // Also clears a copy left from before credentials moved to SecureStore.
   AsyncStorage.removeItem(key).catch(() => {});
 }
 
