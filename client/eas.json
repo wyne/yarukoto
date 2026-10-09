@@ -12,19 +12,22 @@
         "image": "latest"
       },
       "env": {
-        "APP_VARIANT": "development"
+        "APP_VARIANT": "development",
+        "SHARP_IGNORE_GLOBAL_LIBVIPS": "1"
       }
     },
     "preview": {
       "distribution": "internal",
       "env": {
-        "APP_VARIANT": "preview"
+        "APP_VARIANT": "preview",
+        "SHARP_IGNORE_GLOBAL_LIBVIPS": "1"
       }
     },
     "production": {
       "autoIncrement": true,
       "env": {
-        "APP_VARIANT": "production"
+        "APP_VARIANT": "production",
+        "SHARP_IGNORE_GLOBAL_LIBVIPS": "1"
       }
     }
   },
