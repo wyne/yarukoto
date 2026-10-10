@@ -64,8 +64,7 @@ interface SidebarValue {
    * finger halfway through a swipe has moved one and not the other.
    */
   drawerProgress: SharedValue<number>;
-  /** Wide layouts only: the pinned sidebar shrinks to an icon rail. */
-  collapsed: boolean;
+  /** Shrinks the pinned sidebar to an icon rail and back. Stable; the state is in `useSidebarCollapsed`. */
   toggleCollapsed: () => void;
   /** Server sheet lives at the Layout level so it survives the drawer closing. */
   serverOpen: boolean;
@@ -95,6 +94,14 @@ interface DrawerStateValue {
 
 const SidebarContext = createContext<SidebarValue | null>(null);
 const DrawerStateContext = createContext<DrawerStateValue | null>(null);
+/**
+ * Wide layouts only: whether the pinned sidebar is an icon rail.
+ *
+ * Isolated for the same reason as the drawer state. Every screen and every task
+ * row reads `useSidebar()` for `wide`, so a rail toggle carried in that value
+ * re-rendered all of them before the sidebar could move, which is what made ⌘S lag.
+ */
+const CollapsedContext = createContext(false);
 
 export function SidebarProvider({ children }: { children: React.ReactNode }) {
   const { width } = useWindowDimensions();
@@ -154,13 +161,14 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
     setDrawerOpen(true);
   }, [startOpening]);
 
+  const toggleCollapsed = useCallback(() => setCollapsed((v) => !v), []);
+
   const value = useMemo<SidebarValue>(
     () => ({
       wide,
       openDrawer,
       drawerProgress,
-      collapsed,
-      toggleCollapsed: () => setCollapsed((v) => !v),
+      toggleCollapsed,
       serverOpen,
       openServer: (pairCode?: string) => {
         dismissDrawer();
@@ -175,7 +183,7 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
       openNavSheet: (sheet: NavSheet) => { dismissDrawer(); setNavSheet(sheet); },
       closeNavSheet: () => setNavSheet(null),
     }),
-    [wide, openDrawer, drawerProgress, dismissDrawer, collapsed, serverOpen, serverPairCode, navSheet]
+    [wide, openDrawer, drawerProgress, dismissDrawer, toggleCollapsed, serverOpen, serverPairCode, navSheet]
   );
 
   const drawerState = useMemo<DrawerStateValue>(
@@ -185,7 +193,9 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <SidebarContext.Provider value={value}>
-      <DrawerStateContext.Provider value={drawerState}>{children}</DrawerStateContext.Provider>
+      <DrawerStateContext.Provider value={drawerState}>
+        <CollapsedContext.Provider value={collapsed}>{children}</CollapsedContext.Provider>
+      </DrawerStateContext.Provider>
     </SidebarContext.Provider>
   );
 }
@@ -201,4 +211,9 @@ export function useDrawerState(): DrawerStateValue {
   const ctx = useContext(DrawerStateContext);
   if (!ctx) throw new Error('useDrawerState must be used within a SidebarProvider');
   return ctx;
+}
+
+/** Whether the pinned sidebar is a rail. Read only where that changes what is drawn. */
+export function useSidebarCollapsed(): boolean {
+  return useContext(CollapsedContext);
 }

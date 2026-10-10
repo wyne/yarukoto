@@ -31,7 +31,7 @@ import {
 import { BrowseParams, InboxParams, NativeTaskViewParams } from '../navigation/types';
 import { NATIVE_LIST_DESTINATIONS, tabNavigation } from '../navigation/destinations';
 import { filterTasks } from '../data/taskFilter';
-import { useSidebar } from '../navigation/SidebarContext';
+import { useSidebar, useSidebarCollapsed } from '../navigation/SidebarContext';
 import NavContextMenu, { NavMenuTarget } from './NavContextMenu';
 import ContextMenuTarget from './ContextMenuTarget';
 import type { PopoverAnchor } from './Popover';
@@ -180,7 +180,8 @@ const Sidebar = React.memo(function Sidebar({ state, navigation, onNavigate }: P
     /** The depth the sideways travel is currently asking for. */
     intent: 0 | 1;
   } | null>(null);
-  const { wide, collapsed: collapsedPref, toggleCollapsed, openServer, openNavSheet } = useSidebar();
+  const { wide, toggleCollapsed, openServer, openNavSheet } = useSidebar();
+  const collapsedPref = useSidebarCollapsed();
   const scrollRef = useAnimatedRef<Animated.ScrollView>();
   // The drawer is a transient overlay, so it always shows the full sidebar.
   const collapsed = wide && collapsedPref;
