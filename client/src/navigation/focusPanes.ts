@@ -33,14 +33,24 @@ const PENDING_MS = 1500;
 /**
  * Hands the keyboard to a pane. False when no pane of that kind is on screen.
  *
- * `mounting` is for a pane that is about to appear, or to be replaced — the
- * task pane is keyed by its task, so opening another one remounts it. The
- * keyboard then goes to the pane that registers next, rather than to the one
- * on its way out.
+ * `mounting` is for a pane that is about to appear, or to change — opening
+ * another task may remount the task pane. The keyboard then goes to the pane
+ * that registers next, rather than to the one on its way out, or after a
+ * couple of frames to whichever is there if none does.
  */
 export function focusPane(pane: Pane, { mounting = false }: { mounting?: boolean } = {}): boolean {
   if (mounting) {
-    pending = { pane, at: Date.now() };
+    const asked = { pane, at: Date.now() };
+    pending = asked;
+    // If the pane is only re-rendered rather than remounted, nothing registers
+    // anew; hand it over after two frames, by when it shows the new task.
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() => {
+        if (pending !== asked) return;
+        pending = null;
+        focusers.get(pane)?.at(-1)?.();
+      })
+    );
     return true;
   }
   const stack = focusers.get(pane);
