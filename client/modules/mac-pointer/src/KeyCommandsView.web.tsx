@@ -37,10 +37,17 @@ export default function KeyCommandsView({
       if (!active || e.isComposing || e.defaultPrevented) return;
       const name = domKeyName(e);
       if (!keys.includes(name)) return;
-      const handled = (onKeyCommand as (event: unknown) => boolean | void)({ nativeEvent: { key: name } });
-      if (handled === false) return;
-      e.preventDefault();
-      e.stopPropagation();
+      let handled: boolean | void = true;
+      try {
+        handled = (onKeyCommand as (event: unknown) => boolean | void)({ nativeEvent: { key: name } });
+      } finally {
+        // Taken even if the handler threw part-way: by then it may have moved
+        // focus, and the browser's own Tab would move it again from there.
+        if (handled !== false) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+      }
     };
     el.addEventListener('keydown', onKey, true);
     return () => el.removeEventListener('keydown', onKey, true);
