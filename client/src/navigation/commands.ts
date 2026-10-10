@@ -124,9 +124,10 @@ export const COMMANDS: readonly CommandDef[] = [
   { id: 'italic', title: 'Italic', menu: 'edit', group: 'format', shortcut: cmd('i'), web: true, hiddenFromPalette: true },
 
   { id: 'commandMenu', title: 'Command Menu…', menu: 'view', group: 'commandMenu', shortcut: cmd('k'), web: true, hiddenFromPalette: true },
-  // ⌃⌘S is the Mac's own Show Sidebar key. Neither is on the web, where ⌥⌘I
-  // opens the browser's developer tools.
-  { id: 'toggleSidebar', title: 'Toggle Sidebar', menu: 'view', group: 'panes', shortcut: cmd('s', 'control'), keywords: 'show hide collapse' },
+  // A pair, ⌥⌘S and ⌥⌘I. Not ⌃⌘S: the system's own Show Sidebar item has it, and
+  // UIKit drops the whole inserted View section over one clashing key. Neither is
+  // on the web, where ⌥⌘I opens the browser's developer tools.
+  { id: 'toggleSidebar', title: 'Toggle Sidebar', menu: 'view', group: 'panes', shortcut: cmd('s', 'option'), keywords: 'show hide collapse' },
   { id: 'toggleTaskPane', title: 'Toggle Task Pane', menu: 'view', group: 'panes', shortcut: cmd('i', 'option'), list: true, keywords: 'show hide inspector detail' },
   // In sidebar order, so the number is the row. Not on the web: a browser keeps
   // ⌘1–9 (Ctrl+1–9) for its own tabs. The command menu already lists every view.
