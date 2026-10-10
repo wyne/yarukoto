@@ -13,29 +13,45 @@ engine, which keeps those keys for itself (⌘N opens a window, ⌘T a tab, ⌘1
 
 ## Moving around the window
 
-The window has three places your keys can go: the **add field** at the top of a list, the **task
-list**, and the **task pane** open beside it. One of them always has the keyboard. The task list's
+The window has four places your keys can go: the **sidebar**, the **add field** at the top of a
+list, the **task list**, and the **task pane** open beside it. One of them always has the keyboard. The task list's
 current row is tinted in your accent color while the list has it, and in gray while something else
 does.
 
 | Key | What it does |
 |---|---|
-| ⇥ Tab | Next place: add field, then list, then task pane, then round again |
+| ⇥ Tab | Next place: sidebar, add field, list, task pane, then round again |
 | ⇧⇥ Shift-Tab | The same, backwards |
 | ⎋ Escape | Leaves the field you're typing in and gives the keyboard to the list |
 | ⌘N | Puts the cursor in the add field *(Mac)* |
 | ⌘F | Search, in Browse *(Mac)* |
 | ⌘K | Command menu: go to any view, list, folder, tag or saved filter, or run any command |
 | ⌘1 to ⌘7 | All, Inbox, Today, Calendar, Activity, Browse, Trash *(Mac)* |
+| ⌃⌘S | Show or hide the sidebar *(Mac)* |
+| ⌥⌘I | Show or hide the task pane *(Mac)* |
+| ⌘/ | Keyboard shortcuts |
 | ⌘, | Settings *(Mac)* |
+
+## The sidebar
+
+| Key | What it does |
+|---|---|
+| ↑ ↓ | Move through views, lists, folders, filters and tags, showing each as you go |
+| → ← | Open or fold a folder. ← from a list in a folder goes up to the folder |
+| ↩ Return, ⎋ Escape or → | Back to the task list |
 
 ## The task list
 
 | Key | What it does |
 |---|---|
 | ↑ ↓ | Move between tasks |
+| ⌘↑ ⌘↓, or Home and End | First and last task |
+| Page Up, Page Down | Move ten tasks at a time |
 | ⇧↑ ⇧↓ | Select several tasks |
-| ↩ Return, or ⌘O | Open the task in the pane |
+| ↩ Return | Open the task and start editing its title |
+| Space, or ⌘O | Open the task beside the list, keeping the keyboard on the list |
+| → | Into the task pane, opening the task if it isn't |
+| ← | To the sidebar |
 | ⎋ Escape | Clear the selection, then close the task pane |
 | ⌘↩ | Mark as done |
 | ⌘T | Due today *(Mac)* |
@@ -67,4 +83,4 @@ So a quick capture is **⌘N**, type, **Return**, and **↓** or **Escape** to g
 | ⌘B, ⌘I | Bold and italic, in the notes |
 | ⎋ Escape | Back to the list, with the task still open |
 
-Tab past the last field moves on to the add field; Shift-Tab from the title goes back to the list.
+Tab past the last field moves on to the sidebar; Shift-Tab from the title goes back to the list.

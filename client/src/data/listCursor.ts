@@ -7,9 +7,10 @@
 /**
  * The row an arrow key lands on. With no cursor yet, or one on a row that has
  * since left the view, ↓ starts at the top and ↑ at the bottom, as a Mac list
- * does when nothing is selected. Stops at either end rather than wrapping.
+ * does when nothing is selected. Stops at either end rather than wrapping, so
+ * a step of a page, or of the whole list, lands on the last row it can.
  */
-export function stepCursor(ids: readonly string[], cursor: string | null, delta: 1 | -1): string | null {
+export function stepCursor(ids: readonly string[], cursor: string | null, delta: number): string | null {
   if (ids.length === 0) return null;
   const at = cursor === null ? -1 : ids.indexOf(cursor);
   if (at === -1) return delta > 0 ? ids[0] : ids[ids.length - 1];

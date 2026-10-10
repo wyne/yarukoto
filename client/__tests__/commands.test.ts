@@ -99,7 +99,8 @@ describe('matching DOM keys', () => {
   test('extra modifiers make a different shortcut', () => {
     expect(webCommandFor(key('ArrowDown', 'ArrowDown'))?.def.id).toBe('nextTask');
     expect(webCommandFor(key('ArrowDown', 'ArrowDown', { shiftKey: true }))?.def.id).toBe('selectNext');
-    expect(webCommandFor(key('ArrowDown', 'ArrowDown', { metaKey: true }))).toBeUndefined();
+    expect(webCommandFor(key('ArrowDown', 'ArrowDown', { metaKey: true }))?.def.id).toBe('lastTask');
+    expect(webCommandFor(key('ArrowDown', 'ArrowDown', { altKey: true }))).toBeUndefined();
   });
 
   test('says whether a key was a plain list key, which a focused field keeps', () => {

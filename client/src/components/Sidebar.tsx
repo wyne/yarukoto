@@ -36,9 +36,17 @@ import NavContextMenu, { NavMenuTarget } from './NavContextMenu';
 import ContextMenuTarget from './ContextMenuTarget';
 import type { PopoverAnchor } from './Popover';
 import { FolderDef, ListDef } from '../data/types';
-import { FINE_POINTER } from '../data/platform';
+import { DESKTOP_UI, FINE_POINTER, MAC } from '../data/platform';
+import KeyCommandsView from '../../modules/mac-pointer/src/KeyCommandsView';
+import {
+  focusNextPane,
+  focusPane,
+  setSidebarHasKeyboard,
+  useSidebarHoldsKeyboard,
+  usePaneFocus,
+} from '../navigation/focusPanes';
 import DragList from './DragList';
-import { NavRow, flattenTree, resolveDrop } from './sidebar/navTree';
+import { NavRow, flattenTree, parentOf, resolveDrop } from './sidebar/navTree';
 import { loadCollapsedFolders, saveCollapsedFolders } from '../data/storage';
 import SyncIndicator from './SyncIndicator';
 import {
@@ -515,13 +523,87 @@ const Sidebar = React.memo(function Sidebar({ state, navigation, onNavigate }: P
     if (settled) setPending(null);
   }, [settled]);
 
+  /**
+   * The sidebar from the keyboard, on the desktop: ↑ and ↓ move through every
+   * row and show it at once, as Mail does with mailboxes; → and ← open and
+   * fold a folder (← from a list in one goes up to the folder); Return,
+   * Escape or Tab hand the keyboard to the list.
+   *
+   * Taken with Tab or Shift-Tab round the window's panes, or ← from the list.
+   */
+  const navTargets = useMemo((): PendingRow[] => {
+    const out: PendingRow[] = VIEWS.map(({ route }) => ({ kind: 'route', value: route }));
+    for (const row of rows) {
+      out.push(row.kind === 'folder' ? { kind: 'folder', value: row.folder.id } : { kind: 'list', value: row.list.id });
+    }
+    if (!collapsed && supportsFeature('savedFilters')) {
+      for (const { filter } of savedFilters) out.push({ kind: 'savedFilter', value: filter.id });
+    }
+    if (!collapsed) for (const { tag } of tags) out.push({ kind: 'tag', value: tag });
+    return out;
+  }, [rows, savedFilters, tags, collapsed, supportsFeature]);
+
+  const openTarget = (target: PendingRow) => {
+    if (target.kind === 'route') go(target.value);
+    else if (target.kind === 'list') openList(target.value);
+    else if (target.kind === 'folder') openFolder(target.value);
+    else if (target.kind === 'tag') openTag(target.value);
+    else openSavedFilter(target.value);
+  };
+
+  const keyboardSidebar = DESKTOP_UI && wide;
+  const [keyFocus, setKeyFocus] = useState(0);
+  usePaneFocus('sidebar', () => {
+    setSidebarHasKeyboard(true);
+    // A frame later, so the view is focusable by the time it is asked to take
+    // focus; see SidebarFrame.
+    requestAnimationFrame(() => setKeyFocus((n) => n + 1));
+  }, keyboardSidebar);
+
+  const handleKey = (name: string) => {
+    const at = navTargets.findIndex((t) => showActive(t.kind, t.value));
+    const here = at === -1 ? null : navTargets[at];
+    const row = here && (here.kind === 'folder' || here.kind === 'list')
+      ? rows.find((r) => (r.kind === 'folder' ? r.folder.id : r.list.id) === here.value && r.kind === here.kind)
+      : undefined;
+    switch (name) {
+      case 'down':
+      case 'up': {
+        const next = navTargets[Math.min(navTargets.length - 1, Math.max(0, at + (name === 'down' ? 1 : -1)))];
+        if (next && next !== here) openTarget(next);
+        return;
+      }
+      case 'right':
+        if (row?.kind === 'folder' && collapsedFolders.includes(row.folder.id)) toggleFolder(row.folder.id);
+        else focusPane('list');
+        return;
+      case 'left':
+        if (row?.kind === 'folder' && !collapsedFolders.includes(row.folder.id)) toggleFolder(row.folder.id);
+        else if (row?.kind === 'list' && parentOf(row)) openFolder(parentOf(row)!);
+        return;
+      case 'tab':
+      case 'shift+tab':
+        setSidebarHasKeyboard(false);
+        focusNextPane('sidebar', name === 'tab' ? 1 : -1);
+        return;
+      default:
+        // Return and Escape: back to the list.
+        focusPane('list');
+    }
+  };
+
+  const sidebarStyle = [
+    styles.sidebar,
+    collapsed && { width: SIDEBAR_COLLAPSED_WIDTH },
+    { paddingTop: insets.top + 14 },
+  ];
+
   return (
-    <View
-      style={[
-        styles.sidebar,
-        collapsed && { width: SIDEBAR_COLLAPSED_WIDTH },
-        { paddingTop: insets.top + 14 },
-      ]}
+    <SidebarFrame
+      keyboard={keyboardSidebar}
+      style={sidebarStyle}
+      focusKey={keyFocus}
+      onKey={handleKey}
     >
       <View style={[styles.brandRow, collapsed && styles.brandRowCollapsed]}>
         {!collapsed && <Text style={styles.brand}>Yarukoto</Text>}
@@ -755,11 +837,52 @@ const Sidebar = React.memo(function Sidebar({ state, navigation, onNavigate }: P
             : undefined
         }
       />
-    </View>
+    </SidebarFrame>
   );
 });
 
 export default Sidebar;
+
+const SIDEBAR_KEYS = ['up', 'down', 'left', 'right', 'return', 'escape', 'tab', 'shift+tab'];
+
+/**
+ * The sidebar's outer view, which on the desktop is also where its keys are
+ * heard: a view that takes the keyboard itself, as the task list's does
+ * (KeyCommandsView), since nothing in the sidebar is a field.
+ */
+function SidebarFrame({
+  keyboard,
+  style,
+  focusKey,
+  onKey,
+  children,
+}: {
+  keyboard: boolean;
+  style: React.ComponentProps<typeof View>['style'];
+  focusKey: number;
+  onKey: (name: string) => void;
+  children: React.ReactNode;
+}) {
+  const sidebarHolds = useSidebarHoldsKeyboard();
+  // Not on a phone, which has no keys to answer, nor Android, which has no such view.
+  if (!keyboard || !(MAC || Platform.OS === 'web')) return <View style={style}>{children}</View>;
+  return (
+    <KeyCommandsView
+      style={style}
+      keys={SIDEBAR_KEYS}
+      // Only once asked for: a focusable key view takes focus as it appears,
+      // and the sidebar appears with the window, ahead of the list.
+      focusable={sidebarHolds}
+      focusKey={focusKey}
+      onFocusChange={({ nativeEvent }) => {
+        if (!nativeEvent.focused) setSidebarHasKeyboard(false);
+      }}
+      onKeyCommand={({ nativeEvent }) => onKey(nativeEvent.key)}
+    >
+      {children}
+    </KeyCommandsView>
+  );
+}
 
 /**
  * Folds a row shut in place, without taking it out of the tree.

@@ -184,13 +184,14 @@ const openPrivacy = () => openLink(LINKS.privacy);
 
 /** Mounted once, in the main layout, so it never runs over the first-run screen. */
 export default function MenuCommands() {
-  const { openServer } = useSidebar();
+  const { openServer, wide, toggleCollapsed } = useSidebar();
   const { undo } = useTasks();
   const pendingUndo = usePendingUndo();
   const [paletteOpen, setPaletteOpen] = useState(false);
 
   useCommandHandler('settings', openServer, DESKTOP_UI);
   useCommandHandler('commandMenu', useCallback(() => setPaletteOpen(true), []), DESKTOP_UI);
+  useCommandHandler('toggleSidebar', toggleCollapsed, DESKTOP_UI && wide);
   useCommandHandler('goAll', goAll, DESKTOP_UI);
   useCommandHandler('goInbox', goInbox, DESKTOP_UI);
   useCommandHandler('goToday', goToday, DESKTOP_UI);
