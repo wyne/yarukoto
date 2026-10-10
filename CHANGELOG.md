@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.0.1](https://github.com/wyne/yarukoto/compare/v1.0.0...v1.0.1) (2026-10-10)
+
+
+### Documentation
+
+* add MIT license ([#217](https://github.com/wyne/yarukoto/issues/217)) ([608bc38](https://github.com/wyne/yarukoto/commit/608bc38cda375aa7786e0ed6a232f8726f0d597e))
+
+
+### Infrastructure
+
+* fix EAS release preflight path ([#215](https://github.com/wyne/yarukoto/issues/215)) ([8688340](https://github.com/wyne/yarukoto/commit/86883402cc6cebdbc39dda1dd9569d65edeb5966))
+
 ## 1.0.0 (2026-10-10)
 
 
