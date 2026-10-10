@@ -11,23 +11,25 @@ import type { KeyCommandsViewProps } from './KeyCommandsView';
  * capture phase on this view's own node hears it first, as the Mac's key
  * commands do, and only while focus is somewhere inside.
  *
- * Only the wrapper half: `focusable` means nothing here, since the web's list
- * hears its keys on `document` (MenuCommands). An `onKeyCommand` that returns
- * false leaves the key to the browser — Tab on a button keeps moving between
- * buttons, say.
+ * `focusable` makes the view itself a tab stop that takes focus when
+ * `focusKey` changes, as the sidebar does; the task list doesn't use it here,
+ * since the web's list hears its keys on `document` (MenuCommands). An
+ * `onKeyCommand` that returns false leaves the key to the browser — Tab on a
+ * button keeps moving between buttons, say.
  */
 export default function KeyCommandsView({
   keys,
   active = true,
   onKeyCommand,
-  focusable: _focusable,
-  focusKey: _focusKey,
-  onFocusChange: _onFocusChange,
+  focusable = false,
+  focusKey = 0,
+  onFocusChange,
+  style,
   ...rest
 }: KeyCommandsViewProps) {
   const node = useRef<HTMLElement | null>(null);
-  const latest = useRef({ keys, active, onKeyCommand });
-  latest.current = { keys, active, onKeyCommand };
+  const latest = useRef({ keys, active, onKeyCommand, onFocusChange });
+  latest.current = { keys, active, onKeyCommand, onFocusChange };
 
   useEffect(() => {
     const el = node.current;
@@ -49,9 +51,32 @@ export default function KeyCommandsView({
         }
       }
     };
+    // Whether the view itself has focus, as the Mac reports first responder.
+    const report = (focused: boolean) => () =>
+      latest.current.onFocusChange?.({ nativeEvent: { focused } } as never);
+    const onIn = (e: FocusEvent) => e.target === el && report(true)();
+    const onOut = (e: FocusEvent) => e.target === el && report(false)();
     el.addEventListener('keydown', onKey, true);
-    return () => el.removeEventListener('keydown', onKey, true);
+    el.addEventListener('focusin', onIn);
+    el.addEventListener('focusout', onOut);
+    return () => {
+      el.removeEventListener('keydown', onKey, true);
+      el.removeEventListener('focusin', onIn);
+      el.removeEventListener('focusout', onOut);
+    };
   }, []);
 
-  return <View ref={node as never} {...rest} />;
+  useEffect(() => {
+    if (focusable && focusKey > 0 && active) node.current?.focus?.();
+  }, [focusable, focusKey, active]);
+
+  return (
+    <View
+      ref={node as never}
+      focusable={focusable}
+      // The view's own focus is shown by what it draws, not a browser outline.
+      style={focusable ? [style, { outlineWidth: 0 } as never] : style}
+      {...rest}
+    />
+  );
 }

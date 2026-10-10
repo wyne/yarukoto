@@ -7,6 +7,7 @@ import { LINKS, openLink } from '../data/links';
 import { PendingUndo, usePendingUndo, useTasks } from '../data/TaskContext';
 import { anyLayerOpen } from '../components/openLayers';
 import CommandPalette from '../components/CommandPalette';
+import KeyboardShortcuts from '../components/KeyboardShortcuts';
 import { COMMANDS, CommandId, commandDef, webCommandFor } from './commands';
 import { navigationRef } from './DateTimePickerContext';
 import { tabNavigation } from './destinations';
@@ -184,13 +185,16 @@ const openPrivacy = () => openLink(LINKS.privacy);
 
 /** Mounted once, in the main layout, so it never runs over the first-run screen. */
 export default function MenuCommands() {
-  const { openServer } = useSidebar();
+  const { openServer, wide, toggleCollapsed } = useSidebar();
   const { undo } = useTasks();
   const pendingUndo = usePendingUndo();
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
 
   useCommandHandler('settings', openServer, DESKTOP_UI);
   useCommandHandler('commandMenu', useCallback(() => setPaletteOpen(true), []), DESKTOP_UI);
+  useCommandHandler('keyboardShortcuts', useCallback(() => setShortcutsOpen(true), []), DESKTOP_UI);
+  useCommandHandler('toggleSidebar', toggleCollapsed, DESKTOP_UI && wide);
   useCommandHandler('goAll', goAll, DESKTOP_UI);
   useCommandHandler('goInbox', goInbox, DESKTOP_UI);
   useCommandHandler('goToday', goToday, DESKTOP_UI);
@@ -276,5 +280,10 @@ export default function MenuCommands() {
   }, [undoToken, undoKind]);
 
   if (!DESKTOP_UI) return null;
-  return <CommandPalette visible={paletteOpen} onClose={() => setPaletteOpen(false)} />;
+  return (
+    <>
+      <CommandPalette visible={paletteOpen} onClose={() => setPaletteOpen(false)} />
+      <KeyboardShortcuts visible={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
+    </>
+  );
 }

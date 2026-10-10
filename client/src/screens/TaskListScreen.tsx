@@ -37,7 +37,17 @@ import { useCommand } from '../navigation/MenuCommands';
 import { rangeBetween, stepCursor } from '../data/listCursor';
 import TaskRow from '../components/TaskRow';
 import ListKeys from '../components/ListKeys';
-import { focusNextPane, releaseWebField, useListHasKeyboard, usePaneFocus } from '../navigation/focusPanes';
+import {
+  focusNextPane,
+  focusPane,
+  releaseWebField,
+  takeKeyboardFromSidebar,
+  useListHasKeyboard,
+  usePaneFocus,
+} from '../navigation/focusPanes';
+
+/** How far Page Up and Page Down move the cursor: about a window's worth of rows. */
+const PAGE_ROWS = 10;
 import { useRowContext } from '../components/useRowContext';
 import Card from '../components/Card';
 import Divider from '../components/Divider';
@@ -350,7 +360,7 @@ const TaskListBody = memo(
   const head = useRef<string | null>(null);
   /** Bumped to hand the keyboard to the list, on the Mac; see ListKeys. */
   const [keyFocus, setKeyFocus] = useState(0);
-  const claimKeyboard = () => setKeyFocus((n) => n + 1);
+  const claimKeyboard = () => takeKeyboardFromSidebar(() => setKeyFocus((n) => n + 1));
   useEffect(() => {
     if (Platform.OS !== 'web') return;
     const onDown = (e: PointerEvent) => {
@@ -516,6 +526,39 @@ const TaskListBody = memo(
   useCommand('selectNext', () => extendTo(1), hasRows);
   useCommand('selectPrevious', () => extendTo(-1), hasRows);
   useCommand('openTask', () => cursor && openTask(cursor), keyboardList && !!cursor);
+  /**
+   * Return opens the task to edit it: the pane opens, or follows, and the
+   * caret goes into its title, so editing is Return, type, Escape. A pane
+   * for another task remounts for this one, so the focus waits for it.
+   */
+  const editCursor = () => {
+    if (!cursor) return;
+    // A narrow window opens it as a sheet instead, with no pane to go into.
+    if (openTaskId === cursor) {
+      if (wide) focusPane('pane');
+      return;
+    }
+    openTask(cursor);
+    if (wide) focusPane('pane', { mounting: true });
+  };
+  useCommand('editTask', editCursor, keyboardList && !!cursor);
+  useCommand('focusTaskPane', editCursor, keyboardList && wide && !!cursor);
+  useCommand('focusSidebar', () => focusPane('sidebar'), keyboardList && wide);
+  useCommand('firstTask', () => moveCursor(stepCursor(navIds, cursor, -navIds.length)), hasRows);
+  useCommand('lastTask', () => moveCursor(stepCursor(navIds, cursor, navIds.length)), hasRows);
+  useCommand('pageDown', () => moveCursor(stepCursor(navIds, cursor, PAGE_ROWS)), hasRows);
+  useCommand('pageUp', () => moveCursor(stepCursor(navIds, cursor, -PAGE_ROWS)), hasRows);
+  /** View ▸ Toggle Task Pane: closes the task beside the list, or opens the cursor's. */
+  useCommand(
+    'toggleTaskPane',
+    () => {
+      if (openTaskId) {
+        closeTask();
+        claimKeyboard();
+      } else if (cursor) openTask(cursor);
+    },
+    keyboardList && wide && (!!openTaskId || !!cursor)
+  );
   /**
    * Escape backs out one step: a selection first, then the task open beside the
    * list, as the pane's close button would. The row keeps its tint as the cursor,

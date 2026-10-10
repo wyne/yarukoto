@@ -178,12 +178,14 @@ stay web-only.
 | File | New Task — the pinned add field, or the Inbox's on a screen without one | ⌘N |
 | Edit | Find… — Browse's search | ⌘F |
 | View | Command Menu… | ⌘K |
+| View | Toggle Sidebar / Toggle Task Pane | ⌘S / ⌘D |
 | View | All, Inbox, Today, Calendar, Activity, Browse, Trash — the sidebar's views, in its order | ⌘1 to ⌘7 |
-| Task | Open Task | ⌘O, or ↩ in the list |
+| Task | Open Task — beside the list, keeping the keyboard there | ⌘O, or Space in the list |
 | Task | Mark as Done | ⌘↩ |
 | Task | Due Today / Due Tomorrow / Remove Due Date | ⌘T / ⌥⌘T / — |
 | Task | Priority ▸ High, Medium, Low, None | ⌥⌘1, 2, 3, 0 |
 | Task | Move to Trash | ⌫ in the list |
+| Help | Keyboard Shortcuts — every key, built from the same list | ⌘/ |
 | Help | Yarukoto Help / Contact Support / Privacy Policy — open the docs, the support page and the privacy policy in the browser | — |
 
 The Task menu works on the list's cursor: the row last clicked or arrowed to, which keeps its tint.
@@ -192,8 +194,9 @@ Help's own items replace the system's, which has no help book to open. A
 command nothing on screen can answer is dimmed, and a Task command also while a popover or dialog
 is up.
 
-**The list's own keys** — ↑ and ↓ to move the cursor, ⇧↑ and ⇧↓ to select, ↩ to open, ⌫ to trash,
-Escape to deselect — are not in the menu bar, and can't be: AppKit tries a menu key equivalent before
+**The list's own keys** — ↑ and ↓ to move the cursor, ⌘↑ ⌘↓ Home End and the page keys to jump,
+⇧↑ and ⇧↓ to select, ↩ to edit, Space to open, → and ← into the task pane and the sidebar, ⌫ to
+trash, Escape to deselect — are not in the menu bar, and can't be: AppKit tries a menu key equivalent before
 anything focused hears the key, so a plain ↩ there would take Return from every text field.
 Instead the list holds them itself, through `KeyCommandsView` in `client/modules/mac-pointer`,
 taking the keyboard when it appears, when you click in it, and when a dialog closes. A field
@@ -202,7 +205,9 @@ focused anywhere else keeps every key.
 **Moving between panes.** Tab and Shift-Tab go round the add field, the list and the task pane, and
 Escape in a field hands the keyboard back to the list. Each pane registers how it takes the
 keyboard with `usePaneFocus` (`src/navigation/focusPanes.ts`) while its screen is in front, so
-whatever moves focus only names the pane. The add field and the task pane are wrapped in a
+whatever moves focus only names the pane. The sidebar takes the keyboard in a focusable key view
+of its own; while it holds it, a list arriving at the front doesn't claim the keyboard as it
+normally would, or arrowing through views would pull the arrows out of the sidebar after one press. The add field and the task pane are wrapped in a
 non-focusable `KeyCommandsView` that claims Tab, Shift-Tab and Escape ahead of the field inside —
 which is also what stops the title, a text view on the Mac, from typing a tab character. On the web
 the same view listens in the capture phase (`KeyCommandsView.web.tsx`). The list's key view reports
