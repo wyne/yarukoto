@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { Platform, Pressable, Text, View } from 'react-native';
 import MenuView, { type MenuAction } from '../components/NativeMenu';
 import Animated, {
@@ -27,6 +27,7 @@ import { DESKTOP_UI, FINE_POINTER, FLOATING_TAB_BAR } from '../data/platform';
 import { INBOX_GROUP_KEY, TaskGroup, groupTasks, hasArrangement, viewKey } from '../data/viewOptions';
 import { useCollapsedSections } from '../data/uiPrefs';
 import { Task } from '../data/types';
+import { useIsFocused } from '@react-navigation/native';
 import { TaskListFilter } from '../navigation/types';
 import { PANE_MAX_WIDTH, useSidebar } from '../navigation/SidebarContext';
 import { NATIVE_FAB_CLEARANCE, nativeTabBarClearance } from '../navigation/nativeTabBarLayout';
@@ -99,7 +100,31 @@ interface Props {
   filter?: TaskListFilter;
 }
 
+/**
+ * The screen proper sits behind a memo that holds it still while it isn't in
+ * front. Tab screens stay mounted, and each one reads the open task and the
+ * cursor, so without this every ↑ and ↓ in the list on screen also re-rendered
+ * every list that wasn't. What those two were is handed down rather than read
+ * from context inside, since a context read would go around the memo.
+ */
 export default function TaskListScreen({ mode, filter }: Props) {
+  const detail = useDetail();
+  const selection = useSelection();
+  const focused = useIsFocused();
+  return <TaskListBody mode={mode} filter={filter} detail={detail} selection={selection} focused={focused} />;
+}
+
+interface BodyProps extends Props {
+  detail: ReturnType<typeof useDetail>;
+  selection: ReturnType<typeof useSelection>;
+  focused: boolean;
+}
+
+const sameFilter = (a?: TaskListFilter, b?: TaskListFilter) =>
+  a === b || (!!a && !!b && a.type === b.type && a.value === b.value && a.label === b.label);
+
+const TaskListBody = memo(
+  function TaskListBody({ mode, filter, detail, selection }: BodyProps) {
   const colors = useColors();
   const styles = useStyles();
   const accent = useAccent();
@@ -107,7 +132,7 @@ export default function TaskListScreen({ mode, filter }: Props) {
   const refreshControl = useSyncRefresh();
   const { wide, openDrawer } = useSidebar();
   const rowContext = useRowContext();
-  const { openTask, openTaskId, closeTask } = useDetail();
+  const { openTask, openTaskId, closeTask } = detail;
   const {
     state,
     updateTask,
@@ -309,7 +334,7 @@ export default function TaskListScreen({ mode, filter }: Props) {
     setAnchor,
     select,
     clear: clearSelection,
-  } = useSelection();
+  } = selection;
 
   /**
    * Whether Shift was down for the press being handled.
@@ -1124,7 +1149,15 @@ export default function TaskListScreen({ mode, filter }: Props) {
       )}
     </View>
   );
-}
+  },
+  // Held still while behind another screen; coming to the front is itself a
+  // change, so it catches up on whatever it missed in that one render.
+  (prev, next) =>
+    prev.mode === next.mode &&
+    sameFilter(prev.filter, next.filter) &&
+    prev.focused === next.focused &&
+    (!next.focused || (prev.detail === next.detail && prev.selection === next.selection))
+);
 
 const useStyles = makeStyles((c) => ({
   screen: {

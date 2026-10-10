@@ -8,7 +8,7 @@ import { useAccent, useColors } from '../theme/ThemeContext';
 import { useSidebar } from '../navigation/SidebarContext';
 import { useClaimDrawerSwipe } from '../navigation/drawerSwipe';
 import { NATIVE_FAB_CLEARANCE, nativeTabBarClearance } from '../navigation/nativeTabBarLayout';
-import { useDetail } from '../navigation/DetailContext';
+import { useDetailActions } from '../navigation/DetailContext';
 import { useTasks } from '../data/TaskContext';
 import { PlanMode, PlanSort, loadPlanPrefs, savePlanPrefs } from '../data/storage';
 import { tasksByDate } from '../data/selectors';
@@ -77,7 +77,7 @@ export default function CalendarScreen() {
   const insets = useSafeAreaInsets();
   const refreshControl = useSyncRefresh();
   const { wide, openDrawer } = useSidebar();
-  const { openTask } = useDetail();
+  const { openTask } = useDetailActions();
   const { state, bulkUpdate, addTaskFromQuickAdd, reorderTasks } = useTasks();
   // While a drag is in flight, the agenda must not scroll under the finger — the
   // whole point is carrying the task up out of the list onto the calendar. The
