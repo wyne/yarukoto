@@ -21,9 +21,13 @@ jobs:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
+      # The default pull_request checkout is GitHub's synthetic merge commit,
+      # whose subject is "Merge <head> into <base>". Check out the PR head so
+      # `git log -1` below reads the commit a squash would actually keep.
       - uses: actions/checkout@v5
         with:
           fetch-depth: 1
+          ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Check title
         env:
