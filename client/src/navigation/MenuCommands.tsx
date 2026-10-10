@@ -2,8 +2,9 @@ import { useCallback, useContext, useEffect, useRef, useState, useSyncExternalSt
 import { Platform } from 'react-native';
 import { NavigationContext } from '@react-navigation/native';
 import MacMenu from '../../modules/mac-menu/src/MacMenu';
-import { DESKTOP_UI, MAC } from '../data/platform';
+import { DESKTOP_APP, DESKTOP_UI, MAC } from '../data/platform';
 import { LINKS, openLink } from '../data/links';
+import { checkForAppUpdatesInteractively } from '../data/appUpdates';
 import { PendingUndo, usePendingUndo, useTasks } from '../data/TaskContext';
 import { anyLayerOpen } from '../components/openLayers';
 import CommandPalette from '../components/CommandPalette';
@@ -176,6 +177,7 @@ export default function MenuCommands() {
   const [paletteOpen, setPaletteOpen] = useState(false);
 
   useCommandHandler('settings', openServer, DESKTOP_UI);
+  useCommandHandler('checkForUpdates', () => void checkForAppUpdatesInteractively(), DESKTOP_APP);
   useCommandHandler('commandMenu', useCallback(() => setPaletteOpen(true), []), DESKTOP_UI);
   useCommandHandler('help', openSetupGuide, DESKTOP_UI);
   useCommandHandler('support', openSupport, DESKTOP_UI);

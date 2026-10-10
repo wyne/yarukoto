@@ -1,4 +1,9 @@
 // Runs in the page before the app does, on every load.
+
+// The exported web client also runs in ordinary browsers. Mark this host before
+// React starts so desktop-only features — installer updates, in particular —
+// do not appear in those browser builds.
+window.__YARUKOTO_WINDOWS_APP__ = true;
 //
 // WebView2's own right-click menu is a browser's: Back, Refresh, Save as,
 // Print, Inspect. The app draws its own menus where a right-click means

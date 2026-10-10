@@ -13,7 +13,7 @@ import { lastSyncedLabel } from '../../data/dateUtils';
 import { MAC } from '../../data/platform';
 import AccountPane from '../settings/AccountPane';
 import AddDevicePane, { ApproveFor } from '../settings/AddDevicePane';
-import { AppearanceGroup, HelpGroup } from '../settings/GeneralPane';
+import { AppearanceGroup, HelpGroup, UpdatesGroup } from '../settings/GeneralPane';
 import { DevicesPane, PeoplePane } from '../settings/HouseholdPanes';
 import ServerPane, { LeaveGroup } from '../settings/ServerPane';
 import { Group, Note, PAGE_GAP, Row } from '../settings/parts';
@@ -125,6 +125,7 @@ export default function ServerSheet({ visible, onClose, pairCode }: Props) {
             </Note>
           )}
           <AppearanceGroup label="Appearance" />
+          <UpdatesGroup />
           {!MAC && <HelpGroup />}
           <Group>
             <Row title={sample ? 'Leave sample data' : 'Disconnect'} tone="danger" onPress={leave} />
@@ -162,6 +163,7 @@ export default function ServerSheet({ visible, onClose, pairCode }: Props) {
           {tab === 'general' && (
             <>
               <AppearanceGroup />
+              <UpdatesGroup />
               {/* The Mac's Help menu already carries these. */}
               {!MAC && <HelpGroup />}
             </>

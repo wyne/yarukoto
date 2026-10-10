@@ -19,6 +19,10 @@ sync with your server whenever it's reachable.
 
 The desktop apps work like the web app, in their own window. Every release, with checksums and an
 `.msi` for Windows, is on the [releases page](https://github.com/wyne/yarukoto-desktop/releases).
+On a computer, open **Settings → General → Check for updates** at any time. The Mac also has
+**Yarukoto → Check for Updates…** in its menu bar, and Windows offers the same command under
+Ctrl+K. When a release is available, Yarukoto opens the signed Mac disk image or Windows installer
+in your browser; installing it replaces the old version without touching your tasks or sign-in.
 
 You need a [Yarukoto server](/getting-started/docker/) to connect to. To look around first, see
 [Trying it without a server](#trying-it-without-a-server).

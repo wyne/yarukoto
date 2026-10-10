@@ -1,6 +1,13 @@
 import { Platform } from 'react-native';
 import { isGlassEffectAPIAvailable, isLiquidGlassAvailable } from 'expo-glass-effect';
 
+declare global {
+  interface Window {
+    /** Set by windows/src/init.js before the exported web client starts. */
+    __YARUKOTO_WINDOWS_APP__?: boolean;
+  }
+}
+
 /**
  * The Mac build: the iOS app compiled for Mac Catalyst.
  *
@@ -11,6 +18,15 @@ import { isGlassEffectAPIAvailable, isLiquidGlassAvailable } from 'expo-glass-ef
  * SwiftUI's menus do.
  */
 export const MAC = Platform.OS === 'ios' && Platform.isMacCatalyst === true;
+
+/** The web export hosted by the Windows Tauri shell, rather than a browser. */
+export const WINDOWS_APP =
+  Platform.OS === 'web' &&
+  typeof window !== 'undefined' &&
+  window.__YARUKOTO_WINDOWS_APP__ === true;
+
+/** A directly distributed desktop binary, which owns its update experience. */
+export const DESKTOP_APP = MAC || WINDOWS_APP;
 
 /**
  * The desktop interaction model: a keyboard and a pointer are assumed present.
