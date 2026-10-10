@@ -30,11 +30,24 @@ import { IconGrip } from '../icons/Icons';
  * the row returns to where it was.
  */
 
+/**
+ * What the cursor and the selection say about one row, as bits. It is the only
+ * part of a row a key press in the list changes, so it travels as a number a
+ * cell can compare: the two rows the cursor moved between re-render, and the
+ * rest of the list doesn't.
+ */
+export const ROW_HIGHLIGHTED = 1;
+export const ROW_SELECTED = 2;
+/** Highlighted while the list isn't the one listening to the keyboard. */
+export const ROW_MUTED = 4;
+
 export interface RowRenderInfo {
   /** The group the row is drawn under; null for a completed row. */
   groupKey: string | null;
   /** Starts dragging this row. Undefined for rows that cannot be reordered. */
   drag?: () => void;
+  /** `ROW_*` bits for this row. */
+  mark: number;
 }
 
 type Item =
@@ -65,8 +78,14 @@ interface Props {
   dragEnabled: boolean;
   /** Animate rows into place as the list changes. Off for a change of view. */
   animateLayout: boolean;
+  /**
+   * Both must keep their identity until something they draw from changes, other
+   * than the marks they are handed: a cell re-renders when either is new.
+   */
   renderRow: (task: Task, info: RowRenderInfo) => React.ReactNode;
-  renderDivider: (task: Task, next: Task, completed: boolean) => React.ReactNode;
+  renderDivider: (task: Task, next: Task, completed: boolean, mark: number, nextMark: number) => React.ReactNode;
+  /** `ROW_*` bits for a row; `groupKey` is null for a completed one. */
+  rowMark: (id: string, groupKey: string | null) => number;
   onReorder: (
     groupKey: string,
     nextIds: string[],
@@ -103,6 +122,7 @@ const VirtualTaskList = forwardRef<FlatList<Item>, Props>(function VirtualTaskLi
     animateLayout,
     renderRow,
     renderDivider,
+    rowMark,
     onReorder,
     dragCount,
     contentContainerStyle,
@@ -236,6 +256,16 @@ const VirtualTaskList = forwardRef<FlatList<Item>, Props>(function VirtualTaskLi
     listRef.current?.scrollToIndex({ index, viewPosition: index < firstOnScreen ? 0 : 1, animated: false });
   }, [revealTaskId, items]);
 
+  // Read only once a row is lifted, so the cells get one function for good
+  // rather than a new one — and a re-render — each time the selection moves.
+  const latestDragCount = useRef(dragCount);
+  latestDragCount.current = dragCount;
+  const hasDragCount = !!dragCount;
+  const stableDragCount = useMemo(
+    () => (hasDragCount ? (id: string) => latestDragCount.current?.(id) ?? 1 : undefined),
+    [hasDragCount]
+  );
+
   const renderItem = ({ item }: ListRenderItemInfo<Item>) => {
     switch (item.kind) {
       case 'empty':
@@ -267,7 +297,9 @@ const VirtualTaskList = forwardRef<FlatList<Item>, Props>(function VirtualTaskLi
             draggable={dragEnabled && item.groupKey !== null}
             renderRow={renderRow}
             renderDivider={renderDivider}
-            dragCount={dragCount}
+            dragCount={stableDragCount}
+            mark={rowMark(item.task.id, item.groupKey)}
+            nextMark={item.next ? rowMark(item.next.id, item.groupKey) : 0}
           />
         );
     }
@@ -338,18 +370,26 @@ const HeaderCell = memo(function HeaderCell({
   );
 });
 
-function TaskCell({
+/**
+ * Memoized: the list re-renders on every move of the cursor, and a cell whose
+ * task, marks and renderers are what they were has nothing new to draw.
+ */
+const TaskCell = memo(function TaskCell({
   item,
   draggable,
   renderRow,
   renderDivider,
   dragCount,
+  mark,
+  nextMark,
 }: {
   item: Extract<Item, { kind: 'task' }>;
   draggable: boolean;
   renderRow: Props['renderRow'];
   renderDivider: Props['renderDivider'];
   dragCount?: (id: string) => number;
+  mark: number;
+  nextMark: number;
 }) {
   const styles = useStyles();
   const drag = useReorderableDrag();
@@ -366,8 +406,12 @@ function TaskCell({
       onPointerEnter={handle ? () => setHovered(true) : undefined}
       onPointerLeave={handle ? () => setHovered(false) : undefined}
     >
-      {renderRow(item.task, { groupKey: item.groupKey, drag: draggable && !FINE_POINTER ? startDrag : undefined })}
-      {!item.last && item.next && renderDivider(item.task, item.next, completed)}
+      {renderRow(item.task, {
+        groupKey: item.groupKey,
+        drag: draggable && !FINE_POINTER ? startDrag : undefined,
+        mark,
+      })}
+      {!item.last && item.next && renderDivider(item.task, item.next, completed, mark, nextMark)}
       {handle && hovered && (
         <View style={styles.handleSlot}>
           <Pressable onPressIn={startDrag} style={styles.handle} accessibilityLabel="Drag to reorder">
@@ -378,7 +422,7 @@ function TaskCell({
       {dragCount && <DragCountBadge id={item.task.id} dragCount={dragCount} />}
     </View>
   );
-}
+});
 
 /** Split out so only the lifted row, not every row, reads the active state. */
 function DragCountBadge({ id, dragCount }: { id: string; dragCount: (id: string) => number }) {

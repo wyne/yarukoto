@@ -1,4 +1,4 @@
-import React, { memo, useEffect, useMemo, useRef, useState } from 'react';
+import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Platform, Pressable, Text, View } from 'react-native';
 import MenuView, { type MenuAction } from '../components/NativeMenu';
 import Animated, {
@@ -42,7 +42,13 @@ import { useRowContext } from '../components/useRowContext';
 import Card from '../components/Card';
 import Divider from '../components/Divider';
 import DragList from '../components/DragList';
-import VirtualTaskList, { type VirtualTaskListRef } from '../components/VirtualTaskList';
+import VirtualTaskList, {
+  ROW_HIGHLIGHTED,
+  ROW_MUTED,
+  ROW_SELECTED,
+  type RowRenderInfo,
+  type VirtualTaskListRef,
+} from '../components/VirtualTaskList';
 import SectionHeader from '../components/SectionHeader';
 import QuickAddBar from '../components/QuickAddBar';
 import BulkActionBar from '../components/BulkActionBar';
@@ -734,72 +740,146 @@ const TaskListBody = memo(
    * virtualized list, which lays them out itself. A group's hide rules follow
    * the group the row is drawn under, since a task under two tags appears once
    * in each.
+   *
+   * Both keep their identity across a move of the cursor, which is what lets
+   * the list skip every cell the cursor didn't touch (see `TaskCell`). So what
+   * the cursor and selection say about a row arrives as its `mark`, never by
+   * reading them here; and since a skipped cell keeps the handlers it was last
+   * given, those reach this render's functions through `live` rather than
+   * closing over an older render's.
    */
-  const renderVirtualRow = (
-    task: Task,
-    { groupKey, drag }: { groupKey: string | null; drag?: () => void }
-  ) => {
+  const live = useRef({
+    pressRow,
+    toggleSelected,
+    openTask,
+    toggleComplete,
+    scheduleToday,
+    snoozeTask,
+    selectionMode,
+    isSelected,
+    selectionCount: webSelection.length,
+  });
+  live.current = {
+    pressRow,
+    toggleSelected,
+    openTask,
+    toggleComplete,
+    scheduleToday,
+    snoozeTask,
+    selectionMode,
+    isSelected,
+    selectionCount: webSelection.length,
+  };
+  // A row only reads the day, so the renderers below change at midnight, not
+  // with each render's clock.
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const rowNow = useMemo(() => new Date(today), [today]);
+  const groupByDimension = options.groupBy;
+  const handleGutter = canReorder && FINE_POINTER;
+
+  const rowMark = (id: string, groupKey: string | null) => {
     if (groupKey === null) {
+      // A completed row is only ever marked by the phone's select mode, or by
+      // being the task that is open.
+      return (openTaskId === id ? ROW_HIGHLIGHTED : 0) | (selectedIds.includes(id) ? ROW_SELECTED : 0);
+    }
+    const lit = highlighted(id);
+    return (
+      (lit ? ROW_HIGHLIGHTED : 0) |
+      (isSelected(id) ? ROW_SELECTED : 0) |
+      (lit && !listHasKeyboard ? ROW_MUTED : 0)
+    );
+  };
+
+  const renderVirtualRow = useCallback(
+    (task: Task, { groupKey, drag, mark }: RowRenderInfo) => {
+      const selected = (mark & ROW_SELECTED) !== 0;
+      const active = (mark & ROW_HIGHLIGHTED) !== 0 && !selected;
+      if (groupKey === null) {
+        return (
+          <TaskRow
+            task={task}
+            list={task.listId ? listsById.get(task.listId) : undefined}
+            now={rowNow}
+            selectionMode={selectionMode}
+            active={active}
+            showContext={rowContext}
+            selected={selected}
+            onPress={() =>
+              live.current.selectionMode ? live.current.toggleSelected(task.id) : live.current.openTask(task.id)
+            }
+            onToggleComplete={() => live.current.toggleComplete(task.id)}
+            onToday={() => live.current.scheduleToday(task.id)}
+            onLater={() => live.current.snoozeTask(task.id)}
+            onDone={() => live.current.toggleComplete(task.id)}
+          />
+        );
+      }
       return (
-        <TaskRow
-          task={task}
-          list={task.listId ? listsById.get(task.listId) : undefined}
-          now={now}
-          selectionMode={selectionMode}
-          active={openTaskId === task.id && !selectedIds.includes(task.id)}
-          showContext={rowContext}
-          selected={selectedIds.includes(task.id)}
-          onPress={() => (selectionMode ? toggleSelected(task.id) : openTask(task.id))}
-          onToggleComplete={() => toggleComplete(task.id)}
-          onToday={() => scheduleToday(task.id)}
-          onLater={() => snoozeTask(task.id)}
-          onDone={() => toggleComplete(task.id)}
+        <ContextMenuTarget
+          onOpen={(pos) => {
+            setMenuTask(task.id);
+            setMenuAt({ x: pos.x, y: pos.y, width: 0, height: 0 });
+          }}
+        >
+          <TaskRow
+            task={task}
+            list={task.listId ? listsById.get(task.listId) : undefined}
+            now={rowNow}
+            selectionMode={selectionMode}
+            active={active}
+            muted={(mark & ROW_MUTED) !== 0}
+            handleGutter={handleGutter}
+            showContext={rowContext}
+            hideListId={
+              groupByDimension === 'list' && groupKey !== INBOX_GROUP_KEY ? groupKey : filterHideListId
+            }
+            hideTag={
+              groupByDimension === 'tag' && groupKey.startsWith('tag:') ? groupKey.slice(4) : filterHideTag
+            }
+            selected={selected}
+            onPress={() => live.current.pressRow(task.id)}
+            onLongPress={drag}
+            onToggleComplete={() => live.current.toggleComplete(task.id)}
+            onToday={() => live.current.scheduleToday(task.id)}
+            onLater={() => live.current.snoozeTask(task.id)}
+            onDone={() => live.current.toggleComplete(task.id)}
+          />
+        </ContextMenuTarget>
+      );
+    },
+    [
+      listsById,
+      rowNow,
+      selectionMode,
+      rowContext,
+      handleGutter,
+      groupByDimension,
+      filterHideListId,
+      filterHideTag,
+    ]
+  );
+  const selectedRowBg = colors.selectedRowBg;
+  const renderVirtualDivider = useCallback(
+    (task: Task, _next: Task, done: boolean, mark: number, nextMark: number) => {
+      const railColor = task.listId ? listsById.get(task.listId)?.color : undefined;
+      if (done) return <Divider railColor={railColor} />;
+      const touching = ((mark | nextMark) & ROW_HIGHLIGHTED) !== 0;
+      const within = (mark & nextMark & ROW_SELECTED) !== 0;
+      return (
+        <Divider
+          indent={touching ? 0 : undefined}
+          color={within ? selectedRowBg : undefined}
+          railColor={railColor}
         />
       );
-    }
-    const hide = groupHide(groupKey);
-    return (
-      <ContextMenuTarget
-        onOpen={(pos) => {
-          setMenuTask(task.id);
-          setMenuAt({ x: pos.x, y: pos.y, width: 0, height: 0 });
-        }}
-      >
-        <TaskRow
-          task={task}
-          list={task.listId ? listsById.get(task.listId) : undefined}
-          now={now}
-          selectionMode={selectionMode}
-          active={highlighted(task.id) && !isSelected(task.id)}
-          muted={!listHasKeyboard && highlighted(task.id)}
-          handleGutter={canReorder && FINE_POINTER}
-          showContext={rowContext}
-          hideListId={hide.hideListId}
-          hideTag={hide.hideTag}
-          selected={isSelected(task.id)}
-          onPress={() => pressRow(task.id)}
-          onLongPress={drag}
-          onToggleComplete={() => toggleComplete(task.id)}
-          onToday={() => scheduleToday(task.id)}
-          onLater={() => snoozeTask(task.id)}
-          onDone={() => toggleComplete(task.id)}
-        />
-      </ContextMenuTarget>
-    );
-  };
-  const renderVirtualDivider = (task: Task, next: Task, done: boolean) => {
-    const railColor = task.listId ? listsById.get(task.listId)?.color : undefined;
-    if (done) return <Divider railColor={railColor} />;
-    const touching = highlighted(task.id) || highlighted(next.id);
-    const within = isSelected(task.id) && isSelected(next.id);
-    return (
-      <Divider
-        indent={touching ? 0 : undefined}
-        color={within ? colors.selectedRowBg : undefined}
-        railColor={railColor}
-      />
-    );
-  };
+    },
+    [listsById, selectedRowBg]
+  );
+  const virtualDragCount = useCallback(
+    (id: string) => (live.current.isSelected(id) ? live.current.selectionCount : 1),
+    []
+  );
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top + 6 }]}>
@@ -881,8 +961,9 @@ const TaskListBody = memo(
           animateLayout={!switchingView}
           renderRow={renderVirtualRow}
           renderDivider={renderVirtualDivider}
+          rowMark={rowMark}
           onReorder={handleReorder}
-          dragCount={DESKTOP_UI ? (id) => (isSelected(id) ? webSelection.length : 1) : undefined}
+          dragCount={DESKTOP_UI ? virtualDragCount : undefined}
           refreshControl={refreshControl}
           onScrollBeginDrag={closeOpenSwipeRow}
           revealTaskId={DESKTOP_UI ? cursor : null}

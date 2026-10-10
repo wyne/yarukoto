@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { CollapsedSections, loadCollapsedSections, saveCollapsedSections } from './storage';
 
 export interface CollapsedController {
@@ -34,8 +34,13 @@ export function useCollapsedSections(viewKey: string): CollapsedController {
     saveCollapsedSections(viewKey, next);
   };
 
+  // Kept until a group is actually folded or opened: the list builds its rows
+  // from this, and a new function on every render rebuilt all of them each time.
+  const groups = value.groups;
+  const isGroupCollapsed = useCallback((groupKey: string) => groups.includes(groupKey), [groups]);
+
   return {
-    isGroupCollapsed: (groupKey) => value.groups.includes(groupKey),
+    isGroupCollapsed,
     toggleGroup: (groupKey) =>
       update({
         ...value,
