@@ -209,6 +209,12 @@ const KEY_GLYPH: Record<string, string> = {
   right: '→',
   delete: '⌫',
   escape: '⎋',
+  tab: '⇥',
+  space: 'Space',
+  home: '↖',
+  end: '↘',
+  pageup: '⇞',
+  pagedown: '⇟',
 };
 const PC_KEY: Record<string, string> = {
   return: 'Enter',
@@ -218,6 +224,12 @@ const PC_KEY: Record<string, string> = {
   right: '→',
   delete: 'Backspace',
   escape: 'Esc',
+  tab: 'Tab',
+  space: 'Space',
+  home: 'Home',
+  end: 'End',
+  pageup: 'PgUp',
+  pagedown: 'PgDn',
 };
 
 /**

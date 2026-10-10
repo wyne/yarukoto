@@ -33,24 +33,14 @@ const PENDING_MS = 1500;
 /**
  * Hands the keyboard to a pane. False when no pane of that kind is on screen.
  *
- * `mounting` is for a pane that is about to appear, or to change — opening
- * another task may remount the task pane. The keyboard then goes to the pane
- * that registers next, rather than to the one on its way out, or after a
- * couple of frames to whichever is there if none does.
+ * `mounting` is for a pane that is about to appear, or to be replaced — the
+ * task pane is keyed by its task, and built a little after the task is opened
+ * (MainTabs defers it). The keyboard then goes to the pane that registers
+ * next, rather than to the one on its way out.
  */
 export function focusPane(pane: Pane, { mounting = false }: { mounting?: boolean } = {}): boolean {
   if (mounting) {
-    const asked = { pane, at: Date.now() };
-    pending = asked;
-    // If the pane is only re-rendered rather than remounted, nothing registers
-    // anew; hand it over after two frames, by when it shows the new task.
-    requestAnimationFrame(() =>
-      requestAnimationFrame(() => {
-        if (pending !== asked) return;
-        pending = null;
-        focusers.get(pane)?.at(-1)?.();
-      })
-    );
+    pending = { pane, at: Date.now() };
     return true;
   }
   const stack = focusers.get(pane);
@@ -194,9 +184,12 @@ export function isTextTarget(target: EventTarget | null): boolean {
   return el.isContentEditable || el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT';
 }
 
-/** On the web, lets go of whatever field has focus, so the list's keys reach it. */
+/**
+ * On the web, lets go of whatever has focus — a field, or the sidebar — so
+ * the list's keys, which are heard on `document`, reach it.
+ */
 export function releaseWebField() {
   if (Platform.OS !== 'web' || typeof document === 'undefined') return;
   const el = document.activeElement as HTMLElement | null;
-  if (isTextTarget(el)) el?.blur();
+  if (el && el !== document.body) el.blur?.();
 }
