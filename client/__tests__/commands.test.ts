@@ -3,6 +3,7 @@ import {
   KeyEventLike,
   LIST_KEYS,
   displayShortcut,
+  domKeyName,
   formatShortcut,
   keyName,
   keyInputOf,
@@ -118,5 +119,30 @@ describe('matching DOM keys', () => {
     expect(webCommandFor(key('n', 'KeyN', { metaKey: true }))).toBeUndefined();
     expect(webCommandFor(key('t', 'KeyT', { metaKey: true }))).toBeUndefined();
     expect(webCommandFor(key('k', 'KeyK', { metaKey: true }))?.def.id).toBe('commandMenu');
+    // ⌘1–⌘9 switch the browser's tabs; the views are a Mac menu item there.
+    expect(webCommandFor(key('1', 'Digit1', { metaKey: true }))).toBeUndefined();
+    expect(COMMANDS.find((c) => c.id === 'goAll')!.shortcut).toEqual({ input: '1', modifiers: ['command'] });
+  });
+
+  test('Tab and Shift-Tab move round the panes from the list', () => {
+    expect(webCommandFor(key('Tab', 'Tab'))).toMatchObject({ def: { id: 'nextPane' }, listKey: true });
+    expect(webCommandFor(key('Tab', 'Tab', { shiftKey: true }))).toMatchObject({ def: { id: 'previousPane' }, listKey: true });
+    expect(LIST_KEYS.get('tab')).toBe('nextPane');
+    expect(LIST_KEYS.get('shift+tab')).toBe('previousPane');
+  });
+});
+
+describe('domKeyName', () => {
+  test('names a DOM key as KeyCommandsView does', () => {
+    expect(domKeyName(key('Tab', 'Tab', { shiftKey: true }))).toBe('shift+tab');
+    expect(domKeyName(key('Escape', 'Escape'))).toBe('escape');
+    expect(domKeyName(key(' ', 'Space'))).toBe('space');
+    expect(domKeyName(key('PageDown', 'PageDown'))).toBe('pagedown');
+    expect(domKeyName(key('ArrowUp', 'ArrowUp', { metaKey: true }))).toBe('command+up');
+  });
+
+  test('keeps Control and ⌘ apart, since neither is part of a plain key', () => {
+    expect(domKeyName(key('Tab', 'Tab', { ctrlKey: true }))).toBe('control+tab');
+    expect(domKeyName(key('Tab', 'Tab'))).toBe('tab');
   });
 });

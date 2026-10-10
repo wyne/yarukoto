@@ -9,6 +9,9 @@ import { parseQuickAdd } from '../data/quickAdd';
 import { formatDueShort } from '../data/dateUtils';
 import { applySuggestion, useQuickAddSuggestions } from '../data/quickAddSuggestions';
 import { useCommand } from '../navigation/MenuCommands';
+import { focusNextPane, focusPane, usePaneFocus } from '../navigation/focusPanes';
+import KeyCommandsView from '../../modules/mac-pointer/src/KeyCommandsView';
+import { MAC } from '../data/platform';
 
 const HINT = 'Add a task… try "pay rent fri 6pm #home !high ~admin"';
 
@@ -28,6 +31,7 @@ export default function QuickAddBar({ onSubmit, contextLabel }: Props) {
   const inputRef = useRef<TextInput>(null);
   // File ▸ New Task (⌘N) on the Mac: this field is where a new task starts.
   useCommand('newTask', () => inputRef.current?.focus());
+  usePaneFocus('add', () => inputRef.current?.focus());
   const parsed = text.trim() ? parseQuickAdd(text) : null;
   const dueLabel = parsed ? formatDueShort(new Date(), parsed.dueDate, parsed.dueTime) : null;
 
@@ -52,15 +56,48 @@ export default function QuickAddBar({ onSubmit, contextLabel }: Props) {
     setSelectedIndex((i) => (i + delta + suggestions.length) % suggestions.length);
   };
 
-  const handleKeyPress = (e: { nativeEvent: { key: string }; preventDefault?: () => void }) => {
-    if (suggestions.length === 0) return;
-    if (e.nativeEvent.key === 'ArrowDown') {
-      moveSelection(1);
-      e.preventDefault?.();
-    } else if (e.nativeEvent.key === 'ArrowUp') {
-      moveSelection(-1);
-      e.preventDefault?.();
+  /**
+   * The field's own keys, by `keyName`. ↑ and ↓ walk the suggestions while there
+   * are any; otherwise ↓ goes down into the list, so ⌘N, type, Return, ↓ is a
+   * whole loop. Escape hands the keyboard to the list rather than leaving it
+   * with nothing, and Tab takes a highlighted suggestion or moves on round the
+   * window's panes (focusPanes.ts).
+   */
+  const handleKey = (name: string): boolean => {
+    switch (name) {
+      case 'down':
+        if (suggestions.length > 0) moveSelection(1);
+        else focusPane('list');
+        return true;
+      case 'up':
+        if (suggestions.length === 0) return false;
+        moveSelection(-1);
+        return true;
+      case 'escape':
+        if (!focusPane('list')) inputRef.current?.blur();
+        return true;
+      case 'tab':
+        if (selectedIndex >= 0 && suggestions[selectedIndex]) chooseSuggestion(suggestions[selectedIndex].value);
+        else focusNextPane('add', 1);
+        return true;
+      case 'shift+tab':
+        focusNextPane('add', -1);
+        return true;
+      default:
+        return false;
     }
+  };
+
+  // The web reports these keys here. The Mac doesn't report arrows to
+  // `onKeyPress` at all, and a field there would act on Tab before JS heard it,
+  // so it answers through KeyCommandsView below instead.
+  const WEB_KEYS: Record<string, string> = { ArrowDown: 'down', ArrowUp: 'up', Escape: 'escape', Tab: 'tab' };
+  const handleKeyPress = (e: { nativeEvent: { key: string; shiftKey?: boolean }; preventDefault?: () => void }) => {
+    if (MAC) return;
+    const key = WEB_KEYS[e.nativeEvent.key];
+    if (!key) return;
+    const name = e.nativeEvent.shiftKey ? (key === 'tab' ? 'shift+tab' : null) : key;
+    if (name && handleKey(name)) e.preventDefault?.();
   };
 
   const handleSubmit = () => {
@@ -78,26 +115,41 @@ export default function QuickAddBar({ onSubmit, contextLabel }: Props) {
 
   const hasChips = !!(dueLabel || parsed?.tags.length || parsed?.listName || (parsed && parsed.priority !== 'none'));
 
+  const field = (
+    <>
+      <Pressable onPress={submit} hitSlop={8}>
+        <IconPlus size={16} color={accent} />
+      </Pressable>
+      <TextInput
+        ref={inputRef}
+        value={text}
+        onChangeText={handleChangeText}
+        placeholder={contextLabel ? `Add a task to ${contextLabel}…` : HINT}
+        placeholderTextColor={colors.textFaint}
+        style={styles.input}
+        returnKeyType="done"
+        blurOnSubmit={false}
+        onSubmitEditing={handleSubmit}
+        onKeyPress={handleKeyPress}
+      />
+      {text.length > 0 && <View style={[styles.caret, { backgroundColor: accent }]} />}
+    </>
+  );
+
   return (
     <View style={styles.wrap}>
-      <View style={styles.row}>
-        <Pressable onPress={submit} hitSlop={8}>
-          <IconPlus size={16} color={accent} />
-        </Pressable>
-        <TextInput
-          ref={inputRef}
-          value={text}
-          onChangeText={handleChangeText}
-          placeholder={contextLabel ? `Add a task to ${contextLabel}…` : HINT}
-          placeholderTextColor={colors.textFaint}
-          style={styles.input}
-          returnKeyType="done"
-          blurOnSubmit={false}
-          onSubmitEditing={handleSubmit}
-          onKeyPress={handleKeyPress}
-        />
-        {text.length > 0 && <View style={[styles.caret, { backgroundColor: accent }]} />}
-      </View>
+      {/* Not on a phone, which has no keys to answer, nor Android, which has no such view. */}
+      {MAC ? (
+        <KeyCommandsView
+          style={styles.row}
+          keys={['down', 'escape', 'tab', 'shift+tab', ...(suggestions.length > 0 ? ['up'] : [])]}
+          onKeyCommand={({ nativeEvent }) => handleKey(nativeEvent.key)}
+        >
+          {field}
+        </KeyCommandsView>
+      ) : (
+        <View style={styles.row}>{field}</View>
+      )}
       {suggestions.length > 0 && (
         <View style={styles.suggestions}>
           {suggestions.map((s, i) => (

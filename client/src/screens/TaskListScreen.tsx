@@ -36,6 +36,7 @@ import { useCommand } from '../navigation/MenuCommands';
 import { rangeBetween, stepCursor } from '../data/listCursor';
 import TaskRow from '../components/TaskRow';
 import ListKeys from '../components/ListKeys';
+import { focusNextPane, releaseWebField, useListHasKeyboard, usePaneFocus } from '../navigation/focusPanes';
 import { useRowContext } from '../components/useRowContext';
 import Card from '../components/Card';
 import Divider from '../components/Divider';
@@ -455,6 +456,28 @@ export default function TaskListScreen({ mode, filter }: Props) {
     if (wide && openTaskId === anchorId) openTask(fallback);
   }, [navIds, anchorId, setAnchor, wide, openTaskId, openTask]);
 
+  /**
+   * Takes the keyboard for the list, from the add field's Escape or Down, or a
+   * Tab or Escape in the task pane. The cursor comes too: onto the task open
+   * beside the list if there is one, else the first row, so ↑ and ↓ have
+   * somewhere to start.
+   */
+  const focusList = () => {
+    if (!cursor) {
+      const start = openTaskId && navIds.includes(openTaskId) ? openTaskId : navIds[0];
+      if (start) {
+        setAnchor(start);
+        head.current = start;
+      }
+    }
+    releaseWebField();
+    claimKeyboard();
+  };
+  usePaneFocus('list', focusList, keyboardList);
+  const listHasKeyboard = useListHasKeyboard();
+  useCommand('nextPane', () => focusNextPane('list', 1), keyboardList);
+  useCommand('previousPane', () => focusNextPane('list', -1), keyboardList);
+
   const hasRows = keyboardList && navIds.length > 0;
   const hasTargets = keyboardList && commandTargets.length > 0;
   useCommand('nextTask', () => stepTo(1), hasRows);
@@ -644,6 +667,7 @@ export default function TaskListScreen({ mode, filter }: Props) {
               now={now}
               selectionMode={selectionMode}
               active={highlighted(task.id) && !isSelected(task.id)}
+              muted={!listHasKeyboard && highlighted(task.id)}
               handleGutter={canReorder && FINE_POINTER}
               showContext={rowContext}
               hideListId={hide.hideListId}
@@ -722,6 +746,7 @@ export default function TaskListScreen({ mode, filter }: Props) {
           now={now}
           selectionMode={selectionMode}
           active={highlighted(task.id) && !isSelected(task.id)}
+          muted={!listHasKeyboard && highlighted(task.id)}
           handleGutter={canReorder && FINE_POINTER}
           showContext={rowContext}
           hideListId={hide.hideListId}
