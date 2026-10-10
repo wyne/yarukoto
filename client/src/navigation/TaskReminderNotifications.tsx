@@ -3,11 +3,11 @@ import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import { useTasks } from '../data/TaskContext';
 import { parseTaskReminderNotificationData } from '../data/taskReminderNotifications';
-import { useDetail } from './DetailContext';
+import { useDetailActions } from './DetailContext';
 
 export default function TaskReminderNotifications() {
   const { state } = useTasks();
-  const { openTask } = useDetail();
+  const { openTask } = useDetailActions();
   const handledResponseRef = useRef<string | null>(null);
 
   const handleResponse = useCallback(

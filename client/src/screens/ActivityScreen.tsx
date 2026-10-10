@@ -8,7 +8,7 @@ import { fonts } from '../theme/typography';
 import { useAccent, useColors } from '../theme/ThemeContext';
 import { useHoverBg } from '../theme/hover';
 import { PANE_MAX_WIDTH, useSidebar } from '../navigation/SidebarContext';
-import { useDetail } from '../navigation/DetailContext';
+import { useDetailActions } from '../navigation/DetailContext';
 import { NATIVE_TAB_CONTENT_PADDING } from '../navigation/nativeTabBarLayout';
 import { FLOATING_TAB_BAR } from '../data/platform';
 import { ActivityRevision, createApi } from '../data/api';
@@ -217,7 +217,7 @@ export default function ActivityScreen() {
   const insets = useSafeAreaInsets();
   const { wide, openDrawer } = useSidebar();
   const hoverBg = useHoverBg();
-  const { openTask } = useDetail();
+  const { openTask } = useDetailActions();
   const { state, syncNow, restoreTasks } = useTasks();
   // What each entry's task is now, which decides what the entry offers: a task
   // still around opens, one in the trash restores, and one purged or no longer
