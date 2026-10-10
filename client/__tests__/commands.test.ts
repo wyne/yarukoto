@@ -146,3 +146,21 @@ describe('domKeyName', () => {
     expect(domKeyName(key('Tab', 'Tab'))).toBe('tab');
   });
 });
+
+describe('the Keyboard shortcuts page', () => {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const fs = require('fs') as typeof import('fs');
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const path = require('path') as typeof import('path');
+  const page = fs.readFileSync(path.join(__dirname, '../../docs/src/content/docs/using/keyboard.md'), 'utf8');
+
+  test('lists every key a menu command has', () => {
+    // The views are listed together, as ⌘1 to ⌘7.
+    const views = new Set(['goAll', 'goInbox', 'goToday', 'goCalendar', 'goActivity', 'goBrowse', 'goTrash']);
+    const missing = COMMANDS.filter((c) => c.shortcut && !c.submenu && !views.has(c.id))
+      .map((c) => formatShortcut(c.shortcut!, true))
+      .filter((glyphs) => !page.includes(glyphs));
+    expect(missing).toEqual([]);
+    expect(page).toContain('⌘1 to ⌘7');
+  });
+});

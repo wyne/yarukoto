@@ -19,6 +19,7 @@ sync with your server whenever it's reachable.
 
 The desktop apps work like the web app, in their own window. Every release, with checksums and an
 `.msi` for Windows, is on the [releases page](https://github.com/wyne/yarukoto-desktop/releases).
+On a computer, everything can be done from the keyboard: see [Keyboard shortcuts](/using/keyboard/).
 
 You need a [Yarukoto server](/getting-started/docker/) to connect to. To look around first, see
 [Trying it without a server](#trying-it-without-a-server).

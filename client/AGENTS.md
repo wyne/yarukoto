@@ -49,6 +49,11 @@ The iOS project also builds for the Mac (`npm run mac`; details in
   there is nothing for it to act on. **Never give a menu command a plain key** (no ⌘): a menu
   key equivalent fires before any focused field hears the key. Plain keys go in `listKeys`,
   which the task list answers itself (`src/components/ListKeys.tsx`).
+- **Tab, Shift-Tab and Escape move the keyboard between panes** (`src/navigation/focusPanes.ts`).
+  A new pane registers with `usePaneFocus`; a new text field in the task pane joins the Tab order in
+  `TaskDetailView`'s `stepField` and reports its focus there. Escape from any field should end on the
+  list (`focusPane('list')`), never on nothing. A new key belongs on the user-facing
+  `docs/src/content/docs/using/keyboard.md` too, which a test checks against `commands.ts`.
 - **A new native dependency has to compile for Catalyst too.** After adding one, run
   `npm run mac` as well as the phone build; one pod without a Catalyst slice fails
   the whole Mac build. If it needs a project-level fix, it belongs in
