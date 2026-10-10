@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { StyleSheet } from 'react-native';
+import { Platform, StyleSheet } from 'react-native';
 import { useIsFocused } from '@react-navigation/native';
 import KeyCommandsView from '../../modules/mac-pointer/src/KeyCommandsView';
-import { MAC } from '../data/platform';
+import { DESKTOP_UI, MAC } from '../data/platform';
 import { LIST_KEYS } from '../navigation/commands';
 import { dispatchCommand } from '../navigation/MenuCommands';
+import { setListHasKeyboard, useWebListKeyboardTracking } from '../navigation/focusPanes';
 import { useAllLayersClosed } from './openLayers';
 
 const KEY_NAMES = [...LIST_KEYS.keys()];
@@ -31,6 +32,7 @@ export default function ListKeys({ focusKey, children }: Props) {
   const focused = useIsFocused();
   const [reclaim, setReclaim] = useState(0);
   useAllLayersClosed(() => setReclaim((n) => n + 1));
+  useWebListKeyboardTracking(Platform.OS === 'web' && DESKTOP_UI && focused);
   // Back to the front: take the keyboard back from whatever had it.
   useEffect(() => {
     if (focused) setReclaim((n) => n + 1);
@@ -44,6 +46,7 @@ export default function ListKeys({ focusKey, children }: Props) {
       active={focused}
       focusable
       focusKey={focusKey + reclaim}
+      onFocusChange={({ nativeEvent }) => setListHasKeyboard(nativeEvent.focused)}
       onKeyCommand={({ nativeEvent }) => {
         const id = LIST_KEYS.get(nativeEvent.key);
         if (id) dispatchCommand(id);

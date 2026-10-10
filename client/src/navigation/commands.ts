@@ -32,6 +32,13 @@ export type CommandId =
   | 'newTask'
   | 'find'
   | 'commandMenu'
+  | 'goAll'
+  | 'goInbox'
+  | 'goToday'
+  | 'goCalendar'
+  | 'goActivity'
+  | 'goBrowse'
+  | 'goTrash'
   | 'openTask'
   | 'nextTask'
   | 'previousTask'
@@ -47,6 +54,8 @@ export type CommandId =
   | 'priorityNone'
   | 'deleteTask'
   | 'deselect'
+  | 'nextPane'
+  | 'previousPane'
   | 'bold'
   | 'italic'
   | 'help'
@@ -105,6 +114,15 @@ export const COMMANDS: readonly CommandDef[] = [
   { id: 'italic', title: 'Italic', menu: 'edit', group: 'format', shortcut: cmd('i'), web: true, hiddenFromPalette: true },
 
   { id: 'commandMenu', title: 'Command Menu…', menu: 'view', group: 'commandMenu', shortcut: cmd('k'), web: true, hiddenFromPalette: true },
+  // In sidebar order, so the number is the row. Not on the web: a browser keeps
+  // ⌘1–9 (Ctrl+1–9) for its own tabs. The command menu already lists every view.
+  { id: 'goAll', title: 'All', menu: 'view', group: 'go', shortcut: cmd('1'), hiddenFromPalette: true },
+  { id: 'goInbox', title: 'Inbox', menu: 'view', group: 'go', shortcut: cmd('2'), hiddenFromPalette: true },
+  { id: 'goToday', title: 'Today', menu: 'view', group: 'go', shortcut: cmd('3'), hiddenFromPalette: true },
+  { id: 'goCalendar', title: 'Calendar', menu: 'view', group: 'go', shortcut: cmd('4'), hiddenFromPalette: true },
+  { id: 'goActivity', title: 'Activity', menu: 'view', group: 'go', shortcut: cmd('5'), hiddenFromPalette: true },
+  { id: 'goBrowse', title: 'Browse', menu: 'view', group: 'go', shortcut: cmd('6'), hiddenFromPalette: true },
+  { id: 'goTrash', title: 'Trash', menu: 'view', group: 'go', shortcut: cmd('7'), hiddenFromPalette: true },
 
   { id: 'openTask', title: 'Open Task', menu: 'task', group: 'open', shortcut: cmd('o'), listKeys: [plain('return')], list: true, web: true },
   { id: 'nextTask', title: 'Next Task', group: 'move', listKeys: [plain('down')], list: true, hiddenFromPalette: true },
@@ -113,6 +131,10 @@ export const COMMANDS: readonly CommandDef[] = [
   { id: 'selectPrevious', title: 'Add Previous to Selection', group: 'move', listKeys: [plain('up', 'shift')], list: true, hiddenFromPalette: true },
   // Clears a selection, or else closes the task open beside the list.
   { id: 'deselect', title: 'Deselect', group: 'move', listKeys: [plain('escape')], list: true, hiddenFromPalette: true },
+  // Round the window's panes: the add field, the list, the task open beside it
+  // (focusPanes.ts). A field answers its own Tab, so these are only the list's.
+  { id: 'nextPane', title: 'Next Pane', group: 'move', listKeys: [plain('tab')], list: true, hiddenFromPalette: true },
+  { id: 'previousPane', title: 'Previous Pane', group: 'move', listKeys: [plain('tab', 'shift')], list: true, hiddenFromPalette: true },
 
   { id: 'completeTask', title: 'Mark as Done', menu: 'task', group: 'complete', shortcut: cmd('return'), list: true, web: true, keywords: 'complete check finish' },
 
@@ -207,6 +229,12 @@ const DOM_KEYS: Record<string, KeyInput> = {
   Backspace: 'delete',
   Delete: 'delete',
   Escape: 'escape',
+  Tab: 'tab',
+  ' ': 'space',
+  Home: 'home',
+  End: 'end',
+  PageUp: 'pageup',
+  PageDown: 'pagedown',
 };
 
 /** The key a DOM event names, in this file's terms. */
@@ -249,6 +277,21 @@ export function webCommandFor(event: KeyEventLike): { def: CommandDef; listKey: 
 /** A list key as KeyCommandsView names it: `shift+down`, `return`. */
 export function keyName(shortcut: Shortcut): string {
   return [...MODIFIER_ORDER.filter((m) => shortcut.modifiers.includes(m)), shortcut.input].join('+');
+}
+
+/**
+ * A DOM key event as `keyName` would name it, for the web's KeyCommandsView:
+ * `shift+tab`, `escape`. ⌘ and Control each keep their own name here, unlike
+ * `matchesShortcut`: these are plain keys, which neither modifier belongs to.
+ */
+export function domKeyName(event: KeyEventLike): string {
+  const held: Record<Modifier, boolean> = {
+    control: event.ctrlKey,
+    option: event.altKey,
+    shift: event.shiftKey,
+    command: event.metaKey,
+  };
+  return [...MODIFIER_ORDER.filter((m) => held[m]), keyInputOf(event)].join('+');
 }
 
 /** Every plain key the task list answers, by `keyName`, and what it runs. */

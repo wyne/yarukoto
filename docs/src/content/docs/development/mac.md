@@ -178,6 +178,7 @@ stay web-only.
 | File | New Task — the pinned add field, or the Inbox's on a screen without one | ⌘N |
 | Edit | Find… — Browse's search | ⌘F |
 | View | Command Menu… | ⌘K |
+| View | All, Inbox, Today, Calendar, Activity, Browse, Trash — the sidebar's views, in its order | ⌘1 to ⌘7 |
 | Task | Open Task | ⌘O, or ↩ in the list |
 | Task | Mark as Done | ⌘↩ |
 | Task | Due Today / Due Tomorrow / Remove Due Date | ⌘T / ⌥⌘T / — |
@@ -197,6 +198,16 @@ anything focused hears the key, so a plain ↩ there would take Return from ever
 Instead the list holds them itself, through `KeyCommandsView` in `client/modules/mac-pointer`,
 taking the keyboard when it appears, when you click in it, and when a dialog closes. A field
 focused anywhere else keeps every key.
+
+**Moving between panes.** Tab and Shift-Tab go round the add field, the list and the task pane, and
+Escape in a field hands the keyboard back to the list. Each pane registers how it takes the
+keyboard with `usePaneFocus` (`src/navigation/focusPanes.ts`) while its screen is in front, so
+whatever moves focus only names the pane. The add field and the task pane are wrapped in a
+non-focusable `KeyCommandsView` that claims Tab, Shift-Tab and Escape ahead of the field inside —
+which is also what stops the title, a text view on the Mac, from typing a tab character. On the web
+the same view listens in the capture phase (`KeyCommandsView.web.tsx`). The list's key view reports
+when it gains and loses first responder, and its cursor row is drawn in gray while it doesn't hold
+the keyboard. The full list of keys, as users see it, is on [Keyboard shortcuts](/using/keyboard/).
 
 The **command menu** (⌘K) searches every view, list, folder, tag and saved filter, and every
 command something on screen can answer, with each one's key beside it — so it doubles as the way
@@ -224,9 +235,8 @@ The app launches, syncs with a real server, and renders its wide layout. Known g
   until then. macOS ties that permission to the code signature, which an unsigned build changes on
   every rebuild, so the prompt may not appear or may not stick; signing with a stable identity fixes
   that. Until then, the app's binary can be added to that list by hand.
-- **Shift-click and Escape in lists** are web-only for now: both listen on `document`, which the
-  Mac doesn't have. ⇧↑ and ⇧↓ select a range from the keyboard instead, and Escape does close
-  popovers and dialogs.
+- **Shift-click in lists** is web-only for now: it listens on `document`, which the Mac doesn't
+  have. ⇧↑ and ⇧↓ select a range from the keyboard instead.
 - **The Pick time sheet is mostly empty** on the Mac: three small menus, in a sheet sized for the
   phone's wheel.
 - **Untested on the Mac:** notifications, and their Mark done / Snooze actions.

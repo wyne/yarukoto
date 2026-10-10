@@ -8,7 +8,7 @@ import { makeStyles } from '../theme/styles';
 import { useHoverBg } from '../theme/hover';
 import { fonts } from '../theme/typography';
 import { useAccent, useColors } from '../theme/ThemeContext';
-import { FINE_POINTER } from '../data/platform';
+import { DESKTOP_UI, FINE_POINTER } from '../data/platform';
 import { useTasks } from '../data/TaskContext';
 import { getListById } from '../data/selectors';
 import { formatDueFull, formatTime24to12 } from '../data/dateUtils';
@@ -47,6 +47,8 @@ import { useTaskTextDraft } from './useTaskTextDraft';
 import { useSheetBottomPadding } from './useSheetInsets';
 import NativeOwnedTextInput from './NativeOwnedTextInput';
 import RichNotes, { RichNotesHandle } from './RichNotes';
+import KeyCommandsView from '../../modules/mac-pointer/src/KeyCommandsView';
+import { focusNextPane, focusPane, usePaneFocus } from '../navigation/focusPanes';
 
 /** A reminder or a repeat counts from the date, so clearing it clears them; say so. */
 function clearDateLabel(task: { reminders?: unknown[]; repeat?: unknown }): string | undefined {
@@ -180,6 +182,54 @@ export default function TaskDetailView({ taskId, onClose, variant, active = true
     return () => { show.remove(); hide.remove(); };
   }, []);
 
+  /**
+   * Tab through the pane's fields, on the desktop: the title, the notes, each
+   * subtask, then the add-subtask field. Shift-Tab goes back. Past either end,
+   * the keyboard moves on round the window's panes (focusPanes.ts), so a title
+   * never gets a tab character typed into it and Tab always goes somewhere.
+   * Escape hands the keyboard back to the list, with the task still open.
+   *
+   * Which field has focus is tracked here rather than asked of the platform,
+   * since the Mac has no way to ask; each field reports it as it gains focus.
+   */
+  const titleRef = useRef<TextInput>(null);
+  const subtaskRefs = useRef<Record<string, TextInput | null>>({});
+  const focusedField = useRef<string | null>(null);
+  const fieldFocused = (field: string) => () => {
+    focusedField.current = field;
+  };
+  const fieldBlurred = (field: string) => () => {
+    if (focusedField.current === field) focusedField.current = null;
+  };
+  const focusField = (field: string) => {
+    if (field === 'title') titleRef.current?.focus();
+    else if (field === 'notes') notesRef.current?.focusAtEnd();
+    else if (field === 'newSubtask') {
+      if (addingSubtask) subtaskInputRef.current?.focus();
+      // Mounts with autoFocus.
+      else setAddingSubtask(true);
+    } else subtaskRefs.current[field.slice('subtask:'.length)]?.focus();
+  };
+  const stepField = (delta: 1 | -1): boolean => {
+    const order = ['title', 'notes', ...(task?.subtasks ?? []).map((st) => `subtask:${st.id}`), 'newSubtask'];
+    const at = focusedField.current ? order.indexOf(focusedField.current) : -1;
+    // Nothing of ours has focus — a button, on the web: Tab there is the browser's.
+    if (at === -1) return false;
+    const next = at + delta;
+    if (next < 0 || next >= order.length) focusNextPane('pane', delta);
+    else focusField(order[next]);
+    return true;
+  };
+  const handlePaneKey = (name: string): boolean => {
+    if (name === 'tab') return stepField(1);
+    if (name === 'shift+tab') return stepField(-1);
+    if (name !== 'escape') return false;
+    textDraft.flush();
+    if (!focusPane('list')) Keyboard.dismiss();
+    return true;
+  };
+  usePaneFocus('pane', () => focusField('title'), variant === 'pane' && !!task);
+
   if (!task) {
     return (
       <View style={[styles.screen, { paddingTop: topPad + 6 }]}>
@@ -309,10 +359,6 @@ export default function TaskDetailView({ taskId, onClose, variant, active = true
    * bare — so the sheet uses a bottom-sheet footer instead.
    */
   const accessoryProps = Platform.OS === 'ios' && variant === 'pane' ? { inputAccessoryViewID: KEYBOARD_ACCESSORY_ID } : {};
-  const keyboardTargetProps = {
-    onFocus: () => setKeyboardInputFocused(true),
-    onBlur: () => setKeyboardInputFocused(false),
-  };
   const registerInputWithSheet = variant === 'sheet' && Platform.OS !== 'ios';
   const showFloatingKeyboardDismiss = variant === 'sheet' && Platform.OS !== 'ios' && (keyboardUp || keyboardInputFocused);
 
@@ -382,10 +428,15 @@ export default function TaskDetailView({ taskId, onClose, variant, active = true
               returnKeyType="next"
               onSubmitEditing={submitTitle}
               {...(titleWraps ? ({ submitBehavior: 'submit' } as const) : {})}
-              {...keyboardTargetProps}
+              ref={titleRef}
               {...accessoryProps}
+              onFocus={() => {
+                setKeyboardInputFocused(true);
+                fieldFocused('title')();
+              }}
               onBlur={() => {
                 setKeyboardInputFocused(false);
+                fieldBlurred('title')();
                 textDraft.flush();
               }}
             />
@@ -579,8 +630,14 @@ export default function TaskDetailView({ taskId, onClose, variant, active = true
             onChangeText={textDraft.setNotes}
             onFlush={textDraft.flush}
             inputAccessoryViewID={Platform.OS === 'ios' && variant === 'pane' ? KEYBOARD_ACCESSORY_ID : undefined}
-            onFocus={keyboardTargetProps.onFocus}
-            onBlur={keyboardTargetProps.onBlur}
+            onFocus={() => {
+              setKeyboardInputFocused(true);
+              fieldFocused('notes')();
+            }}
+            onBlur={() => {
+              setKeyboardInputFocused(false);
+              fieldBlurred('notes')();
+            }}
           />
         </Card>
 
@@ -626,13 +683,18 @@ export default function TaskDetailView({ taskId, onClose, variant, active = true
                     styles.subtaskTitleInput,
                     st.done && focusedSubtaskId !== st.id && styles.subtaskDone,
                   ]}
+                  ref={(input) => {
+                    subtaskRefs.current[st.id] = input;
+                  }}
                   onFocus={() => {
                     setFocusedSubtaskId(st.id);
                     setKeyboardInputFocused(true);
+                    fieldFocused(`subtask:${st.id}`)();
                   }}
                   onBlur={() => {
                     if (focusedSubtaskId === st.id) setFocusedSubtaskId(null);
                     setKeyboardInputFocused(false);
+                    fieldBlurred(`subtask:${st.id}`)();
                     commitSubtaskTitle(st.id);
                   }}
                   onSubmitEditing={() => commitSubtaskTitle(st.id)}
@@ -664,8 +726,14 @@ export default function TaskDetailView({ taskId, onClose, variant, active = true
                 placeholder="Subtask title"
                 placeholderTextColor={colors.textFaint}
                 style={styles.subtaskInput}
-                onFocus={() => setKeyboardInputFocused(true)}
-                onBlur={() => setKeyboardInputFocused(false)}
+                onFocus={() => {
+                  setKeyboardInputFocused(true);
+                  fieldFocused('newSubtask')();
+                }}
+                onBlur={() => {
+                  setKeyboardInputFocused(false);
+                  fieldBlurred('newSubtask')();
+                }}
                 {...accessoryProps}
                 onSubmitEditing={submitNewSubtask}
                 submitBehavior="submit"
@@ -738,7 +806,18 @@ export default function TaskDetailView({ taskId, onClose, variant, active = true
   if (variant === 'pane') {
     return (
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        {content}
+        {/* The desktop's Tab and Escape (handlePaneKey), heard ahead of whichever field has them. */}
+        {DESKTOP_UI ? (
+          <KeyCommandsView
+            style={{ flex: 1 }}
+            keys={['tab', 'shift+tab', 'escape']}
+            onKeyCommand={({ nativeEvent }) => handlePaneKey(nativeEvent.key)}
+          >
+            {content}
+          </KeyCommandsView>
+        ) : (
+          content
+        )}
       </KeyboardAvoidingView>
     );
   }

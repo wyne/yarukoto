@@ -91,8 +91,17 @@ const RichNotes = forwardRef<RichNotesHandle, Props>(function RichNotes(
   const [focused, setFocused] = useState(false);
 
   const focusEditor = () => {
-    focusWhenMountedRef.current = true;
     selectionRef.current = { start: valueRef.current.length, end: valueRef.current.length };
+    // Already editing — empty notes start that way — so there is no mount to
+    // wait for, and setting it again wouldn't run the effect below.
+    if (editing && inputRef.current) {
+      const selection = selectionRef.current;
+      inputRef.current.focus();
+      // A frame later, as below: the web has no caret command to call at once.
+      requestAnimationFrame(() => placeCaret(selection));
+      return;
+    }
+    focusWhenMountedRef.current = true;
     setEditing(true);
   };
 
