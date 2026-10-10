@@ -178,7 +178,7 @@ stay web-only.
 | File | New Task — the pinned add field, or the Inbox's on a screen without one | ⌘N |
 | Edit | Find… — Browse's search | ⌘F |
 | View | Command Menu… | ⌘K |
-| View | Toggle Sidebar / Toggle Task Pane | ⌥⌘S / ⌥⌘I |
+| View | Toggle Sidebar / Toggle Task Pane | ⌘S / ⌘D |
 | View | All, Inbox, Today, Calendar, Activity, Browse, Trash — the sidebar's views, in its order | ⌘1 to ⌘7 |
 | Task | Open Task — beside the list, keeping the keyboard there | ⌘O, or Space in the list |
 | Task | Mark as Done | ⌘↩ |

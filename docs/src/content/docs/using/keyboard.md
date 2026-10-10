@@ -27,8 +27,8 @@ does.
 | ⌘F | Search, in Browse *(Mac)* |
 | ⌘K | Command menu: go to any view, list, folder, tag or saved filter, or run any command |
 | ⌘1 to ⌘7 | All, Inbox, Today, Calendar, Activity, Browse, Trash *(Mac)* |
-| ⌥⌘S | Show or hide the sidebar *(Mac)* |
-| ⌥⌘I | Show or hide the task pane *(Mac)* |
+| ⌘S | Show or hide the sidebar *(Mac)* |
+| ⌘D | Show or hide the task pane *(Mac)* |
 | ⌘/ | Keyboard shortcuts |
 | ⌘, | Settings *(Mac)* |
 

@@ -124,11 +124,13 @@ export const COMMANDS: readonly CommandDef[] = [
   { id: 'italic', title: 'Italic', menu: 'edit', group: 'format', shortcut: cmd('i'), web: true, hiddenFromPalette: true },
 
   { id: 'commandMenu', title: 'Command Menu…', menu: 'view', group: 'commandMenu', shortcut: cmd('k'), web: true, hiddenFromPalette: true },
-  // A pair, ⌥⌘S and ⌥⌘I. Not ⌃⌘S: the system's own Show Sidebar item has it, and
-  // UIKit drops the whole inserted View section over one clashing key. Neither is
-  // on the web, where ⌥⌘I opens the browser's developer tools.
-  { id: 'toggleSidebar', title: 'Toggle Sidebar', menu: 'view', group: 'panes', shortcut: cmd('s', 'option'), keywords: 'show hide collapse' },
-  { id: 'toggleTaskPane', title: 'Toggle Task Pane', menu: 'view', group: 'panes', shortcut: cmd('i', 'option'), list: true, keywords: 'show hide inspector detail' },
+  // ⌘S and ⌘D, for Sidebar and Details: one key each, since nothing here saves.
+  // Not ⌃⌘S, which the system's own Show Sidebar item has (UIKit drops the whole
+  // inserted View section over one clashing key), and not ⌘B or ⌘I, which are
+  // Bold and Italic in the notes. Neither is on the web, where the browser keeps
+  // ⌘S and ⌘D for saving and bookmarking.
+  { id: 'toggleSidebar', title: 'Toggle Sidebar', menu: 'view', group: 'panes', shortcut: cmd('s'), keywords: 'show hide collapse' },
+  { id: 'toggleTaskPane', title: 'Toggle Task Pane', menu: 'view', group: 'panes', shortcut: cmd('d'), list: true, keywords: 'show hide inspector detail' },
   // In sidebar order, so the number is the row. Not on the web: a browser keeps
   // ⌘1–9 (Ctrl+1–9) for its own tabs. The command menu already lists every view.
   { id: 'goAll', title: 'All', menu: 'view', group: 'go', shortcut: cmd('1'), hiddenFromPalette: true },
