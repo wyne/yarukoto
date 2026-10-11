@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef } from 'react';
-import { Keyboard, StyleProp, StyleSheet, ViewStyle } from 'react-native';
+import { Keyboard, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
 import {
   BottomSheetBackdrop,
   BottomSheetBackdropProps,
@@ -219,6 +219,37 @@ export default function NativeSheet({
     [styles, grabber, title, hasBack, hasCancel, cancelLabel, hasConfirm, confirmLabel, confirmDisabled, hasDone, doneLabel]
   );
 
+  const bodyStyle = StyleSheet.flatten([
+    styles.content,
+    {
+      paddingTop: title ? 0 : 24,
+      paddingBottom: bottomPadding,
+    },
+    // Last, so it can actually drop the padding above. A sheet that draws
+    // its own chrome — the task detail with its own header — otherwise
+    // gets the untitled sheet's 24pt reapplied under the grabber.
+    contentStyle,
+  ]);
+  const bodyContent = (
+    <>
+      {!!title && (
+        <SheetHeader
+          title={title}
+          style={styles.header}
+          onBack={onBack}
+          onCancel={onCancel}
+          cancelLabel={cancelLabel}
+          onConfirm={onConfirm}
+          confirmLabel={confirmLabel}
+          confirmDisabled={confirmDisabled}
+          onDone={onDone}
+          doneLabel={doneLabel}
+        />
+      )}
+      {children}
+    </>
+  );
+
   return (
     <BottomSheetModal
       ref={ref}
@@ -271,6 +302,16 @@ export default function NativeSheet({
         >
           {children}
         </BottomSheetScrollView>
+      ) : snapPoints ? (
+        /*
+          A fixed-detent sheet already has a bounded content viewport, so fill
+          it with a plain View. BottomSheetView is absolutely positioned and
+          also registers itself as the active scrollable. Nesting the task
+          detail's BottomSheetScrollView under it can therefore leave iOS with
+          the content height from the sheet's opening frame; focusing a field
+          only appeared to fix scrolling because the keyboard forced a layout.
+        */
+        <View style={[bodyStyle, styles.fixedBody]}>{bodyContent}</View>
       ) : (
         /*
           Must be BottomSheetView, not a plain View: with enableDynamicSizing and no
@@ -284,37 +325,9 @@ export default function NativeSheet({
           // into StyleSheet.compose, which takes exactly two arguments. Under
           // react-native-web that throws and takes the whole sheet down — three
           // entries is already one too many.
-          style={StyleSheet.flatten([
-            styles.content,
-            {
-              paddingTop: title ? 0 : 24,
-              paddingBottom: bottomPadding,
-            },
-            // Last, so it can actually drop the padding above. A sheet that draws
-            // its own chrome — the task detail with its own header — otherwise
-            // gets the untitled sheet's 24pt reapplied under the grabber.
-            contentStyle,
-            // BottomSheetView is absolutely positioned with no bottom edge. A
-            // fixed-detent sheet therefore needs an explicit height so flex
-            // descendants receive a bounded viewport and can scroll immediately.
-            snapPoints ? { height: '100%' } : null,
-          ])}
+          style={bodyStyle}
         >
-          {!!title && (
-            <SheetHeader
-              title={title}
-              style={styles.header}
-              onBack={onBack}
-              onCancel={onCancel}
-              cancelLabel={cancelLabel}
-              onConfirm={onConfirm}
-              confirmLabel={confirmLabel}
-              confirmDisabled={confirmDisabled}
-              onDone={onDone}
-              doneLabel={doneLabel}
-            />
-          )}
-          {children}
+          {bodyContent}
         </BottomSheetView>
       )}
     </BottomSheetModal>
@@ -337,6 +350,9 @@ const useStyles = makeStyles((c) => ({
   },
   content: {
     paddingHorizontal: 16,
+  },
+  fixedBody: {
+    flex: 1,
   },
   header: {
     marginBottom: 12,
