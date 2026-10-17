@@ -1,5 +1,5 @@
 import React, { memo, useCallback, useDeferredValue, useMemo, useRef, useState } from 'react';
-import { LayoutChangeEvent, PanResponder, Platform, View } from 'react-native';
+import { LayoutChangeEvent, PanResponder, Platform, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSharedValue, withTiming } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
@@ -9,7 +9,7 @@ import {
   createNativeBottomTabNavigator,
   NativeBottomTabBarProps,
 } from '@react-navigation/bottom-tabs/unstable';
-import { NavigatorScreenParams } from '@react-navigation/native';
+import { NavigatorScreenParams, useIsFocused } from '@react-navigation/native';
 import { makeStyles } from '../theme/styles';
 import { useAccent, useColors } from '../theme/ThemeContext';
 import { MainTabParamList } from './types';
@@ -506,8 +506,11 @@ function NativeTabs() {
           {children}
         </NativeTabsLayout>
       )}
+      screenLayout={MAC ? macTabLayout : undefined}
       screenOptions={{
         headerShown: false,
+        // Mac only: a tab is built the first time it's chosen. See `macTabLayout`.
+        lazy: MAC,
         tabBarActiveTintColor: accent,
         tabBarControllerMode: 'tabBar',
         tabBarMinimizeBehavior: 'none',
@@ -575,6 +578,28 @@ function NativeTabs() {
     </Tabs.Navigator>
   );
 }
+
+/**
+ * Mac only: a tab that isn't in front is `display: 'none'`.
+ *
+ * UIKit's tab controller keeps every tab mounted, and React lays every one of
+ * them out: on a phone that only happens on rotation, but a Mac window is resized
+ * by the frame, and each frame laid out and mounted all five tabs — the calendar
+ * and its month grid included — to show one. Hidden this way a tab keeps its
+ * state but drops out of layout and the view hierarchy, and is built again from
+ * that state when it comes back to the front.
+ */
+const macTabLayout = ({ children }: { children: React.ReactElement }) => <MacTab>{children}</MacTab>;
+
+function MacTab({ children }: { children: React.ReactNode }) {
+  const focused = useIsFocused();
+  return <View style={focused ? macTabStyles.shown : macTabStyles.hidden}>{children}</View>;
+}
+
+const macTabStyles = StyleSheet.create({
+  shown: { flex: 1 },
+  hidden: { flex: 1, display: 'none' },
+});
 
 function NativeTabsLayout({
   children,
