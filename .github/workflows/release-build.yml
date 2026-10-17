@@ -21,10 +21,13 @@ on:
         default: all
   workflow_dispatch:
     inputs:
+      # Optional: a required input left blank makes GitHub refuse the dispatch
+      # with a generic "Workflow could not be run" instead of a usable error.
       tag:
-        description: Release tag to rebuild (for example v1.0.0)
-        required: true
+        description: Release tag to rebuild (for example v1.0.0); leave empty for the latest release
+        required: false
         type: string
+        default: ''
       platform:
         description: Platform to build
         required: true
@@ -36,7 +39,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: release-build-${{ inputs.tag }}
+  group: release-build-${{ inputs.tag || 'latest' }}
   cancel-in-progress: false
 
 jobs:
@@ -48,6 +51,21 @@ jobs:
         with:
           ref: ${{ inputs.ref || inputs.tag }}
           fetch-depth: 0
+
+      - name: Resolve release tag
+        id: release
+        run: |
+          TAG="${{ inputs.tag }}"
+          if [ -z "$TAG" ]; then
+            TAG="$(git tag --list 'v*' --sort=-v:refname | head -n 1)"
+            if [ -z "$TAG" ]; then
+              echo "No v* release tag exists to rebuild." >&2
+              exit 1
+            fi
+            git checkout --detach "$TAG"
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       - uses: actions/setup-node@v5
         with:
@@ -72,7 +90,7 @@ jobs:
 
       - name: Release preflight
         working-directory: client
-        run: scripts/release-preflight.sh "${{ inputs.tag }}"
+        run: scripts/release-preflight.sh "${{ steps.release.outputs.tag }}"
 
       - name: Queue production build and submission
         working-directory: client
@@ -83,16 +101,16 @@ jobs:
             --non-interactive \
             --no-wait \
             --auto-submit \
-            --message "${{ inputs.tag }} (${{ github.sha }})"
+            --message "${{ steps.release.outputs.tag }} (${{ steps.release.outputs.sha }})"
 
       - name: Summary
         run: |
           {
             echo "### Production build queued"
             echo
-            echo "- Tag: \`${{ inputs.tag }}\`"
+            echo "- Tag: \`${{ steps.release.outputs.tag }}\`"
             echo "- Platform: \`${{ inputs.platform }}\`"
-            echo "- Commit: \`${{ github.sha }}\`"
+            echo "- Commit: \`${{ steps.release.outputs.sha }}\`"
             echo
             echo "EAS submits iOS to App Store Connect and Android to the Play internal track after each build finishes. Store release remains a human action."
           } >> "$GITHUB_STEP_SUMMARY"
