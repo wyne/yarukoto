@@ -1,7 +1,8 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { Platform, useWindowDimensions } from 'react-native';
+import { Platform } from 'react-native';
 import { Easing, useSharedValue, withTiming } from 'react-native-reanimated';
 import type { SharedValue } from 'react-native-reanimated';
+import { useWindowSelector } from '../components/useWindowSelector';
 
 /** Above this width the sidebar is pinned open and the bottom tab bar goes away. */
 export const WIDE_BREAKPOINT = 900;
@@ -104,8 +105,7 @@ const DrawerStateContext = createContext<DrawerStateValue | null>(null);
 const CollapsedContext = createContext(false);
 
 export function SidebarProvider({ children }: { children: React.ReactNode }) {
-  const { width } = useWindowDimensions();
-  const wide = width >= WIDE_BREAKPOINT;
+  const wide = useWindowSelector((window) => window.width >= WIDE_BREAKPOINT);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const [serverOpen, setServerOpen] = useState(false);

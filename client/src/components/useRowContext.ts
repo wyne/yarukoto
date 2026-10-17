@@ -1,5 +1,5 @@
-import { useWindowDimensions } from 'react-native';
 import { useSidebar } from '../navigation/SidebarContext';
+import { useWindowSelector } from './useWindowSelector';
 
 /**
  * Below this a row has no room to spell out a list name beside a title, and the
@@ -19,7 +19,7 @@ const CONTEXT_WIDTH = 600;
  */
 export function useRowContext(reserved = 0): true | 'tags' | 'count' {
   const { wide } = useSidebar();
-  const { width } = useWindowDimensions();
+  const roomy = useWindowSelector((window) => window.width - reserved >= CONTEXT_WIDTH);
   if (wide) return true;
-  return width - reserved >= CONTEXT_WIDTH ? 'tags' : 'count';
+  return roomy ? 'tags' : 'count';
 }

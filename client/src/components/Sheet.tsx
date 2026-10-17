@@ -1,11 +1,12 @@
 import React, { useEffect, useRef } from 'react';
-import { View, useWindowDimensions } from 'react-native';
+import { View } from 'react-native';
 import NativeSheet from './NativeSheet';
 import Popover, { POPOVER_MIN_WIDTH, PopoverAnchor } from './Popover';
 import Dialog from './Dialog';
 import { DESKTOP_UI, MAC } from '../data/platform';
 import { makeStyles } from '../theme/styles';
 import SheetHeader from './SheetHeader';
+import { useWindowSelector } from './useWindowSelector';
 
 interface Props {
   visible: boolean;
@@ -74,8 +75,8 @@ interface Props {
  * there. A Mac window is a desktop window however narrow it is dragged.
  */
 export function useDesktopPresentation(): boolean {
-  const { width } = useWindowDimensions();
-  return DESKTOP_UI && (MAC || width >= POPOVER_MIN_WIDTH);
+  const roomy = useWindowSelector((window) => window.width >= POPOVER_MIN_WIDTH);
+  return DESKTOP_UI && (MAC || roomy);
 }
 
 /**
