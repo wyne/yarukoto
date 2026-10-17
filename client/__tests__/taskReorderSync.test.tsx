@@ -45,6 +45,7 @@ jest.mock('../src/data/storage', () => ({
   addSavedServer: jest.fn(),
   clearDirtyIds: jest.fn(),
   clearServerSnapshot: jest.fn(),
+  flushServerSnapshot: jest.fn(),
   clearServerUrl: jest.fn(),
   clearToken: jest.fn(),
   loadDirtyIds: () => [],
