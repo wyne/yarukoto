@@ -22,7 +22,7 @@ export default defineConfig({
         },
         {
           label: 'Using the apps',
-          items: ['using/apps', 'using/household', 'using/reminders', 'using/delete-account', 'using/support'],
+          items: ['using/apps', 'using/keyboard', 'using/household', 'using/reminders', 'using/delete-account', 'using/support'],
         },
         {
           label: 'Self-hosting',

@@ -25,7 +25,7 @@ public final class KeyCommandsModule: Module {
     Name("KeyCommands")
 
     View(KeyCommandsView.self) {
-      Events("onKeyCommand")
+      Events("onKeyCommand", "onFocusChange")
 
       Prop("keys") { (view: KeyCommandsView, keys: [String]) in
         view.keys = keys

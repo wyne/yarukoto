@@ -8,8 +8,10 @@ import { checkForAppUpdatesInteractively } from '../data/appUpdates';
 import { PendingUndo, usePendingUndo, useTasks } from '../data/TaskContext';
 import { anyLayerOpen } from '../components/openLayers';
 import CommandPalette from '../components/CommandPalette';
+import KeyboardShortcuts from '../components/KeyboardShortcuts';
 import { COMMANDS, CommandId, commandDef, webCommandFor } from './commands';
 import { navigationRef } from './DateTimePickerContext';
+import { tabNavigation } from './destinations';
 import { useSidebar } from './SidebarContext';
 
 /**
@@ -24,7 +26,7 @@ import { useSidebar } from './SidebarContext';
  * task list's cursor — are answered by the screen in front through
  * `useCommand`. New Task and Find also work from a screen without one: they go
  * to a screen that has it and wait there for it to register. Settings, the
- * command menu, the Help links and Undo belong to the whole app and are
+ * command menu, the views (⌘1–⌘7), the Help links and Undo belong to the whole app and are
  * answered here.
  *
  * Desktop only: a phone has no keyboard to send these.
@@ -120,7 +122,7 @@ function useCommandHandler(id: CommandId, handler: Handler, active: boolean) {
  * NavigationContainer, so the phone's task sheet has no navigation at all;
  * there it counts as in front, since a sheet only shows over the screen in use.
  */
-function useScreenFocused(): boolean {
+export function useScreenFocused(): boolean {
   const navigation = useContext(NavigationContext);
   const subscribe = useCallback(
     (callback: () => void) => {
@@ -165,20 +167,43 @@ const UNDO_ACTION_NAME: Record<PendingUndo['kind'], string> = {
   delete: 'Move to Trash',
 };
 
+/** The sidebar's views, as View ▸ ⌘1–⌘7 reach them. */
+function goTo(route: string) {
+  const [name, params] = tabNavigation(route);
+  (navigationRef.navigate as (name: string, params?: object) => void)('Main', { screen: name, params });
+}
+const goAll = () => goTo('AllTab');
+const goInbox = () => goTo('InboxTab');
+const goToday = () => goTo('TodayTab');
+const goCalendar = () => goTo('CalendarTab');
+const goActivity = () => goTo('ActivityTab');
+const goBrowse = () => goTo('BrowseTab');
+const goTrash = () => goTo('TrashTab');
+
 const openSetupGuide = () => openLink(LINKS.setupGuide);
 const openSupport = () => openLink(LINKS.support);
 const openPrivacy = () => openLink(LINKS.privacy);
 
 /** Mounted once, in the main layout, so it never runs over the first-run screen. */
 export default function MenuCommands() {
-  const { openServer } = useSidebar();
+  const { openServer, wide, toggleCollapsed } = useSidebar();
   const { undo } = useTasks();
   const pendingUndo = usePendingUndo();
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
 
   useCommandHandler('settings', openServer, DESKTOP_UI);
   useCommandHandler('checkForUpdates', () => void checkForAppUpdatesInteractively(), DESKTOP_APP);
   useCommandHandler('commandMenu', useCallback(() => setPaletteOpen(true), []), DESKTOP_UI);
+  useCommandHandler('keyboardShortcuts', useCallback(() => setShortcutsOpen(true), []), DESKTOP_UI);
+  useCommandHandler('toggleSidebar', toggleCollapsed, DESKTOP_UI && wide);
+  useCommandHandler('goAll', goAll, DESKTOP_UI);
+  useCommandHandler('goInbox', goInbox, DESKTOP_UI);
+  useCommandHandler('goToday', goToday, DESKTOP_UI);
+  useCommandHandler('goCalendar', goCalendar, DESKTOP_UI);
+  useCommandHandler('goActivity', goActivity, DESKTOP_UI);
+  useCommandHandler('goBrowse', goBrowse, DESKTOP_UI);
+  useCommandHandler('goTrash', goTrash, DESKTOP_UI);
   useCommandHandler('help', openSetupGuide, DESKTOP_UI);
   useCommandHandler('support', openSupport, DESKTOP_UI);
   useCommandHandler('privacy', openPrivacy, DESKTOP_UI);
@@ -257,5 +282,10 @@ export default function MenuCommands() {
   }, [undoToken, undoKind]);
 
   if (!DESKTOP_UI) return null;
-  return <CommandPalette visible={paletteOpen} onClose={() => setPaletteOpen(false)} />;
+  return (
+    <>
+      <CommandPalette visible={paletteOpen} onClose={() => setPaletteOpen(false)} />
+      <KeyboardShortcuts visible={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
+    </>
+  );
 }

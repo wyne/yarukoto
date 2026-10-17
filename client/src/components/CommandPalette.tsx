@@ -47,7 +47,7 @@ const MAX_ROWS = 9;
 const ROW_HEIGHT = 38;
 
 /** Where a key is drawn as a glyph (⌘K) rather than a name (Ctrl+K). */
-const MAC_KEYS =
+export const MAC_KEYS =
   MAC ||
   (Platform.OS === 'web' && typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform ?? ''));
 

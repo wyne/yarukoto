@@ -6,7 +6,7 @@ export EXPO_NO_TELEMETRY=1
 
 TAG="${1:-}"
 PACKAGE_VERSION="$(node -p "require('../package.json').version")"
-EXPO_VERSION="$(./node_modules/.bin/expo config --type public --json | node -p "JSON.parse(require('fs').readFileSync(0, 'utf8')).version")"
+EXPO_VERSION="$(../node_modules/.bin/expo config --type public --json | node -p "JSON.parse(require('fs').readFileSync(0, 'utf8')).version")"
 
 if [ -z "$TAG" ]; then
   echo "A release tag is required." >&2

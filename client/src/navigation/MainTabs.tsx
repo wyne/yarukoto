@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { memo, useCallback, useDeferredValue, useMemo, useRef, useState } from 'react';
 import { LayoutChangeEvent, PanResponder, Platform, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSharedValue, withTiming } from 'react-native-reanimated';
@@ -22,7 +22,7 @@ import {
   useSidebar,
 } from './SidebarContext';
 import { DetailProvider, useDetail } from './DetailContext';
-import { SelectionProvider, useSelection } from './SelectionContext';
+import { SelectionProvider, useSelectedIds } from './SelectionContext';
 import Sidebar, { SIDEBAR_WIDTH } from '../components/Sidebar';
 import { closeOpenSwipeRow, swipeRowOpen } from '../components/SwipeableRow';
 import { drawerSwipeClaimed } from './drawerSwipe';
@@ -124,7 +124,18 @@ function Layout() {
   const styles = useStyles();
   const { wide, openDrawer, drawerProgress, serverOpen, serverPairCode, closeServer } = useSidebar();
   const { openTaskId, closeTask } = useDetail();
-  const { selectedIds } = useSelection();
+  const { selectedIds } = useSelectedIds();
+  /**
+   * The task the pane is showing, which trails the one that is open.
+   *
+   * Each task gets a pane of its own (the `key` below), so its drafts and open
+   * pickers can't leak into the next — and building one is the most expensive
+   * thing a key press in the list can ask for. Deferred, React moves the cursor
+   * first and builds the pane after, and drops a pane it is half-way through
+   * when another ↑ or ↓ arrives: holding the key runs down the list, and the
+   * pane lands on wherever it stops.
+   */
+  const paneTaskId = useDeferredValue(openTaskId);
   const [rowWidth, setRowWidth] = useState(0);
   const [detailColumnWidth, setDetailColumnWidth] = useState(DETAIL_COLUMN_WIDTH);
   const detailColumnWidthRef = useRef(detailColumnWidth);
@@ -211,7 +222,13 @@ function Layout() {
               {bulk || !openTaskId ? (
                 <BulkActions variant="pane" />
               ) : (
-                <TaskDetailView key={openTaskId} taskId={openTaskId} onClose={closeTask} variant="pane" />
+                // Opening from nothing has no earlier pane to keep showing.
+                <TaskDetailView
+                  key={paneTaskId ?? openTaskId}
+                  taskId={paneTaskId ?? openTaskId}
+                  onClose={closeTask}
+                  variant="pane"
+                />
               )}
             </PaneEscape>
           </View>
@@ -340,7 +357,12 @@ function DrawerSwipeArea({ children }: { children: React.ReactNode }) {
   return <GestureDetector gesture={swipeOpen}>{children}</GestureDetector>;
 }
 
-function Tabs() {
+/**
+ * Memoized, with no props, so only what it reads itself can re-render it. The
+ * layout above re-renders whenever a different task is opened, and the whole
+ * navigator would otherwise go with it.
+ */
+const Tabs = memo(function Tabs() {
   const { wide } = useSidebar();
 
   if (Platform.OS === 'ios') return <NativeTabs />;
@@ -377,12 +399,12 @@ function Tabs() {
       <Tab.Screen name="TrashTab" component={TrashScreen} options={{ title: 'Trash' }} />
     </Tab.Navigator>
   );
-}
+});
 
 function AndroidTabs() {
   const styles = useStyles();
   const { wide } = useSidebar();
-  const { selectedIds } = useSelection();
+  const { selectedIds } = useSelectedIds();
   const accent = useAccent();
   const colors = useColors();
   const insets = useSafeAreaInsets();
@@ -469,7 +491,7 @@ function AndroidTabs() {
 
 function NativeTabs() {
   const { wide } = useSidebar();
-  const { selectedIds } = useSelection();
+  const { selectedIds } = useSelectedIds();
   const accent = useAccent();
   const Tabs = NativeTab;
 

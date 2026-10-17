@@ -33,7 +33,24 @@ export type CommandId =
   | 'newTask'
   | 'find'
   | 'commandMenu'
+  | 'goAll'
+  | 'goInbox'
+  | 'goToday'
+  | 'goCalendar'
+  | 'goActivity'
+  | 'goBrowse'
+  | 'goTrash'
   | 'openTask'
+  | 'editTask'
+  | 'firstTask'
+  | 'lastTask'
+  | 'pageDown'
+  | 'pageUp'
+  | 'focusTaskPane'
+  | 'focusSidebar'
+  | 'toggleSidebar'
+  | 'toggleTaskPane'
+  | 'keyboardShortcuts'
   | 'nextTask'
   | 'previousTask'
   | 'selectNext'
@@ -48,6 +65,8 @@ export type CommandId =
   | 'priorityNone'
   | 'deleteTask'
   | 'deselect'
+  | 'nextPane'
+  | 'previousPane'
   | 'bold'
   | 'italic'
   | 'help'
@@ -107,14 +126,44 @@ export const COMMANDS: readonly CommandDef[] = [
   { id: 'italic', title: 'Italic', menu: 'edit', group: 'format', shortcut: cmd('i'), web: true, hiddenFromPalette: true },
 
   { id: 'commandMenu', title: 'Command Menu…', menu: 'view', group: 'commandMenu', shortcut: cmd('k'), web: true, hiddenFromPalette: true },
+  // ⌘S and ⌘D, for Sidebar and Details: one key each, since nothing here saves.
+  // Not ⌃⌘S, which the system's own Show Sidebar item has (UIKit drops the whole
+  // inserted View section over one clashing key), and not ⌘B or ⌘I, which are
+  // Bold and Italic in the notes. Neither is on the web, where the browser keeps
+  // ⌘S and ⌘D for saving and bookmarking.
+  { id: 'toggleSidebar', title: 'Toggle Sidebar', menu: 'view', group: 'panes', shortcut: cmd('s'), keywords: 'show hide collapse' },
+  { id: 'toggleTaskPane', title: 'Toggle Task Pane', menu: 'view', group: 'panes', shortcut: cmd('d'), list: true, keywords: 'show hide inspector detail' },
+  // In sidebar order, so the number is the row. Not on the web: a browser keeps
+  // ⌘1–9 (Ctrl+1–9) for its own tabs. The command menu already lists every view.
+  { id: 'goAll', title: 'All', menu: 'view', group: 'go', shortcut: cmd('1'), hiddenFromPalette: true },
+  { id: 'goInbox', title: 'Inbox', menu: 'view', group: 'go', shortcut: cmd('2'), hiddenFromPalette: true },
+  { id: 'goToday', title: 'Today', menu: 'view', group: 'go', shortcut: cmd('3'), hiddenFromPalette: true },
+  { id: 'goCalendar', title: 'Calendar', menu: 'view', group: 'go', shortcut: cmd('4'), hiddenFromPalette: true },
+  { id: 'goActivity', title: 'Activity', menu: 'view', group: 'go', shortcut: cmd('5'), hiddenFromPalette: true },
+  { id: 'goBrowse', title: 'Browse', menu: 'view', group: 'go', shortcut: cmd('6'), hiddenFromPalette: true },
+  { id: 'goTrash', title: 'Trash', menu: 'view', group: 'go', shortcut: cmd('7'), hiddenFromPalette: true },
 
-  { id: 'openTask', title: 'Open Task', menu: 'task', group: 'open', shortcut: cmd('o'), listKeys: [plain('return')], list: true, web: true },
+  // Space opens the task beside the list and leaves the keyboard on the list,
+  // as Quick Look does; Return opens it to edit, with the caret in its title.
+  { id: 'openTask', title: 'Open Task', menu: 'task', group: 'open', shortcut: cmd('o'), listKeys: [plain('space')], list: true, web: true },
+  { id: 'editTask', title: 'Edit Task', group: 'open', listKeys: [plain('return')], list: true, hiddenFromPalette: true },
   { id: 'nextTask', title: 'Next Task', group: 'move', listKeys: [plain('down')], list: true, hiddenFromPalette: true },
   { id: 'previousTask', title: 'Previous Task', group: 'move', listKeys: [plain('up')], list: true, hiddenFromPalette: true },
+  // ⌘↑ is "start of text" in a field, so it is a list key, not a menu one.
+  { id: 'firstTask', title: 'First Task', group: 'move', listKeys: [plain('up', 'command'), plain('home')], list: true, hiddenFromPalette: true },
+  { id: 'lastTask', title: 'Last Task', group: 'move', listKeys: [plain('down', 'command'), plain('end')], list: true, hiddenFromPalette: true },
+  { id: 'pageDown', title: 'Page Down', group: 'move', listKeys: [plain('pagedown')], list: true, hiddenFromPalette: true },
+  { id: 'pageUp', title: 'Page Up', group: 'move', listKeys: [plain('pageup')], list: true, hiddenFromPalette: true },
+  { id: 'focusTaskPane', title: 'Into the Task Pane', group: 'move', listKeys: [plain('right')], list: true, hiddenFromPalette: true },
+  { id: 'focusSidebar', title: 'To the Sidebar', group: 'move', listKeys: [plain('left')], list: true, hiddenFromPalette: true },
   { id: 'selectNext', title: 'Add Next to Selection', group: 'move', listKeys: [plain('down', 'shift')], list: true, hiddenFromPalette: true },
   { id: 'selectPrevious', title: 'Add Previous to Selection', group: 'move', listKeys: [plain('up', 'shift')], list: true, hiddenFromPalette: true },
   // Clears a selection, or else closes the task open beside the list.
   { id: 'deselect', title: 'Deselect', group: 'move', listKeys: [plain('escape')], list: true, hiddenFromPalette: true },
+  // Round the window's panes: the add field, the list, the task open beside it
+  // (focusPanes.ts). A field answers its own Tab, so these are only the list's.
+  { id: 'nextPane', title: 'Next Pane', group: 'move', listKeys: [plain('tab')], list: true, hiddenFromPalette: true },
+  { id: 'previousPane', title: 'Previous Pane', group: 'move', listKeys: [plain('tab', 'shift')], list: true, hiddenFromPalette: true },
 
   { id: 'completeTask', title: 'Mark as Done', menu: 'task', group: 'complete', shortcut: cmd('return'), list: true, web: true, keywords: 'complete check finish' },
 
@@ -134,6 +183,7 @@ export const COMMANDS: readonly CommandDef[] = [
 
   // In place of the system's "Yarukoto Help", which only says help isn't
   // available. Each opens a page in the browser (src/data/links.ts).
+  { id: 'keyboardShortcuts', title: 'Keyboard Shortcuts', menu: 'help', group: 'docs', shortcut: cmd('/'), web: true, keywords: 'keys hotkeys help' },
   { id: 'help', title: 'Yarukoto Help', menu: 'help', group: 'docs', keywords: 'docs documentation guide setup server' },
   { id: 'support', title: 'Contact Support', menu: 'help', group: 'support', keywords: 'help bug issue feedback email' },
   { id: 'privacy', title: 'Privacy Policy', menu: 'help', group: 'support', keywords: 'data' },
@@ -164,6 +214,12 @@ const KEY_GLYPH: Record<string, string> = {
   right: '→',
   delete: '⌫',
   escape: '⎋',
+  tab: '⇥',
+  space: 'Space',
+  home: '↖',
+  end: '↘',
+  pageup: '⇞',
+  pagedown: '⇟',
 };
 const PC_KEY: Record<string, string> = {
   return: 'Enter',
@@ -173,6 +229,12 @@ const PC_KEY: Record<string, string> = {
   right: '→',
   delete: 'Backspace',
   escape: 'Esc',
+  tab: 'Tab',
+  space: 'Space',
+  home: 'Home',
+  end: 'End',
+  pageup: 'PgUp',
+  pagedown: 'PgDn',
 };
 
 /**
@@ -209,6 +271,12 @@ const DOM_KEYS: Record<string, KeyInput> = {
   Backspace: 'delete',
   Delete: 'delete',
   Escape: 'escape',
+  Tab: 'tab',
+  ' ': 'space',
+  Home: 'home',
+  End: 'end',
+  PageUp: 'pageup',
+  PageDown: 'pagedown',
 };
 
 /** The key a DOM event names, in this file's terms. */
@@ -251,6 +319,21 @@ export function webCommandFor(event: KeyEventLike): { def: CommandDef; listKey: 
 /** A list key as KeyCommandsView names it: `shift+down`, `return`. */
 export function keyName(shortcut: Shortcut): string {
   return [...MODIFIER_ORDER.filter((m) => shortcut.modifiers.includes(m)), shortcut.input].join('+');
+}
+
+/**
+ * A DOM key event as `keyName` would name it, for the web's KeyCommandsView:
+ * `shift+tab`, `escape`. ⌘ and Control each keep their own name here, unlike
+ * `matchesShortcut`: these are plain keys, which neither modifier belongs to.
+ */
+export function domKeyName(event: KeyEventLike): string {
+  const held: Record<Modifier, boolean> = {
+    control: event.ctrlKey,
+    option: event.altKey,
+    shift: event.shiftKey,
+    command: event.metaKey,
+  };
+  return [...MODIFIER_ORDER.filter((m) => held[m]), keyInputOf(event)].join('+');
 }
 
 /** Every plain key the task list answers, by `keyName`, and what it runs. */

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Platform, Pressable, Text, View } from 'react-native';
 import MenuView, { type MenuAction } from '../components/NativeMenu';
 import Animated, {
@@ -27,6 +27,7 @@ import { DESKTOP_UI, FINE_POINTER, FLOATING_TAB_BAR } from '../data/platform';
 import { INBOX_GROUP_KEY, TaskGroup, groupTasks, hasArrangement, viewKey } from '../data/viewOptions';
 import { useCollapsedSections } from '../data/uiPrefs';
 import { Task } from '../data/types';
+import { useIsFocused } from '@react-navigation/native';
 import { TaskListFilter } from '../navigation/types';
 import { PANE_MAX_WIDTH, useSidebar } from '../navigation/SidebarContext';
 import { NATIVE_FAB_CLEARANCE, nativeTabBarClearance } from '../navigation/nativeTabBarLayout';
@@ -36,11 +37,28 @@ import { useCommand } from '../navigation/MenuCommands';
 import { rangeBetween, stepCursor } from '../data/listCursor';
 import TaskRow from '../components/TaskRow';
 import ListKeys from '../components/ListKeys';
+import {
+  focusNextPane,
+  focusPane,
+  releaseWebField,
+  takeKeyboardFromSidebar,
+  useListHasKeyboard,
+  usePaneFocus,
+} from '../navigation/focusPanes';
+
+/** How far Page Up and Page Down move the cursor: about a window's worth of rows. */
+const PAGE_ROWS = 10;
 import { useRowContext } from '../components/useRowContext';
 import Card from '../components/Card';
 import Divider from '../components/Divider';
 import DragList from '../components/DragList';
-import VirtualTaskList, { type VirtualTaskListRef } from '../components/VirtualTaskList';
+import VirtualTaskList, {
+  ROW_HIGHLIGHTED,
+  ROW_MUTED,
+  ROW_SELECTED,
+  type RowRenderInfo,
+  type VirtualTaskListRef,
+} from '../components/VirtualTaskList';
 import SectionHeader from '../components/SectionHeader';
 import QuickAddBar from '../components/QuickAddBar';
 import BulkActionBar from '../components/BulkActionBar';
@@ -88,7 +106,31 @@ interface Props {
   filter?: TaskListFilter;
 }
 
+/**
+ * The screen proper sits behind a memo that holds it still while it isn't in
+ * front. Tab screens stay mounted, and each one reads the open task and the
+ * cursor, so without this every ↑ and ↓ in the list on screen also re-rendered
+ * every list that wasn't. What those two were is handed down rather than read
+ * from context inside, since a context read would go around the memo.
+ */
 export default function TaskListScreen({ mode, filter }: Props) {
+  const detail = useDetail();
+  const selection = useSelection();
+  const focused = useIsFocused();
+  return <TaskListBody mode={mode} filter={filter} detail={detail} selection={selection} focused={focused} />;
+}
+
+interface BodyProps extends Props {
+  detail: ReturnType<typeof useDetail>;
+  selection: ReturnType<typeof useSelection>;
+  focused: boolean;
+}
+
+const sameFilter = (a?: TaskListFilter, b?: TaskListFilter) =>
+  a === b || (!!a && !!b && a.type === b.type && a.value === b.value && a.label === b.label);
+
+const TaskListBody = memo(
+  function TaskListBody({ mode, filter, detail, selection }: BodyProps) {
   const colors = useColors();
   const styles = useStyles();
   const accent = useAccent();
@@ -96,7 +138,7 @@ export default function TaskListScreen({ mode, filter }: Props) {
   const refreshControl = useSyncRefresh();
   const { wide, openDrawer } = useSidebar();
   const rowContext = useRowContext();
-  const { openTask, openTaskId, closeTask } = useDetail();
+  const { openTask, openTaskId, closeTask } = detail;
   const {
     state,
     updateTask,
@@ -298,7 +340,7 @@ export default function TaskListScreen({ mode, filter }: Props) {
     setAnchor,
     select,
     clear: clearSelection,
-  } = useSelection();
+  } = selection;
 
   /**
    * Whether Shift was down for the press being handled.
@@ -318,7 +360,7 @@ export default function TaskListScreen({ mode, filter }: Props) {
   const head = useRef<string | null>(null);
   /** Bumped to hand the keyboard to the list, on the Mac; see ListKeys. */
   const [keyFocus, setKeyFocus] = useState(0);
-  const claimKeyboard = () => setKeyFocus((n) => n + 1);
+  const claimKeyboard = () => takeKeyboardFromSidebar(() => setKeyFocus((n) => n + 1));
   useEffect(() => {
     if (Platform.OS !== 'web') return;
     const onDown = (e: PointerEvent) => {
@@ -455,6 +497,28 @@ export default function TaskListScreen({ mode, filter }: Props) {
     if (wide && openTaskId === anchorId) openTask(fallback);
   }, [navIds, anchorId, setAnchor, wide, openTaskId, openTask]);
 
+  /**
+   * Takes the keyboard for the list, from the add field's Escape or Down, or a
+   * Tab or Escape in the task pane. The cursor comes too: onto the task open
+   * beside the list if there is one, else the first row, so ↑ and ↓ have
+   * somewhere to start.
+   */
+  const focusList = () => {
+    if (!cursor) {
+      const start = openTaskId && navIds.includes(openTaskId) ? openTaskId : navIds[0];
+      if (start) {
+        setAnchor(start);
+        head.current = start;
+      }
+    }
+    releaseWebField();
+    claimKeyboard();
+  };
+  usePaneFocus('list', focusList, keyboardList);
+  const listHasKeyboard = useListHasKeyboard();
+  useCommand('nextPane', () => focusNextPane('list', 1), keyboardList);
+  useCommand('previousPane', () => focusNextPane('list', -1), keyboardList);
+
   const hasRows = keyboardList && navIds.length > 0;
   const hasTargets = keyboardList && commandTargets.length > 0;
   useCommand('nextTask', () => stepTo(1), hasRows);
@@ -462,6 +526,39 @@ export default function TaskListScreen({ mode, filter }: Props) {
   useCommand('selectNext', () => extendTo(1), hasRows);
   useCommand('selectPrevious', () => extendTo(-1), hasRows);
   useCommand('openTask', () => cursor && openTask(cursor), keyboardList && !!cursor);
+  /**
+   * Return opens the task to edit it: the pane opens, or follows, and the
+   * caret goes into its title, so editing is Return, type, Escape. A pane
+   * for another task remounts for this one, so the focus waits for it.
+   */
+  const editCursor = () => {
+    if (!cursor) return;
+    // A narrow window opens it as a sheet instead, with no pane to go into.
+    if (openTaskId === cursor) {
+      if (wide) focusPane('pane');
+      return;
+    }
+    openTask(cursor);
+    if (wide) focusPane('pane', { mounting: true });
+  };
+  useCommand('editTask', editCursor, keyboardList && !!cursor);
+  useCommand('focusTaskPane', editCursor, keyboardList && wide && !!cursor);
+  useCommand('focusSidebar', () => focusPane('sidebar'), keyboardList && wide);
+  useCommand('firstTask', () => moveCursor(stepCursor(navIds, cursor, -navIds.length)), hasRows);
+  useCommand('lastTask', () => moveCursor(stepCursor(navIds, cursor, navIds.length)), hasRows);
+  useCommand('pageDown', () => moveCursor(stepCursor(navIds, cursor, PAGE_ROWS)), hasRows);
+  useCommand('pageUp', () => moveCursor(stepCursor(navIds, cursor, -PAGE_ROWS)), hasRows);
+  /** View ▸ Toggle Task Pane: closes the task beside the list, or opens the cursor's. */
+  useCommand(
+    'toggleTaskPane',
+    () => {
+      if (openTaskId) {
+        closeTask();
+        claimKeyboard();
+      } else if (cursor) openTask(cursor);
+    },
+    keyboardList && wide && (!!openTaskId || !!cursor)
+  );
   /**
    * Escape backs out one step: a selection first, then the task open beside the
    * list, as the pane's close button would. The row keeps its tint as the cursor,
@@ -644,6 +741,7 @@ export default function TaskListScreen({ mode, filter }: Props) {
               now={now}
               selectionMode={selectionMode}
               active={highlighted(task.id) && !isSelected(task.id)}
+              muted={!listHasKeyboard && highlighted(task.id)}
               handleGutter={canReorder && FINE_POINTER}
               showContext={rowContext}
               hideListId={hide.hideListId}
@@ -685,71 +783,146 @@ export default function TaskListScreen({ mode, filter }: Props) {
    * virtualized list, which lays them out itself. A group's hide rules follow
    * the group the row is drawn under, since a task under two tags appears once
    * in each.
+   *
+   * Both keep their identity across a move of the cursor, which is what lets
+   * the list skip every cell the cursor didn't touch (see `TaskCell`). So what
+   * the cursor and selection say about a row arrives as its `mark`, never by
+   * reading them here; and since a skipped cell keeps the handlers it was last
+   * given, those reach this render's functions through `live` rather than
+   * closing over an older render's.
    */
-  const renderVirtualRow = (
-    task: Task,
-    { groupKey, drag }: { groupKey: string | null; drag?: () => void }
-  ) => {
+  const live = useRef({
+    pressRow,
+    toggleSelected,
+    openTask,
+    toggleComplete,
+    scheduleToday,
+    snoozeTask,
+    selectionMode,
+    isSelected,
+    selectionCount: webSelection.length,
+  });
+  live.current = {
+    pressRow,
+    toggleSelected,
+    openTask,
+    toggleComplete,
+    scheduleToday,
+    snoozeTask,
+    selectionMode,
+    isSelected,
+    selectionCount: webSelection.length,
+  };
+  // A row only reads the day, so the renderers below change at midnight, not
+  // with each render's clock.
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const rowNow = useMemo(() => new Date(today), [today]);
+  const groupByDimension = options.groupBy;
+  const handleGutter = canReorder && FINE_POINTER;
+
+  const rowMark = (id: string, groupKey: string | null) => {
     if (groupKey === null) {
+      // A completed row is only ever marked by the phone's select mode, or by
+      // being the task that is open.
+      return (openTaskId === id ? ROW_HIGHLIGHTED : 0) | (selectedIds.includes(id) ? ROW_SELECTED : 0);
+    }
+    const lit = highlighted(id);
+    return (
+      (lit ? ROW_HIGHLIGHTED : 0) |
+      (isSelected(id) ? ROW_SELECTED : 0) |
+      (lit && !listHasKeyboard ? ROW_MUTED : 0)
+    );
+  };
+
+  const renderVirtualRow = useCallback(
+    (task: Task, { groupKey, drag, mark }: RowRenderInfo) => {
+      const selected = (mark & ROW_SELECTED) !== 0;
+      const active = (mark & ROW_HIGHLIGHTED) !== 0 && !selected;
+      if (groupKey === null) {
+        return (
+          <TaskRow
+            task={task}
+            list={task.listId ? listsById.get(task.listId) : undefined}
+            now={rowNow}
+            selectionMode={selectionMode}
+            active={active}
+            showContext={rowContext}
+            selected={selected}
+            onPress={() =>
+              live.current.selectionMode ? live.current.toggleSelected(task.id) : live.current.openTask(task.id)
+            }
+            onToggleComplete={() => live.current.toggleComplete(task.id)}
+            onToday={() => live.current.scheduleToday(task.id)}
+            onLater={() => live.current.snoozeTask(task.id)}
+            onDone={() => live.current.toggleComplete(task.id)}
+          />
+        );
+      }
       return (
-        <TaskRow
-          task={task}
-          list={task.listId ? listsById.get(task.listId) : undefined}
-          now={now}
-          selectionMode={selectionMode}
-          active={openTaskId === task.id && !selectedIds.includes(task.id)}
-          showContext={rowContext}
-          selected={selectedIds.includes(task.id)}
-          onPress={() => (selectionMode ? toggleSelected(task.id) : openTask(task.id))}
-          onToggleComplete={() => toggleComplete(task.id)}
-          onToday={() => scheduleToday(task.id)}
-          onLater={() => snoozeTask(task.id)}
-          onDone={() => toggleComplete(task.id)}
+        <ContextMenuTarget
+          onOpen={(pos) => {
+            setMenuTask(task.id);
+            setMenuAt({ x: pos.x, y: pos.y, width: 0, height: 0 });
+          }}
+        >
+          <TaskRow
+            task={task}
+            list={task.listId ? listsById.get(task.listId) : undefined}
+            now={rowNow}
+            selectionMode={selectionMode}
+            active={active}
+            muted={(mark & ROW_MUTED) !== 0}
+            handleGutter={handleGutter}
+            showContext={rowContext}
+            hideListId={
+              groupByDimension === 'list' && groupKey !== INBOX_GROUP_KEY ? groupKey : filterHideListId
+            }
+            hideTag={
+              groupByDimension === 'tag' && groupKey.startsWith('tag:') ? groupKey.slice(4) : filterHideTag
+            }
+            selected={selected}
+            onPress={() => live.current.pressRow(task.id)}
+            onLongPress={drag}
+            onToggleComplete={() => live.current.toggleComplete(task.id)}
+            onToday={() => live.current.scheduleToday(task.id)}
+            onLater={() => live.current.snoozeTask(task.id)}
+            onDone={() => live.current.toggleComplete(task.id)}
+          />
+        </ContextMenuTarget>
+      );
+    },
+    [
+      listsById,
+      rowNow,
+      selectionMode,
+      rowContext,
+      handleGutter,
+      groupByDimension,
+      filterHideListId,
+      filterHideTag,
+    ]
+  );
+  const selectedRowBg = colors.selectedRowBg;
+  const renderVirtualDivider = useCallback(
+    (task: Task, _next: Task, done: boolean, mark: number, nextMark: number) => {
+      const railColor = task.listId ? listsById.get(task.listId)?.color : undefined;
+      if (done) return <Divider railColor={railColor} />;
+      const touching = ((mark | nextMark) & ROW_HIGHLIGHTED) !== 0;
+      const within = (mark & nextMark & ROW_SELECTED) !== 0;
+      return (
+        <Divider
+          indent={touching ? 0 : undefined}
+          color={within ? selectedRowBg : undefined}
+          railColor={railColor}
         />
       );
-    }
-    const hide = groupHide(groupKey);
-    return (
-      <ContextMenuTarget
-        onOpen={(pos) => {
-          setMenuTask(task.id);
-          setMenuAt({ x: pos.x, y: pos.y, width: 0, height: 0 });
-        }}
-      >
-        <TaskRow
-          task={task}
-          list={task.listId ? listsById.get(task.listId) : undefined}
-          now={now}
-          selectionMode={selectionMode}
-          active={highlighted(task.id) && !isSelected(task.id)}
-          handleGutter={canReorder && FINE_POINTER}
-          showContext={rowContext}
-          hideListId={hide.hideListId}
-          hideTag={hide.hideTag}
-          selected={isSelected(task.id)}
-          onPress={() => pressRow(task.id)}
-          onLongPress={drag}
-          onToggleComplete={() => toggleComplete(task.id)}
-          onToday={() => scheduleToday(task.id)}
-          onLater={() => snoozeTask(task.id)}
-          onDone={() => toggleComplete(task.id)}
-        />
-      </ContextMenuTarget>
-    );
-  };
-  const renderVirtualDivider = (task: Task, next: Task, done: boolean) => {
-    const railColor = task.listId ? listsById.get(task.listId)?.color : undefined;
-    if (done) return <Divider railColor={railColor} />;
-    const touching = highlighted(task.id) || highlighted(next.id);
-    const within = isSelected(task.id) && isSelected(next.id);
-    return (
-      <Divider
-        indent={touching ? 0 : undefined}
-        color={within ? colors.selectedRowBg : undefined}
-        railColor={railColor}
-      />
-    );
-  };
+    },
+    [listsById, selectedRowBg]
+  );
+  const virtualDragCount = useCallback(
+    (id: string) => (live.current.isSelected(id) ? live.current.selectionCount : 1),
+    []
+  );
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top + 6 }]}>
@@ -831,8 +1004,9 @@ export default function TaskListScreen({ mode, filter }: Props) {
           animateLayout={!switchingView}
           renderRow={renderVirtualRow}
           renderDivider={renderVirtualDivider}
+          rowMark={rowMark}
           onReorder={handleReorder}
-          dragCount={DESKTOP_UI ? (id) => (isSelected(id) ? webSelection.length : 1) : undefined}
+          dragCount={DESKTOP_UI ? virtualDragCount : undefined}
           refreshControl={refreshControl}
           onScrollBeginDrag={closeOpenSwipeRow}
           revealTaskId={DESKTOP_UI ? cursor : null}
@@ -1056,7 +1230,15 @@ export default function TaskListScreen({ mode, filter }: Props) {
       )}
     </View>
   );
-}
+  },
+  // Held still while behind another screen; coming to the front is itself a
+  // change, so it catches up on whatever it missed in that one render.
+  (prev, next) =>
+    prev.mode === next.mode &&
+    sameFilter(prev.filter, next.filter) &&
+    prev.focused === next.focused &&
+    (!next.focused || (prev.detail === next.detail && prev.selection === next.selection))
+);
 
 const useStyles = makeStyles((c) => ({
   screen: {

@@ -4,6 +4,7 @@ import { useCommand } from '../src/navigation/MenuCommands';
 
 jest.mock('../src/data/TaskContext', () => ({}));
 jest.mock('../src/components/CommandPalette', () => () => null);
+jest.mock('../src/components/KeyboardShortcuts', () => () => null);
 jest.mock('../src/navigation/DateTimePickerContext', () => ({ navigationRef: {} }));
 jest.mock('../src/navigation/SidebarContext', () => ({}));
 

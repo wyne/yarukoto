@@ -23,6 +23,7 @@ On a computer, open **Settings → General → Check for updates** at any time. 
 **Yarukoto → Check for Updates…** in its menu bar, and Windows offers the same command under
 Ctrl+K. When a release is available, Yarukoto opens the signed Mac disk image or Windows installer
 in your browser; installing it replaces the old version without touching your tasks or sign-in.
+On a computer, everything can be done from the keyboard: see [Keyboard shortcuts](/using/keyboard/).
 
 You need a [Yarukoto server](/getting-started/docker/) to connect to. To look around first, see
 [Trying it without a server](#trying-it-without-a-server).

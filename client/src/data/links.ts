@@ -14,6 +14,8 @@ export const LINKS = {
   setupGuide: `${DOCS}/`,
   /** Using the apps: signing in, household, reminders. */
   appGuide: `${DOCS}/using/apps/`,
+  /** Every key the desktop apps answer. */
+  keyboard: `${DOCS}/using/keyboard/`,
   /** GitHub issues and the support email. */
   support: `${DOCS}/using/support/`,
   privacy: 'https://yarukotoapp.com/privacy.html',

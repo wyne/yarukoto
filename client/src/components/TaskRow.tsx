@@ -65,6 +65,12 @@ interface Props {
    * surrounding UI is about.
    */
   active?: boolean;
+  /**
+   * The active tint in gray rather than the accent: the list doesn't hold the
+   * keyboard just now, so its arrows would go elsewhere. A Mac list draws its
+   * selection the same way when the window's focus is in another pane.
+   */
+  muted?: boolean;
   onPress: () => void;
   onLongPress?: (e: GestureResponderEvent) => void;
   onToggleComplete: () => void;
@@ -133,6 +139,7 @@ const TaskRowBody = memo(function TaskRowBody({
   dragSource,
   handleGutter,
   active,
+  muted,
   onPress,
   onLongPress,
   onToggleComplete,
@@ -192,7 +199,7 @@ const TaskRowBody = memo(function TaskRowBody({
           dragSource && { backgroundColor: colors.accentTintBg },
           task.completed && styles.rowCompleted,
           handleGutter && styles.rowHandleGutter,
-          rowActive && styles.rowActive,
+          rowActive && (muted ? styles.rowActiveMuted : styles.rowActive),
           hovered && !selected && !dragSource && !rowActive ? styles.rowHovered : null,
         ];
       }}
@@ -333,6 +340,9 @@ const useStyles = makeStyles((c) => ({
   },
   rowActive: {
     backgroundColor: c.selectedRowBg,
+  },
+  rowActiveMuted: {
+    backgroundColor: c.unfocusedRowBg,
   },
   rowCompleted: {
     opacity: 0.55,

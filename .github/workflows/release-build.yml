@@ -62,7 +62,13 @@ jobs:
           token: ${{ secrets.EXPO_TOKEN }}
 
       - name: Install dependencies
-        run: npm ci --workspace yarukoto-client --workspace @yarukoto/domain
+        run: |
+          npm ci --workspace yarukoto-client --workspace @yarukoto/domain
+          # Rebuilds use this workflow with older tags; v1.0.0 expects Expo here.
+          mkdir -p client/node_modules/.bin
+          if [ ! -e client/node_modules/.bin/expo ]; then
+            ln -s ../../../node_modules/.bin/expo client/node_modules/.bin/expo
+          fi
 
       - name: Release preflight
         working-directory: client

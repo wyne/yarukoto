@@ -2,8 +2,9 @@ import ExpoModulesCore
 import UIKit
 
 /**
- * A container that reports plain keys — ↑, ↓, Return, Escape, Delete — on the Mac,
- * while it or something inside it has focus.
+ * A container that reports plain keys — arrows, Tab, Return, Escape, Delete, Space,
+ * Home, End, Page Up and Page Down — on the Mac, while it or something inside it
+ * has focus.
  *
  * UIKit only offers a key to the responder chain, starting at whatever has
  * focus, so a key handler has to be a view in that chain. Two uses:
@@ -26,6 +27,9 @@ import UIKit
  */
 public final class KeyCommandsView: ExpoView {
   let onKeyCommand = EventDispatcher()
+  /// When a `focusable` view takes or gives up the keyboard, so JS can draw the
+  /// list's cursor in the accent color only while the list is the one listening.
+  let onFocusChange = EventDispatcher()
 
   private static let isMac = ProcessInfo.processInfo.isMacCatalystApp
 
@@ -49,10 +53,24 @@ public final class KeyCommandsView: ExpoView {
     return keys.compactMap { name in
       guard let (input, flags) = Self.parse(name) else { return nil }
       let command = UIKeyCommand(input: input, modifierFlags: flags, action: #selector(fire(_:)))
-      // A focused field inside, or a scroll view, would otherwise act first.
+      // A focused field inside, or a scroll view, would otherwise act first —
+      // which for Tab means a text view typing a tab character, or UIKit's own
+      // focus system moving to whichever view happens to be next.
       command.wantsPriorityOverSystemBehavior = true
       return command
     }
+  }
+
+  public override func becomeFirstResponder() -> Bool {
+    let became = super.becomeFirstResponder()
+    if became { onFocusChange(["focused": true]) }
+    return became
+  }
+
+  public override func resignFirstResponder() -> Bool {
+    let resigned = super.resignFirstResponder()
+    if resigned { onFocusChange(["focused": false]) }
+    return resigned
   }
 
   @objc private func fire(_ command: UIKeyCommand) {
@@ -99,6 +117,12 @@ public final class KeyCommandsView: ExpoView {
     case "escape": input = UIKeyCommand.inputEscape
     case "return": input = "\r"
     case "delete": input = "\u{8}"
+    case "tab": input = "\t"
+    case "space": input = " "
+    case "home": input = UIKeyCommand.inputHome
+    case "end": input = UIKeyCommand.inputEnd
+    case "pageup": input = UIKeyCommand.inputPageUp
+    case "pagedown": input = UIKeyCommand.inputPageDown
     default: return nil
     }
     return (input, flags)

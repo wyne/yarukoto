@@ -7,7 +7,7 @@ import { fonts } from '../theme/typography';
 import { useAccent, useColors } from '../theme/ThemeContext';
 import { useHoverBg } from '../theme/hover';
 import { useTasks } from '../data/TaskContext';
-import { useSelection } from '../navigation/SelectionContext';
+import { useSelectedIds } from '../navigation/SelectionContext';
 import { addDays, toISODate } from '../data/dateUtils';
 import Tooltip from './Tooltip';
 import { measureAnchor, PopoverAnchor } from './Popover';
@@ -49,7 +49,7 @@ export default function BulkActions({ variant }: Props) {
   const accent = useAccent();
   const insets = useSafeAreaInsets();
   const { state, bulkUpdate, deleteTasks, toggleComplete } = useTasks();
-  const { selectedIds, clear } = useSelection();
+  const { selectedIds, clear } = useSelectedIds();
   const [picker, setPicker] = useState<Picker>(null);
   const [anchor, setAnchor] = useState<PopoverAnchor | null>(null);
   const barRef = useRef<View>(null);

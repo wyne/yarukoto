@@ -83,6 +83,8 @@ export const lightPalette = {
    */
   accentTintBg: '#E4EAFE',
   selectedRowBg: '#E9EEFD',
+  /** The selected row while its list doesn't hold the keyboard. */
+  unfocusedRowBg: '#E8E8E3',
 
   /** Pointer resting on a row or menu item. Below selection, above the surface. */
   hoverBg: '#F2F2EE',
@@ -184,6 +186,7 @@ export const darkPalette: Palette = {
 
   accentTintBg: '#20263D',
   selectedRowBg: '#262E4A',
+  unfocusedRowBg: '#32322E',
 
   // About as far above the surface as light's hover sits below white. Two
   // levels up, where it started, was there but couldn't be seen.
