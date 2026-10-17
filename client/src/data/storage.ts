@@ -543,7 +543,15 @@ function parseServerFeatures(value: unknown): ServerFeature[] | undefined {
   return value.filter((feature): feature is ServerFeature => SERVER_FEATURES.includes(feature as ServerFeature));
 }
 
+/** The snapshot waiting to be written, if a coalescing window is open. */
+let pendingSnapshot: ServerSnapshot | null = null;
+let snapshotTimer: ReturnType<typeof setTimeout> | null = null;
+
 export function loadServerSnapshot(): ServerSnapshot | null {
+  // A queued write is already the newest snapshot, and this module built it, so
+  // it skips the validation below — that is for whatever a previous build, or a
+  // hand-edited store, left on disk.
+  if (pendingSnapshot) return pendingSnapshot;
   const stored = readJson<Partial<ServerSnapshot>>(SERVER_SNAPSHOT_KEY);
   if (!stored || stored.schemaVersion !== SERVER_SNAPSHOT_SCHEMA) return null;
   if (
@@ -570,15 +578,67 @@ export function loadServerSnapshot(): ServerSnapshot | null {
   };
 }
 
+/**
+ * How long a snapshot write waits for the edit behind it.
+ *
+ * Long enough to swallow a burst — a reorder drag, a multi-select complete, a
+ * repeat that rewrites the task and schedules the next one all dispatch several
+ * times within a few frames — and short enough that the window where a hard kill
+ * loses the last edit stays smaller than the gap between two deliberate taps.
+ */
+const SNAPSHOT_COALESCE_MS = 250;
+
+/**
+ * Queues the whole store for persistence.
+ *
+ * The store is one AsyncStorage value, so every edit used to re-stringify every
+ * task, list, folder, view pref and saved filter on the JS thread — a checkbox
+ * toggle paying for the entire dataset, and a drag paying for it per frame.
+ * Holding the latest object and writing once makes a burst cost one pass
+ * instead of one per dispatch.
+ *
+ * Coalescing is safe here because the caller hands over rows *and* the sync
+ * cursor as a single object: whichever call wins, the pair it carried is the
+ * pair that reaches disk, and a newer cursor can never be written against older
+ * rows. See the sync loop's note on why the cursor is not saved there.
+ */
 export function saveServerSnapshot(snapshot: Omit<ServerSnapshot, 'schemaVersion' | 'savedAt'>): void {
-  writeJson(SERVER_SNAPSHOT_KEY, {
+  pendingSnapshot = {
     schemaVersion: SERVER_SNAPSHOT_SCHEMA,
     ...snapshot,
     savedAt: new Date().toISOString(),
-  });
+  };
+  // The timer is a deadline from the first call of a burst, not a quiet period
+  // extended by each one: continuous editing must not keep postponing the write
+  // indefinitely.
+  if (snapshotTimer) return;
+  snapshotTimer = setTimeout(flushServerSnapshot, SNAPSHOT_COALESCE_MS);
+}
+
+/**
+ * Writes a queued snapshot now. Called when the app is backgrounded, which is
+ * the last moment either platform gives JS before the process can be killed —
+ * a coalescing window that drops the last edit on quit would be a bug, not a
+ * tradeoff.
+ */
+export function flushServerSnapshot(): void {
+  if (snapshotTimer) {
+    clearTimeout(snapshotTimer);
+    snapshotTimer = null;
+  }
+  if (!pendingSnapshot) return;
+  writeJson(SERVER_SNAPSHOT_KEY, pendingSnapshot);
+  pendingSnapshot = null;
 }
 
 export function clearServerSnapshot(): void {
+  // Drop the queue as well. A write still in flight when the user disconnects
+  // would otherwise land afterwards and put the old server's rows back.
+  pendingSnapshot = null;
+  if (snapshotTimer) {
+    clearTimeout(snapshotTimer);
+    snapshotTimer = null;
+  }
   remove(SERVER_SNAPSHOT_KEY);
 }
 
