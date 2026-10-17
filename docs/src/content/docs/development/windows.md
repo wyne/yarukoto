@@ -68,4 +68,5 @@ cross-origin requests from any origin.
 - **A menu bar.** Windows apps often go without one, and every command is in the command menu
   (Ctrl+K). If it's wanted, it would be built from `client/src/navigation/commands.ts` the way the
   Mac's is.
-- **Signing and updates.** The installer is unsigned and the app doesn't update itself.
+- **Signing and automatic updates.** The installer is unsigned and the app doesn't replace itself.
+  Settings and the command menu can check the latest complete GitHub release and open its installer.
