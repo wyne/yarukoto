@@ -8,7 +8,7 @@ import { makeStyles } from '../theme/styles';
 import { useHoverBg } from '../theme/hover';
 import { fonts } from '../theme/typography';
 import { useAccent, useColors } from '../theme/ThemeContext';
-import { DESKTOP_UI, FINE_POINTER, MAC } from '../data/platform';
+import { DESKTOP_UI, FINE_POINTER } from '../data/platform';
 import { useTasks } from '../data/TaskContext';
 import { getListById } from '../data/selectors';
 import { formatDueFull, formatTime24to12 } from '../data/dateUtils';
@@ -946,18 +946,13 @@ const useStyles = makeStyles((c) => ({
     fontSize: 14,
     color: c.textSecondary,
   },
-  // On the Mac the menu is a SwiftUI host, which draws its label centered in
-  // whatever width it is given. Sized to its label and pushed to the trailing
-  // edge, it lines up with the tag chips; elsewhere it fills the row so the
-  // whole remainder stays the tap target.
-  metaValueMenu: MAC
-    ? {
-        flexShrink: 1,
-        marginLeft: 'auto',
-      }
-    : {
-        flex: 1,
-      },
+  // The native menus host their label in SwiftUI or Compose, which draw it
+  // centered (or leading) in whatever width they are given. Sized to the label
+  // and pushed to the trailing edge, every value lines up with the tag chips.
+  metaValueMenu: {
+    flexShrink: 1,
+    marginLeft: 'auto',
+  },
   metaValueButton: {
     flexDirection: 'row',
     alignItems: 'center',
