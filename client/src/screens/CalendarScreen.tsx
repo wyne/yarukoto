@@ -98,7 +98,9 @@ export default function CalendarScreen() {
   const [anchor, setAnchor] = useState(today);
   const [selectedDate, setSelectedDate] = useState(today);
   const [addExistingOpen, setAddExistingOpen] = useState(false);
-  const [rowWidth, setRowWidth] = useState(0);
+  // A ref, not state: only the pane divider's drag reads it, and as state every
+  // frame of a window resize re-rendered the whole calendar to store it.
+  const rowWidth = useRef(0);
   const [schedulePaneWidth, setSchedulePaneWidth] = useState(SCHEDULE_PANE_WIDTH);
   const schedulePaneWidthRef = useRef(schedulePaneWidth);
   const resizeStartWidth = useRef(schedulePaneWidth);
@@ -113,12 +115,12 @@ export default function CalendarScreen() {
 
   const clampSchedulePaneWidth = useCallback(
     (width: number) => {
-      const max = rowWidth
-        ? Math.max(PLAN_PANE_MIN_WIDTH, rowWidth - CALENDAR_MIN_WIDTH - PANE_RESIZER_WIDTH)
+      const max = rowWidth.current
+        ? Math.max(PLAN_PANE_MIN_WIDTH, rowWidth.current - CALENDAR_MIN_WIDTH - PANE_RESIZER_WIDTH)
         : SCHEDULE_PANE_WIDTH;
       return Math.min(Math.max(width, PLAN_PANE_MIN_WIDTH), max);
     },
-    [rowWidth]
+    []
   );
   const setClampedSchedulePaneWidth = useCallback(
     (width: number) => {
@@ -145,7 +147,7 @@ export default function CalendarScreen() {
   const handleRowLayout = useCallback(
     (event: LayoutChangeEvent) => {
       const nextWidth = event.nativeEvent.layout.width;
-      setRowWidth(nextWidth);
+      rowWidth.current = nextWidth;
       if (!DESKTOP_UI) return;
       const max = Math.max(PLAN_PANE_MIN_WIDTH, nextWidth - CALENDAR_MIN_WIDTH - PANE_RESIZER_WIDTH);
       if (schedulePaneWidthRef.current > max) {
