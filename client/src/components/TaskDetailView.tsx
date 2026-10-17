@@ -946,8 +946,12 @@ const useStyles = makeStyles((c) => ({
     fontSize: 14,
     color: c.textSecondary,
   },
+  // The native menus host their label in SwiftUI or Compose, which draw it
+  // centered (or leading) in whatever width they are given. Sized to the label
+  // and pushed to the trailing edge, every value lines up with the tag chips.
   metaValueMenu: {
-    flex: 1,
+    flexShrink: 1,
+    marginLeft: 'auto',
   },
   metaValueButton: {
     flexDirection: 'row',
