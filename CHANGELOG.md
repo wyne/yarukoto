@@ -1,5 +1,30 @@
 # Changelog
 
+## [1.1.0](https://github.com/wyne/yarukoto/compare/v1.0.0...v1.1.0) (2026-10-18)
+
+
+### Features
+
+* replace the task completion sound with a softer rolled chord ([#220](https://github.com/wyne/yarukoto/issues/220)) ([1ba5863](https://github.com/wyne/yarukoto/commit/1ba5863aa8f7ba1608e9cc33bdc71fda9df6a43d))
+
+
+### Bug Fixes
+
+* make task sheet scroll on initial load ([#219](https://github.com/wyne/yarukoto/issues/219)) ([78de7a2](https://github.com/wyne/yarukoto/commit/78de7a2a19d875981892930417c35879e01fc583))
+* make the Mac app keep up with window resizing ([#224](https://github.com/wyne/yarukoto/issues/224)) ([83e9ef3](https://github.com/wyne/yarukoto/commit/83e9ef377e4a1b1b6eeb013ecf2a2582c01dede0))
+* right-align task detail menu values ([#222](https://github.com/wyne/yarukoto/issues/222)) ([15fbf47](https://github.com/wyne/yarukoto/commit/15fbf473bd0c109a852f0d17266e521536a3f0a4))
+
+
+### Documentation
+
+* add MIT license ([#217](https://github.com/wyne/yarukoto/issues/217)) ([608bc38](https://github.com/wyne/yarukoto/commit/608bc38cda375aa7786e0ed6a232f8726f0d597e))
+
+
+### Infrastructure
+
+* allow release rebuild dispatch without a tag ([#223](https://github.com/wyne/yarukoto/issues/223)) ([b6f32b9](https://github.com/wyne/yarukoto/commit/b6f32b9eeb48e408afdbab54fc391c9f6d58c23b))
+* fix EAS release preflight path ([#215](https://github.com/wyne/yarukoto/issues/215)) ([8688340](https://github.com/wyne/yarukoto/commit/86883402cc6cebdbc39dda1dd9569d65edeb5966))
+
 ## 1.0.0 (2026-10-10)
 
 
