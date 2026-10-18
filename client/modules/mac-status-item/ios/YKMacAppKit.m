@@ -63,11 +63,6 @@ static const uint32_t YKLaunchedAsLogInItem = 'lgit';
 - (id<YKApplication>)sharedApplication;
 @end
 
-/// The application delegate UIKit installs in a Catalyst app.
-@protocol YKUIKitHostDelegate <NSObject>
-- (nullable id)hostWindowForUIWindow:(UIWindow *)window;
-@end
-
 @protocol YKWindow <NSObject>
 - (void)orderOut:(nullable id)sender;
 - (void)makeKeyAndOrderFront:(nullable id)sender;
@@ -210,51 +205,45 @@ static YKMacAppKitTarget *Target(void)
 
 #pragma mark - The window
 
-static UIWindow *_Nullable MainUIWindow(void)
-{
-  id<UIApplicationDelegate> delegate = UIApplication.sharedApplication.delegate;
-  if ([delegate respondsToSelector:@selector(window)] && delegate.window) return delegate.window;
-  for (UIScene *scene in UIApplication.sharedApplication.connectedScenes) {
-    if (![scene isKindOfClass:UIWindowScene.class]) continue;
-    for (UIWindow *window in ((UIWindowScene *)scene).windows) {
-      if (window.rootViewController) return window;
-    }
-  }
-  return nil;
-}
-
-/// The NSWindow hosting the app's UIWindow. UIKit creates it lazily, so nil until the window is on screen.
+/**
+ * The NSWindow React Native draws in. UIKit creates it lazily, so nil until the
+ * window is on screen.
+ *
+ * Found among NSApp's windows by class rather than through UIKit's
+ * `hostWindowForUIWindow:`, which answers with a UINSWindowProxy: a stand-in
+ * that forwards some messages but is not the window AppKit closes. The app has
+ * one window, so the first UINSWindow is it.
+ */
 static id<YKWindow> _Nullable MainWindow(void)
 {
   if (sWindow) return sWindow;
-  UIWindow *uiWindow = MainUIWindow();
-  id delegate = App().delegate;
-  if (!uiWindow || ![delegate respondsToSelector:@selector(hostWindowForUIWindow:)]) return nil;
-  sWindow = [(id<YKUIKitHostDelegate>)delegate hostWindowForUIWindow:uiWindow];
+  Class windowClass = NSClassFromString(@"UINSWindow");
+  if (!windowClass) return nil;
+  for (id window in App().windows) {
+    if ([window isKindOfClass:windowClass]) {
+      sWindow = window;
+      break;
+    }
+  }
   return sWindow;
 }
 
 /**
- * Closing the window — its red button, File ▸ Close, ⌘W — hides it instead,
- * while Yarukoto is in the menu bar.
+ * Closing the window with its red button hides it instead, while Yarukoto is in
+ * the menu bar. (File ▸ Close and ⌘W are a menu command, `closeWindow`, which
+ * calls `closeMainWindow` below.)
  *
  * Really closing it would take the React tree down with it: React Native's root
  * view lives in this window, and with no window the app has no tasks, no sync and
- * no reminders to put in the menu, nor any way UIKit offers to open another. The
- * close button's action, like the menu item's, is the window's `performClose:`,
- * so that one method is where all three arrive.
+ * no reminders to put in the menu, nor any way UIKit offers to open another.
  *
- * Swapped on the window's own class (UIKit's UINSWindow), and only ever acting on
- * the main window; anything else that class draws closes as it always did.
+ * Catalyst's close button sends the window `_close:`, not the `performClose:` an
+ * AppKit window's would, so both are swapped, on UIKit's UINSWindow class, and
+ * only ever act on the main window.
  */
-static void InstallCloseHook(id window)
+static void HookClose(Class cls, NSString *name)
 {
-  static BOOL installed;
-  if (installed) return;
-  installed = YES;
-
-  Class cls = object_getClass(window);
-  SEL selector = NSSelectorFromString(@"performClose:");
+  SEL selector = NSSelectorFromString(name);
   Method method = class_getInstanceMethod(cls, selector);
   if (!method) return;
   IMP previous = method_getImplementation(method);
@@ -265,9 +254,20 @@ static void InstallCloseHook(id window)
     }
     ((void (*)(id, SEL, id))previous)(self_, selector, sender);
   });
-  // Adds the override to the subclass when the method is inherited, so NSWindow's
-  // own — and every other window class's — is left alone.
+  // Adds the override to UINSWindow when the method is inherited, so NSWindow's
+  // own, and every other window class's, is left alone.
   class_replaceMethod(cls, selector, hook, method_getTypeEncoding(method));
+}
+
+static void InstallCloseHook(void)
+{
+  static BOOL installed;
+  if (installed) return;
+  Class cls = NSClassFromString(@"UINSWindow");
+  if (!cls) return;
+  installed = YES;
+  HookClose(cls, @"_close:");
+  HookClose(cls, @"performClose:");
 }
 
 /**
@@ -276,8 +276,7 @@ static void InstallCloseHook(id window)
  */
 static void AttachToWindow(int attempt)
 {
-  id window = MainWindow();
-  if (!window) {
+  if (!MainWindow()) {
     if (attempt < 40) {
       dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.25 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
         AttachToWindow(attempt + 1);
@@ -285,7 +284,7 @@ static void AttachToWindow(int attempt)
     }
     return;
   }
-  InstallCloseHook(window);
+  InstallCloseHook();
   // Opening at login means opening in the menu bar. With the menu bar extra off
   // there'd be nothing on screen at all, so the window stays.
   if (sLaunchedAtLogin && YKMacAppKit.menuBarEnabled) {
@@ -511,6 +510,20 @@ static id<YKAppService> _Nullable MainAppService(void)
   sMore = more;
   sCount = count;
   if (self.available) UpdateStatusItem();
+#endif
+}
+
++ (void)closeMainWindow
+{
+#if TARGET_OS_MACCATALYST
+  if (!self.available) return;
+  if (self.menuBarEnabled) {
+    [self hideMainWindow];
+  } else {
+    // What the red button does when nothing keeps the app alive without its
+    // only window.
+    [App() terminate:nil];
+  }
 #endif
 }
 

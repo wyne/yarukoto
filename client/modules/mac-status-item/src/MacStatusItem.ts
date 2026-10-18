@@ -33,6 +33,8 @@ declare class MacStatusItemModule extends NativeModule<MacStatusItemEvents> {
   /** Registers or removes the login item, and resolves to where that left it. */
   setOpensAtLogin(enabled: boolean): Promise<LoginItemStatus>;
   openLoginItemsSettings(): Promise<void>;
+  /** File ▸ Close: into the menu bar while the extra is on, else quits, as the red button does. */
+  closeMainWindow(): Promise<void>;
   /** The menu's Today section; `count` is the number beside the icon, none at 0. */
   setTasks(tasks: MacStatusTask[], more: number, count: number): Promise<void>;
 }

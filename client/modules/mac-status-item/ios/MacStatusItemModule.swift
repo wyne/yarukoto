@@ -14,8 +14,8 @@ public final class MacStatusItemModule: Module {
 
     Events("onAction")
 
-    OnStartObserving {
-      DispatchQueue.main.async { [weak self] in
+    OnStartObserving { [weak self] in
+      DispatchQueue.main.async {
         YKMacAppKit.onAction = { action, taskId in
           var body: [String: Any] = ["action": action]
           if let taskId { body["taskId"] = taskId }
@@ -53,6 +53,10 @@ public final class MacStatusItemModule: Module {
 
     AsyncFunction("openLoginItemsSettings") {
       YKMacAppKit.openLoginItemsSettings()
+    }.runOnQueue(.main)
+
+    AsyncFunction("closeMainWindow") {
+      YKMacAppKit.closeMainWindow()
     }.runOnQueue(.main)
 
     AsyncFunction("setTasks") { (tasks: [StatusTaskRecord], more: Int, count: Int) in

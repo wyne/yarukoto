@@ -176,6 +176,7 @@ stay web-only.
 |---|---|---|
 | Yarukoto | Settings… | ⌘, |
 | File | New Task — the pinned add field, or the Inbox's on a screen without one | ⌘N |
+| File | Close Window — into the menu bar while its icon is on, otherwise quits | ⌘W |
 | Edit | Find… — Browse's search | ⌘F |
 | View | Command Menu… | ⌘K |
 | View | Toggle Sidebar / Toggle Task Pane | ⌘S / ⌘D |
@@ -219,8 +220,8 @@ number of tasks due by today beside it. Its menu lists Today's tasks, overdue fi
 marks it done), then New Task…, Open Yarukoto, Settings… and Quit. Settings ▸ General has two Mac
 switches: **Show in menu bar**, on by default, and **Open at login**.
 
-While the extra is on, closing the window doesn't close it: the red button, File ▸ Close and ⌘W
-order it out and drop the Dock icon, and Open, the Dock or Finder bring both back. That matters
+While the extra is on, closing the window doesn't close it: the red button and File ▸ Close Window
+(⌘W) order it out and drop the Dock icon, and Open, the Dock or Finder bring both back. That matters
 because React Native's root view lives in that window. Closing it for real would unmount the app,
 and with it sync, reminders and the menu's own task list, with no way UIKit offers to open another.
 A login launch starts the same way, in the menu bar with the window hidden.
@@ -229,8 +230,11 @@ None of this is in UIKit: the status item, the activation policy that hides the 
 `SMAppService` for the login item are all AppKit. `client/modules/mac-status-item` reaches them at
 runtime from Objective-C (`YKMacAppKit.m`), the way `mac-pointer` sets `NSCursor`, through protocols
 that declare AppKit's real signatures. The hidden-window part leans on two things UIKit doesn't
-document: its NSApplication delegate's `hostWindowForUIWindow:`, to find the window, and the
-window class's `performClose:`, swapped for the main window only. A login launch is recognized by
+document. The window is UIKit's `UINSWindow`, found in `NSApp.windows`; the delegate's
+`hostWindowForUIWindow:` answers with a `UINSWindowProxy` that AppKit never closes through. And its
+red button sends `_close:`, not `performClose:`, so both are swapped on that class, acting on the
+main window only. Catalyst's own File ▸ Close is dimmed in a single-window app, so `mac-menu`
+replaces it with the `closeWindow` command. A login launch is recognized by
 the launch's Apple event, as AppKit apps do. The alternative is a macOS bundle target loaded at
 launch, which gets AppKit's headers but adds a target, its signing and its embedding to
 `plugins/mac-catalyst`. For this much API the runtime route is less to keep working.

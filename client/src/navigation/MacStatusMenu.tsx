@@ -3,7 +3,11 @@ import MacStatusItem from '../../modules/mac-status-item/src/MacStatusItem';
 import { statusMenuContents } from '../data/macStatusMenu';
 import { MAC } from '../data/platform';
 import { useTasks } from '../data/TaskContext';
-import { dispatchCommand } from './MenuCommands';
+import { dispatchCommand, useCommand } from './MenuCommands';
+
+const closeWindow = () => {
+  MacStatusItem?.closeMainWindow();
+};
 
 /** How often Today is worked out again with nothing changed, so midnight moves it on. */
 const RECHECK_MS = 60_000;
@@ -20,6 +24,9 @@ const RECHECK_MS = 60_000;
 export default function MacStatusMenu() {
   const { state, toggleComplete } = useTasks();
   const [minute, setMinute] = useState(0);
+
+  // File ▸ Close, ⌘W. Native decides whether that hides or quits.
+  useCommand('closeWindow', closeWindow, !!MacStatusItem);
 
   useEffect(() => {
     if (!MAC || !MacStatusItem) return;

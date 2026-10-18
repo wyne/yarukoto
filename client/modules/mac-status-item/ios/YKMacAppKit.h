@@ -48,6 +48,12 @@ typedef NS_ENUM(NSInteger, YKLoginItemStatus) {
  */
 + (void)setTasks:(NSArray<NSDictionary<NSString *, id> *> *)tasks more:(NSInteger)more count:(NSInteger)count;
 
+/**
+ * File ▸ Close: hides the window into the menu bar while the extra is on, and
+ * quits otherwise, as the red button would.
+ */
++ (void)closeMainWindow;
+
 /// Brings the window, and the Dock icon, back and makes Yarukoto active.
 + (void)showMainWindow;
 

@@ -31,6 +31,7 @@ does.
 | ⌘D | Show or hide the task pane *(Mac)* |
 | ⌘/ | Keyboard shortcuts |
 | ⌘, | Settings *(Mac)* |
+| ⌘W | Close the window; with the menu bar icon on, Yarukoto keeps running there *(Mac)* |
 
 ## The sidebar
 

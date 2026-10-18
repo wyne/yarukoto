@@ -90,7 +90,11 @@ public enum MacMenuBar {
       }
     }
 
-    // File: first, where New sits in every Mac app.
+    // File: first, where New sits in every Mac app. Catalyst's own Close is
+    // dimmed in a single-window app and holds ⌘W, which Close Window wants.
+    if specs.contains(where: { $0.id == "closeWindow" }), builder.menu(for: .close) != nil {
+      builder.remove(menu: .close)
+    }
     if let file = section("file") {
       builder.insertChild(file, atStartOfMenu: .file)
     }
