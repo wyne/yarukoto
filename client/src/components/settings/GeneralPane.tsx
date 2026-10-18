@@ -6,7 +6,8 @@ import { ACCENT_OPTIONS, SchemePref } from '../../theme/colors';
 import { makeStyles } from '../../theme/styles';
 import { useColors, useTheme } from '../../theme/ThemeContext';
 import { LINKS, openLink } from '../../data/links';
-import { MAC } from '../../data/platform';
+import { APP_VERSION, checkForAppUpdatesInteractively } from '../../data/appUpdates';
+import { DESKTOP_APP, MAC } from '../../data/platform';
 import { Group, Note, Row, Segmented } from './parts';
 
 const SCHEME_OPTIONS: Array<{ value: SchemePref; label: string }> = [
@@ -153,6 +154,24 @@ export function HelpGroup() {
           accessibilityRole="link"
         />
       ))}
+    </Group>
+  );
+}
+
+/** Version and an explicit update check, only in directly distributed builds. */
+export function UpdatesGroup() {
+  const [checking, setChecking] = useState(false);
+  if (!DESKTOP_APP) return null;
+
+  const check = () => {
+    setChecking(true);
+    void checkForAppUpdatesInteractively().finally(() => setChecking(false));
+  };
+
+  return (
+    <Group label="Updates">
+      <Row title="Version" value={APP_VERSION ? `v${APP_VERSION}` : 'Unknown'} mono />
+      <Row divided title="Check for updates…" tone="action" onPress={check} busy={checking} />
     </Group>
   );
 }

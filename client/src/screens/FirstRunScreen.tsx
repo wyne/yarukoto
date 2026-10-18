@@ -10,7 +10,7 @@ import { confirmAsync } from '../data/confirm';
 import { claimJoinLink, useJoinLink, useSignIn } from '../navigation/joinLinks';
 import { SavedServer, loadSavedServers } from '../data/storage';
 import { LINKS, openLink } from '../data/links';
-import { IconLock, IconServer, IconShield } from '../icons/Icons';
+import { IconLock, IconServer } from '../icons/Icons';
 import Sheet from '../components/Sheet';
 import PairingPanel from '../components/household/PairingPanel';
 import QrScanner, { CAN_SCAN } from '../components/household/QrScanner';
@@ -295,11 +295,6 @@ export default function FirstRunScreen() {
           </View>
         )}
 
-        <View style={styles.trustRow}>
-          <IconShield />
-          <Text style={styles.trustText}>Your data never leaves your server.</Text>
-        </View>
-
         {signedOutOf && (
           <Pressable onPress={handleDisconnect} hitSlop={6} style={styles.disconnect}>
             <Text style={styles.methodSwitch}>
@@ -487,12 +482,6 @@ const useStyles = makeStyles((c) => ({
     fontSize: 13.5,
     color: c.textTertiary,
   },
-  trustRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginTop: 16,
-  },
   orRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -529,11 +518,6 @@ const useStyles = makeStyles((c) => ({
     fontSize: 13,
     lineHeight: 17,
     color: c.textTertiary,
-  },
-  trustText: {
-    fontFamily: fonts.monoRegular,
-    fontSize: 12.5,
-    color: c.textSecondary,
   },
   savedLabel: {
     fontFamily: fonts.monoRegular,

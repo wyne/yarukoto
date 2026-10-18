@@ -60,9 +60,11 @@ module.exports = ({ config }) => {
     // Mac releases are built locally rather than through EAS, so the release
     // script may override their SemVer. Their build number is handled below;
     // phone build numbers remain remotely managed by EAS.
-    version: macCatalyst && process.env.MAC_VERSION
-      ? process.env.MAC_VERSION
-      : appVersion,
+    version: process.env.DESKTOP_VERSION ?? (
+      macCatalyst && process.env.MAC_VERSION
+        ? process.env.MAC_VERSION
+        : appVersion
+    ),
     experiments: {
       ...config.experiments,
       baseUrl: process.env.EXPO_BASE_URL ?? '',

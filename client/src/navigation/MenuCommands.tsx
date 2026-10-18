@@ -2,8 +2,9 @@ import { useCallback, useContext, useEffect, useRef, useState, useSyncExternalSt
 import { Platform } from 'react-native';
 import { NavigationContext } from '@react-navigation/native';
 import MacMenu from '../../modules/mac-menu/src/MacMenu';
-import { DESKTOP_UI, MAC } from '../data/platform';
+import { DESKTOP_APP, DESKTOP_UI, MAC } from '../data/platform';
 import { LINKS, openLink } from '../data/links';
+import { checkForAppUpdatesInteractively } from '../data/appUpdates';
 import { PendingUndo, usePendingUndo, useTasks } from '../data/TaskContext';
 import { anyLayerOpen } from '../components/openLayers';
 import CommandPalette from '../components/CommandPalette';
@@ -11,7 +12,7 @@ import KeyboardShortcuts from '../components/KeyboardShortcuts';
 import { COMMANDS, CommandId, commandDef, webCommandFor } from './commands';
 import { navigationRef } from './DateTimePickerContext';
 import { tabNavigation } from './destinations';
-import { useSidebar } from './SidebarContext';
+import { useDrawerState, useSidebar } from './SidebarContext';
 
 /**
  * The keyboard's commands, and who answers them.
@@ -185,16 +186,19 @@ const openPrivacy = () => openLink(LINKS.privacy);
 
 /** Mounted once, in the main layout, so it never runs over the first-run screen. */
 export default function MenuCommands() {
-  const { openServer, wide, toggleCollapsed } = useSidebar();
+  const { openServer, wide, toggleCollapsed, openDrawer } = useSidebar();
   const { undo } = useTasks();
   const pendingUndo = usePendingUndo();
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
 
   useCommandHandler('settings', openServer, DESKTOP_UI);
+  useCommandHandler('checkForUpdates', () => void checkForAppUpdatesInteractively(), DESKTOP_APP);
   useCommandHandler('commandMenu', useCallback(() => setPaletteOpen(true), []), DESKTOP_UI);
   useCommandHandler('keyboardShortcuts', useCallback(() => setShortcutsOpen(true), []), DESKTOP_UI);
-  useCommandHandler('toggleSidebar', toggleCollapsed, DESKTOP_UI && wide);
+  // A narrow window has no pinned sidebar to shrink; the key shows and hides the drawer instead.
+  const { drawerOpen, closeDrawer } = useDrawerState();
+  useCommandHandler('toggleSidebar', wide ? toggleCollapsed : drawerOpen ? closeDrawer : openDrawer, DESKTOP_UI);
   useCommandHandler('goAll', goAll, DESKTOP_UI);
   useCommandHandler('goInbox', goInbox, DESKTOP_UI);
   useCommandHandler('goToday', goToday, DESKTOP_UI);

@@ -1,6 +1,13 @@
 import { Platform } from 'react-native';
 import { isGlassEffectAPIAvailable, isLiquidGlassAvailable } from 'expo-glass-effect';
 
+declare global {
+  interface Window {
+    /** Set by windows/src/init.js before the exported web client starts. */
+    __YARUKOTO_WINDOWS_APP__?: boolean;
+  }
+}
+
 /**
  * The Mac build: the iOS app compiled for Mac Catalyst.
  *
@@ -11,6 +18,15 @@ import { isGlassEffectAPIAvailable, isLiquidGlassAvailable } from 'expo-glass-ef
  * SwiftUI's menus do.
  */
 export const MAC = Platform.OS === 'ios' && Platform.isMacCatalyst === true;
+
+/** The web export hosted by the Windows Tauri shell, rather than a browser. */
+export const WINDOWS_APP =
+  Platform.OS === 'web' &&
+  typeof window !== 'undefined' &&
+  window.__YARUKOTO_WINDOWS_APP__ === true;
+
+/** A directly distributed desktop binary, which owns its update experience. */
+export const DESKTOP_APP = MAC || WINDOWS_APP;
 
 /**
  * The desktop interaction model: a keyboard and a pointer are assumed present.
@@ -32,14 +48,16 @@ export const MAC = Platform.OS === 'ios' && Platform.isMacCatalyst === true;
 export const DESKTOP_UI = Platform.OS === 'web' || MAC;
 
 /**
- * Whether the narrow layout's tab bar floats over the content.
+ * Whether the narrow layout has a tab bar floating over the content.
  *
  * Native tabs are system chrome drawn on top of the screen, so scrolling
- * content and anything pinned to the bottom have to clear them. The web tab bar
- * is a row of the layout that the content already ends above. A question about
- * chrome, not input: the Mac is desktop, and its tabs still float.
+ * content and anything pinned to the bottom have to clear them. The web has no
+ * tab bar — the drawer is its narrow navigation — and neither does the Mac,
+ * which hides the system one and uses the same drawer as the web: a phone's
+ * tab bar along the bottom of a desktop window, beside a menu button that opens
+ * the same destinations, was two navigations for one window.
  */
-export const FLOATING_TAB_BAR = Platform.OS !== 'web';
+export const FLOATING_TAB_BAR = Platform.OS !== 'web' && !MAC;
 
 /**
  * A mouse or trackpad rather than a touchscreen.
