@@ -43,8 +43,9 @@ While the sidebar has the keyboard, the row you're on is outlined in your accent
 
 | Key | What it does |
 |---|---|
-| ↑ ↓ | Move through views, lists, folders, filters and tags, showing each as you go |
-| → ← | Open or fold a folder. ← from a list in a folder goes up to the folder |
+| ↑ ↓ | Move through views, lists, folders, filters and tags, showing each as you go, and scrolling to keep the row in view |
+| → ← | Open or fold a folder. ← from a list in a folder folds the folder and goes up to it |
+| Space | Open or fold the folder you're on |
 | ↩ Return, ⎋ Escape or → | Back to the task list |
 
 ## The task list

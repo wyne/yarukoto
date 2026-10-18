@@ -128,8 +128,12 @@ test('a narrowed window keeps the sidebar as a rail, and expanding it hands it t
   await connect(page);
   const palette = async (command: string) => {
     await page.keyboard.press('ControlOrMeta+k');
-    await page.keyboard.type(command);
+    const search = page.getByPlaceholder('Go to or do…');
+    await expect(search).toBeFocused();
+    await search.fill(command);
+    await expect(page.getByText(command, { exact: true }).last()).toBeVisible();
     await page.keyboard.press('Enter');
+    await expect(search).toBeHidden();
   };
 
   // Too narrow for the full sidebar, wide enough for the rail: no menu button.
@@ -150,4 +154,57 @@ test('a narrowed window keeps the sidebar as a rail, and expanding it hands it t
   const before = page.url();
   await page.keyboard.press('ArrowDown');
   await expect.poll(() => page.url()).not.toBe(before);
+});
+
+test('the sidebar keeps the keyboard row in view, and Space and ← fold a folder', async ({ page, request }) => {
+  const stamp = Date.now();
+  const now = new Date().toISOString();
+  const folderName = `Keys folder ${stamp}`;
+  const inFolder = `Keys inside ${stamp}`;
+  const lists = Array.from({ length: 24 }, (_, i) => ({
+    id: `keys-list-${stamp}-${i}`,
+    name: `Keys list ${String(i).padStart(2, '0')} ${stamp}`,
+    color: '#4A7BF7',
+    folderId: null,
+    order: 10 + i,
+    updatedAt: now,
+  }));
+  const folderId = `keys-folder-${stamp}`;
+  const response = await request.post('/api/v1/sync', {
+    headers: { Authorization: `Bearer ${TOKEN}` },
+    data: {
+      folders: [{ id: folderId, name: folderName, order: 0, updatedAt: now }],
+      lists: [
+        { id: `keys-inside-${stamp}`, name: inFolder, color: '#4A7BF7', folderId, order: 0, updatedAt: now },
+        ...lists,
+      ],
+    },
+  });
+  expect(response.ok()).toBe(true);
+
+  await page.setViewportSize({ width: 1400, height: 600 });
+  await connect(page);
+  const last = page.getByLabel(lists[lists.length - 1].name, { exact: true });
+  await expect(last).toBeAttached();
+  await expect(last).not.toBeInViewport();
+
+  // ← from the list goes to the sidebar; ↓ to the last list scrolls it into view.
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('ArrowLeft');
+  await expect.poll(async () => (await focused(page)).tag).toBe('DIV');
+  for (let i = 0; i < 7 + 2 + lists.length; i++) await page.keyboard.press('ArrowDown');
+  await expect(last).toBeInViewport();
+
+  // Back up to the list inside the folder: ← folds the folder and moves up to it.
+  for (let i = 0; i < lists.length; i++) await page.keyboard.press('ArrowUp');
+  const inside = page.getByLabel(inFolder, { exact: true });
+  await expect(inside).toBeInViewport();
+  await page.keyboard.press('ArrowLeft');
+  await expect(inside).toHaveCount(0);
+
+  // Space opens the folder again, and folds it.
+  await page.keyboard.press(' ');
+  await expect(inside).toBeVisible();
+  await page.keyboard.press(' ');
+  await expect(inside).toHaveCount(0);
 });

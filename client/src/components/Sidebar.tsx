@@ -1,9 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Platform, Text, View } from 'react-native';
 import Pressable from './HoverPressable';
 import Animated, {
   useAnimatedRef,
   useAnimatedStyle,
+  useScrollViewOffset,
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
@@ -185,6 +186,26 @@ const Sidebar = React.memo(function Sidebar({ state, navigation, onNavigate }: P
   const { wide, railOnly, toggleCollapsed, openDrawer, openServer, openNavSheet } = useSidebar();
   const collapsedPref = useSidebarCollapsed();
   const scrollRef = useAnimatedRef<Animated.ScrollView>();
+  const scrollOffset = useScrollViewOffset(scrollRef);
+  /**
+   * Brings the row the arrows are on into view, as the task list does with its
+   * cursor. The ring marks that row, so it is the ring that asks, as it appears.
+   */
+  const reveal = useCallback(
+    (row: View) => {
+      const scroller = scrollRef.current as unknown as View | null;
+      if (!scroller) return;
+      scroller.measureInWindow((_x, top, _w, height) => {
+        row.measureInWindow((_rx, rowTop, _rw, rowHeight) => {
+          const above = rowTop - REVEAL_MARGIN - top;
+          const below = rowTop + rowHeight + REVEAL_MARGIN - (top + height);
+          const by = above < 0 ? above : below > 0 ? below : 0;
+          if (by !== 0) scrollRef.current?.scrollTo({ y: Math.max(0, scrollOffset.value + by), animated: false });
+        });
+      });
+    },
+    [scrollRef, scrollOffset]
+  );
   const inDrawer = !!onNavigate;
   // The drawer is a transient overlay, so it always shows the full sidebar —
   // including when it is opened over a rail-only window's rail.
@@ -622,9 +643,24 @@ const Sidebar = React.memo(function Sidebar({ state, navigation, onNavigate }: P
         if (row?.kind === 'folder' && collapsedFolders.includes(row.folder.id)) toggleFolder(row.folder.id);
         else if (!leaveForList()) focusPane('list');
         return;
-      case 'left':
-        if (row?.kind === 'folder' && !collapsedFolders.includes(row.folder.id)) toggleFolder(row.folder.id);
-        else if (row?.kind === 'list' && parentOf(row)) openFolder(parentOf(row)!);
+      case 'left': {
+        // From a list in a folder, folds the folder it is in and moves up to it.
+        const folderId = row?.kind === 'folder' ? row.folder.id : row?.kind === 'list' ? parentOf(row) : null;
+        if (!folderId) return;
+        if (row?.kind === 'list') {
+          // From the keys, so the drawer stays open, as it does for ↑ and ↓.
+          fromKeys.current = true;
+          try {
+            openFolder(folderId);
+          } finally {
+            fromKeys.current = false;
+          }
+        }
+        if (!collapsedFolders.includes(folderId)) toggleFolder(folderId);
+        return;
+      }
+      case 'space':
+        if (row?.kind === 'folder') toggleFolder(row.folder.id);
         return;
       case 'tab':
       case 'shift+tab':
@@ -646,262 +682,264 @@ const Sidebar = React.memo(function Sidebar({ state, navigation, onNavigate }: P
   ];
 
   return (
-    <SidebarFrame
-      keyboard={keyboardSidebar}
-      active={takesKeys}
-      style={sidebarStyle}
-      focusKey={keyFocus}
-      onKey={handleKey}
-    >
-      <View style={[styles.brandRow, collapsed && styles.brandRowCollapsed]}>
-        {!collapsed && <Text style={styles.brand}>Yarukoto</Text>}
-        {wide && !inDrawer && (
-          <Pressable
-            // No room to push the content aside, so the full sidebar comes over it.
-            onPress={railOnly ? openDrawer : toggleCollapsed}
-            hitSlop={8}
-            accessibilityLabel={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          >
-            {collapsed ? <IconChevronRight size={18} /> : <IconChevronLeft size={18} />}
-            {/* To the left of the chevron, which sits against the sidebar's clipped edge. */}
-            <ShortcutHint command="toggleSidebar" style={collapsed ? HINT_OVER_ICON : { right: 24 }} />
-          </Pressable>
-        )}
-      </View>
-
-      <Animated.ScrollView
-        ref={scrollRef}
-        style={styles.scrollArea}
-        contentContainerStyle={styles.scroll}
-        showsVerticalScrollIndicator={false}
+    <RevealContext.Provider value={reveal}>
+      <SidebarFrame
+        keyboard={keyboardSidebar}
+        active={takesKeys}
+        style={sidebarStyle}
+        focusKey={keyFocus}
+        onKey={handleKey}
       >
-        {VIEWS.map(({ route, label, Icon, command }) => {
-          const active = showActive('route', route);
-          const count = viewCounts[route] ?? null;
-          return (
+        <View style={[styles.brandRow, collapsed && styles.brandRowCollapsed]}>
+          {!collapsed && <Text style={styles.brand}>Yarukoto</Text>}
+          {wide && !inDrawer && (
             <Pressable
-              key={route}
-              style={hoverBg([styles.row, collapsed && styles.rowCollapsed, active && { backgroundColor: colors.selectedRowBg }], active)}
-              onPress={() => go(route)}
-              accessibilityLabel={label}
+              // No room to push the content aside, so the full sidebar comes over it.
+              onPress={railOnly ? openDrawer : toggleCollapsed}
+              hitSlop={8}
+              accessibilityLabel={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             >
-              <Icon size={20} color={active ? accent : colors.textTertiary} />
-              {!collapsed && (
-                <>
-                  <Text style={[styles.rowLabel, active && { color: accent, fontFamily: fonts.sansSemiBold }]}>
-                    {label}
-                  </Text>
-                  {count !== null && <Text style={styles.rowCount}>{count}</Text>}
-                </>
-              )}
-              <ShortcutHint command={command} style={collapsed && HINT_OVER_ICON} />
-              {keyRing && active && <KeyRing />}
+              {collapsed ? <IconChevronRight size={18} /> : <IconChevronLeft size={18} />}
+              {/* To the left of the chevron, which sits against the sidebar's clipped edge. */}
+              <ShortcutHint command="toggleSidebar" style={collapsed ? HINT_OVER_ICON : { right: 24 }} />
             </Pressable>
-          );
-        })}
-
-        {/* Sets the tree apart from the fixed views above it, which are a
-            different kind of thing: those are always there, these are yours. */}
-        <View style={styles.treeSeparator} />
-
-        {/*
-          Folders and their lists are one flat sortable, not a sortable per
-          folder: the library reorders siblings and cannot hand an item to
-          another container, so nesting would leave a list dragged towards a
-          different folder with no slot opening for it. `navTree` flattens the
-          tree on the way in and reads the meaning back out of the drop.
-
-          Collapsed rail mode opts out — there is nothing to drag when the rows
-          are 20pt colour badges with no folder headings between them.
-        */}
-        <DragList
-          items={rows}
-          keyExtractor={(row) => row.key}
-          enabled={!collapsed}
-          scrollableRef={scrollRef}
-          onDragStart={dragStart}
-          onDragMove={dragMove}
-          // One threshold governs both halves of the gesture: crossing it is
-          // what turns a hold into a drag, so the row rises and the menu that
-          // was asking "which did you mean?" gets out of the way together.
-          liftAfter={LIFT_THRESHOLD}
-          onLift={lift}
-          onDragEnd={dragEnd}
-          onReorder={reorder}
-          // Two things invalidate the sortable's measurements: rows appearing
-          // and disappearing outright, and a fold having flattened them while
-          // it was reading their heights. Note what is absent — the fold going
-          // *on*. Remounting there would destroy the gesture that asked for it,
-          // so the epoch only turns once the drag is over.
-          resetKey={`${collapsedFolders.join('|')}#${foldEpoch}`}
-          renderItem={(row) => (
-            // Wrapped whether or not it can fold: making the wrapper
-            // conditional would change the element tree the moment a fold
-            // starts, remounting the row under the finger that asked for it.
-            <FoldAway folded={foldingFolders && row.depth === 1}>
-              {/* Right-click is the mouse's way in: there is no hold to long-press
-                  with, and the grip is reserved for dragging. Web-only by
-                  construction — on native this is a plain View. */}
-              <ContextMenuTarget
-                onOpen={(pos) => {
-                  setMenuTarget(rowFor(row.key));
-                  setMenuAt({ x: pos.x, y: pos.y, width: 0, height: 0 });
-                }}
-              >
-                {row.kind === 'folder' ? (
-                  <FolderRow
-                    rowKey={row.key}
-                    onPressIn={arm}
-                    held={menuTarget?.id === row.folder.id}
-                    folder={row.folder}
-                    rail={collapsed}
-                    count={folderTotals[row.folder.id] ?? 0}
-                    folded={collapsedFolders.includes(row.folder.id)}
-                    active={showActive('folder', row.folder.id)}
-                    ringed={keyRing && showActive('folder', row.folder.id)}
-                    accent={accent}
-                    onPress={openFolder}
-                    onToggle={toggleFolder}
-                  />
-                ) : (
-                  <ListRow
-                    rowKey={row.key}
-                    onPressIn={arm}
-                    held={menuTarget?.id === row.list.id}
-                    list={row.list}
-                    rail={collapsed}
-                    depth={row.depth}
-                    count={counts[row.list.id] ?? 0}
-                    active={showActive('list', row.list.id)}
-                    ringed={keyRing && showActive('list', row.list.id)}
-                    accent={accent}
-                    onPress={openList}
-                  />
-                )}
-              </ContextMenuTarget>
-            </FoldAway>
           )}
-        />
+        </View>
 
-        {!collapsed && (
-          <View style={styles.addRow}>
-            <Pressable
-              style={hoverBg(styles.newRow)}
-              onPress={() => openNavSheet({ kind: 'newList', folderId: null })}
-              accessibilityLabel="New list"
-            >
-              <IconPlus size={17} color={colors.textTertiary} />
-              <Text style={styles.newLabel}>New list</Text>
-            </Pressable>
-            <Pressable
-              style={hoverBg(styles.newRow)}
-              onPress={() => openNavSheet({ kind: 'newFolder' })}
-              accessibilityLabel="New folder"
-            >
-              <IconPlus size={17} color={colors.textTertiary} />
-              <Text style={styles.newLabel}>New folder</Text>
-            </Pressable>
-          </View>
-        )}
+        <Animated.ScrollView
+          ref={scrollRef}
+          style={styles.scrollArea}
+          contentContainerStyle={styles.scroll}
+          showsVerticalScrollIndicator={false}
+        >
+          {VIEWS.map(({ route, label, Icon, command }) => {
+            const active = showActive('route', route);
+            const count = viewCounts[route] ?? null;
+            return (
+              <Pressable
+                key={route}
+                style={hoverBg([styles.row, collapsed && styles.rowCollapsed, active && { backgroundColor: colors.selectedRowBg }], active)}
+                onPress={() => go(route)}
+                accessibilityLabel={label}
+              >
+                <Icon size={20} color={active ? accent : colors.textTertiary} />
+                {!collapsed && (
+                  <>
+                    <Text style={[styles.rowLabel, active && { color: accent, fontFamily: fonts.sansSemiBold }]}>
+                      {label}
+                    </Text>
+                    {count !== null && <Text style={styles.rowCount}>{count}</Text>}
+                  </>
+                )}
+                <ShortcutHint command={command} style={collapsed && HINT_OVER_ICON} />
+                {keyRing && active && <KeyRing />}
+              </Pressable>
+            );
+          })}
 
-        {savedFilters.length > 0 && !collapsed && supportsFeature('savedFilters') && (
-          <View>
-            <Text style={styles.sectionLabel}>Filters</Text>
-            {savedFilters.map(({ filter, count }) => {
-              const active = showActive('savedFilter', filter.id);
-              return (
-                <Pressable
-                  key={filter.id}
-                  style={hoverBg([styles.row, active && { backgroundColor: colors.selectedRowBg }], active)}
-                  onPress={() => openSavedFilter(filter.id)}
-                  accessibilityLabel={`Saved filter ${filter.name}`}
+          {/* Sets the tree apart from the fixed views above it, which are a
+              different kind of thing: those are always there, these are yours. */}
+          <View style={styles.treeSeparator} />
+
+          {/*
+            Folders and their lists are one flat sortable, not a sortable per
+            folder: the library reorders siblings and cannot hand an item to
+            another container, so nesting would leave a list dragged towards a
+            different folder with no slot opening for it. `navTree` flattens the
+            tree on the way in and reads the meaning back out of the drop.
+
+            Collapsed rail mode opts out — there is nothing to drag when the rows
+            are 20pt colour badges with no folder headings between them.
+          */}
+          <DragList
+            items={rows}
+            keyExtractor={(row) => row.key}
+            enabled={!collapsed}
+            scrollableRef={scrollRef}
+            onDragStart={dragStart}
+            onDragMove={dragMove}
+            // One threshold governs both halves of the gesture: crossing it is
+            // what turns a hold into a drag, so the row rises and the menu that
+            // was asking "which did you mean?" gets out of the way together.
+            liftAfter={LIFT_THRESHOLD}
+            onLift={lift}
+            onDragEnd={dragEnd}
+            onReorder={reorder}
+            // Two things invalidate the sortable's measurements: rows appearing
+            // and disappearing outright, and a fold having flattened them while
+            // it was reading their heights. Note what is absent — the fold going
+            // *on*. Remounting there would destroy the gesture that asked for it,
+            // so the epoch only turns once the drag is over.
+            resetKey={`${collapsedFolders.join('|')}#${foldEpoch}`}
+            renderItem={(row) => (
+              // Wrapped whether or not it can fold: making the wrapper
+              // conditional would change the element tree the moment a fold
+              // starts, remounting the row under the finger that asked for it.
+              <FoldAway folded={foldingFolders && row.depth === 1}>
+                {/* Right-click is the mouse's way in: there is no hold to long-press
+                    with, and the grip is reserved for dragging. Web-only by
+                    construction — on native this is a plain View. */}
+                <ContextMenuTarget
+                  onOpen={(pos) => {
+                    setMenuTarget(rowFor(row.key));
+                    setMenuAt({ x: pos.x, y: pos.y, width: 0, height: 0 });
+                  }}
                 >
-                  <IconFilter size={18} color={active ? accent : colors.textTertiary} />
-                  <Text
-                    style={[styles.rowLabel, active && { color: accent, fontFamily: fonts.sansSemiBold }]}
-                    numberOfLines={1}
-                  >
-                    {filter.name}
-                  </Text>
-                  <Text style={styles.rowCount}>{count}</Text>
-                  {keyRing && active && <KeyRing />}
-                </Pressable>
-              );
-            })}
-          </View>
-        )}
+                  {row.kind === 'folder' ? (
+                    <FolderRow
+                      rowKey={row.key}
+                      onPressIn={arm}
+                      held={menuTarget?.id === row.folder.id}
+                      folder={row.folder}
+                      rail={collapsed}
+                      count={folderTotals[row.folder.id] ?? 0}
+                      folded={collapsedFolders.includes(row.folder.id)}
+                      active={showActive('folder', row.folder.id)}
+                      ringed={keyRing && showActive('folder', row.folder.id)}
+                      accent={accent}
+                      onPress={openFolder}
+                      onToggle={toggleFolder}
+                    />
+                  ) : (
+                    <ListRow
+                      rowKey={row.key}
+                      onPressIn={arm}
+                      held={menuTarget?.id === row.list.id}
+                      list={row.list}
+                      rail={collapsed}
+                      depth={row.depth}
+                      count={counts[row.list.id] ?? 0}
+                      active={showActive('list', row.list.id)}
+                      ringed={keyRing && showActive('list', row.list.id)}
+                      accent={accent}
+                      onPress={openList}
+                    />
+                  )}
+                </ContextMenuTarget>
+              </FoldAway>
+            )}
+          />
 
-        {tags.length > 0 && !collapsed && (
-          <View>
-            <Text style={styles.sectionLabel}>Tags</Text>
-            {tags.map(({ tag, count }) => {
-              const active = showActive('tag', tag);
-              return (
-                <Pressable
-                  key={tag}
-                  style={hoverBg([styles.row, active && { backgroundColor: colors.selectedRowBg }], active)}
-                  onPress={() => openTag(tag)}
-                >
-                  <IconTag size={18} color={active ? accent : colors.textTertiary} />
-                  <Text
-                    style={[styles.rowLabel, styles.tagLabel, active && { color: accent }]}
-                    numberOfLines={1}
-                  >
-                    #{tag}
-                  </Text>
-                  <Text style={styles.rowCount}>{count}</Text>
-                  {keyRing && active && <KeyRing />}
-                </Pressable>
-              );
-            })}
-          </View>
-        )}
-      </Animated.ScrollView>
+          {!collapsed && (
+            <View style={styles.addRow}>
+              <Pressable
+                style={hoverBg(styles.newRow)}
+                onPress={() => openNavSheet({ kind: 'newList', folderId: null })}
+                accessibilityLabel="New list"
+              >
+                <IconPlus size={17} color={colors.textTertiary} />
+                <Text style={styles.newLabel}>New list</Text>
+              </Pressable>
+              <Pressable
+                style={hoverBg(styles.newRow)}
+                onPress={() => openNavSheet({ kind: 'newFolder' })}
+                accessibilityLabel="New folder"
+              >
+                <IconPlus size={17} color={colors.textTertiary} />
+                <Text style={styles.newLabel}>New folder</Text>
+              </Pressable>
+            </View>
+          )}
 
-      <Pressable
-        style={hoverBg([styles.footer, collapsed && styles.footerCollapsed, { paddingBottom: Math.max(12, insets.bottom) }])}
-        onPress={() => openServer()}
-        accessibilityLabel="Server settings"
-      >
-        <SyncIndicator
-          mode={data.mode}
-          serverUrl={data.serverUrl}
-          compact={collapsed}
+          {savedFilters.length > 0 && !collapsed && supportsFeature('savedFilters') && (
+            <View>
+              <Text style={styles.sectionLabel}>Filters</Text>
+              {savedFilters.map(({ filter, count }) => {
+                const active = showActive('savedFilter', filter.id);
+                return (
+                  <Pressable
+                    key={filter.id}
+                    style={hoverBg([styles.row, active && { backgroundColor: colors.selectedRowBg }], active)}
+                    onPress={() => openSavedFilter(filter.id)}
+                    accessibilityLabel={`Saved filter ${filter.name}`}
+                  >
+                    <IconFilter size={18} color={active ? accent : colors.textTertiary} />
+                    <Text
+                      style={[styles.rowLabel, active && { color: accent, fontFamily: fonts.sansSemiBold }]}
+                      numberOfLines={1}
+                    >
+                      {filter.name}
+                    </Text>
+                    <Text style={styles.rowCount}>{count}</Text>
+                    {keyRing && active && <KeyRing />}
+                  </Pressable>
+                );
+              })}
+            </View>
+          )}
+
+          {tags.length > 0 && !collapsed && (
+            <View>
+              <Text style={styles.sectionLabel}>Tags</Text>
+              {tags.map(({ tag, count }) => {
+                const active = showActive('tag', tag);
+                return (
+                  <Pressable
+                    key={tag}
+                    style={hoverBg([styles.row, active && { backgroundColor: colors.selectedRowBg }], active)}
+                    onPress={() => openTag(tag)}
+                  >
+                    <IconTag size={18} color={active ? accent : colors.textTertiary} />
+                    <Text
+                      style={[styles.rowLabel, styles.tagLabel, active && { color: accent }]}
+                      numberOfLines={1}
+                    >
+                      #{tag}
+                    </Text>
+                    <Text style={styles.rowCount}>{count}</Text>
+                    {keyRing && active && <KeyRing />}
+                  </Pressable>
+                );
+              })}
+            </View>
+          )}
+        </Animated.ScrollView>
+
+        <Pressable
+          style={hoverBg([styles.footer, collapsed && styles.footerCollapsed, { paddingBottom: Math.max(12, insets.bottom) }])}
+          onPress={() => openServer()}
+          accessibilityLabel="Server settings"
+        >
+          <SyncIndicator
+            mode={data.mode}
+            serverUrl={data.serverUrl}
+            compact={collapsed}
+          />
+          <IconSettings size={18} color={colors.textTertiary} />
+          <ShortcutHint command="settings" style={collapsed ? HINT_OVER_ICON : { right: 10 }} />
+        </Pressable>
+
+        <NavContextMenu
+          // The nav is inside the drawer's Modal in the narrow layout, and a
+          // second Modal presented from within one never appears on iOS. Drawn
+          // into the sidebar instead, which fills the height it needs.
+          inline
+          bounds={{ width: SIDEBAR_WIDTH, height: winHeight }}
+          target={menuTarget}
+          at={menuAt}
+          onClose={closeMenu}
+          onRename={() =>
+            menuTarget &&
+            openNavSheet(
+              menuTarget.kind === 'list'
+                ? { kind: 'renameList', id: menuTarget.id }
+                : { kind: 'renameFolder', id: menuTarget.id }
+            )
+          }
+          onNewList={
+            menuTarget?.kind === 'folder'
+              ? () => openNavSheet({ kind: 'newList', folderId: menuTarget.id })
+              : undefined
+          }
         />
-        <IconSettings size={18} color={colors.textTertiary} />
-        <ShortcutHint command="settings" style={collapsed ? HINT_OVER_ICON : { right: 10 }} />
-      </Pressable>
-
-      <NavContextMenu
-        // The nav is inside the drawer's Modal in the narrow layout, and a
-        // second Modal presented from within one never appears on iOS. Drawn
-        // into the sidebar instead, which fills the height it needs.
-        inline
-        bounds={{ width: SIDEBAR_WIDTH, height: winHeight }}
-        target={menuTarget}
-        at={menuAt}
-        onClose={closeMenu}
-        onRename={() =>
-          menuTarget &&
-          openNavSheet(
-            menuTarget.kind === 'list'
-              ? { kind: 'renameList', id: menuTarget.id }
-              : { kind: 'renameFolder', id: menuTarget.id }
-          )
-        }
-        onNewList={
-          menuTarget?.kind === 'folder'
-            ? () => openNavSheet({ kind: 'newList', folderId: menuTarget.id })
-            : undefined
-        }
-      />
-    </SidebarFrame>
+      </SidebarFrame>
+    </RevealContext.Provider>
   );
 });
 
 export default Sidebar;
 
-const SIDEBAR_KEYS = ['up', 'down', 'left', 'right', 'return', 'escape', 'tab', 'shift+tab'];
+const SIDEBAR_KEYS = ['up', 'down', 'left', 'right', 'space', 'return', 'escape', 'tab', 'shift+tab'];
 
 /**
  * The sidebar's outer view, which on the desktop is also where its keys are
@@ -1186,8 +1224,18 @@ const ListRow = React.memo(function ListRow({
 function KeyRing() {
   const styles = useStyles();
   const accent = useAccent();
-  return <View pointerEvents="none" style={[styles.keyRing, { borderColor: accent }]} />;
+  const reveal = useContext(RevealContext);
+  const ref = useRef<View>(null);
+  useLayoutEffect(() => {
+    if (ref.current) reveal?.(ref.current);
+  }, [reveal]);
+  return <View ref={ref} pointerEvents="none" style={[styles.keyRing, { borderColor: accent }]} />;
 }
+
+/** The sidebar's `reveal`, for the ring. */
+const RevealContext = createContext<((row: View) => void) | null>(null);
+/** Room left between a revealed row and the edge it was brought in from. */
+const REVEAL_MARGIN = 8;
 
 const useStyles = makeStyles((c) => ({
   sidebar: {
