@@ -449,6 +449,12 @@ const TaskListBody = memo(
   const visibleSelection = webSelection.filter((id) => navIds.includes(id));
   const commandTargets = visibleSelection.length > 0 ? visibleSelection : cursor ? [cursor] : [];
   const keyboardList = DESKTOP_UI && !selectionMode;
+  /**
+   * Whether an open task shows in a pane the keyboard can move into: the column
+   * beside the list, or on a narrow desktop window the panel slid over it. Only
+   * the phone's sheet is not one.
+   */
+  const taskPane = wide || DESKTOP_UI;
 
   /** Puts the cursor on a row, and the detail with it if the detail is up beside the list. */
   const moveCursor = (id: string | null) => {
@@ -456,7 +462,7 @@ const TaskListBody = memo(
     clearSelection();
     setAnchor(id);
     head.current = id;
-    if (wide && openTaskId && openTaskId !== id) openTask(id);
+    if (taskPane && openTaskId && openTaskId !== id) openTask(id);
   };
   const stepTo = (delta: 1 | -1) => moveCursor(stepCursor(navIds, cursor, delta));
   const extendTo = (delta: 1 | -1) => {
@@ -494,8 +500,8 @@ const TaskListBody = memo(
     setAnchor(fallback);
     head.current = fallback;
     // The detail beside the list was showing the row that left; it follows.
-    if (wide && openTaskId === anchorId) openTask(fallback);
-  }, [navIds, anchorId, setAnchor, wide, openTaskId, openTask]);
+    if (taskPane && openTaskId === anchorId) openTask(fallback);
+  }, [navIds, anchorId, setAnchor, taskPane, openTaskId, openTask]);
 
   /**
    * Takes the keyboard for the list, from the add field's Escape or Down, or a
@@ -533,17 +539,18 @@ const TaskListBody = memo(
    */
   const editCursor = () => {
     if (!cursor) return;
-    // A narrow window opens it as a sheet instead, with no pane to go into.
+    // A phone opens it as a sheet instead, with no pane to go into.
     if (openTaskId === cursor) {
-      if (wide) focusPane('pane');
+      if (taskPane) focusPane('pane');
       return;
     }
     openTask(cursor);
-    if (wide) focusPane('pane', { mounting: true });
+    if (taskPane) focusPane('pane', { mounting: true });
   };
   useCommand('editTask', editCursor, keyboardList && !!cursor);
-  useCommand('focusTaskPane', editCursor, keyboardList && wide && !!cursor);
-  useCommand('focusSidebar', () => focusPane('sidebar'), keyboardList && wide);
+  useCommand('focusTaskPane', editCursor, keyboardList && !!cursor);
+  // A narrow window keeps its sidebar in the drawer, so the key opens that.
+  useCommand('focusSidebar', () => (wide ? focusPane('sidebar') : openDrawer()), keyboardList);
   useCommand('firstTask', () => moveCursor(stepCursor(navIds, cursor, -navIds.length)), hasRows);
   useCommand('lastTask', () => moveCursor(stepCursor(navIds, cursor, navIds.length)), hasRows);
   useCommand('pageDown', () => moveCursor(stepCursor(navIds, cursor, PAGE_ROWS)), hasRows);
@@ -557,7 +564,7 @@ const TaskListBody = memo(
         claimKeyboard();
       } else if (cursor) openTask(cursor);
     },
-    keyboardList && wide && (!!openTaskId || !!cursor)
+    keyboardList && (!!openTaskId || !!cursor)
   );
   /**
    * Escape backs out one step: a selection first, then the task open beside the
@@ -575,7 +582,7 @@ const TaskListBody = memo(
     closeTask();
     claimKeyboard();
   };
-  useCommand('deselect', backOut, keyboardList && (webSelection.length > 0 || (wide && !!openTaskId)));
+  useCommand('deselect', backOut, keyboardList && (webSelection.length > 0 || !!openTaskId));
   useCommand(
     'completeTask',
     () =>

@@ -60,10 +60,11 @@ const MARGIN = 8;
 const EDGE = 12;
 
 /**
- * Below this a browser window is probably a phone, where the panel would cover
- * most of the screen and a bottom sheet is the better shape — a tethered panel
- * only reads as one when there is visibly a page behind it. A narrow Mac window
- * is still a desktop window, so the Mac ignores this; see `useDesktopPresentation`.
+ * Below this a touch-screen browser is probably a phone, where the panel would
+ * cover most of the screen and a bottom sheet is the better shape — a tethered
+ * panel only reads as one when there is visibly a page behind it. A narrow
+ * window driven by a mouse is still a desktop window, so the Mac and a
+ * fine-pointer browser ignore this; see `useDesktopPresentation`.
  */
 export const POPOVER_MIN_WIDTH = 600;
 

@@ -32,14 +32,16 @@ export const MAC = Platform.OS === 'ios' && Platform.isMacCatalyst === true;
 export const DESKTOP_UI = Platform.OS === 'web' || MAC;
 
 /**
- * Whether the narrow layout's tab bar floats over the content.
+ * Whether the narrow layout has a tab bar floating over the content.
  *
  * Native tabs are system chrome drawn on top of the screen, so scrolling
- * content and anything pinned to the bottom have to clear them. The web tab bar
- * is a row of the layout that the content already ends above. A question about
- * chrome, not input: the Mac is desktop, and its tabs still float.
+ * content and anything pinned to the bottom have to clear them. The web has no
+ * tab bar — the drawer is its narrow navigation — and neither does the Mac,
+ * which hides the system one and uses the same drawer as the web: a phone's
+ * tab bar along the bottom of a desktop window, beside a menu button that opens
+ * the same destinations, was two navigations for one window.
  */
-export const FLOATING_TAB_BAR = Platform.OS !== 'web';
+export const FLOATING_TAB_BAR = Platform.OS !== 'web' && !MAC;
 
 /**
  * A mouse or trackpad rather than a touchscreen.
