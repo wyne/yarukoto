@@ -454,7 +454,7 @@ const TaskListBody = memo(
    * beside the list, or on a narrow desktop window the panel slid over it. Only
    * the phone's sheet is not one.
    */
-  const taskPane = wide || DESKTOP_UI;
+  const taskPane = wide || FINE_POINTER;
 
   /** Puts the cursor on a row, and the detail with it if the detail is up beside the list. */
   const moveCursor = (id: string | null) => {
@@ -549,8 +549,14 @@ const TaskListBody = memo(
   };
   useCommand('editTask', editCursor, keyboardList && !!cursor);
   useCommand('focusTaskPane', editCursor, keyboardList && !!cursor);
-  // A narrow window keeps its sidebar in the drawer, so the key opens that.
-  useCommand('focusSidebar', () => (wide ? focusPane('sidebar') : openDrawer()), keyboardList);
+  // A narrow window keeps its sidebar in the drawer: the key opens it and the
+  // keyboard follows once it has mounted.
+  const focusSidebar = () => {
+    if (wide) return focusPane('sidebar');
+    openDrawer();
+    if (!focusPane('sidebar')) focusPane('sidebar', { mounting: true });
+  };
+  useCommand('focusSidebar', focusSidebar, keyboardList);
   useCommand('firstTask', () => moveCursor(stepCursor(navIds, cursor, -navIds.length)), hasRows);
   useCommand('lastTask', () => moveCursor(stepCursor(navIds, cursor, navIds.length)), hasRows);
   useCommand('pageDown', () => moveCursor(stepCursor(navIds, cursor, PAGE_ROWS)), hasRows);

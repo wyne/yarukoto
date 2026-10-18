@@ -30,7 +30,7 @@ import SidebarDrawer from '../components/SidebarDrawer';
 import TaskDetailView from '../components/TaskDetailView';
 import TaskDetailSheet from '../components/TaskDetailSheet';
 import BulkActions from '../components/BulkActions';
-import { DESKTOP_UI, MAC } from '../data/platform';
+import { DESKTOP_UI, FINE_POINTER, MAC } from '../data/platform';
 import UndoToast from '../components/UndoToast';
 import DragOverlay from '../drag/DragOverlay';
 import { useDragActive } from '../drag/DragContext';
@@ -160,8 +160,11 @@ function Layout() {
    * to put it away, is a phone's shape. So the pane comes over the list from the
    * right instead, as the very same view — its Close button, and Tab and Escape,
    * come with it — and a click on the dimmed list beside it closes it.
+   *
+   * Decided by the pointer, as popovers are (`useDesktopPresentation`): a
+   * touch-screen browser is a phone's, and keeps the sheet.
    */
-  const slideOver = !wide && DESKTOP_UI && !bulk && !!openTaskId;
+  const slideOver = !wide && FINE_POINTER && !bulk && !!openTaskId;
 
   const clampDetailColumnWidth = useCallback(
     (width: number) => {
@@ -274,7 +277,7 @@ function Layout() {
           </View>
         </View>
       )}
-      {!wide && !DESKTOP_UI && <TaskDetailSheet />}
+      {!wide && !FINE_POINTER && <TaskDetailSheet />}
       <ServerSheet visible={serverOpen} onClose={closeServer} pairCode={serverPairCode} />
       <PairLinkHandler />
       <JoinLinkHandler />

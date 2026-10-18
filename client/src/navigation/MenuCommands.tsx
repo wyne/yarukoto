@@ -11,7 +11,7 @@ import KeyboardShortcuts from '../components/KeyboardShortcuts';
 import { COMMANDS, CommandId, commandDef, webCommandFor } from './commands';
 import { navigationRef } from './DateTimePickerContext';
 import { tabNavigation } from './destinations';
-import { useSidebar } from './SidebarContext';
+import { useDrawerState, useSidebar } from './SidebarContext';
 
 /**
  * The keyboard's commands, and who answers them.
@@ -194,8 +194,9 @@ export default function MenuCommands() {
   useCommandHandler('settings', openServer, DESKTOP_UI);
   useCommandHandler('commandMenu', useCallback(() => setPaletteOpen(true), []), DESKTOP_UI);
   useCommandHandler('keyboardShortcuts', useCallback(() => setShortcutsOpen(true), []), DESKTOP_UI);
-  // A narrow window has no pinned sidebar to shrink; the key opens the drawer instead.
-  useCommandHandler('toggleSidebar', wide ? toggleCollapsed : openDrawer, DESKTOP_UI);
+  // A narrow window has no pinned sidebar to shrink; the key shows and hides the drawer instead.
+  const { drawerOpen, closeDrawer } = useDrawerState();
+  useCommandHandler('toggleSidebar', wide ? toggleCollapsed : drawerOpen ? closeDrawer : openDrawer, DESKTOP_UI);
   useCommandHandler('goAll', goAll, DESKTOP_UI);
   useCommandHandler('goInbox', goInbox, DESKTOP_UI);
   useCommandHandler('goToday', goToday, DESKTOP_UI);
