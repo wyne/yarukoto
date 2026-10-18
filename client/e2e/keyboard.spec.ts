@@ -188,19 +188,30 @@ test('the sidebar keeps the keyboard row in view, and Space and ← fold a folde
   await expect(last).toBeAttached();
   await expect(last).not.toBeInViewport();
 
+  /** Arrows through the sidebar until the view shown is `id`'s. Other tests' lists may be in the tree too. */
+  const arrowTo = async (key: 'ArrowDown' | 'ArrowUp', id: string) => {
+    for (let i = 0; i < 200 && !page.url().includes(id); i++) {
+      const before = page.url();
+      await page.keyboard.press(key);
+      await expect.poll(() => page.url()).not.toBe(before);
+    }
+    expect(page.url()).toContain(id);
+  };
+
   // ← from the list goes to the sidebar; ↓ to the last list scrolls it into view.
   await page.keyboard.press('Escape');
   await page.keyboard.press('ArrowLeft');
   await expect.poll(async () => (await focused(page)).tag).toBe('DIV');
-  for (let i = 0; i < 7 + 2 + lists.length; i++) await page.keyboard.press('ArrowDown');
+  await arrowTo('ArrowDown', lists[lists.length - 1].id);
   await expect(last).toBeInViewport();
 
   // Back up to the list inside the folder: ← folds the folder and moves up to it.
-  for (let i = 0; i < lists.length; i++) await page.keyboard.press('ArrowUp');
+  await arrowTo('ArrowUp', `keys-inside-${stamp}`);
   const inside = page.getByLabel(inFolder, { exact: true });
   await expect(inside).toBeInViewport();
   await page.keyboard.press('ArrowLeft');
   await expect(inside).toHaveCount(0);
+  await expect.poll(() => page.url()).toContain(folderId);
 
   // Space opens the folder again, and folds it.
   await page.keyboard.press(' ');
