@@ -1,5 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Pressable, Text, TextInput, View } from 'react-native';
+// Gesture handler's ScrollView, not React Native's: the menus scroll inside the
+// sheet's pan gesture, and on Android that pan claims the drag and cancels a
+// plain ScrollView after a few pixels, so only the first rows were reachable.
+// iOS lets the two recognize together, which is why it only broke on Android.
+import { ScrollView } from 'react-native-gesture-handler';
 import { priorityColor } from '../theme/colors';
 import { makeStyles } from '../theme/styles';
 import { fonts } from '../theme/typography';
