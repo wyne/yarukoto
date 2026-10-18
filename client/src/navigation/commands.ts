@@ -29,6 +29,7 @@ export type MenuPlacement = 'app' | 'file' | 'edit' | 'view' | 'task' | 'help';
 
 export type CommandId =
   | 'settings'
+  | 'closeWindow'
   | 'checkForUpdates'
   | 'newTask'
   | 'find'
@@ -118,6 +119,8 @@ export const COMMANDS: readonly CommandDef[] = [
   { id: 'settings', title: 'Settings…', menu: 'app', group: 'settings', shortcut: cmd(','), keywords: 'preferences server theme' },
 
   { id: 'newTask', title: 'New Task', menu: 'file', group: 'new', shortcut: cmd('n'), keywords: 'add create' },
+  // In place of the system's Close, which Catalyst leaves dimmed. Mac only (MacStatusMenu).
+  { id: 'closeWindow', title: 'Close Window', menu: 'file', group: 'close', shortcut: cmd('w'), hiddenFromPalette: true },
 
   { id: 'find', title: 'Find…', menu: 'edit', group: 'find', shortcut: cmd('f'), keywords: 'search browse' },
   // Answered by the notes editor while it has focus. The system's Format menu,

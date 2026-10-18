@@ -54,6 +54,10 @@ The iOS project also builds for the Mac (`npm run mac`; details in
   `TaskDetailView`'s `stepField` and reports its focus there. Escape from any field should end on the
   list (`focusPane('list')`), never on nothing. A new key belongs on the user-facing
   `docs/src/content/docs/using/keyboard.md` too, which a test checks against `commands.ts`.
+- **The window is hidden, not closed, while the menu bar extra is on** (`modules/mac-status-item`).
+  The React tree, sync and reminders keep running with nothing on screen, so don't assume a
+  visible window. AppKit is reached by name from `YKMacAppKit.m`; extend its protocols there
+  rather than adding another way in.
 - **A new native dependency has to compile for Catalyst too.** After adding one, run
   `npm run mac` as well as the phone build; one pod without a Catalyst slice fails
   the whole Mac build. If it needs a project-level fix, it belongs in

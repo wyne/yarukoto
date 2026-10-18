@@ -1,13 +1,14 @@
-import React, { useState } from 'react';
-import { View } from 'react-native';
+import React, { useCallback, useEffect, useState } from 'react';
+import { AppState, Switch, View } from 'react-native';
+import MacStatusItem, { LoginItemStatus } from '../../../modules/mac-status-item/src/MacStatusItem';
 import Pressable from '../HoverPressable';
 import { ACCENT_OPTIONS, SchemePref } from '../../theme/colors';
 import { makeStyles } from '../../theme/styles';
 import { useColors, useTheme } from '../../theme/ThemeContext';
 import { LINKS, openLink } from '../../data/links';
 import { APP_VERSION, checkForAppUpdatesInteractively } from '../../data/appUpdates';
-import { DESKTOP_APP } from '../../data/platform';
-import { Group, Row, Segmented } from './parts';
+import { DESKTOP_APP, MAC } from '../../data/platform';
+import { Group, Note, Row, Segmented } from './parts';
 
 const SCHEME_OPTIONS: Array<{ value: SchemePref; label: string }> = [
   { value: 'system', label: 'System' },
@@ -56,6 +57,87 @@ export function AppearanceGroup({ label }: { label?: string }) {
         }
       />
     </Group>
+  );
+}
+
+const LOGIN_NOTES: Partial<Record<LoginItemStatus, string>> = {
+  requiresApproval: 'macOS is waiting for you to allow Yarukoto in Login Items.',
+  unavailable: "This Mac can't open Yarukoto at login.",
+};
+
+/**
+ * The Mac's menu bar extra and login item. Native state rather than a synced or
+ * stored preference: the menu bar setting is read at launch, before JS, and
+ * whether Yarukoto opens at login is the system's to say, since it can be
+ * changed in System Settings too. Hence the re-read whenever the app comes back.
+ */
+export function MacAppGroup() {
+  const available = MAC && !!MacStatusItem?.isAvailable();
+  const [menuBar, setMenuBar] = useState(() => (available ? MacStatusItem!.isMenuBarEnabled() : false));
+  const [login, setLogin] = useState<LoginItemStatus>('unavailable');
+  const [loginError, setLoginError] = useState<string | null>(null);
+
+  const refresh = useCallback(() => {
+    if (!available) return;
+    MacStatusItem!.getLoginItemStatus().then(setLogin, () => setLogin('unavailable'));
+  }, [available]);
+
+  useEffect(() => {
+    refresh();
+    const subscription = AppState.addEventListener('change', (next) => {
+      if (next === 'active') refresh();
+    });
+    return () => subscription.remove();
+  }, [refresh]);
+
+  if (!available) return null;
+
+  const toggleMenuBar = (enabled: boolean) => {
+    setMenuBar(enabled);
+    MacStatusItem!.setMenuBarEnabled(enabled);
+  };
+
+  const toggleLogin = (enabled: boolean) => {
+    setLoginError(null);
+    MacStatusItem!.setOpensAtLogin(enabled).then(setLogin, (error: Error) => {
+      setLoginError(error.message);
+      refresh();
+    });
+  };
+
+  return (
+    <>
+      <Group
+        label="Mac"
+        note={
+          menuBar
+            ? "Closing the window keeps Yarukoto running in the menu bar, with today's tasks a click away. Quit it from there."
+            : undefined
+        }
+      >
+        <Row
+          title="Show in menu bar"
+          trailing={<Switch value={menuBar} onValueChange={toggleMenuBar} accessibilityLabel="Show in menu bar" />}
+        />
+        <Row
+          divided
+          title="Open at login"
+          subtitle={menuBar ? 'Starts in the menu bar, without a window.' : null}
+          trailing={
+            <Switch
+              value={login === 'enabled' || login === 'requiresApproval'}
+              disabled={login === 'unavailable'}
+              onValueChange={toggleLogin}
+              accessibilityLabel="Open at login"
+            />
+          }
+        />
+        {login === 'requiresApproval' && (
+          <Row divided title="Open Login Items…" tone="action" onPress={() => MacStatusItem!.openLoginItemsSettings()} />
+        )}
+      </Group>
+      {(loginError ?? LOGIN_NOTES[login]) && <Note tone="error">{loginError ?? LOGIN_NOTES[login]}</Note>}
+    </>
   );
 }
 
