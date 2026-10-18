@@ -48,6 +48,9 @@ typedef NS_ENUM(NSInteger, YKLoginItemStatus) {
  */
 + (void)setTasks:(NSArray<NSDictionary<NSString *, id> *> *)tasks more:(NSInteger)more count:(NSInteger)count;
 
+/// Drops the Today section and the count, as after sign-out, until `setTasks` sends a list again.
++ (void)clearTasks;
+
 /**
  * File ▸ Close: hides the window into the menu bar while the extra is on, and
  * quits otherwise, as the red button would.

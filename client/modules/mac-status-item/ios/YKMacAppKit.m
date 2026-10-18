@@ -552,6 +552,16 @@ static id<YKAppService> _Nullable MainAppService(void)
 #endif
 }
 
++ (void)clearTasks
+{
+#if TARGET_OS_MACCATALYST
+  sTasks = nil;
+  sMore = 0;
+  sCount = 0;
+  if (self.available) UpdateStatusItem();
+#endif
+}
+
 + (void)closeMainWindow
 {
 #if TARGET_OS_MACCATALYST

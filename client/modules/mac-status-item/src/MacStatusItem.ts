@@ -35,6 +35,8 @@ declare class MacStatusItemModule extends NativeModule<MacStatusItemEvents> {
   openLoginItemsSettings(): Promise<void>;
   /** File ▸ Close: into the menu bar while the extra is on, else quits, as the red button does. */
   closeMainWindow(): Promise<void>;
+  /** Takes the Today section and count out of the menu, so a signed-out app shows none of the old account's tasks. */
+  clearTasks(): Promise<void>;
   /** The menu's Today section; `count` is the number beside the icon, none at 0. */
   setTasks(tasks: MacStatusTask[], more: number, count: number): Promise<void>;
 }

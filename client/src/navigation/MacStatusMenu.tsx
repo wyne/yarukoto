@@ -44,6 +44,17 @@ export default function MacStatusMenu() {
     MacStatusItem.setTasks(contents.tasks, contents.more, contents.count);
   }, [state.tasks, minute]);
 
+  // Unmounted when the app leaves the account for the first-run screen
+  // (disconnect, a revoked sign-in): the menu bar mustn't keep that account's
+  // titles and count, nor rows that would no longer do anything.
+  useEffect(() => {
+    if (!MAC || !MacStatusItem) return;
+    return () => {
+      sent.current = '';
+      MacStatusItem?.clearTasks();
+    };
+  }, []);
+
   const latest = useRef({ tasks: state.tasks, toggleComplete });
   latest.current = { tasks: state.tasks, toggleComplete };
   useEffect(() => {

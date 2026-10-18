@@ -55,6 +55,10 @@ public final class MacStatusItemModule: Module {
       YKMacAppKit.openLoginItemsSettings()
     }.runOnQueue(.main)
 
+    AsyncFunction("clearTasks") {
+      YKMacAppKit.clearTasks()
+    }.runOnQueue(.main)
+
     AsyncFunction("closeMainWindow") {
       YKMacAppKit.closeMainWindow()
     }.runOnQueue(.main)
