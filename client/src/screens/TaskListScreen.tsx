@@ -42,7 +42,7 @@ import { PANE_MAX_WIDTH, useSidebar } from '../navigation/SidebarContext';
 import { NATIVE_FAB_CLEARANCE, nativeTabBarClearance } from '../navigation/nativeTabBarLayout';
 import { useDetail } from '../navigation/DetailContext';
 import { useSelection } from '../navigation/SelectionContext';
-import { useCommand } from '../navigation/MenuCommands';
+import { showPalettePicker, useCommand } from '../navigation/MenuCommands';
 import { rangeBetween, stepCursor } from '../data/listCursor';
 import TaskRow from '../components/TaskRow';
 import ListKeys from '../components/ListKeys';
@@ -622,6 +622,10 @@ const TaskListBody = memo(
   useCommand('priorityLow', () => actOnTargets((ids) => bulkUpdate(ids, { priority: 'low' })), hasTargets);
   useCommand('priorityNone', () => actOnTargets((ids) => bulkUpdate(ids, { priority: 'none' })), hasTargets);
   useCommand('deleteTask', () => actOnTargets(deleteTasks, true), hasTargets);
+  // Pickers in the command menu, for the tasks the commands act on now: what
+  // was chosen in the list before the menu came up.
+  useCommand('moveToList', () => showPalettePicker({ kind: 'moveToList', taskIds: commandTargets }), hasTargets);
+  useCommand('editTags', () => showPalettePicker({ kind: 'editTags', taskIds: commandTargets }), hasTargets);
 
   const exitSelection = () => {
     setSelectionMode(false);
