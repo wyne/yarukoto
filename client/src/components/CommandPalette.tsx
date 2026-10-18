@@ -8,10 +8,10 @@ import { fonts } from '../theme/typography';
 import { useColors } from '../theme/ThemeContext';
 import { useTasks } from '../data/TaskContext';
 import { activeFolders, activeLists, tagCounts } from '../data/selectors';
-import { MAC } from '../data/platform';
+import { MAC, MAC_KEYS } from '../data/platform';
 import { rankPaletteItems } from '../data/paletteSearch';
 import { COMMANDS, CommandId, displayShortcut, formatShortcut, paletteTitle } from '../navigation/commands';
-import { dispatchCommand, useAvailableCommands } from '../navigation/MenuCommands';
+import { dispatchCommand, useAvailableCommands, useCheckedCommands } from '../navigation/MenuCommands';
 import { navigationRef } from '../navigation/DateTimePickerContext';
 import { tabNavigation } from '../navigation/destinations';
 
@@ -46,11 +46,6 @@ const VIEWS: { route: string; title: string; keywords?: string }[] = [
 const MAX_ROWS = 9;
 const ROW_HEIGHT = 38;
 
-/** Where a key is drawn as a glyph (⌘K) rather than a name (Ctrl+K). */
-export const MAC_KEYS =
-  MAC ||
-  (Platform.OS === 'web' && typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform ?? ''));
-
 function goTo(route: string, params?: object) {
   const [name, next] = tabNavigation(route, params);
   (navigationRef.navigate as (name: string, params?: object) => void)('Main', { screen: name, params: next });
@@ -73,6 +68,7 @@ export default function CommandPalette({ visible, onClose }: Props) {
   const colors = useColors();
   const { state, supportsFeature } = useTasks();
   const available = useAvailableCommands();
+  const checked = useCheckedCommands();
   const [query, setQuery] = useState('');
   const [index, setIndex] = useState(0);
   const inputRef = useRef<TextInput>(null);
@@ -94,7 +90,8 @@ export default function CommandPalette({ visible, onClose }: Props) {
     // what the menu is most likely open for.
     const commands = [...COMMANDS.filter((c) => c.list), ...COMMANDS.filter((c) => !c.list)];
     for (const def of commands) {
-      if (def.hiddenFromPalette || !available.has(def.id)) continue;
+      // The option already in use is no choice: Group By: List while grouped by list.
+      if (def.hiddenFromPalette || !available.has(def.id) || checked.has(def.id)) continue;
       // Only a key that works here is worth teaching: the web leaves some to
       // the browser.
       const shortcut = displayShortcut(def, !MAC);
@@ -108,17 +105,25 @@ export default function CommandPalette({ visible, onClose }: Props) {
       });
     }
 
+    // Each place answers to its kind as well as its name, so "tag" lists the
+    // tags and "tag work" narrows to #work, as the kind beside it suggests.
     for (const view of VIEWS) {
-      out.push({ key: `v:${view.route}`, title: view.title, keywords: view.keywords, detail: 'View', run: () => goTo(view.route) });
+      out.push({
+        key: `v:${view.route}`,
+        title: view.title,
+        keywords: `view ${view.keywords ?? ''}`,
+        detail: 'View',
+        run: () => goTo(view.route),
+      });
     }
     for (const list of activeLists(state.lists)) {
-      out.push({ key: `l:${list.id}`, title: list.name, detail: 'List', run: () => goTo('InboxTab', { listId: list.id }) });
+      out.push({ key: `l:${list.id}`, title: list.name, keywords: 'list', detail: 'List', run: () => goTo('InboxTab', { listId: list.id }) });
     }
     for (const folder of activeFolders(state.folders)) {
-      out.push({ key: `f:${folder.id}`, title: folder.name, detail: 'Folder', run: () => goTo('InboxTab', { folderId: folder.id }) });
+      out.push({ key: `f:${folder.id}`, title: folder.name, keywords: 'folder', detail: 'Folder', run: () => goTo('InboxTab', { folderId: folder.id }) });
     }
     for (const { tag } of tagCounts(state.tasks)) {
-      out.push({ key: `t:${tag}`, title: `#${tag}`, keywords: tag, detail: 'Tag', run: () => goTo('InboxTab', { tag }) });
+      out.push({ key: `t:${tag}`, title: `#${tag}`, keywords: `tag ${tag}`, detail: 'Tag', run: () => goTo('InboxTab', { tag }) });
     }
     if (supportsFeature('savedFilters')) {
       for (const filter of state.savedFilters) {
@@ -126,13 +131,14 @@ export default function CommandPalette({ visible, onClose }: Props) {
         out.push({
           key: `s:${filter.id}`,
           title: filter.name,
+          keywords: 'filter saved',
           detail: 'Filter',
           run: () => goTo('BrowseTab', { savedFilterId: filter.id, at: Date.now() }),
         });
       }
     }
     return out;
-  }, [visible, available, state.lists, state.folders, state.tasks, state.savedFilters, supportsFeature]);
+  }, [visible, available, checked, state.lists, state.folders, state.tasks, state.savedFilters, supportsFeature]);
 
   const results = useMemo(() => rankPaletteItems(entries, query), [entries, query]);
   const selected = Math.min(index, Math.max(0, results.length - 1));

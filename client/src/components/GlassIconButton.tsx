@@ -5,6 +5,8 @@ import { GlassContainer } from 'expo-glass-effect';
 import ThemedGlassView from './ThemedGlassView';
 import { LIQUID_GLASS } from '../data/platform';
 import { useHoverBg } from '../theme/hover';
+import ShortcutHint from './ShortcutHint';
+import type { CommandId } from '../navigation/commands';
 
 /** Diameter of the glass capsule and the standard iOS touch target. */
 const SIZE = 44;
@@ -37,6 +39,8 @@ interface Props {
   tintColor?: string;
   disabled?: boolean;
   ref?: Ref<View>;
+  /** The command this button does too, whose key shows over it while ⌘ is held. */
+  shortcut?: CommandId;
 }
 
 interface TextButtonProps {
@@ -68,9 +72,12 @@ interface TextMenuLabelProps extends MenuLabelProps {
  * `isInteractive` hands it to UIKit, which morphs the glass under the finger,
  * while the flat path keeps the pointer hover tint that a mouse expects.
  */
-export default function GlassIconButton({ onPress, label, children, tintColor, disabled = false, ref }: Props) {
+export default function GlassIconButton({ onPress, label, children, tintColor, disabled = false, ref, shortcut }: Props) {
   const hoverBg = useHoverBg();
   const joined = useContext(JoinedGlassGroupContext);
+  // Lined up with the button's left edge, the side header buttons start from,
+  // so the window's edge can't cut it off.
+  const hint = shortcut && <ShortcutHint command={shortcut} style={styles.hint} />;
 
   if (!LIQUID_GLASS) {
     return (
@@ -89,6 +96,7 @@ export default function GlassIconButton({ onPress, label, children, tintColor, d
         }
       >
         {children}
+        {hint}
       </Pressable>
     );
   }
@@ -105,6 +113,7 @@ export default function GlassIconButton({ onPress, label, children, tintColor, d
         style={[styles.joinedButton, disabled && styles.disabled]}
       >
         {children}
+        {hint}
       </Pressable>
     );
   }
@@ -122,6 +131,7 @@ export default function GlassIconButton({ onPress, label, children, tintColor, d
       <ThemedGlassView style={styles.glassButton} tintColor={tintColor} isInteractive={!disabled}>
         {children}
       </ThemedGlassView>
+      {hint}
     </Pressable>
   );
 }
@@ -324,5 +334,10 @@ const styles = StyleSheet.create({
   },
   disabled: {
     opacity: 0.45,
+  },
+  hint: {
+    left: 0,
+    right: 'auto',
+    alignItems: 'flex-start',
   },
 });

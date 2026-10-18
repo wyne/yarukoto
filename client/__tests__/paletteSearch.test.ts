@@ -32,3 +32,15 @@ test('keywords find a command after titles do', () => {
 test('case does not matter', () => {
   expect(titles('GROC')).toEqual(['Groceries']);
 });
+
+test('a place answers to its kind, so "tag" lists the tags', () => {
+  const places = [
+    { title: 'Sort By: Tag', keywords: 'order' },
+    { title: '#work', keywords: 'tag work' },
+    { title: '#home', keywords: 'tag home' },
+    { title: 'Groceries', keywords: 'list' },
+  ];
+  const found = (query: string) => rankPaletteItems(places, query).map((i) => i.title);
+  expect(found('tag')).toEqual(['Sort By: Tag', '#work', '#home']);
+  expect(found('tag wo')).toEqual(['#work']);
+});

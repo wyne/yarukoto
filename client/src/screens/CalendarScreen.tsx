@@ -383,7 +383,7 @@ export default function CalendarScreen() {
       <View style={[styles.calendarCol, showPlan && DESKTOP_UI && styles.calendarColResizable]}>
         <View style={styles.header}>
           {!wide && (
-            <GlassIconButton onPress={openDrawer} label="Menu">
+            <GlassIconButton onPress={openDrawer} label="Menu" shortcut="toggleSidebar">
               <IconMenu />
             </GlassIconButton>
           )}

@@ -24,7 +24,16 @@ import { QuickAddDefaults } from '../data/TaskContext';
 import { hapticSelect } from '../data/haptics';
 import { useSyncRefresh } from '../data/useSyncRefresh';
 import { DESKTOP_UI, FINE_POINTER, FLOATING_TAB_BAR } from '../data/platform';
-import { INBOX_GROUP_KEY, TaskGroup, groupTasks, hasArrangement, viewKey } from '../data/viewOptions';
+import {
+  GroupBy,
+  INBOX_GROUP_KEY,
+  SortBy,
+  TaskGroup,
+  ViewOptions,
+  groupTasks,
+  hasArrangement,
+  viewKey,
+} from '../data/viewOptions';
 import { useCollapsedSections } from '../data/uiPrefs';
 import { Task } from '../data/types';
 import { useIsFocused } from '@react-navigation/native';
@@ -728,6 +737,33 @@ const TaskListBody = memo(
   const arranged = hasArrangement(options.arrangements, options.sortBy);
   const restoreSort = () => clearArrangement(key, options.sortBy);
 
+  /** What choosing in Group & sort does, for the sheet and for View ▸ Group By / Sort By alike. */
+  const changeViewOptions = (next: ViewOptions) => {
+    if (
+      next.groupBy === options.groupBy &&
+      next.sortBy === options.sortBy &&
+      next.arrangements === options.arrangements
+    ) {
+      return;
+    }
+    setViewOptions(key, next);
+    // Sort changes retain the same sections, so there is nothing to reset
+    // or persist. A new grouping dimension gets a clean expanded view.
+    if (next.groupBy !== options.groupBy) sections.expandAllGroups();
+  };
+  const groupBy = (value: GroupBy) => () => changeViewOptions({ ...options, groupBy: value });
+  const sortBy = (value: SortBy) => () => changeViewOptions({ ...options, sortBy: value });
+  useCommand('groupByNone', groupBy('none'), true, options.groupBy === 'none');
+  useCommand('groupByList', groupBy('list'), true, options.groupBy === 'list');
+  useCommand('groupByDate', groupBy('date'), true, options.groupBy === 'date');
+  useCommand('groupByTag', groupBy('tag'), true, options.groupBy === 'tag');
+  useCommand('groupByPriority', groupBy('priority'), true, options.groupBy === 'priority');
+  useCommand('sortByManual', sortBy('manual'), true, options.sortBy === 'manual');
+  useCommand('sortByDate', sortBy('date'), true, options.sortBy === 'date');
+  useCommand('sortByTitle', sortBy('title'), true, options.sortBy === 'title');
+  useCommand('sortByTag', sortBy('tag'), true, options.sortBy === 'tag');
+  useCommand('sortByPriority', sortBy('priority'), true, options.sortBy === 'priority');
+
   const renderTaskCard = (group: TaskGroup) => {
     const tasks = group.tasks;
     const hide = groupHide(group.key);
@@ -955,7 +991,7 @@ const TaskListBody = memo(
       ) : (
         <View style={[styles.header, wide && styles.paneWide]}>
           {!wide && (
-            <GlassIconButton onPress={openDrawer} label="Menu">
+            <GlassIconButton onPress={openDrawer} label="Menu" shortcut="toggleSidebar">
               <IconMenu />
             </GlassIconButton>
           )}
@@ -1167,19 +1203,7 @@ const TaskListBody = memo(
         visible={optionsOpen}
         onClose={() => setOptionsOpen(false)}
         value={options}
-        onChange={(next) => {
-          if (
-            next.groupBy === options.groupBy &&
-            next.sortBy === options.sortBy &&
-            next.arrangements === options.arrangements
-          ) {
-            return;
-          }
-          setViewOptions(key, next);
-          // Sort changes retain the same sections, so there is nothing to reset
-          // or persist. A new grouping dimension gets a clean expanded view.
-          if (next.groupBy !== options.groupBy) sections.expandAllGroups();
-        }}
+        onChange={changeViewOptions}
         onRestore={restoreSort}
         anchor={optionsAnchor}
       />

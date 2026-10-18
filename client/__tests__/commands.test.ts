@@ -165,3 +165,11 @@ describe('the Keyboard shortcuts page', () => {
     expect(page).toContain('⌘1 to ⌘7');
   });
 });
+
+test('Group By and Sort By are named with their submenu in the command menu', () => {
+  const titles = COMMANDS.filter((c) => c.submenu === 'Group By' || c.submenu === 'Sort By').map(paletteTitle);
+  expect(titles).toContain('Group By: List');
+  expect(titles).toContain('Sort By: Custom');
+  // One for every option the Group & sort sheet offers.
+  expect(titles).toHaveLength(10);
+});

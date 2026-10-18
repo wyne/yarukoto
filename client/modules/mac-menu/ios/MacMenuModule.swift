@@ -16,12 +16,15 @@ public final class MacMenuModule: Module {
   public func definition() -> ModuleDefinition {
     Name("MacMenu")
 
-    Events("onCommand")
+    Events("onCommand", "onCommandKey")
 
     OnStartObserving {
       DispatchQueue.main.async { [weak self] in
         MacMenuBar.onCommand = { name in
           self?.sendEvent("onCommand", ["command": name])
+        }
+        YKCommandKey.watch { held in
+          self?.sendEvent("onCommandKey", ["held": held])
         }
       }
     }
@@ -29,6 +32,7 @@ public final class MacMenuModule: Module {
     OnStopObserving {
       DispatchQueue.main.async {
         MacMenuBar.onCommand = nil
+        YKCommandKey.watch(nil)
       }
     }
 
@@ -42,6 +46,10 @@ public final class MacMenuModule: Module {
 
     AsyncFunction("setEnabled") { (ids: [String]) in
       MacMenuBar.setEnabled(ids)
+    }.runOnQueue(.main)
+
+    AsyncFunction("setChecked") { (ids: [String]) in
+      MacMenuBar.setChecked(ids)
     }.runOnQueue(.main)
   }
 }

@@ -48,6 +48,7 @@ public enum MacMenuBar {
 
   private static var specs: [Spec] = []
   private static var enabled: Set<String> = []
+  private static var checked: Set<String> = []
 
   static func setCommands(_ commands: [MenuCommandRecord]) {
     specs = commands.map { record in
@@ -68,6 +69,15 @@ public enum MacMenuBar {
   static func setEnabled(_ ids: [String]) {
     enabled = Set(ids)
     UIMenuSystem.main.setNeedsRevalidate()
+  }
+
+  /// The options in use, drawn with a checkmark: View ▸ Group By's grouping, say.
+  /// A command's state is fixed when its menu is built, so a change rebuilds.
+  static func setChecked(_ ids: [String]) {
+    let next = Set(ids)
+    guard next != checked else { return }
+    checked = next
+    UIMenuSystem.main.setNeedsRebuild()
   }
 
   public static func build(with builder: UIMenuBuilder) {
@@ -220,16 +230,20 @@ public enum MacMenuBar {
   }
 
   private static func element(_ spec: Spec) -> UIMenuElement {
-    guard let input = spec.input else {
-      return UICommand(title: spec.title, action: action, propertyList: spec.id)
+    let command: UICommand
+    if let input = spec.input {
+      command = UIKeyCommand(
+        title: spec.title,
+        action: action,
+        input: input,
+        modifierFlags: spec.modifiers,
+        propertyList: spec.id
+      )
+    } else {
+      command = UICommand(title: spec.title, action: action, propertyList: spec.id)
     }
-    return UIKeyCommand(
-      title: spec.title,
-      action: action,
-      input: input,
-      modifierFlags: spec.modifiers,
-      propertyList: spec.id
-    )
+    command.state = checked.contains(spec.id) ? .on : .off
+    return command
   }
 
   /// A group drawn inline, between separators, rather than as a submenu.

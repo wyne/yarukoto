@@ -13,6 +13,7 @@ import { COMMANDS, CommandId, commandDef, webCommandFor } from './commands';
 import { navigationRef } from './DateTimePickerContext';
 import { tabNavigation } from './destinations';
 import { useDrawerState, useSidebar } from './SidebarContext';
+import { useCommandKeyHints } from './shortcutHints';
 
 /**
  * The keyboard's commands, and who answers them.
@@ -54,13 +55,25 @@ const PENDING_MS = 1500;
 const subscribers = new Set<() => void>();
 let available: ReadonlySet<CommandId> = new Set(Object.keys(FALLBACKS) as CommandId[]);
 
+/** How many answers in force say each command is the option in use. */
+const checks = new Map<CommandId, number>();
+let checked: ReadonlySet<CommandId> = new Set();
+
+const sameSet = (a: ReadonlySet<CommandId>, b: ReadonlySet<CommandId>) =>
+  a.size === b.size && [...a].every((id) => b.has(id));
+
 function recompute() {
   const next = new Set<CommandId>(Object.keys(FALLBACKS) as CommandId[]);
   handlers.forEach((stack, id) => {
     if (stack.length) next.add(id);
   });
-  if (next.size === available.size && [...next].every((id) => available.has(id))) return;
-  available = next;
+  const nextChecked = new Set<CommandId>();
+  checks.forEach((count, id) => {
+    if (count > 0 && next.has(id)) nextChecked.add(id);
+  });
+  if (sameSet(next, available) && sameSet(nextChecked, checked)) return;
+  if (!sameSet(next, available)) available = next;
+  if (!sameSet(nextChecked, checked)) checked = nextChecked;
   subscribers.forEach((notify) => notify());
 }
 
@@ -74,6 +87,15 @@ function subscribe(notify: () => void) {
 /** The commands something on screen can answer right now. */
 export function useAvailableCommands(): ReadonlySet<CommandId> {
   return useSyncExternalStore(subscribe, () => available, () => available);
+}
+
+/**
+ * The commands that are the option in use — View ▸ Group By's current grouping,
+ * say. Checked in the menu bar, and left out of the command menu, where
+ * choosing what is already chosen would do nothing.
+ */
+export function useCheckedCommands(): ReadonlySet<CommandId> {
+  return useSyncExternalStore(subscribe, () => checked, () => checked);
 }
 
 /** Runs a command. False when nothing could answer it. */
@@ -94,7 +116,7 @@ export function dispatchCommand(id: CommandId): boolean {
 }
 
 /** Answers a command while `active`. The most recently activated answer wins. */
-function useCommandHandler(id: CommandId, handler: Handler, active: boolean) {
+function useCommandHandler(id: CommandId, handler: Handler, active: boolean, isChecked = false) {
   const latest = useRef(handler);
   latest.current = handler;
 
@@ -114,6 +136,17 @@ function useCommandHandler(id: CommandId, handler: Handler, active: boolean) {
       recompute();
     };
   }, [id, active]);
+
+  const checking = active && isChecked;
+  useEffect(() => {
+    if (!checking) return;
+    checks.set(id, (checks.get(id) ?? 0) + 1);
+    recompute();
+    return () => {
+      checks.set(id, (checks.get(id) ?? 1) - 1);
+      recompute();
+    };
+  }, [id, checking]);
 }
 
 /**
@@ -149,9 +182,9 @@ export function useScreenFocused(): boolean {
  * the menu bar and left out of the command menu, so pass `enabled` false when
  * there is nothing for it to act on.
  */
-export function useCommand(id: CommandId, handler: Handler, enabled = true) {
+export function useCommand(id: CommandId, handler: Handler, enabled = true, isChecked = false) {
   const focused = useScreenFocused();
-  useCommandHandler(id, handler, DESKTOP_UI && enabled && focused);
+  useCommandHandler(id, handler, DESKTOP_UI && enabled && focused, isChecked);
 }
 
 /** Whether a key event's target is somewhere text is typed. */
@@ -241,6 +274,13 @@ export default function MenuCommands() {
     if (!MAC || !MacMenu) return;
     MacMenu.setEnabled([...enabled]);
   }, [enabled]);
+  const checkedNow = useCheckedCommands();
+  useEffect(() => {
+    if (!MAC || !MacMenu) return;
+    MacMenu.setChecked([...checkedNow]);
+  }, [checkedNow]);
+
+  useCommandKeyHints();
 
   // The web: the shortcuts a browser lets a page have.
   useEffect(() => {

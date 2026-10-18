@@ -5,10 +5,9 @@ import Dialog from './Dialog';
 import { makeStyles } from '../theme/styles';
 import { fonts } from '../theme/typography';
 import { useAccent } from '../theme/ThemeContext';
-import { MAC } from '../data/platform';
+import { MAC, MAC_KEYS } from '../data/platform';
 import { LINKS, openLink } from '../data/links';
 import { COMMANDS, CommandDef, CommandId, Shortcut, formatShortcut, paletteTitle } from '../navigation/commands';
-import { MAC_KEYS } from './CommandPalette';
 
 interface Row {
   title: string;

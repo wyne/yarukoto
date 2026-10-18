@@ -19,6 +19,14 @@ declare global {
  */
 export const MAC = Platform.OS === 'ios' && Platform.isMacCatalyst === true;
 
+/**
+ * Where keys are a Mac's: drawn as glyphs (⌘K) rather than names (Ctrl+K), and
+ * ⌘ is the Command key rather than Control. The Mac app, or a browser on a Mac.
+ */
+export const MAC_KEYS =
+  MAC ||
+  (Platform.OS === 'web' && typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform ?? ''));
+
 /** The web export hosted by the Windows Tauri shell, rather than a browser. */
 export const WINDOWS_APP =
   Platform.OS === 'web' &&
