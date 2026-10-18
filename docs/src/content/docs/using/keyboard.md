@@ -62,10 +62,17 @@ does.
 | ⌘T | Due today *(Mac)* |
 | ⌥⌘T | Due tomorrow |
 | ⌥⌘1, ⌥⌘2, ⌥⌘3, ⌥⌘0 | Priority high, medium, low, none |
+| ⇧⌘M | Move to a list: pick one in the command menu *(Mac)* |
+| ⇧⌘T | Add or remove tags: pick them in the command menu *(Mac)* |
 | ⌫ Delete | Move to Trash |
 | ⌘Z | Undo the last complete or delete, while its notice is showing *(Mac)* |
 
 With several tasks selected, the task keys act on all of them.
+
+In the command menu, a list, folder or tag is always **Go to**: choosing it opens it. To put the
+selected tasks in a list or tag them instead, choose **Move to List…** or **Edit Tags…** there, which
+turns the menu into a picker. In Edit Tags, Return adds the tag or, when every selected task has it
+already, removes it; type a new name to make a new tag.
 
 To group or sort the list in front, type **group** or **sort** in the command menu (⌘K), or use
 **View ▸ Group By** and **View ▸ Sort By** in the Mac menu bar, where the one in use is checked.

@@ -75,6 +75,8 @@ export type CommandId =
   | 'priorityLow'
   | 'priorityNone'
   | 'deleteTask'
+  | 'moveToList'
+  | 'editTags'
   | 'deselect'
   | 'nextPane'
   | 'previousPane'
@@ -118,6 +120,11 @@ export interface CommandDef {
   hiddenFromPalette?: boolean;
   /** Extra words the command menu matches, beyond the title. */
   keywords?: string;
+  /**
+   * Opens a picker in the command menu rather than acting at once, so choosing
+   * it there keeps the menu open instead of closing it first.
+   */
+  picker?: boolean;
 }
 
 const cmd = (input: KeyInput, ...extra: Modifier[]): Shortcut => ({ input, modifiers: ['command', ...extra] });
@@ -200,6 +207,11 @@ export const COMMANDS: readonly CommandDef[] = [
   { id: 'priorityMedium', title: 'Medium', menu: 'task', group: 'priority', submenu: 'Priority', shortcut: cmd('2', 'option'), list: true, web: true },
   { id: 'priorityLow', title: 'Low', menu: 'task', group: 'priority', submenu: 'Priority', shortcut: cmd('3', 'option'), list: true, web: true },
   { id: 'priorityNone', title: 'None', menu: 'task', group: 'priority', submenu: 'Priority', shortcut: cmd('0', 'option'), list: true, web: true },
+
+  // Each opens a picker in the command menu, for the tasks the list's commands act on.
+  // ⇧⌘M as in Things. Neither on the web, where ⇧⌘T reopens a closed tab.
+  { id: 'moveToList', title: 'Move to List…', menu: 'task', group: 'organize', shortcut: cmd('m', 'shift'), list: true, picker: true, keywords: 'list folder file' },
+  { id: 'editTags', title: 'Edit Tags…', menu: 'task', group: 'organize', shortcut: cmd('t', 'shift'), list: true, picker: true, keywords: 'tag label add remove' },
 
   // Plain Delete on the list, not ⌘⌫ in the menu bar: a menu key equivalent
   // fires whatever has focus, and ⌘⌫ is "delete to start of line" in every

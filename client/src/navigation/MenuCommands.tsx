@@ -14,6 +14,7 @@ import { navigationRef } from './DateTimePickerContext';
 import { tabNavigation } from './destinations';
 import { useDrawerState, useSidebar } from './SidebarContext';
 import { useCommandKeyHints } from './shortcutHints';
+import type { PalettePicker } from '../data/palettePickers';
 
 /**
  * The keyboard's commands, and who answers them.
@@ -98,11 +99,17 @@ export function useCheckedCommands(): ReadonlySet<CommandId> {
   return useSyncExternalStore(subscribe, () => checked, () => checked);
 }
 
-/** Runs a command. False when nothing could answer it. */
-export function dispatchCommand(id: CommandId): boolean {
+/**
+ * Runs a command. False when nothing could answer it.
+ *
+ * `fromPalette` is the command menu running a picker command (Move to List…),
+ * whose picker opens in the menu itself: the one layer a list command may act
+ * from, since what it opens is that same layer.
+ */
+export function dispatchCommand(id: CommandId, fromPalette = false): boolean {
   // A key pressed in a popover or dialog is about that layer, never the list
   // behind it — whichever route it came by.
-  if (commandDef(id).list && anyLayerOpen()) return false;
+  if (commandDef(id).list && anyLayerOpen() && !(fromPalette && commandDef(id).picker)) return false;
   const stack = handlers.get(id);
   if (stack?.length) {
     stack[stack.length - 1]();
@@ -194,6 +201,14 @@ function typingIn(target: EventTarget | null): boolean {
   return el.isContentEditable || el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT';
 }
 
+/** Asked of the command menu by a picker command; see `showPalettePicker`. */
+let pickerListener: ((picker: PalettePicker) => void) | null = null;
+
+/** Opens the command menu on a picker, or swaps its search for one if it is already open. */
+export function showPalettePicker(picker: PalettePicker) {
+  pickerListener?.(picker);
+}
+
 /** The name Edit ▸ Undo shows as "Undo …". */
 const UNDO_ACTION_NAME: Record<PendingUndo['kind'], string> = {
   complete: 'Complete Task',
@@ -223,11 +238,36 @@ export default function MenuCommands() {
   const { undo } = useTasks();
   const pendingUndo = usePendingUndo();
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [picker, setPicker] = useState<{ picker: PalettePicker; fromSearch: boolean } | null>(null);
+  const paletteOpenNow = useRef(paletteOpen);
+  paletteOpenNow.current = paletteOpen;
+  useEffect(() => {
+    if (!DESKTOP_UI) return;
+    pickerListener = (next) => {
+      // Escape from a picker reached through the search goes back to the search.
+      setPicker({ picker: next, fromSearch: paletteOpenNow.current });
+      setPaletteOpen(true);
+    };
+    return () => {
+      pickerListener = null;
+    };
+  }, []);
+  const closePalette = useCallback(() => {
+    setPaletteOpen(false);
+    setPicker(null);
+  }, []);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
 
   useCommandHandler('settings', openServer, DESKTOP_UI);
   useCommandHandler('checkForUpdates', () => void checkForAppUpdatesInteractively(), DESKTOP_APP);
-  useCommandHandler('commandMenu', useCallback(() => setPaletteOpen(true), []), DESKTOP_UI);
+  useCommandHandler(
+    'commandMenu',
+    useCallback(() => {
+      setPicker(null);
+      setPaletteOpen(true);
+    }, []),
+    DESKTOP_UI
+  );
   useCommandHandler('keyboardShortcuts', useCallback(() => setShortcutsOpen(true), []), DESKTOP_UI);
   // A narrow window has no pinned sidebar to shrink; the key shows and hides the drawer instead.
   const { drawerOpen, closeDrawer } = useDrawerState();
@@ -326,7 +366,12 @@ export default function MenuCommands() {
   if (!DESKTOP_UI) return null;
   return (
     <>
-      <CommandPalette visible={paletteOpen} onClose={() => setPaletteOpen(false)} />
+      <CommandPalette
+        visible={paletteOpen}
+        onClose={closePalette}
+        picker={picker?.picker ?? null}
+        onLeavePicker={picker?.fromSearch ? () => setPicker(null) : closePalette}
+      />
       <KeyboardShortcuts visible={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
     </>
   );

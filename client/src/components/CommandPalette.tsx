@@ -8,6 +8,14 @@ import { fonts } from '../theme/typography';
 import { useColors } from '../theme/ThemeContext';
 import { useTasks } from '../data/TaskContext';
 import { activeFolders, activeLists, tagCounts } from '../data/selectors';
+import {
+  PICKER_TITLE,
+  PalettePicker,
+  listIdFor,
+  listPickerItems,
+  tagPickerItems,
+  toggleTag,
+} from '../data/palettePickers';
 import { MAC, MAC_KEYS } from '../data/platform';
 import { rankPaletteItems } from '../data/paletteSearch';
 import { COMMANDS, CommandId, displayShortcut, formatShortcut, paletteTitle } from '../navigation/commands';
@@ -18,12 +26,23 @@ import { tabNavigation } from '../navigation/destinations';
 interface Props {
   visible: boolean;
   onClose: () => void;
+  /** A picker in place of the search: Move to List… and Edit Tags…, for these tasks. */
+  picker?: PalettePicker | null;
+  /** Escape from a picker: back to the search it came from, or closed if it came by its key. */
+  onLeavePicker?: () => void;
 }
 
 interface Entry {
   key: string;
+  /** What the search matches, so "today" finds the view before Due Today. */
   title: string;
+  /** Drawn before the title and not searched: "Go to", which says choosing navigates. */
+  prefix?: string;
   keywords?: string;
+  /** A picker's current value, drawn with a check. */
+  checked?: boolean;
+  /** Runs with the menu still up: a picker opening in it, or a tag toggled. */
+  keepOpen?: boolean;
   /** Right-aligned: a command's shortcut, or what kind of place a destination is. */
   detail?: string;
   /** The shortcut is drawn in key glyphs; a kind in the caption face. */
@@ -41,6 +60,17 @@ const VIEWS: { route: string; title: string; keywords?: string }[] = [
   { route: 'ActivityTab', title: 'Activity', keywords: 'history log' },
   { route: 'TrashTab', title: 'Trash', keywords: 'deleted bin' },
 ];
+
+/**
+ * Before every place, so a list or a tag reads as somewhere to go rather than
+ * something to set on a task. Setting one is Move to List… and Edit Tags….
+ */
+const GO_TO = 'Go to';
+
+const PICKER_PLACEHOLDER: Record<PalettePicker['kind'], string> = {
+  moveToList: 'Move to…',
+  editTags: 'Add or remove a tag…',
+};
 
 /** Seen in this many rows at once; the rest scroll. */
 const MAX_ROWS = 9;
@@ -63,10 +93,10 @@ function goTo(route: string, params?: object) {
  * (`commands.ts`), and only the ones with a handler registered are listed, so
  * nothing here is greyed out or does nothing when chosen.
  */
-export default function CommandPalette({ visible, onClose }: Props) {
+export default function CommandPalette({ visible, onClose, picker = null, onLeavePicker = onClose }: Props) {
   const styles = useStyles();
   const colors = useColors();
-  const { state, supportsFeature } = useTasks();
+  const { state, supportsFeature, bulkUpdate, updateTask } = useTasks();
   const available = useAvailableCommands();
   const checked = useCheckedCommands();
   const [query, setQuery] = useState('');
@@ -74,16 +104,38 @@ export default function CommandPalette({ visible, onClose }: Props) {
   const inputRef = useRef<TextInput>(null);
   const listRef = useRef<ScrollView>(null);
 
-  // A fresh search each time it opens, as every command menu does.
+  // A fresh search each time it opens, as every command menu does, and each
+  // time a picker takes over from the search or hands back to it.
   useEffect(() => {
     if (!visible) return;
     setQuery('');
     setIndex(0);
     scrollY.current = 0;
-  }, [visible]);
+    listRef.current?.scrollTo({ y: 0, animated: false });
+  }, [visible, picker]);
+
+  const pickerEntries = useMemo<Entry[] | null>(() => {
+    if (!visible || !picker) return null;
+    const ids = picker.taskIds;
+    if (picker.kind === 'moveToList') {
+      return listPickerItems(state.lists, state.folders, state.tasks, ids).map((item) => ({
+        ...item,
+        run: () => bulkUpdate(ids, { listId: listIdFor(item.key) }),
+      }));
+    }
+    return tagPickerItems(state.tasks, ids, query).map((item) => ({
+      ...item,
+      // Toggling one tag is rarely all: the picker stays for the next.
+      keepOpen: true,
+      run: () => {
+        toggleTag(state.tasks, ids, item.key).forEach(({ id, tags }) => updateTask(id, { tags }));
+        setQuery('');
+      },
+    }));
+  }, [visible, picker, query, state.lists, state.folders, state.tasks, bulkUpdate, updateTask]);
 
   const entries = useMemo<Entry[]>(() => {
-    if (!visible) return [];
+    if (!visible || picker) return [];
     const out: Entry[] = [];
 
     // What acts on the tasks in front comes first: with nothing typed, that is
@@ -101,7 +153,8 @@ export default function CommandPalette({ visible, onClose }: Props) {
         keywords: def.keywords,
         detail: shortcut ? formatShortcut(shortcut, MAC_KEYS) : undefined,
         detailIsShortcut: true,
-        run: () => dispatchCommand(def.id as CommandId),
+        keepOpen: def.picker,
+        run: () => dispatchCommand(def.id as CommandId, true),
       });
     }
 
@@ -111,19 +164,41 @@ export default function CommandPalette({ visible, onClose }: Props) {
       out.push({
         key: `v:${view.route}`,
         title: view.title,
-        keywords: `view ${view.keywords ?? ''}`,
+        prefix: GO_TO,
+        keywords: `go view ${view.keywords ?? ''}`,
         detail: 'View',
         run: () => goTo(view.route),
       });
     }
     for (const list of activeLists(state.lists)) {
-      out.push({ key: `l:${list.id}`, title: list.name, keywords: 'list', detail: 'List', run: () => goTo('InboxTab', { listId: list.id }) });
+      out.push({
+        key: `l:${list.id}`,
+        title: list.name,
+        prefix: GO_TO,
+        keywords: 'go list',
+        detail: 'List',
+        run: () => goTo('InboxTab', { listId: list.id }),
+      });
     }
     for (const folder of activeFolders(state.folders)) {
-      out.push({ key: `f:${folder.id}`, title: folder.name, keywords: 'folder', detail: 'Folder', run: () => goTo('InboxTab', { folderId: folder.id }) });
+      out.push({
+        key: `f:${folder.id}`,
+        title: folder.name,
+        prefix: GO_TO,
+        keywords: 'go folder',
+        detail: 'Folder',
+        run: () => goTo('InboxTab', { folderId: folder.id }),
+      });
     }
     for (const { tag } of tagCounts(state.tasks)) {
-      out.push({ key: `t:${tag}`, title: `#${tag}`, keywords: `tag ${tag}`, detail: 'Tag', run: () => goTo('InboxTab', { tag }) });
+      out.push({
+        key: `t:${tag}`,
+        title: `#${tag}`,
+        prefix: GO_TO,
+        keywords: `go tag ${tag}`,
+        detail: 'Tag',
+        run: () => goTo('InboxTab', { tag }),
+      });
     }
     if (supportsFeature('savedFilters')) {
       for (const filter of state.savedFilters) {
@@ -131,16 +206,17 @@ export default function CommandPalette({ visible, onClose }: Props) {
         out.push({
           key: `s:${filter.id}`,
           title: filter.name,
-          keywords: 'filter saved',
+          prefix: GO_TO,
+          keywords: 'go filter saved',
           detail: 'Filter',
           run: () => goTo('BrowseTab', { savedFilterId: filter.id, at: Date.now() }),
         });
       }
     }
     return out;
-  }, [visible, available, checked, state.lists, state.folders, state.tasks, state.savedFilters, supportsFeature]);
+  }, [visible, picker, available, checked, state.lists, state.folders, state.tasks, state.savedFilters, supportsFeature]);
 
-  const results = useMemo(() => rankPaletteItems(entries, query), [entries, query]);
+  const results = useMemo(() => rankPaletteItems(pickerEntries ?? entries, query), [pickerEntries, entries, query]);
   const selected = Math.min(index, Math.max(0, results.length - 1));
 
   /**
@@ -165,10 +241,15 @@ export default function CommandPalette({ visible, onClose }: Props) {
    * Closes, then runs. A command acting on the list, or focusing a field, has to
    * land on the window with this dialog gone: on the Mac a list command is
    * refused while anything is presented over the list, and a field can't take
-   * focus from under a dialog.
+   * focus from under a dialog. The exceptions run where they are: a picker
+   * opening in this same menu, and a tag toggled with the picker still up.
    */
   const choose = (entry: Entry | undefined) => {
     if (!entry) return;
+    if (entry.keepOpen) {
+      entry.run();
+      return;
+    }
     onClose();
     setTimeout(entry.run, Platform.OS === 'web' ? 0 : 250);
   };
@@ -189,7 +270,7 @@ export default function CommandPalette({ visible, onClose }: Props) {
         setIndex(0);
         reveal(0);
       }}
-      placeholder="Go to or do…"
+      placeholder={picker ? PICKER_PLACEHOLDER[picker.kind] : 'Go to or do…'}
       placeholderTextColor={colors.textFaint}
       style={styles.input}
       autoFocus
@@ -210,7 +291,18 @@ export default function CommandPalette({ visible, onClose }: Props) {
   );
 
   return (
-    <Dialog visible={visible} onClose={onClose} onShow={() => inputRef.current?.focus()} width={520}>
+    <Dialog
+      visible={visible}
+      onClose={picker ? onLeavePicker : onClose}
+      onShow={() => inputRef.current?.focus()}
+      width={520}
+    >
+      {picker && (
+        <Text style={styles.crumb}>
+          {PICKER_TITLE[picker.kind]}
+          {picker.taskIds.length > 1 ? ` · ${picker.taskIds.length} tasks` : ''}
+        </Text>
+      )}
       {MAC ? (
         <KeyCommandsView
           keys={['up', 'down']}
@@ -230,7 +322,11 @@ export default function CommandPalette({ visible, onClose }: Props) {
         scrollEventThrottle={16}
         keyboardShouldPersistTaps="always"
       >
-        {results.length === 0 && <Text style={styles.empty}>Nothing matches.</Text>}
+        {results.length === 0 && (
+          <Text style={styles.empty}>
+            {picker?.kind === 'editTags' && !query.trim() ? 'Type a name to make a tag.' : 'Nothing matches.'}
+          </Text>
+        )}
         {results.map((entry, i) => (
           <Pressable
             key={entry.key}
@@ -240,7 +336,9 @@ export default function CommandPalette({ visible, onClose }: Props) {
             onPointerEnter={() => setIndex(i)}
             style={[styles.row, i === selected && styles.rowSelected]}
           >
+            {picker && <Text style={styles.check}>{entry.checked ? '✓' : ''}</Text>}
             <Text style={styles.title} numberOfLines={1}>
+              {!!entry.prefix && <Text style={styles.prefix}>{entry.prefix} </Text>}
               {entry.title}
             </Text>
             {!!entry.detail && (
@@ -271,6 +369,24 @@ const useStyles = makeStyles((c) => ({
     gap: 12,
     paddingHorizontal: 8,
     borderRadius: 7,
+  },
+  crumb: {
+    fontFamily: fonts.monoRegular,
+    fontSize: 11,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+    color: c.textTertiary,
+    paddingHorizontal: 4,
+    marginBottom: 6,
+  },
+  check: {
+    width: 14,
+    fontFamily: fonts.sansMedium,
+    fontSize: 14,
+    color: c.textPrimary,
+  },
+  prefix: {
+    color: c.textTertiary,
   },
   rowSelected: {
     backgroundColor: c.selectedRowBg,
