@@ -438,7 +438,12 @@ static void InstallReopenHandler(void)
 
 - (void)handleReopen:(id)event withReplyEvent:(id)reply
 {
-  [YKMacAppKit showMainWindow];
+  // Once the event is done with. Ordered front from inside the handler, the
+  // window was put back out of sight by the activation that follows a reopen:
+  // the Dock icon came back and the window didn't.
+  dispatch_async(dispatch_get_main_queue(), ^{
+    [YKMacAppKit showMainWindow];
+  });
 }
 
 @end
