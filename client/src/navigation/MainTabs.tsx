@@ -73,8 +73,16 @@ const NativeTab = Platform.OS === 'ios'
  * tabs below and mounts the same sidebar separately as its secondary drawer.
  */
 function TabBar(props: BottomTabBarProps) {
-  const { wide } = useSidebar();
-  if (wide) return <Sidebar {...props} />;
+  const { wide, railOnly } = useSidebar();
+  // A rail-only window has both: the rail, and the full sidebar to open over it.
+  if (wide) {
+    return (
+      <>
+        <Sidebar {...props} />
+        {railOnly && <SidebarDrawer {...props} />}
+      </>
+    );
+  }
   return <SidebarDrawer {...props} />;
 }
 
@@ -653,13 +661,13 @@ function NativeTabsLayout({
   navigation,
 }: Pick<NativeBottomTabBarProps, 'state' | 'navigation'> & { children: React.ReactNode }) {
   const styles = useStyles();
-  const { wide } = useSidebar();
+  const { wide, railOnly } = useSidebar();
 
   return (
     <View style={styles.nativeNavRow}>
       {wide && <Sidebar state={state} navigation={navigation} />}
       <View style={styles.flex}>{children}</View>
-      {!wide && <SidebarDrawer state={state} navigation={navigation} />}
+      {(!wide || railOnly) && <SidebarDrawer state={state} navigation={navigation} />}
     </View>
   );
 }

@@ -6,13 +6,14 @@ import { DESKTOP_APP, DESKTOP_UI, MAC } from '../data/platform';
 import { LINKS, openLink } from '../data/links';
 import { checkForAppUpdatesInteractively } from '../data/appUpdates';
 import { PendingUndo, usePendingUndo, useTasks } from '../data/TaskContext';
-import { anyLayerOpen } from '../components/openLayers';
+import { afterLayersClose, anyLayerOpen } from '../components/openLayers';
 import CommandPalette from '../components/CommandPalette';
 import KeyboardShortcuts from '../components/KeyboardShortcuts';
 import { COMMANDS, CommandId, commandDef, webCommandFor } from './commands';
 import { navigationRef } from './DateTimePickerContext';
 import { tabNavigation } from './destinations';
-import { useDrawerState, useSidebar } from './SidebarContext';
+import { useDrawerState, useSidebar, useSidebarCollapsed } from './SidebarContext';
+import { focusPane } from './focusPanes';
 import { useCommandKeyHints } from './shortcutHints';
 import type { PalettePicker } from '../data/palettePickers';
 
@@ -234,7 +235,8 @@ const openPrivacy = () => openLink(LINKS.privacy);
 
 /** Mounted once, in the main layout, so it never runs over the first-run screen. */
 export default function MenuCommands() {
-  const { openServer, wide, toggleCollapsed, openDrawer } = useSidebar();
+  const { openServer, wide, railOnly, toggleCollapsed, openDrawer } = useSidebar();
+  const collapsed = useSidebarCollapsed();
   const { undo } = useTasks();
   const pendingUndo = usePendingUndo();
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -269,9 +271,25 @@ export default function MenuCommands() {
     DESKTOP_UI
   );
   useCommandHandler('keyboardShortcuts', useCallback(() => setShortcutsOpen(true), []), DESKTOP_UI);
-  // A narrow window has no pinned sidebar to shrink; the key shows and hides the drawer instead.
+  // A narrow window has no pinned sidebar to shrink, and a rail-only one no room
+  // to grow it; the key shows and hides the drawer instead.
+  //
+  // Showing the full sidebar hands it the keyboard too, so the arrows go
+  // straight on to move through it. Shrinking it leaves the keyboard where it was.
   const { drawerOpen, closeDrawer } = useDrawerState();
-  useCommandHandler('toggleSidebar', wide ? toggleCollapsed : drawerOpen ? closeDrawer : openDrawer, DESKTOP_UI);
+  const toggleSidebar = useCallback(() => {
+    if (wide && !railOnly) {
+      toggleCollapsed();
+      if (collapsed) afterLayersClose(() => focusPane('sidebar'));
+    } else if (drawerOpen) {
+      closeDrawer();
+    } else {
+      openDrawer();
+      // The drawer's sidebar takes the keyboard as it mounts, and lets go of it as it closes.
+      focusPane('sidebar', { mounting: true });
+    }
+  }, [wide, railOnly, collapsed, drawerOpen, toggleCollapsed, closeDrawer, openDrawer]);
+  useCommandHandler('toggleSidebar', toggleSidebar, DESKTOP_UI);
   useCommandHandler('goAll', goAll, DESKTOP_UI);
   useCommandHandler('goInbox', goInbox, DESKTOP_UI);
   useCommandHandler('goToday', goToday, DESKTOP_UI);

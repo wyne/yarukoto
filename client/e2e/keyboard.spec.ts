@@ -123,3 +123,31 @@ test('Return edits, Space opens, and the list and sidebar answer their keys', as
   await expect(page.getByText('Keyboard Shortcuts', { exact: true })).toBeVisible();
   await expect(page.getByText('Last Task', { exact: true })).toBeVisible();
 });
+
+test('a narrowed window keeps the sidebar as a rail, and expanding it hands it the keyboard', async ({ page }) => {
+  await connect(page);
+  const palette = async (command: string) => {
+    await page.keyboard.press('ControlOrMeta+k');
+    await page.keyboard.type(command);
+    await page.keyboard.press('Enter');
+  };
+
+  // Too narrow for the full sidebar, wide enough for the rail: no menu button.
+  await page.setViewportSize({ width: 760, height: 900 });
+  await expect(page.getByLabel('Expand sidebar')).toBeVisible();
+
+  // Back to full width, collapsed by hand, then expanded from the command menu.
+  await page.setViewportSize({ width: 1400, height: 900 });
+  await palette('Toggle Sidebar');
+  await expect(page.getByLabel('Expand sidebar')).toBeVisible();
+  await page.getByPlaceholder(/Add a task/).click();
+  await page.keyboard.press('Escape');
+  await palette('Toggle Sidebar');
+  await expect(page.getByLabel('Collapse sidebar')).toBeVisible();
+
+  // The arrows go straight to the sidebar.
+  await expect.poll(async () => (await focused(page)).tag).toBe('DIV');
+  const before = page.url();
+  await page.keyboard.press('ArrowDown');
+  await expect.poll(() => page.url()).not.toBe(before);
+});

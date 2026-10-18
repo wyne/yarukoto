@@ -31,13 +31,15 @@ does.
 | ⌘F | Search, in Browse *(Mac)* |
 | ⌘K | Command menu: go to any view, list, folder, tag or saved filter, or run any command |
 | ⌘1 to ⌘7 | All, Inbox, Today, Calendar, Activity, Browse, Trash *(Mac)* |
-| ⌘S | Show or hide the sidebar *(Mac)* |
+| ⌘S | Show or hide the sidebar, which takes the keyboard as it opens *(Mac)* |
 | ⌘D | Show or hide the task pane *(Mac)* |
 | ⌘/ | Keyboard shortcuts |
 | ⌘, | Settings *(Mac)* |
 | ⌘W | Close the window; with the menu bar icon on, Yarukoto keeps running there *(Mac)* |
 
 ## The sidebar
+
+While the sidebar has the keyboard, the row you're on is outlined in your accent color.
 
 | Key | What it does |
 |---|---|

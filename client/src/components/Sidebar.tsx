@@ -182,11 +182,13 @@ const Sidebar = React.memo(function Sidebar({ state, navigation, onNavigate }: P
     /** The depth the sideways travel is currently asking for. */
     intent: 0 | 1;
   } | null>(null);
-  const { wide, toggleCollapsed, openServer, openNavSheet } = useSidebar();
+  const { wide, railOnly, toggleCollapsed, openDrawer, openServer, openNavSheet } = useSidebar();
   const collapsedPref = useSidebarCollapsed();
   const scrollRef = useAnimatedRef<Animated.ScrollView>();
-  // The drawer is a transient overlay, so it always shows the full sidebar.
-  const collapsed = wide && collapsedPref;
+  const inDrawer = !!onNavigate;
+  // The drawer is a transient overlay, so it always shows the full sidebar —
+  // including when it is opened over a rail-only window's rail.
+  const collapsed = wide && !inDrawer && collapsedPref;
   const insets = useSafeAreaInsets();
   const winHeight = useWindowSelector((window) => window.height);
   const { state: data, reorderList, reorderFolder, supportsFeature } = useTasks();
@@ -558,14 +560,21 @@ const Sidebar = React.memo(function Sidebar({ state, navigation, onNavigate }: P
 
   /**
    * The drawer is the narrow window's sidebar, so on the desktop it takes the
-   * keyboard the same way while it is open. Read only on the desktop, where
-   * the answer is a constant: the phone's drawer is kept off the drawer state
-   * on purpose, so opening it doesn't rebuild the nav (see the memo above).
+   * keyboard the same way while it is open — and a rail-only window's rail
+   * gives it up meanwhile, so the two are never both answering the arrows.
+   * Read only on the desktop, where the condition is a constant: the phone's
+   * drawer is kept off the drawer state on purpose, so opening it doesn't
+   * rebuild the nav (see the memo above).
    */
-  const inDrawer = !!onNavigate;
   // eslint-disable-next-line react-hooks/rules-of-hooks
-  const drawer = DESKTOP_UI && inDrawer ? useDrawerState() : null;
-  const keyboardSidebar = DESKTOP_UI && (wide || !!drawer?.drawerOpen);
+  const drawerState = DESKTOP_UI ? useDrawerState() : null;
+  const drawer = inDrawer ? drawerState : null;
+  const keyboardSidebar = DESKTOP_UI && (inDrawer ? !!drawer?.drawerOpen : wide);
+  // Not by swapping the frame out, which would remount the whole rail under it.
+  const takesKeys = keyboardSidebar && (inDrawer || !drawerState?.drawerOpen);
+  const sidebarHolds = useSidebarHoldsKeyboard();
+  /** Shows the keyboard is here: the row the arrows move is ringed in the accent. */
+  const keyRing = takesKeys && sidebarHolds;
   const fromKeys = useRef(false);
   // A drawer shut by a click or the backdrop must not leave the list locked out.
   useEffect(() => {
@@ -587,7 +596,7 @@ const Sidebar = React.memo(function Sidebar({ state, navigation, onNavigate }: P
     // A frame later, so the view is focusable by the time it is asked to take
     // focus; see SidebarFrame.
     requestAnimationFrame(() => setKeyFocus((n) => n + 1));
-  }, keyboardSidebar);
+  }, takesKeys);
 
   const handleKey = (name: string) => {
     const at = navTargets.findIndex((t) => showActive(t.kind, t.value));
@@ -639,15 +648,17 @@ const Sidebar = React.memo(function Sidebar({ state, navigation, onNavigate }: P
   return (
     <SidebarFrame
       keyboard={keyboardSidebar}
+      active={takesKeys}
       style={sidebarStyle}
       focusKey={keyFocus}
       onKey={handleKey}
     >
       <View style={[styles.brandRow, collapsed && styles.brandRowCollapsed]}>
         {!collapsed && <Text style={styles.brand}>Yarukoto</Text>}
-        {wide && (
+        {wide && !inDrawer && (
           <Pressable
-            onPress={toggleCollapsed}
+            // No room to push the content aside, so the full sidebar comes over it.
+            onPress={railOnly ? openDrawer : toggleCollapsed}
             hitSlop={8}
             accessibilityLabel={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           >
@@ -684,6 +695,7 @@ const Sidebar = React.memo(function Sidebar({ state, navigation, onNavigate }: P
                 </>
               )}
               <ShortcutHint command={command} style={collapsed && HINT_OVER_ICON} />
+              {keyRing && active && <KeyRing />}
             </Pressable>
           );
         })}
@@ -746,6 +758,7 @@ const Sidebar = React.memo(function Sidebar({ state, navigation, onNavigate }: P
                     count={folderTotals[row.folder.id] ?? 0}
                     folded={collapsedFolders.includes(row.folder.id)}
                     active={showActive('folder', row.folder.id)}
+                    ringed={keyRing && showActive('folder', row.folder.id)}
                     accent={accent}
                     onPress={openFolder}
                     onToggle={toggleFolder}
@@ -760,6 +773,7 @@ const Sidebar = React.memo(function Sidebar({ state, navigation, onNavigate }: P
                     depth={row.depth}
                     count={counts[row.list.id] ?? 0}
                     active={showActive('list', row.list.id)}
+                    ringed={keyRing && showActive('list', row.list.id)}
                     accent={accent}
                     onPress={openList}
                   />
@@ -810,6 +824,7 @@ const Sidebar = React.memo(function Sidebar({ state, navigation, onNavigate }: P
                     {filter.name}
                   </Text>
                   <Text style={styles.rowCount}>{count}</Text>
+                  {keyRing && active && <KeyRing />}
                 </Pressable>
               );
             })}
@@ -835,6 +850,7 @@ const Sidebar = React.memo(function Sidebar({ state, navigation, onNavigate }: P
                     #{tag}
                   </Text>
                   <Text style={styles.rowCount}>{count}</Text>
+                  {keyRing && active && <KeyRing />}
                 </Pressable>
               );
             })}
@@ -894,12 +910,14 @@ const SIDEBAR_KEYS = ['up', 'down', 'left', 'right', 'return', 'escape', 'tab', 
  */
 function SidebarFrame({
   keyboard,
+  active,
   style,
   focusKey,
   onKey,
   children,
 }: {
   keyboard: boolean;
+  active: boolean;
   style: React.ComponentProps<typeof View>['style'];
   focusKey: number;
   onKey: (name: string) => void;
@@ -912,9 +930,10 @@ function SidebarFrame({
     <KeyCommandsView
       style={style}
       keys={SIDEBAR_KEYS}
+      active={active}
       // Only once asked for: a focusable key view takes focus as it appears,
       // and the sidebar appears with the window, ahead of the list.
-      focusable={sidebarHolds}
+      focusable={sidebarHolds && active}
       focusKey={focusKey}
       onFocusChange={({ nativeEvent }) => {
         if (!nativeEvent.focused) setSidebarHasKeyboard(false);
@@ -997,6 +1016,7 @@ const FolderRow = React.memo(function FolderRow({
   folded,
   active,
   accent,
+  ringed,
   onPress,
   onToggle,
   onPressIn,
@@ -1014,6 +1034,8 @@ const FolderRow = React.memo(function FolderRow({
   folded: boolean;
   active: boolean;
   accent: string;
+  /** The sidebar holds the keyboard and this is the row it is on. See `KeyRing`. */
+  ringed: boolean;
   onPress: (id: string) => void;
   onToggle: (id: string) => void;
 }) {
@@ -1067,6 +1089,7 @@ const FolderRow = React.memo(function FolderRow({
           )}
         </View>
       </Pressable>
+      {ringed && <KeyRing />}
     </Pressable>
   );
 });
@@ -1079,6 +1102,7 @@ const ListRow = React.memo(function ListRow({
   count,
   active,
   accent,
+  ringed,
   onPress,
   onPressIn,
   held,
@@ -1095,6 +1119,8 @@ const ListRow = React.memo(function ListRow({
   count: number;
   active: boolean;
   accent: string;
+  /** The sidebar holds the keyboard and this is the row it is on. See `KeyRing`. */
+  ringed: boolean;
   onPress: (id: string) => void;
 }) {
   const hoverBg = useHoverBg();
@@ -1143,9 +1169,25 @@ const ListRow = React.memo(function ListRow({
           {count > 0 && <Text style={styles.rowCount}>{count}</Text>}
         </>
       )}
+      {ringed && <KeyRing />}
     </Pressable>
   );
 });
+
+/**
+ * Drawn round the selected row while the sidebar holds the keyboard.
+ *
+ * The selected row alone can't say it: it is filled whether or not the arrows
+ * are going to the sidebar, since it is also just the view you are on. A
+ * thin accent ring is the one difference between "you are here" and "your keys
+ * are here", and it goes as soon as the keyboard moves on — to the list, by
+ * Tab, or by a click anywhere else.
+ */
+function KeyRing() {
+  const styles = useStyles();
+  const accent = useAccent();
+  return <View pointerEvents="none" style={[styles.keyRing, { borderColor: accent }]} />;
+}
 
 const useStyles = makeStyles((c) => ({
   sidebar: {
@@ -1207,6 +1249,15 @@ const useStyles = makeStyles((c) => ({
     paddingHorizontal: 12,
     borderRadius: 8,
     minHeight: 44,
+  },
+  keyRing: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    borderRadius: 8,
+    borderWidth: 1.5,
   },
   rowLabel: {
     flex: 1,
