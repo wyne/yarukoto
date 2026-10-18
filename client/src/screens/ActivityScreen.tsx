@@ -1,7 +1,8 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { RefreshControl, ScrollView, Text, View } from 'react-native';
 import Pressable from '../components/HoverPressable';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useIsFocused } from '@react-navigation/native';
 import { Palette } from '../theme/colors';
 import { makeStyles } from '../theme/styles';
 import { fonts } from '../theme/typography';
@@ -12,16 +13,21 @@ import { useDetailActions } from '../navigation/DetailContext';
 import { NATIVE_TAB_CONTENT_PADDING } from '../navigation/nativeTabBarLayout';
 import { FLOATING_TAB_BAR } from '../data/platform';
 import { ActivityRevision, createApi } from '../data/api';
-import { useTasks } from '../data/TaskContext';
+import { useSyncStatus, useTasks } from '../data/TaskContext';
 import { ListDef, Task } from '../data/types';
 import { markdownToPlainText } from '../data/markdown';
+import {
+  ACTIVITY_FILTERS,
+  ActivityFilter,
+  ActivityKind,
+  matchesActivityFilter,
+  toggleActivityFilter,
+} from '../data/activityFilter';
 import { addDays, formatDueFull, formatDueShort, fromISODate, toISODate } from '../data/dateUtils';
 import Card from '../components/Card';
 import Divider from '../components/Divider';
 import GlassIconButton from '../components/GlassIconButton';
-import { IconBell, IconChevronRight, IconMenu } from '../icons/Icons';
-
-type ActivityKind = 'create' | 'edit' | 'complete' | 'delete' | 'restore' | 'reopen';
+import { IconChevronRight, IconMenu } from '../icons/Icons';
 
 interface ActivityChange {
   label: string;
@@ -62,6 +68,8 @@ const todayLabel = new Intl.DateTimeFormat(undefined, { weekday: 'long', month: 
 const timeLabel = new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' });
 const ACTIVITY_PAGE_SIZE = 60;
 const ACTIVITY_DAYS_PER_LOAD = 7;
+/** How many extra pages a narrow filter may pull on its own to fill the screen. */
+const ACTIVITY_FILL_PAGES = 5;
 
 function dayKey(value: string): string {
   return toISODate(new Date(value));
@@ -219,6 +227,8 @@ export default function ActivityScreen() {
   const hoverBg = useHoverBg();
   const { openTask } = useDetailActions();
   const { state, syncNow, restoreTasks } = useTasks();
+  const syncStatus = useSyncStatus();
+  const focused = useIsFocused();
   // What each entry's task is now, which decides what the entry offers: a task
   // still around opens, one in the trash restores, and one purged or no longer
   // shared with you is only history.
@@ -231,7 +241,20 @@ export default function ActivityScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [filters, setFilters] = useState<ReadonlySet<ActivityFilter>>(() => new Set());
   const now = useMemo(() => new Date(), []);
+  // The task collection the feed was last fetched against, or null when that
+  // fetch may have missed something: edits were still waiting to push, so the
+  // server had no revision for them yet.
+  const fetchedTasksRef = useRef<Task[] | null>(null);
+  const tasksRef = useRef(state.tasks);
+  tasksRef.current = state.tasks;
+  const pendingRef = useRef(syncStatus.pending);
+  pendingRef.current = syncStatus.pending;
+
+  const markFetched = useCallback(() => {
+    fetchedTasksRef.current = pendingRef.current > 0 ? null : tasksRef.current;
+  }, []);
 
   const loadInitial = useCallback(async () => {
     setVisibleDayCount(ACTIVITY_DAYS_PER_LOAD);
@@ -246,6 +269,7 @@ export default function ActivityScreen() {
     setLoaded(false);
     try {
       const api = createApi(state.serverUrl, state.token);
+      markFetched();
       const revisions = await api.activity(ACTIVITY_PAGE_SIZE);
       setItems(revisions.flatMap((revision) => summarize(revision, now, state.lists)));
       setNextBeforeId(revisions.at(-1)?.id ?? null);
@@ -256,11 +280,51 @@ export default function ActivityScreen() {
     } finally {
       setLoaded(true);
     }
-  }, [state.mode, state.serverUrl, state.token, state.lists, now]);
+  }, [state.mode, state.serverUrl, state.token, state.lists, now, markFetched]);
 
   useEffect(() => {
     loadInitial();
   }, [loadInitial]);
+
+  /**
+   * Brings in what happened since the last fetch without resetting the list:
+   * revisions never change once recorded, so new ones are simply prepended. If
+   * the newest page no longer reaches what is on screen, it starts over instead
+   * of leaving a hole.
+   */
+  const refreshQuietly = useCallback(async () => {
+    if (state.mode !== 'server') return;
+    try {
+      markFetched();
+      const api = createApi(state.serverUrl, state.token);
+      const revisions = await api.activity(ACTIVITY_PAGE_SIZE);
+      const fresh = revisions.flatMap((revision) => summarize(revision, now, state.lists));
+      setItems((current) => {
+        const existing = new Set(current.map((item) => item.id));
+        const oldest = fresh.at(-1);
+        if (current.length === 0 || !oldest || !existing.has(oldest.id)) return fresh;
+        const added = fresh.filter((item) => !existing.has(item.id));
+        return added.length > 0 ? [...added, ...current] : current;
+      });
+      setError(null);
+    } catch {
+      // A missed background refresh is retried on the next sync; the list on
+      // screen is still accurate up to when it was fetched.
+    }
+  }, [state.mode, state.serverUrl, state.token, state.lists, now, markFetched]);
+
+  // The feed is the server's history, so it can only move after a sync: a
+  // local edit appears once it has been pushed, and an edit from another
+  // device once it has been pulled. Refetch when a sync lands with tasks that
+  // differ from the last fetch, and on returning to the screen, which stays
+  // mounted behind other tabs.
+  useEffect(() => {
+    if (!focused || !loaded || syncStatus.pending > 0) return;
+    if (fetchedTasksRef.current === state.tasks) return;
+    refreshQuietly();
+    // state.tasks is read through the ref comparison; a sync landing is the trigger.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focused, loaded, syncStatus.lastSyncedAt, syncStatus.pending, refreshQuietly]);
 
   const refresh = useCallback(async () => {
     setRefreshing(true);
@@ -275,11 +339,12 @@ export default function ActivityScreen() {
   const groups = useMemo(() => {
     const byDay = new Map<string, ActivityItem[]>();
     for (const item of items) {
+      if (!matchesActivityFilter(item.kind, filters)) continue;
       const key = dayKey(item.recordedAt);
       byDay.set(key, [...(byDay.get(key) ?? []), item]);
     }
     return Array.from(byDay.entries());
-  }, [items]);
+  }, [items, filters]);
   const visibleGroups = groups.slice(0, visibleDayCount);
 
   const loadOlder = useCallback(async () => {
@@ -324,6 +389,19 @@ export default function ActivityScreen() {
     visibleDayCount,
   ]);
 
+  // A narrow filter can leave too few rows to scroll, and so nothing to ask for
+  // more. Fetch older pages on its behalf, a few at a time per filter change.
+  const fillPagesRef = useRef(0);
+  useEffect(() => {
+    fillPagesRef.current = 0;
+  }, [filters]);
+  useEffect(() => {
+    if (filters.size === 0 || !loaded || loadingMore || !hasMore) return;
+    if (groups.length >= visibleDayCount || fillPagesRef.current >= ACTIVITY_FILL_PAGES) return;
+    fillPagesRef.current += 1;
+    loadOlder();
+  }, [filters, loaded, loadingMore, hasMore, groups.length, visibleDayCount, loadOlder]);
+
   const handleScroll = useCallback(
     ({ nativeEvent }: { nativeEvent: { contentOffset: { y: number }; contentSize: { height: number }; layoutMeasurement: { height: number } } }) => {
       const distanceFromBottom =
@@ -336,7 +414,12 @@ export default function ActivityScreen() {
   const empty =
     state.mode !== 'server'
       ? 'Activity is available when connected to a server.'
-      : error || (loaded ? 'No task activity yet.' : 'Loading activity...');
+      : error ||
+        (!loaded || loadingMore
+          ? 'Loading activity...'
+          : filters.size > 0 && items.length > 0
+            ? 'No matching activity.'
+            : 'No task activity yet.');
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top + 6 }]}>
@@ -347,8 +430,42 @@ export default function ActivityScreen() {
           </GlassIconButton>
         )}
         <Text style={styles.title}>Activity</Text>
-        <IconBell size={20} color={accent} />
       </View>
+      {state.mode === 'server' && (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={[styles.filterBar, wide && styles.paneWide]}
+          contentContainerStyle={styles.filters}
+        >
+          <Pressable
+            onPress={() => setFilters(new Set())}
+            accessibilityRole="button"
+            accessibilityState={{ selected: filters.size === 0 }}
+            style={hoverBg(
+              [styles.filter, filters.size === 0 && { backgroundColor: colors.accentTintBg }],
+              filters.size === 0
+            )}
+          >
+            <Text style={[styles.filterText, filters.size === 0 && { color: accent }]}>All</Text>
+          </Pressable>
+          {ACTIVITY_FILTERS.map((filter) => {
+            const on = filters.has(filter.id);
+            return (
+              <Pressable
+                key={filter.id}
+                onPress={() => setFilters((current) => toggleActivityFilter(current, filter.id))}
+                accessibilityRole="button"
+                accessibilityState={{ selected: on }}
+                style={hoverBg([styles.filter, on && { backgroundColor: colors.accentTintBg }], on)}
+              >
+                <View style={[styles.filterDot, { backgroundColor: eventColor(filter.id, colors) }]} />
+                <Text style={[styles.filterText, on && { color: accent }]}>{filter.label}</Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      )}
 
       <ScrollView
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.textTertiary} />}
@@ -448,6 +565,34 @@ const useStyles = makeStyles((c) => ({
     fontFamily: fonts.sansBold,
     fontSize: 22,
     color: c.textPrimary,
+  },
+  filterBar: {
+    flexGrow: 0,
+    flexShrink: 0,
+  },
+  filters: {
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingBottom: 12,
+  },
+  filter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 11,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: c.chipBg,
+  },
+  filterDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+  },
+  filterText: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 13.5,
+    color: c.textSecondary,
   },
   scroll: {
     flexGrow: 1,
