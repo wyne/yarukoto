@@ -18,6 +18,7 @@ import { closeOpenSwipeRow } from '../SwipeableRow';
 import FilterBar from './FilterBar';
 import SavedFilterBar from './SavedFilterBar';
 import { useCommand } from '../../navigation/MenuCommands';
+import ShortcutHint from '../ShortcutHint';
 
 interface Props {
   criteria: TaskCriteria;
@@ -81,6 +82,7 @@ export default function BrowseView({ criteria, onCriteriaChange }: Props) {
           returnKeyType="search"
           clearButtonMode="while-editing"
         />
+        <ShortcutHint command="find" style={{ right: 24, bottom: 10 }} />
       </View>
 
       <View style={wide && styles.paneWide}>

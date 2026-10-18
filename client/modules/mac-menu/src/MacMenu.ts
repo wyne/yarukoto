@@ -19,6 +19,8 @@ export interface MacMenuCommandSpec {
 type MacMenuEvents = {
   /** A command's id, or 'undo' for Edit ▸ Undo of a completion. */
   onCommand: (event: { command: string }) => void;
+  /** ⌘ went down on its own (true), or came up, gained company or was used (false). See YKCommandKey.h. */
+  onCommandKey: (event: { held: boolean }) => void;
 };
 
 declare class MacMenuModule extends NativeModule<MacMenuEvents> {
@@ -28,6 +30,8 @@ declare class MacMenuModule extends NativeModule<MacMenuEvents> {
   setCommands(commands: MacMenuCommandSpec[]): Promise<void>;
   /** The commands something can answer right now; every other one is dimmed. */
   setEnabled(ids: string[]): Promise<void>;
+  /** The options in use, which are drawn checked. */
+  setChecked(ids: string[]): Promise<void>;
 }
 
 /**

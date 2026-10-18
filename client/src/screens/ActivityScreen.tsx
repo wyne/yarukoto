@@ -342,7 +342,7 @@ export default function ActivityScreen() {
     <View style={[styles.screen, { paddingTop: insets.top + 6 }]}>
       <View style={[styles.header, wide && styles.paneWide]}>
         {!wide && (
-          <GlassIconButton onPress={openDrawer} label="Menu">
+          <GlassIconButton onPress={openDrawer} label="Menu" shortcut="toggleSidebar">
             <IconMenu />
           </GlassIconButton>
         )}

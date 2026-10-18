@@ -7,6 +7,10 @@ The desktop apps and the web app can be used entirely from the keyboard. On Wind
 browser, read ⌘ as **Ctrl**, ⌥ as **Alt** and ⇧ as **Shift**. Every command and its key is also in
 the command menu: press **⌘K** and start typing.
 
+Hold **⌘** on its own for a moment and the window labels what it can reach: ⌘1 beside All, ⌘S
+on the sidebar button, ⌘, on the gear, and so on. Let go, press a key or click, and the labels go
+away.
+
 Keys marked *(Mac)* are only in the Mac app. The Windows app and the web app run in a browser
 engine, which keeps those keys for itself (⌘N opens a window, ⌘T a tab, ⌘1 switches tabs), so use
 ⌘K for those commands there.
@@ -62,6 +66,9 @@ does.
 | ⌘Z | Undo the last complete or delete, while its notice is showing *(Mac)* |
 
 With several tasks selected, the task keys act on all of them.
+
+To group or sort the list in front, type **group** or **sort** in the command menu (⌘K), or use
+**View ▸ Group By** and **View ▸ Sort By** in the Mac menu bar, where the one in use is checked.
 
 ## The add field
 

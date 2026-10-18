@@ -45,6 +45,7 @@ import {
   usePaneFocus,
 } from '../navigation/focusPanes';
 import DragList from './DragList';
+import ShortcutHint, { HINT_OVER_ICON } from './ShortcutHint';
 import { NavRow, flattenTree, parentOf, resolveDrop } from './sidebar/navTree';
 import { loadCollapsedFolders, saveCollapsedFolders } from '../data/storage';
 import SyncIndicator from './SyncIndicator';
@@ -93,14 +94,15 @@ export const SIDEBAR_COLLAPSED_WIDTH = 64;
 
 /** Fixed at module scope: the set never varies, and a fresh array per render
  *  would rebuild seven rows for nothing. */
+/** With the command that reaches each, View ▸ ⌘1–⌘7, for its hint. */
 const VIEWS = [
-  { route: 'AllTab', label: 'All', Icon: IconStack },
-  { route: 'InboxTab', label: 'Inbox', Icon: IconInboxTray },
-  { route: 'TodayTab', label: 'Today', Icon: IconClock },
-  { route: 'CalendarTab', label: 'Calendar', Icon: IconCalendar },
-  { route: 'ActivityTab', label: 'Activity', Icon: IconBell },
-  { route: 'BrowseTab', label: 'Browse', Icon: IconFolder },
-  { route: 'TrashTab', label: 'Trash', Icon: IconTrash },
+  { route: 'AllTab', label: 'All', Icon: IconStack, command: 'goAll' },
+  { route: 'InboxTab', label: 'Inbox', Icon: IconInboxTray, command: 'goInbox' },
+  { route: 'TodayTab', label: 'Today', Icon: IconClock, command: 'goToday' },
+  { route: 'CalendarTab', label: 'Calendar', Icon: IconCalendar, command: 'goCalendar' },
+  { route: 'ActivityTab', label: 'Activity', Icon: IconBell, command: 'goActivity' },
+  { route: 'BrowseTab', label: 'Browse', Icon: IconFolder, command: 'goBrowse' },
+  { route: 'TrashTab', label: 'Trash', Icon: IconTrash, command: 'goTrash' },
 ] as const;
 
 export type SidebarNavigationProps =
@@ -650,6 +652,7 @@ const Sidebar = React.memo(function Sidebar({ state, navigation, onNavigate }: P
             accessibilityLabel={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           >
             {collapsed ? <IconChevronRight size={18} /> : <IconChevronLeft size={18} />}
+            <ShortcutHint command="toggleSidebar" style={{ right: -4 }} />
           </Pressable>
         )}
       </View>
@@ -660,7 +663,7 @@ const Sidebar = React.memo(function Sidebar({ state, navigation, onNavigate }: P
         contentContainerStyle={styles.scroll}
         showsVerticalScrollIndicator={false}
       >
-        {VIEWS.map(({ route, label, Icon }) => {
+        {VIEWS.map(({ route, label, Icon, command }) => {
           const active = showActive('route', route);
           const count = viewCounts[route] ?? null;
           return (
@@ -679,6 +682,7 @@ const Sidebar = React.memo(function Sidebar({ state, navigation, onNavigate }: P
                   {count !== null && <Text style={styles.rowCount}>{count}</Text>}
                 </>
               )}
+              <ShortcutHint command={command} style={collapsed && HINT_OVER_ICON} />
             </Pressable>
           );
         })}
@@ -848,6 +852,7 @@ const Sidebar = React.memo(function Sidebar({ state, navigation, onNavigate }: P
           compact={collapsed}
         />
         <IconSettings size={18} color={colors.textTertiary} />
+        <ShortcutHint command="settings" style={collapsed ? HINT_OVER_ICON : { right: 10 }} />
       </Pressable>
 
       <NavContextMenu

@@ -12,6 +12,7 @@ import { useCommand } from '../navigation/MenuCommands';
 import { focusNextPane, focusPane, usePaneFocus } from '../navigation/focusPanes';
 import KeyCommandsView from '../../modules/mac-pointer/src/KeyCommandsView';
 import { MAC } from '../data/platform';
+import ShortcutHint from './ShortcutHint';
 
 const HINT = 'Add a task… try "pay rent fri 6pm #home !high ~admin"';
 
@@ -133,6 +134,7 @@ export default function QuickAddBar({ onSubmit, contextLabel }: Props) {
         onKeyPress={handleKeyPress}
       />
       {text.length > 0 && <View style={[styles.caret, { backgroundColor: accent }]} />}
+      <ShortcutHint command="newTask" />
     </>
   );
 

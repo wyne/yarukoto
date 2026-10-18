@@ -51,6 +51,16 @@ export type CommandId =
   | 'focusSidebar'
   | 'toggleSidebar'
   | 'toggleTaskPane'
+  | 'groupByNone'
+  | 'groupByList'
+  | 'groupByDate'
+  | 'groupByTag'
+  | 'groupByPriority'
+  | 'sortByManual'
+  | 'sortByDate'
+  | 'sortByTitle'
+  | 'sortByTag'
+  | 'sortByPriority'
   | 'keyboardShortcuts'
   | 'nextTask'
   | 'previousTask'
@@ -136,6 +146,18 @@ export const COMMANDS: readonly CommandDef[] = [
   // ⌘S and ⌘D for saving and bookmarking.
   { id: 'toggleSidebar', title: 'Toggle Sidebar', menu: 'view', group: 'panes', shortcut: cmd('s'), keywords: 'show hide collapse' },
   { id: 'toggleTaskPane', title: 'Toggle Task Pane', menu: 'view', group: 'panes', shortcut: cmd('d'), list: true, keywords: 'show hide inspector detail' },
+  // The task list's Group & sort, as View menus in Finder and Mail have it. The
+  // option in use is checked, and left out of the command menu.
+  { id: 'groupByNone', title: 'None', menu: 'view', group: 'arrange', submenu: 'Group By', keywords: 'ungroup arrange' },
+  { id: 'groupByList', title: 'List', menu: 'view', group: 'arrange', submenu: 'Group By', keywords: 'arrange' },
+  { id: 'groupByDate', title: 'Date', menu: 'view', group: 'arrange', submenu: 'Group By', keywords: 'arrange due' },
+  { id: 'groupByTag', title: 'Tag', menu: 'view', group: 'arrange', submenu: 'Group By', keywords: 'arrange' },
+  { id: 'groupByPriority', title: 'Priority', menu: 'view', group: 'arrange', submenu: 'Group By', keywords: 'arrange' },
+  { id: 'sortByManual', title: 'Custom', menu: 'view', group: 'arrange', submenu: 'Sort By', keywords: 'order manual arrange' },
+  { id: 'sortByDate', title: 'Date', menu: 'view', group: 'arrange', submenu: 'Sort By', keywords: 'order arrange due' },
+  { id: 'sortByTitle', title: 'Title', menu: 'view', group: 'arrange', submenu: 'Sort By', keywords: 'order arrange name alphabetical' },
+  { id: 'sortByTag', title: 'Tag', menu: 'view', group: 'arrange', submenu: 'Sort By', keywords: 'order arrange' },
+  { id: 'sortByPriority', title: 'Priority', menu: 'view', group: 'arrange', submenu: 'Sort By', keywords: 'order arrange' },
   // In sidebar order, so the number is the row. Not on the web: a browser keeps
   // ⌘1–9 (Ctrl+1–9) for its own tabs. The command menu already lists every view.
   { id: 'goAll', title: 'All', menu: 'view', group: 'go', shortcut: cmd('1'), hiddenFromPalette: true },
