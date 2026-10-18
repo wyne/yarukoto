@@ -1,5 +1,6 @@
 import React, { useMemo, useRef } from 'react';
 import { useColors } from '../../theme/ThemeContext';
+import { useFieldFocus } from '../../theme/focus';
 import { ScrollView, Text, TextInput, View } from 'react-native';
 import { makeStyles } from '../../theme/styles';
 import { fonts } from '../../theme/typography';
@@ -48,6 +49,7 @@ export default function BrowseView({ criteria, onCriteriaChange }: Props) {
 
   // Edit ▸ Find… (⌘F) on the Mac.
   const searchRef = useRef<TextInput>(null);
+  const searchFocus = useFieldFocus();
   useCommand('find', () => searchRef.current?.focus());
 
   const tasks = useMemo(
@@ -77,7 +79,8 @@ export default function BrowseView({ criteria, onCriteriaChange }: Props) {
           onChangeText={(query) => onCriteriaChange({ ...criteria, query })}
           placeholder="Search tasks and tags"
           placeholderTextColor={colors.textFaint}
-          style={styles.searchInput}
+          style={[styles.searchInput, searchFocus.focusStyle]}
+          {...searchFocus.focusProps}
           autoCorrect={false}
           returnKeyType="search"
           clearButtonMode="while-editing"
@@ -151,9 +154,12 @@ const useStyles = makeStyles((c) => ({
     fontSize: 16,
     color: c.textPrimary,
     backgroundColor: c.chipBg,
+    // Transparent until focused, when useFieldFocus tints it.
+    borderWidth: 1,
+    borderColor: 'transparent',
     borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 9,
+    paddingHorizontal: 11,
+    paddingVertical: 8,
   },
   scroll: {
     // Reaches the bottom on a short result set. See TaskListScreen's

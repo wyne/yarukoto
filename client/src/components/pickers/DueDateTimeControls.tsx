@@ -4,6 +4,7 @@ import DateTimePicker from '@expo/ui/community/datetime-picker';
 import { makeStyles } from '../../theme/styles';
 import { fonts } from '../../theme/typography';
 import { useAccent, useColors, useScheme } from '../../theme/ThemeContext';
+import { useFieldFocus } from '../../theme/focus';
 import { formatTime24to12, fromISODate, toISODate } from '../../data/dateUtils';
 import ThemedAndroidDateTimeDialog from './ThemedAndroidDateTimeDialog';
 
@@ -59,6 +60,8 @@ export default function DueDateTimeControls({
   const styles = useStyles();
   const accent = useAccent();
   const scheme = useScheme();
+  const dateFocus = useFieldFocus();
+  const timeFocus = useFieldFocus();
   const now = new Date();
   const pickerValue = valueForPicker(date, time);
   const nativePicker = Platform.OS !== 'web';
@@ -139,7 +142,8 @@ export default function DueDateTimeControls({
             }}
             placeholder="YYYY-MM-DD"
             placeholderTextColor={colors.textFaint}
-            style={styles.textInput}
+            style={[styles.textInput, dateFocus.focusStyle]}
+            {...dateFocus.focusProps}
           />
         )}
         {(date || time) && (
@@ -199,7 +203,8 @@ export default function DueDateTimeControls({
             }}
             placeholder="HH:MM"
             placeholderTextColor={colors.textFaint}
-            style={styles.textInput}
+            style={[styles.textInput, timeFocus.focusStyle]}
+            {...timeFocus.focusProps}
           />
         )}
         {!!time && (

@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useColors } from '../../theme/ThemeContext';
+import { useFieldFocus } from '../../theme/focus';
 import { Pressable, Text, TextInput } from 'react-native';
 import Sheet from '../Sheet';
 import NativeOwnedTextInput from '../NativeOwnedTextInput';
@@ -18,6 +19,7 @@ export default function NewFolderSheet({ visible, onClose }: Props) {
   const { addFolder } = useTasks();
   const [name, setName] = useState('');
   const inputRef = useRef<TextInput>(null);
+  const { focusProps, focusStyle } = useFieldFocus();
 
   useEffect(() => {
     if (visible) setName('');
@@ -48,7 +50,8 @@ export default function NewFolderSheet({ visible, onClose }: Props) {
         onChangeText={setName}
         placeholder="Folder name"
         placeholderTextColor={colors.textFaint}
-        style={styles.input}
+        style={[styles.input, focusStyle]}
+        {...focusProps}
         onSubmitEditing={create}
       />
       <Pressable style={[styles.createBtn, !name.trim() && styles.createBtnDisabled]} onPress={create} disabled={!name.trim()}>

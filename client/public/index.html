@@ -100,6 +100,15 @@
            Text fields are unaffected — this suppresses the callout, not editing. */
         -webkit-touch-callout: none;
       }
+      /* Every text field in the app sits in a frame it styles itself, and the browser's
+         focus ring landed inside that frame as a second, brighter box. Fields with a
+         frame tint it in the accent while focused instead (useFieldFocus in
+         src/theme/focus.ts); the rest are edited in place and show the caret. Buttons
+         and other controls keep the browser's ring. */
+      input:focus,
+      textarea:focus {
+        outline: none;
+      }
     </style>
   </head>
 

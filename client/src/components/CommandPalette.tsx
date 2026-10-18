@@ -6,6 +6,7 @@ import KeyCommandsView from '../../modules/mac-pointer/src/KeyCommandsView';
 import { makeStyles } from '../theme/styles';
 import { fonts } from '../theme/typography';
 import { useColors } from '../theme/ThemeContext';
+import { useFieldFocus } from '../theme/focus';
 import { useTasks } from '../data/TaskContext';
 import { activeFolders, activeLists, tagCounts } from '../data/selectors';
 import { MAC, MAC_KEYS } from '../data/platform';
@@ -72,6 +73,7 @@ export default function CommandPalette({ visible, onClose }: Props) {
   const [query, setQuery] = useState('');
   const [index, setIndex] = useState(0);
   const inputRef = useRef<TextInput>(null);
+  const { focusProps, focusStyle } = useFieldFocus();
   const listRef = useRef<ScrollView>(null);
 
   // A fresh search each time it opens, as every command menu does.
@@ -191,7 +193,8 @@ export default function CommandPalette({ visible, onClose }: Props) {
       }}
       placeholder="Go to or do…"
       placeholderTextColor={colors.textFaint}
-      style={styles.input}
+      style={[styles.input, focusStyle && { borderBottomColor: focusStyle.borderColor }]}
+      {...focusProps}
       autoFocus
       autoCorrect={false}
       autoCapitalize="none"
