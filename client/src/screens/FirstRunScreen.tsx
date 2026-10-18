@@ -297,7 +297,7 @@ export default function FirstRunScreen() {
 
         <View style={styles.trustRow}>
           <IconShield />
-          <Text style={styles.trustText}>Your data never leaves your server.</Text>
+          <Text style={styles.trustText}>Your tasks sync through your own server, not ours.</Text>
         </View>
 
         {signedOutOf && (
