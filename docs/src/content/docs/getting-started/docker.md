@@ -43,8 +43,10 @@ That also names the build that's running:
 {"ok":true,"version":"1.0.0","commit":"366ba58…","commitShort":"366ba58","builtAt":"2026-01-30T12:04:11Z","features":["taskReminders"]}
 ```
 
-The same version and short sha appear in the app under the sidebar's server sheet,
-so you can tell whether an instance actually picked up an update. `commit` is empty
+The short sha is what tells you whether an instance actually picked up an update, and
+it's what the app shows as the server build in Settings. `version` stays `1.0.0`: the
+server ships continuously from `main` rather than with app releases, so it is never
+bumped and is not the app version you see in release notes. `commit` is empty
 for a local build unless you stamp it: `GIT_SHA=$(git rev-parse HEAD) docker compose
 build`. Published images (`ghcr.io/wyne/yarukoto`) always carry it, and the short sha
 matches their `sha-<short>` tag.
