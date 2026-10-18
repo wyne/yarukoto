@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useColors } from '../../theme/ThemeContext';
+import { useFieldFocus } from '../../theme/focus';
 import { Pressable, Text, TextInput, View } from 'react-native';
 import Sheet from '../Sheet';
 import NativeOwnedTextInput from '../NativeOwnedTextInput';
@@ -25,6 +26,7 @@ export default function NewListSheet({ visible, folder, onClose }: Props) {
   const { addList } = useTasks();
   const [name, setName] = useState('');
   const inputRef = useRef<TextInput>(null);
+  const { focusProps, focusStyle } = useFieldFocus();
 
   useEffect(() => {
     if (visible) setName('');
@@ -55,7 +57,8 @@ export default function NewListSheet({ visible, folder, onClose }: Props) {
         onChangeText={setName}
         placeholder="List name"
         placeholderTextColor={colors.textFaint}
-        style={styles.input}
+        style={[styles.input, focusStyle]}
+        {...focusProps}
         onSubmitEditing={create}
       />
       <Pressable style={[styles.createBtn, !name.trim() && styles.createBtnDisabled]} onPress={create} disabled={!name.trim()}>

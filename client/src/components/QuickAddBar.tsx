@@ -3,6 +3,7 @@ import { Pressable, Text, TextInput, View } from 'react-native';
 import { makeStyles } from '../theme/styles';
 import { fonts } from '../theme/typography';
 import { useAccent, useColors } from '../theme/ThemeContext';
+import { useFieldFocus } from '../theme/focus';
 import { useTasks } from '../data/TaskContext';
 import { IconPlus } from '../icons/Icons';
 import { parseQuickAdd } from '../data/quickAdd';
@@ -26,6 +27,7 @@ export default function QuickAddBar({ onSubmit, contextLabel }: Props) {
   const colors = useColors();
   const styles = useStyles();
   const accent = useAccent();
+  const { focusProps, focusStyle } = useFieldFocus();
   const { state } = useTasks();
   const [text, setText] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(-1);
@@ -132,6 +134,7 @@ export default function QuickAddBar({ onSubmit, contextLabel }: Props) {
         blurOnSubmit={false}
         onSubmitEditing={handleSubmit}
         onKeyPress={handleKeyPress}
+        {...focusProps}
       />
       {text.length > 0 && <View style={[styles.caret, { backgroundColor: accent }]} />}
       <ShortcutHint command="newTask" />
@@ -139,7 +142,7 @@ export default function QuickAddBar({ onSubmit, contextLabel }: Props) {
   );
 
   return (
-    <View style={styles.wrap}>
+    <View style={[styles.wrap, focusStyle]}>
       {/* Not on a phone, which has no keys to answer, nor Android, which has no such view. */}
       {MAC ? (
         <KeyCommandsView

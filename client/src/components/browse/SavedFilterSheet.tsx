@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Pressable, Text, TextInput } from 'react-native';
 import { useColors } from '../../theme/ThemeContext';
+import { useFieldFocus } from '../../theme/focus';
 import Sheet from '../Sheet';
 import NativeOwnedTextInput from '../NativeOwnedTextInput';
 import { makeStyles } from '../../theme/styles';
@@ -34,6 +35,7 @@ export default function SavedFilterSheet({ target, onClose }: Props) {
   const { addSavedFilter, updateSavedFilter, deleteSavedFilter } = useTasks();
   const [name, setName] = useState('');
   const inputRef = useRef<TextInput>(null);
+  const { focusProps, focusStyle } = useFieldFocus();
 
   const editing = target?.kind === 'edit' ? target.filter : null;
   useEffect(() => {
@@ -87,7 +89,8 @@ export default function SavedFilterSheet({ target, onClose }: Props) {
         onChangeText={setName}
         placeholder="e.g. Tasks today"
         placeholderTextColor={colors.textFaint}
-        style={styles.input}
+        style={[styles.input, focusStyle]}
+        {...focusProps}
         onSubmitEditing={save}
         returnKeyType="done"
       />

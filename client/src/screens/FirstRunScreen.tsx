@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { makeStyles } from '../theme/styles';
 import { fonts } from '../theme/typography';
 import { useAccent, useColors, useScheme } from '../theme/ThemeContext';
+import { useFieldFocus } from '../theme/focus';
 import { ApiError, useSyncStatus, useTasks } from '../data/TaskContext';
 import { JoinLink, codeFromPairingLink, createApi, parseJoinLink } from '../data/api';
 import { confirmAsync } from '../data/confirm';
@@ -48,6 +49,8 @@ export default function FirstRunScreen() {
   const styles = useStyles();
   const accent = useAccent();
   const scheme = useScheme();
+  const serverFocus = useFieldFocus();
+  const tokenFocus = useFieldFocus();
   const insets = useSafeAreaInsets();
   const { state, signedOut, disconnect, useSampleData, removeSavedServer } = useTasks();
   const { pending } = useSyncStatus();
@@ -235,7 +238,7 @@ export default function FirstRunScreen() {
         ) : (
           <View style={styles.form}>
             {!sameOriginServer && (
-              <View style={styles.field}>
+              <View style={[styles.field, serverFocus.focusStyle]}>
                 <IconServer />
                 <TextInput
                   value={serverUrl}
@@ -246,11 +249,12 @@ export default function FirstRunScreen() {
                   autoCapitalize="none"
                   autoCorrect={false}
                   keyboardType="url"
+                  {...serverFocus.focusProps}
                 />
               </View>
             )}
             {method === 'token' && (
-              <View style={styles.field}>
+              <View style={[styles.field, tokenFocus.focusStyle]}>
                 <IconLock />
                 <TextInput
                   value={token}
@@ -259,6 +263,7 @@ export default function FirstRunScreen() {
                   placeholderTextColor={colors.textFaint}
                   style={styles.fieldInput}
                   secureTextEntry
+                  {...tokenFocus.focusProps}
                   autoCapitalize="none"
                 />
               </View>

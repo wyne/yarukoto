@@ -4,6 +4,7 @@ import { makeStyles } from '../../theme/styles';
 import { fonts } from '../../theme/typography';
 import { priorityColor } from '../../theme/colors';
 import { useColors } from '../../theme/ThemeContext';
+import { useFieldFocus } from '../../theme/focus';
 import { useTasks } from '../../data/TaskContext';
 import { getListById } from '../../data/selectors';
 import { Task } from '../../data/types';
@@ -34,6 +35,7 @@ export default function SchedulePane({ width = SCHEDULE_PANE_WIDTH, showRightBor
   const styles = useStyles();
   const colors = useColors();
   const { state } = useTasks();
+  const searchFocus = useFieldFocus();
   // A drag is heading for the calendar, not the list — lock the list's scroll so
   // the finger can carry the ghost out without the ScrollView stealing the pan.
   const dragging = useDragActive();
@@ -84,7 +86,8 @@ export default function SchedulePane({ width = SCHEDULE_PANE_WIDTH, showRightBor
         onChangeText={(query) => updateCriteria({ ...criteria, query })}
         placeholder="Search tasks and tags"
         placeholderTextColor={colors.textFaint}
-        style={styles.searchInput}
+        style={[styles.searchInput, searchFocus.focusStyle]}
+        {...searchFocus.focusProps}
         autoCorrect={false}
         returnKeyType="search"
         clearButtonMode="while-editing"
@@ -236,9 +239,12 @@ const useStyles = makeStyles((c) => ({
     fontSize: 16,
     color: c.textPrimary,
     backgroundColor: c.chipBg,
+    // Transparent until focused, when useFieldFocus tints it.
+    borderWidth: 1,
+    borderColor: 'transparent',
     borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingHorizontal: 11,
+    paddingVertical: 9,
   },
   hint: {
     marginHorizontal: 16,

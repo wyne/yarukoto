@@ -13,6 +13,7 @@ import { makeStyles } from '../../theme/styles';
 import { priorityColor } from '../../theme/colors';
 import { fonts } from '../../theme/typography';
 import { useAccent, useColors } from '../../theme/ThemeContext';
+import { useFieldFocus } from '../../theme/focus';
 import { useTasks } from '../../data/TaskContext';
 import { getListById } from '../../data/selectors';
 import { EMPTY_CRITERIA, TaskCriteria, filterTasks } from '../../data/taskFilter';
@@ -131,6 +132,7 @@ export default function AddExistingTaskSheet({ visible, onClose }: SheetProps) {
   const styles = useStyles();
   const insets = useSafeAreaInsets();
   const { state } = useTasks();
+  const searchFocus = useFieldFocus();
   const now = new Date();
   const dragging = useDragActive();
   const scrimOpacity = colors.scrimOpacity;
@@ -334,7 +336,8 @@ export default function AddExistingTaskSheet({ visible, onClose }: SheetProps) {
           onChangeText={(query) => updateCriteria({ ...criteria, query })}
           placeholder="Search tasks and tags"
           placeholderTextColor={colors.textFaint}
-          style={styles.searchInput}
+          style={[styles.searchInput, searchFocus.focusStyle]}
+          {...searchFocus.focusProps}
           autoCorrect={false}
           returnKeyType="search"
           clearButtonMode="while-editing"
@@ -543,9 +546,12 @@ const useStyles = makeStyles((c) => ({
     fontSize: 16,
     color: c.textPrimary,
     backgroundColor: c.chipBg,
+    // Transparent until focused, when useFieldFocus tints it.
+    borderWidth: 1,
+    borderColor: 'transparent',
     borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingHorizontal: 11,
+    paddingVertical: 9,
   },
   results: {
     paddingHorizontal: 12,
