@@ -438,12 +438,7 @@ static void InstallReopenHandler(void)
 
 - (void)handleReopen:(id)event withReplyEvent:(id)reply
 {
-  // Once the event is done with. Ordered front from inside the handler, the
-  // window was put back out of sight by the activation that follows a reopen:
-  // the Dock icon came back and the window didn't.
-  dispatch_async(dispatch_get_main_queue(), ^{
-    [YKMacAppKit showMainWindow];
-  });
+  [YKMacAppKit showMainWindow];
 }
 
 @end
@@ -534,9 +529,12 @@ static id<YKAppService> _Nullable MainAppService(void)
     id<YKAppleEventDescriptor> property = [event paramDescriptorForKeyword:YKPropData];
     sLaunchedAtLogin = property && property.enumCodeValue == YKLaunchedAsLogInItem;
   }
-  if (self.menuBarEnabled) InstallReopenHandler();
   UpdateStatusItem();
   dispatch_async(dispatch_get_main_queue(), ^{
+    // AppKit installs its own reopen handler as launch finishes, after this
+    // method has run, and it replaces one installed here. Once launch is done,
+    // ours is the one that stays.
+    if (self.menuBarEnabled) InstallReopenHandler();
     AttachToWindow(0);
   });
 #endif
