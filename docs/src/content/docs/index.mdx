@@ -50,7 +50,8 @@ Already have a server? [Getting the apps](/using/apps/) covers signing in, the
 - **Trash** — deleting is a soft delete. Restore from Trash, or delete forever. The server hard-deletes
   anything left there past its retention window.
 - **Task history** — every change writes a full snapshot server-side, capped per task.
-  The Activity tab shows recent changes, and opens or restores the task behind each one.
+  The Activity tab shows recent changes as they sync, filters them by what happened, and opens or
+  restores the task behind each one.
 - **Offline-tolerant sync** — the UI never waits on the network. Local changes queue in an outbox and
   push on the next cycle, so the app stays responsive when the server is unreachable. A dot at the
   bottom of the sidebar reports the real state: synced, syncing, changes pending, offline, or a
