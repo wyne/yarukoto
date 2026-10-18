@@ -337,7 +337,7 @@ const styles = StyleSheet.create({
   },
   hint: {
     left: 0,
-    right: -80,
+    right: 'auto',
     alignItems: 'flex-start',
   },
 });

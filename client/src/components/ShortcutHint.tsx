@@ -34,23 +34,28 @@ export default function ShortcutHint({ command, style }: Props) {
   return (
     <View pointerEvents="none" style={[styles.place, style]}>
       <View style={styles.badge}>
-        <Text style={styles.keys}>{formatShortcut(shortcut, MAC_KEYS)}</Text>
+        <Text style={styles.keys} numberOfLines={1}>{formatShortcut(shortcut, MAC_KEYS)}</Text>
       </View>
     </View>
   );
 }
 
 const useStyles = makeStyles((c) => ({
+  // Wider than any label. An absolute view sized by its content is held to its
+  // parent's width by Yoga, so on the Mac a hint over an 18pt chevron was
+  // squeezed to 18pt; a fixed box lets the badge be as wide as its keys.
   place: {
     position: 'absolute',
     top: 0,
     bottom: 0,
     right: 8,
+    width: 160,
     justifyContent: 'center',
     alignItems: 'flex-end',
     zIndex: 10,
   },
   badge: {
+    flexShrink: 0,
     backgroundColor: c.inverseSurface,
     borderRadius: 5,
     paddingHorizontal: 5,
@@ -68,7 +73,8 @@ const useStyles = makeStyles((c) => ({
 export const HINT_OVER_ICON: ViewStyle = {
   top: 0,
   bottom: 0,
-  left: -12,
-  right: -12,
+  left: -40,
+  right: -40,
+  width: 'auto',
   alignItems: 'center',
 };
