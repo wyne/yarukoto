@@ -219,3 +219,41 @@ test('the sidebar keeps the keyboard row in view, and Space and ← fold a folde
   await page.keyboard.press(' ');
   await expect(inside).toHaveCount(0);
 });
+
+test('Browse opens blank after leaving it on a saved filter', async ({ page, request }) => {
+  const stamp = Date.now();
+  const query = `keysfilter${stamp}`;
+  const filterId = `sf-keys-${stamp}`;
+  const now = new Date().toISOString();
+  const response = await request.post('/api/v1/sync', {
+    headers: { Authorization: `Bearer ${TOKEN}` },
+    data: {
+      savedFilters: [
+        {
+          id: filterId,
+          name: `Keys filter ${stamp}`,
+          criteria: { query, listIds: [], folderIds: [], tags: [], due: [], status: 'active' },
+          order: 0,
+          updatedAt: now,
+        },
+      ],
+    },
+  });
+  expect(response.ok()).toBe(true);
+
+  await connect(page);
+  const search = page.getByPlaceholder('Search tasks and tags');
+  await page.getByLabel(`Saved filter Keys filter ${stamp}`, { exact: true }).click();
+  await expect(search).toHaveValue(query);
+
+  await page.getByLabel('Inbox', { exact: true }).click();
+  await page.getByLabel('Browse', { exact: true }).click();
+  await expect(search).toHaveValue('');
+  expect(page.url()).not.toContain(filterId);
+
+  // A question that isn't saved is still there when you come back.
+  await search.fill('unsaved question');
+  await page.getByLabel('Inbox', { exact: true }).click();
+  await page.getByLabel('Browse', { exact: true }).click();
+  await expect(search).toHaveValue('unsaved question');
+});
