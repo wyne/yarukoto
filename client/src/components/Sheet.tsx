@@ -3,7 +3,7 @@ import { View } from 'react-native';
 import NativeSheet from './NativeSheet';
 import Popover, { POPOVER_MIN_WIDTH, PopoverAnchor } from './Popover';
 import Dialog from './Dialog';
-import { DESKTOP_UI, MAC } from '../data/platform';
+import { DESKTOP_UI, FINE_POINTER, MAC } from '../data/platform';
 import { makeStyles } from '../theme/styles';
 import SheetHeader from './SheetHeader';
 import { useWindowSelector } from './useWindowSelector';
@@ -70,13 +70,16 @@ interface Props {
  * Whether this window takes desktop presentation: popovers and dialogs rather
  * than sheets from the bottom edge.
  *
- * The web goes by width as well as by device, because every browser counts as
- * desktop and a phone's browser is narrow — a sheet is still the right shape
- * there. A Mac window is a desktop window however narrow it is dragged.
+ * Every browser counts as desktop, and a phone's browser is one, so the web
+ * also asks what is pointing: a mouse or trackpad gets popovers and dialogs at
+ * any width — a narrowed browser window, or the Windows app dragged small, is
+ * still driven by a pointer that has no business dragging a grabber. A touch
+ * screen keeps the sheet unless the window is roomy enough not to be a phone.
+ * A Mac window is a desktop window however narrow it is dragged.
  */
 export function useDesktopPresentation(): boolean {
   const roomy = useWindowSelector((window) => window.width >= POPOVER_MIN_WIDTH);
-  return DESKTOP_UI && (MAC || roomy);
+  return DESKTOP_UI && (MAC || FINE_POINTER || roomy);
 }
 
 /**
@@ -128,6 +131,11 @@ export default function Sheet({
   }, [popover, visible]);
 
   if (desktop) {
+    // A dialog with nothing in its corners would close only on a click outside
+    // or Escape — fine for a light popover, but a panel the size of a settings
+    // window should say how to leave it. Named Close rather than Done, since
+    // some of these hold a form whose own button is the one that saves.
+    const dialogClose = !anchor && !onCancel && !onConfirm && !onDone;
     const header = (
       <SheetHeader
         title={title}
@@ -138,8 +146,8 @@ export default function Sheet({
         onConfirm={onConfirm}
         confirmLabel={confirmLabel}
         confirmDisabled={confirmDisabled}
-        onDone={onDone}
-        doneLabel={doneLabel}
+        onDone={dialogClose ? onClose : onDone}
+        doneLabel={dialogClose ? 'Close' : doneLabel}
       />
     );
 

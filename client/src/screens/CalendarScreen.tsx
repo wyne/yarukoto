@@ -20,12 +20,13 @@ import MonthGrid from './calendar/MonthGrid';
 import SchedulePane, { SCHEDULE_PANE_WIDTH } from './calendar/SchedulePane';
 import WeekGrid from './calendar/WeekGrid';
 import QuickAddBar from '../components/QuickAddBar';
+import { useWindowSelector } from '../components/useWindowSelector';
 import AddTaskFab from '../components/AddTaskFab';
 import { closeOpenSwipeRow } from '../components/SwipeableRow';
 import { useSyncRefresh } from '../data/useSyncRefresh';
 import GlassIconButton, { GlassIconButtonGroup, GlassTextButton, GlassTextMenuLabel } from '../components/GlassIconButton';
 import { DESKTOP_UI, FLOATING_TAB_BAR } from '../data/platform';
-import { IconChevronDown, IconChevronLeft, IconChevronRight, IconMenu } from '../icons/Icons';
+import { IconChevronDown, IconChevronLeft, IconChevronRight, IconColumns, IconMenu } from '../icons/Icons';
 import { taskIdsFromDrag, useDragActive, useDragPayload } from '../drag/DragContext';
 import { Measurable } from '../drag/useDropTarget';
 import ResizeCursorView from '../../modules/mac-pointer/src/ResizeCursorView';
@@ -98,6 +99,17 @@ export default function CalendarScreen() {
   const [anchor, setAnchor] = useState(today);
   const [selectedDate, setSelectedDate] = useState(today);
   const [addExistingOpen, setAddExistingOpen] = useState(false);
+  /**
+   * A narrow desktop window's way to the plan pane, which a wide one always
+   * shows. The phone's route to the same tasks is a sheet you drag out of, a
+   * touch gesture; a pointer drags from the pane, so the pane comes to it.
+   */
+  const [planOpen, setPlanOpen] = useState(false);
+  const planFits = useWindowSelector(
+    (window) => window.width >= PLAN_PANE_MIN_WIDTH + PANE_RESIZER_WIDTH + CALENDAR_MIN_WIDTH
+  );
+  const canOpenPlan = !wide && DESKTOP_UI && planFits;
+  const showPlan = wide || (canOpenPlan && planOpen);
   // A ref, not state: only the pane divider's drag reads it, and as state every
   // frame of a window resize re-rendered the whole calendar to store it.
   const rowWidth = useRef(0);
@@ -349,13 +361,15 @@ export default function CalendarScreen() {
 
   return (
     <View style={[styles.row, { paddingTop: insets.top + 6 }]} onLayout={handleRowLayout}>
-      {wide && (
+      {showPlan && (
         <SchedulePane
-          width={DESKTOP_UI ? schedulePaneWidth : undefined}
+          // Clamped here as well as on resize: opened into a narrow window, the
+          // width it last had may not leave the calendar its share.
+          width={DESKTOP_UI ? clampSchedulePaneWidth(schedulePaneWidth) : undefined}
           showRightBorder={!DESKTOP_UI}
         />
       )}
-      {wide && DESKTOP_UI && (
+      {showPlan && DESKTOP_UI && (
         <ResizeCursorView
           style={styles.paneResizer}
           accessibilityRole="adjustable"
@@ -366,7 +380,7 @@ export default function CalendarScreen() {
         </ResizeCursorView>
       )}
 
-      <View style={[styles.calendarCol, wide && DESKTOP_UI && styles.calendarColResizable]}>
+      <View style={[styles.calendarCol, showPlan && DESKTOP_UI && styles.calendarColResizable]}>
         <View style={styles.header}>
           {!wide && (
             <GlassIconButton onPress={openDrawer} label="Menu">
@@ -378,6 +392,14 @@ export default function CalendarScreen() {
               <Text style={styles.title}>{calendarLabel}</Text>
             </Pressable>
           </View>
+          {canOpenPlan && (
+            <GlassIconButton
+              onPress={() => setPlanOpen((open) => !open)}
+              label={planOpen ? 'Hide tasks to plan' : 'Show tasks to plan'}
+            >
+              <IconColumns />
+            </GlassIconButton>
+          )}
           <GlassIconButtonGroup>
             <GlassIconButton onPress={() => step(-1)} label="Previous">
               <IconChevronLeft size={18} />
