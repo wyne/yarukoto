@@ -40,11 +40,12 @@ curl -fsS localhost:8080/api/v1/health
 That also names the build that's running:
 
 ```json
-{"ok":true,"version":"1.0.0","commit":"366ba58…","commitShort":"366ba58","builtAt":"2026-01-30T12:04:11Z","features":["taskReminders"]}
+{"ok":true,"version":"1.1.0","commit":"366ba58…","commitShort":"366ba58","builtAt":"2026-01-30T12:04:11Z","features":["taskReminders"]}
 ```
 
-The same version and short sha appear in the app under the sidebar's server sheet,
-so you can tell whether an instance actually picked up an update. `commit` is empty
+`version` is the latest app release the build includes, and the short sha tells apart
+builds made from `main` between two releases. Both appear in the app under Settings >
+Server, so you can tell whether an instance actually picked up an update. `commit` is empty
 for a local build unless you stamp it: `GIT_SHA=$(git rev-parse HEAD) docker compose
 build`. Published images (`ghcr.io/wyne/yarukoto`) always carry it, and the short sha
 matches their `sha-<short>` tag.
