@@ -6,15 +6,10 @@ import { ServerInfo, createApi } from '../../data/api';
 import { lastSyncedLabel } from '../../data/dateUtils';
 import { Group, PAGE_GAP, Row } from './parts';
 
-/**
- * e.g. "366ba58". The server is released continuously from main and identified by
- * its commit; its package.json version is never bumped, so showing it next to the
- * app's own version reads as a server that never updated. It is only a fallback
- * for a build with no commit stamped in, such as a local `npm run dev`.
- */
+/** e.g. "v1.0.0 · 366ba58" — enough to tell two builds apart at a glance. */
 function buildLabel(info: ServerInfo): string {
-  if (info.commitShort) return info.commitShort;
-  return info.version ? `v${info.version}` : 'version unknown';
+  const parts = [info.version ? `v${info.version}` : null, info.commitShort].filter(Boolean);
+  return parts.length ? parts.join(' · ') : 'version unknown';
 }
 
 /** Local calendar date, since the exact minute isn't what you're checking for. */

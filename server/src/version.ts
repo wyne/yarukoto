@@ -1,9 +1,19 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-/** package.json is one directory above both `src/` and the compiled `dist/`. */
+/**
+ * The app release this server was built from. The root package.json is the one
+ * source of SemVer and Release Please bumps it when a release merges, so a build
+ * off main reports the latest release it includes; the commit tells apart builds
+ * made between two releases. server/package.json is never bumped and is only the
+ * fallback for a layout without the root file. Both are found the same way from
+ * `src/` and the compiled `dist/`, in a checkout and in the image (/app).
+ */
 function packageVersion(): string {
-  const candidates = [path.resolve(__dirname, '../package.json')];
+  const candidates = [
+    path.resolve(__dirname, '../../package.json'),
+    path.resolve(__dirname, '../package.json'),
+  ];
   for (const file of candidates) {
     try {
       const parsed = JSON.parse(fs.readFileSync(file, 'utf8'));
