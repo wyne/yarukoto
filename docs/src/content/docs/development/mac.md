@@ -174,6 +174,7 @@ stay web-only.
 
 | Menu | Command | Key |
 |---|---|---|
+| Yarukoto | Check for Updates… | — |
 | Yarukoto | Settings… | ⌘, |
 | File | New Task — the pinned add field, or the Inbox's on a screen without one | ⌘N |
 | Edit | Find… — Browse's search | ⌘F |

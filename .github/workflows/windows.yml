@@ -68,7 +68,7 @@ jobs:
           VERSION: ${{ inputs.version }}
         run: |
           if [ -n "$VERSION" ]; then
-            npm run build -- --config "{\"version\":\"$VERSION\"}"
+            DESKTOP_VERSION="$VERSION" npm run build -- --config "{\"version\":\"$VERSION\"}"
           else
             npm run build
           fi
