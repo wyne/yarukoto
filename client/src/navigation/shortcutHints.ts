@@ -15,7 +15,7 @@ import { DESKTOP_UI, MAC, MAC_KEYS } from '../data/platform';
  */
 
 /** Long enough that ⌘ on its way to a key stays quiet. */
-export const HINT_DELAY_MS = 600;
+export const HINT_DELAY_MS = 350;
 
 let shown = false;
 const subscribers = new Set<() => void>();

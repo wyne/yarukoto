@@ -5,7 +5,7 @@ import { GlassContainer } from 'expo-glass-effect';
 import ThemedGlassView from './ThemedGlassView';
 import { LIQUID_GLASS } from '../data/platform';
 import { useHoverBg } from '../theme/hover';
-import ShortcutHint, { HINT_OVER_ICON } from './ShortcutHint';
+import ShortcutHint from './ShortcutHint';
 import type { CommandId } from '../navigation/commands';
 
 /** Diameter of the glass capsule and the standard iOS touch target. */
@@ -75,7 +75,9 @@ interface TextMenuLabelProps extends MenuLabelProps {
 export default function GlassIconButton({ onPress, label, children, tintColor, disabled = false, ref, shortcut }: Props) {
   const hoverBg = useHoverBg();
   const joined = useContext(JoinedGlassGroupContext);
-  const hint = shortcut && <ShortcutHint command={shortcut} style={HINT_OVER_ICON} />;
+  // Lined up with the button's left edge, the side header buttons start from,
+  // so the window's edge can't cut it off.
+  const hint = shortcut && <ShortcutHint command={shortcut} style={styles.hint} />;
 
   if (!LIQUID_GLASS) {
     return (
@@ -332,5 +334,10 @@ const styles = StyleSheet.create({
   },
   disabled: {
     opacity: 0.45,
+  },
+  hint: {
+    left: 0,
+    right: -80,
+    alignItems: 'flex-start',
   },
 });

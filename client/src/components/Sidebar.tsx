@@ -652,7 +652,8 @@ const Sidebar = React.memo(function Sidebar({ state, navigation, onNavigate }: P
             accessibilityLabel={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           >
             {collapsed ? <IconChevronRight size={18} /> : <IconChevronLeft size={18} />}
-            <ShortcutHint command="toggleSidebar" style={{ right: -4 }} />
+            {/* To the left of the chevron, which sits against the sidebar's clipped edge. */}
+            <ShortcutHint command="toggleSidebar" style={collapsed ? HINT_OVER_ICON : { right: 24 }} />
           </Pressable>
         )}
       </View>
