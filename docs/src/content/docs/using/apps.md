@@ -21,6 +21,10 @@ The desktop apps work like the web app, in their own window. Every release, with
 `.msi` for Windows, is on the [releases page](https://github.com/wyne/yarukoto-desktop/releases).
 On a computer, everything can be done from the keyboard: see [Keyboard shortcuts](/using/keyboard/).
 
+On the Mac, Yarukoto also lives in the menu bar, with today's tasks and their count. You can check
+a task off or start a new one from there. Closing the window leaves it running in the menu bar
+until you choose **Quit**. Both that and **Open at login** are in **Settings → General**.
+
 You need a [Yarukoto server](/getting-started/docker/) to connect to. To look around first, see
 [Trying it without a server](#trying-it-without-a-server).
 

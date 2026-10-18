@@ -214,6 +214,27 @@ the same view listens in the capture phase (`KeyCommandsView.web.tsx`). The list
 when it gains and loses first responder, and its cursor row is drawn in gray while it doesn't hold
 the keyboard. The full list of keys, as users see it, is on [Keyboard shortcuts](/using/keyboard/).
 
+**The menu bar extra.** Yarukoto also puts an icon in the right side of the menu bar, with the
+number of tasks due by today beside it. Its menu lists Today's tasks, overdue first (choosing one
+marks it done), then New Task…, Open Yarukoto, Settings… and Quit. Settings ▸ General has two Mac
+switches: **Show in menu bar**, on by default, and **Open at login**.
+
+While the extra is on, closing the window doesn't close it: the red button, File ▸ Close and ⌘W
+order it out and drop the Dock icon, and Open, the Dock or Finder bring both back. That matters
+because React Native's root view lives in that window. Closing it for real would unmount the app,
+and with it sync, reminders and the menu's own task list, with no way UIKit offers to open another.
+A login launch starts the same way, in the menu bar with the window hidden.
+
+None of this is in UIKit: the status item, the activation policy that hides the Dock icon, and
+`SMAppService` for the login item are all AppKit. `client/modules/mac-status-item` reaches them at
+runtime from Objective-C (`YKMacAppKit.m`), the way `mac-pointer` sets `NSCursor`, through protocols
+that declare AppKit's real signatures. The hidden-window part leans on two things UIKit doesn't
+document: its NSApplication delegate's `hostWindowForUIWindow:`, to find the window, and the
+window class's `performClose:`, swapped for the main window only. A login launch is recognized by
+the launch's Apple event, as AppKit apps do. The alternative is a macOS bundle target loaded at
+launch, which gets AppKit's headers but adds a target, its signing and its embedding to
+`plugins/mac-catalyst`. For this much API the runtime route is less to keep working.
+
 The **command menu** (⌘K) searches every view, list, folder, tag and saved filter, and every
 command something on screen can answer, with each one's key beside it — so it doubles as the way
 to learn them. The web build has it too, along with the Task keys a browser lets a page have (not

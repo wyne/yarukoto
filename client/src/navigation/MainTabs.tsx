@@ -40,6 +40,7 @@ import JoinLinkHandler from './JoinLinkHandler';
 import NavSheets from '../components/sidebar/NavSheets';
 import TaskReminderNotifications from './TaskReminderNotifications';
 import MenuCommands, { dispatchCommand } from './MenuCommands';
+import MacStatusMenu from './MacStatusMenu';
 import KeyCommandsView from '../../modules/mac-pointer/src/KeyCommandsView';
 import ResizeCursorView from '../../modules/mac-pointer/src/ResizeCursorView';
 import { anyLayerOpen } from '../components/openLayers';
@@ -242,6 +243,7 @@ function Layout() {
       <DragOverlay />
       <TaskReminderNotifications />
       <MenuCommands />
+      {MAC && <MacStatusMenu />}
     </View>
   );
 }
