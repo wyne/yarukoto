@@ -1,5 +1,5 @@
 import React from 'react';
-import { Text, useWindowDimensions, View } from 'react-native';
+import { Text, View } from 'react-native';
 import Pressable from '../HoverPressable';
 import Sheet from '../Sheet';
 import type { PopoverAnchor } from '../Popover';
@@ -10,6 +10,7 @@ import { useAccent } from '../../theme/ThemeContext';
 import { IconInboxTray } from '../../icons/Icons';
 import { useTasks } from '../../data/TaskContext';
 import { navGroups } from '../../data/selectors';
+import { useWindowSelector } from '../useWindowSelector';
 
 /**
  * One nesting step, matching the sidebar's.
@@ -44,7 +45,7 @@ export default function ListPickerSheet({ visible, onClose, value, onApply, anch
   const styles = useStyles();
   const accent = useAccent();
   const { state } = useTasks();
-  const { height } = useWindowDimensions();
+  const height = useWindowSelector((window) => window.height);
 
   const choose = (listId: string | null) => {
     onApply(listId);

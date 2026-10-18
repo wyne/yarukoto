@@ -6,8 +6,13 @@ import FirstRunScreen from '../screens/FirstRunScreen';
 import MainTabs from './MainTabs';
 import NativeDateTimePickerScreen from '../screens/NativeDateTimePickerScreen';
 import { useColors } from '../theme/ThemeContext';
+import { MAC } from '../data/platform';
+import { createPlainStackNavigator } from './createPlainStackNavigator';
 
-const Stack = createNativeStackNavigator<RootStackParamList>();
+// A plain stack on the Mac, where native-stack screens make every frame of a
+// window resize a synchronous commit — see createPlainStackNavigator. The
+// date/time picker sheet is never pushed there: the desktop shows it as a popover.
+const Stack = MAC ? createPlainStackNavigator<RootStackParamList>() : createNativeStackNavigator<RootStackParamList>();
 
 export default function RootNavigator() {
   const colors = useColors();

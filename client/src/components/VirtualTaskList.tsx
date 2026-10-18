@@ -14,6 +14,7 @@ import { Task } from '../data/types';
 import { TaskGroup } from '../data/viewOptions';
 import SectionHeader from './SectionHeader';
 import { IconGrip } from '../icons/Icons';
+import { useWindowResizing } from './useWindowSelector';
 
 /**
  * The task list as one virtualized, reorderable list.
@@ -133,6 +134,7 @@ const VirtualTaskList = forwardRef<FlatList<Item>, Props>(function VirtualTaskLi
   ref
 ) {
   const active = groups.reduce((n, g) => n + g.tasks.length, 0);
+  const resizing = useWindowResizing();
 
   // The list's own pan otherwise activates after 10pt of movement in any
   // direction, which takes the touch from a row's swipe (15pt) and the
@@ -315,7 +317,9 @@ const VirtualTaskList = forwardRef<FlatList<Item>, Props>(function VirtualTaskLi
       panGesture={panGesture}
       dragEnabled={dragEnabled}
       shouldUpdateActiveItem={!!dragCount}
-      itemLayoutAnimation={animateLayout ? LAYOUT : undefined}
+      // Not while the window is being resized: every row changes width on every
+      // frame of the drag, and each change would start a layout animation of its own.
+      itemLayoutAnimation={animateLayout && !resizing ? LAYOUT : undefined}
       contentContainerStyle={contentContainerStyle}
       refreshControl={refreshControl}
       onScrollBeginDrag={onScrollBeginDrag}

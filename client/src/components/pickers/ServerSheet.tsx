@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Text, View, useWindowDimensions } from 'react-native';
+import { Text, View } from 'react-native';
 import Pressable from '../HoverPressable';
 import Sheet, { useDesktopPresentation } from '../Sheet';
 import SyncIndicator from '../SyncIndicator';
@@ -18,6 +18,7 @@ import { DevicesPane, PeoplePane } from '../settings/HouseholdPanes';
 import ServerPane, { LeaveGroup } from '../settings/ServerPane';
 import { Group, Note, PAGE_GAP, Row } from '../settings/parts';
 import { useHouseholdAdmin } from '../settings/useHouseholdAdmin';
+import { useWindowSelector } from '../useWindowSelector';
 
 /** As in ListPickerSheet: how tall the sheet may grow before it scrolls instead. */
 const MAX_HEIGHT_RATIO = 0.85;
@@ -71,7 +72,7 @@ export default function ServerSheet({ visible, onClose, pairCode }: Props) {
   const desktop = useDesktopPresentation();
   const { state, household: who, disconnect } = useTasks();
   const household = useHouseholdAdmin(visible);
-  const { height } = useWindowDimensions();
+  const height = useWindowSelector((window) => window.height);
   const [tab, setTab] = useState<Tab>('general');
   const [page, setPage] = useState<Page>('root');
   /** Desktop only: Household is showing Add a device in place of its lists. */

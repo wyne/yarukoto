@@ -13,7 +13,6 @@ import { scheduleOnRN } from 'react-native-worklets';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import type { NativeBottomTabBarProps } from '@react-navigation/bottom-tabs/unstable';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useWindowDimensions } from 'react-native';
 import { makeStyles } from '../theme/styles';
 import { useHoverBg } from '../theme/hover';
 import { fonts } from '../theme/typography';
@@ -49,6 +48,7 @@ import DragList from './DragList';
 import { NavRow, flattenTree, parentOf, resolveDrop } from './sidebar/navTree';
 import { loadCollapsedFolders, saveCollapsedFolders } from '../data/storage';
 import SyncIndicator from './SyncIndicator';
+import { useWindowSelector } from './useWindowSelector';
 import {
   IconCalendar,
   IconBell,
@@ -186,7 +186,7 @@ const Sidebar = React.memo(function Sidebar({ state, navigation, onNavigate }: P
   // The drawer is a transient overlay, so it always shows the full sidebar.
   const collapsed = wide && collapsedPref;
   const insets = useSafeAreaInsets();
-  const { height: winHeight } = useWindowDimensions();
+  const winHeight = useWindowSelector((window) => window.height);
   const { state: data, reorderList, reorderFolder, supportsFeature } = useTasks();
   const rows = useMemo(
     () => flattenTree(data.folders, data.lists, { collapsed: collapsedFolders }),

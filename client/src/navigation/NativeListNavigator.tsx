@@ -14,6 +14,8 @@ import {
 import TaskListScreen from '../screens/TaskListScreen';
 import ActivityScreen from '../screens/ActivityScreen';
 import TrashScreen from '../screens/TrashScreen';
+import { MAC } from '../data/platform';
+import { createPlainStackNavigator } from './createPlainStackNavigator';
 
 export type NativeListStackParamList = {
   Tasks: NativeTaskViewParams | undefined;
@@ -21,7 +23,10 @@ export type NativeListStackParamList = {
   Trash: undefined;
 };
 
-const Stack = createNativeStackNavigator<NativeListStackParamList>();
+// Plain on the Mac for the same reason as the root stack: see createPlainStackNavigator.
+const Stack = MAC
+  ? createPlainStackNavigator<NativeListStackParamList>()
+  : createNativeStackNavigator<NativeListStackParamList>();
 
 function taskView(params?: NativeTaskViewParams): SavedFirstTabView {
   if (params?.listId) return { kind: 'list', id: params.listId };

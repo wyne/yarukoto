@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react';
+import React, { memo, useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
@@ -348,8 +348,12 @@ export default function MonthGrid({
  *
  * A week's days are never dimmed. The row spans two months as often as not, and
  * greying half of it would say the calendar had lost track of where it was.
+ *
+ * Memoised because the grid holds its page width in state: a window resize
+ * re-renders the grid on every frame of the drag, and nothing a page draws
+ * depends on that width — its frame comes from the wrapper the grid sizes.
  */
-function CalendarPage({
+const CalendarPage = memo(function CalendarPage({
   start,
   weeks,
   selectedDate,
@@ -415,7 +419,7 @@ function CalendarPage({
       ))}
     </View>
   );
-}
+});
 
 interface CellProps {
   date: Date;
