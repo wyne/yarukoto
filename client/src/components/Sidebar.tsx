@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Platform, Text, View } from 'react-native';
 import Pressable from './HoverPressable';
 import Animated, {
@@ -30,7 +30,7 @@ import {
 import { BrowseParams, InboxParams, NativeTaskViewParams } from '../navigation/types';
 import { NATIVE_LIST_DESTINATIONS, tabNavigation } from '../navigation/destinations';
 import { filterTasks } from '../data/taskFilter';
-import { useSidebar, useSidebarCollapsed } from '../navigation/SidebarContext';
+import { useDrawerState, useSidebar, useSidebarCollapsed } from '../navigation/SidebarContext';
 import NavContextMenu, { NavMenuTarget } from './NavContextMenu';
 import ContextMenuTarget from './ContextMenuTarget';
 import type { PopoverAnchor } from './Popover';
@@ -444,7 +444,9 @@ const Sidebar = React.memo(function Sidebar({ state, navigation, onNavigate }: P
         (navigation.navigate as (name: string, params?: object) => void)(name, next);
       };
 
-      if (onNavigate) onNavigate(navigate);
+      // A key moving through the drawer shows each destination behind it, as the
+      // pinned sidebar does; only a click hands the drawer its cue to close.
+      if (onNavigate && !fromKeys.current) onNavigate(navigate);
       else navigate();
     },
     [navigation, onNavigate]
@@ -552,7 +554,31 @@ const Sidebar = React.memo(function Sidebar({ state, navigation, onNavigate }: P
     else openSavedFilter(target.value);
   };
 
-  const keyboardSidebar = DESKTOP_UI && wide;
+  /**
+   * The drawer is the narrow window's sidebar, so on the desktop it takes the
+   * keyboard the same way while it is open. Read only on the desktop, where
+   * the answer is a constant: the phone's drawer is kept off the drawer state
+   * on purpose, so opening it doesn't rebuild the nav (see the memo above).
+   */
+  const inDrawer = !!onNavigate;
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  const drawer = DESKTOP_UI && inDrawer ? useDrawerState() : null;
+  const keyboardSidebar = DESKTOP_UI && (wide || !!drawer?.drawerOpen);
+  const fromKeys = useRef(false);
+  // A drawer shut by a click or the backdrop must not leave the list locked out.
+  useEffect(() => {
+    if (inDrawer && !keyboardSidebar) setSidebarHasKeyboard(false);
+  }, [inDrawer, keyboardSidebar]);
+  /** Hands the keyboard back to the list, closing the drawer first if that is where it was. */
+  const leaveForList = () => {
+    if (drawer) {
+      setSidebarHasKeyboard(false);
+      drawer.closeDrawer();
+      requestAnimationFrame(() => focusPane('list'));
+      return true;
+    }
+    return false;
+  };
   const [keyFocus, setKeyFocus] = useState(0);
   usePaneFocus('sidebar', () => {
     setSidebarHasKeyboard(true);
@@ -571,12 +597,19 @@ const Sidebar = React.memo(function Sidebar({ state, navigation, onNavigate }: P
       case 'down':
       case 'up': {
         const next = navTargets[Math.min(navTargets.length - 1, Math.max(0, at + (name === 'down' ? 1 : -1)))];
-        if (next && next !== here) openTarget(next);
+        if (next && next !== here) {
+          fromKeys.current = true;
+          try {
+            openTarget(next);
+          } finally {
+            fromKeys.current = false;
+          }
+        }
         return;
       }
       case 'right':
         if (row?.kind === 'folder' && collapsedFolders.includes(row.folder.id)) toggleFolder(row.folder.id);
-        else focusPane('list');
+        else if (!leaveForList()) focusPane('list');
         return;
       case 'left':
         if (row?.kind === 'folder' && !collapsedFolders.includes(row.folder.id)) toggleFolder(row.folder.id);
@@ -584,12 +617,14 @@ const Sidebar = React.memo(function Sidebar({ state, navigation, onNavigate }: P
         return;
       case 'tab':
       case 'shift+tab':
+        // The drawer covers the window, so there is no pane round it to move to.
+        if (leaveForList()) return;
         setSidebarHasKeyboard(false);
         focusNextPane('sidebar', name === 'tab' ? 1 : -1);
         return;
       default:
         // Return and Escape: back to the list.
-        focusPane('list');
+        if (!leaveForList()) focusPane('list');
     }
   };
 

@@ -1,5 +1,5 @@
 import React, { memo, useCallback, useDeferredValue, useMemo, useRef, useState } from 'react';
-import { LayoutChangeEvent, PanResponder, Platform, StyleSheet, View } from 'react-native';
+import { LayoutChangeEvent, PanResponder, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSharedValue, withTiming } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
@@ -30,7 +30,7 @@ import SidebarDrawer from '../components/SidebarDrawer';
 import TaskDetailView from '../components/TaskDetailView';
 import TaskDetailSheet from '../components/TaskDetailSheet';
 import BulkActions from '../components/BulkActions';
-import { DESKTOP_UI, MAC } from '../data/platform';
+import { DESKTOP_UI, FINE_POINTER, MAC } from '../data/platform';
 import UndoToast from '../components/UndoToast';
 import DragOverlay from '../drag/DragOverlay';
 import { useDragActive } from '../drag/DragContext';
@@ -92,17 +92,24 @@ const SWIPE_FAIL_Y = 15;
 const SWIPE_FLING = 350;
 
 /**
- * iOS only, because it is the only platform where there is anything to drag.
+ * The phone only, because it is the only platform where there is anything to drag.
  *
  * The drawer lives in a window that is always mounted there, so the panel is
  * already off screen waiting and follows the finger from the first pixel.
  * Elsewhere it is a Modal that is not presented until it opens — a swipe would
  * pull on nothing, then have a modal appear part-way through.
+ *
+ * Not the Mac, which is iOS too: a click-and-drag rightward there is how a row
+ * is carried, and the menu button and View ▸ Toggle Sidebar already open it.
  */
-const SWIPE_TO_OPEN = Platform.OS === 'ios';
+const SWIPE_TO_OPEN = Platform.OS === 'ios' && !MAC;
 const DETAIL_COLUMN_MIN_WIDTH = 320;
 const MAIN_CONTENT_MIN_WIDTH = 520;
 const DETAIL_RESIZER_WIDTH = 11;
+/** Width of the task panel that slides over a narrow desktop window's list. */
+const SLIDE_OVER_WIDTH = 420;
+/** Below this the slide-over takes the whole window: a strip of list beside it is too thin to read or aim at. */
+const SLIDE_OVER_FULL_BELOW = 560;
 
 export default function MainTabs() {
   return (
@@ -118,7 +125,8 @@ export default function MainTabs() {
 
 /**
  * Wide: [sidebar | list | detail] — the detail column sits beside the list rather
- * than covering it. Narrow: the same detail rendered as a pull-up sheet.
+ * than covering it. Narrow on the desktop: the same pane, slid over the list.
+ * Narrow on a phone: the detail rendered as a pull-up sheet.
  */
 function Layout() {
   const styles = useStyles();
@@ -146,6 +154,17 @@ function Layout() {
   // click is going to change.
   const bulk = DESKTOP_UI && selectedIds.length > 0;
   const showPane = wide && (bulk || !!openTaskId);
+  /**
+   * A narrow desktop window has no column for the task, but it is still a
+   * desktop window: a sheet pulled up from the bottom edge, with only a grabber
+   * to put it away, is a phone's shape. So the pane comes over the list from the
+   * right instead, as the very same view — its Close button, and Tab and Escape,
+   * come with it — and a click on the dimmed list beside it closes it.
+   *
+   * Decided by the pointer, as popovers are (`useDesktopPresentation`): a
+   * touch-screen browser is a phone's, and keeps the sheet.
+   */
+  const slideOver = !wide && FINE_POINTER && !bulk && !!openTaskId;
 
   const clampDetailColumnWidth = useCallback(
     (width: number) => {
@@ -234,7 +253,31 @@ function Layout() {
           </View>
         </>
       )}
-      {!wide && <TaskDetailSheet />}
+      {slideOver && (
+        <View style={styles.slideOverRoot}>
+          <Pressable
+            style={[StyleSheet.absoluteFill, styles.slideOverScrim]}
+            onPress={closeTask}
+            accessibilityLabel="Close task"
+          />
+          <View
+            style={[
+              styles.slideOverPanel,
+              { width: rowWidth && rowWidth < SLIDE_OVER_FULL_BELOW ? rowWidth : SLIDE_OVER_WIDTH },
+            ]}
+          >
+            <PaneEscape onClose={closeTask}>
+              <TaskDetailView
+                key={paneTaskId ?? openTaskId}
+                taskId={paneTaskId ?? openTaskId}
+                onClose={closeTask}
+                variant="pane"
+              />
+            </PaneEscape>
+          </View>
+        </View>
+      )}
+      {!wide && !FINE_POINTER && <TaskDetailSheet />}
       <ServerSheet visible={serverOpen} onClose={closeServer} pairCode={serverPairCode} />
       <PairLinkHandler />
       <JoinLinkHandler />
@@ -514,7 +557,8 @@ function NativeTabs() {
         tabBarActiveTintColor: accent,
         tabBarControllerMode: 'tabBar',
         tabBarMinimizeBehavior: 'none',
-        tabBarStyle: { display: wide || selectedIds.length > 0 ? 'none' : 'flex' },
+        // Never on the Mac: its narrow navigation is the drawer, as on the web. See FLOATING_TAB_BAR.
+        tabBarStyle: { display: wide || MAC || selectedIds.length > 0 ? 'none' : 'flex' },
       }}
     >
       <Tabs.Screen
@@ -674,5 +718,25 @@ const useStyles = makeStyles((c) => ({
     width: 1,
     flex: 1,
     backgroundColor: c.border,
+  },
+  slideOverRoot: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+  },
+  slideOverScrim: {
+    backgroundColor: c.scrim,
+    opacity: c.scrimOpacity,
+  },
+  slideOverPanel: {
+    height: '100%',
+    backgroundColor: c.screenBg,
+    borderLeftWidth: 1,
+    borderLeftColor: c.border,
+    boxShadow: `-12px 0 32px ${c.shadow}${c.shadowOpacity ? '33' : '00'}`,
   },
 }));
