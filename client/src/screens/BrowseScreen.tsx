@@ -1,11 +1,11 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import { Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { makeStyles } from '../theme/styles';
 import { fonts } from '../theme/typography';
 import { PANE_MAX_WIDTH, useSidebar } from '../navigation/SidebarContext';
-import { TaskCriteria, sameCriteria } from '../data/taskFilter';
+import { EMPTY_CRITERIA, TaskCriteria, sameCriteria } from '../data/taskFilter';
 import { useTasks } from '../data/TaskContext';
 import { BrowseParams } from '../navigation/types';
 import { loadBrowseCriteria, saveBrowseCriteria } from '../data/storage';
@@ -80,6 +80,27 @@ export default function BrowseScreen() {
     const match = state.savedFilters.find((f) => !f.deletedAt && sameCriteria(f.criteria, criteria));
     if (match?.id !== params?.savedFilterId) navigation.setParams({ savedFilterId: match?.id } as never);
   }, [criteria, state.savedFilters, params?.savedFilterId, params?.at, navigation]);
+
+  /**
+   * Leaving Browse on a saved filter forgets it, so Browse's own row opens on a
+   * blank question next time rather than on that filter again.
+   *
+   * A saved filter has a row of its own to come back by. Reopening one under
+   * Browse's name put the nav's selection on the filter's row instead, and
+   * arrowing down the nav jumped from Browse to the bottom of the tree. A
+   * question you had not saved is still kept: that one has nowhere else to live.
+   */
+  const latest = useRef({ criteria, savedFilters: state.savedFilters });
+  latest.current = { criteria, savedFilters: state.savedFilters };
+  useFocusEffect(
+    useCallback(
+      () => () => {
+        const { criteria: asked, savedFilters } = latest.current;
+        if (savedFilters.some((f) => !f.deletedAt && sameCriteria(f.criteria, asked))) setCriteria(EMPTY_CRITERIA);
+      },
+      [setCriteria]
+    )
+  );
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top + 6 }]}>

@@ -3,9 +3,24 @@ import { Platform } from 'react-native';
 import { Easing, useSharedValue, withTiming } from 'react-native-reanimated';
 import type { SharedValue } from 'react-native-reanimated';
 import { useWindowSelector } from '../components/useWindowSelector';
+import { FINE_POINTER } from '../data/platform';
 
 /** Above this width the sidebar is pinned open and the bottom tab bar goes away. */
 export const WIDE_BREAKPOINT = 900;
+
+/**
+ * Down to this width a desktop window keeps the sidebar pinned, as its icon rail.
+ *
+ * Below the wide breakpoint the full sidebar no longer fits beside the list, but
+ * a rail does: 664 is where the list beside a 64pt rail is as wide as it is
+ * beside the full 300pt sidebar at 900, so nothing on screen gets less room than
+ * the wide layout already gives it. Throwing the nav away the moment the full
+ * one stops fitting was hiding it for a lack of room the rail never needed.
+ *
+ * Only with a mouse: a phone turned on its side is this wide too, and keeps
+ * its tab bar.
+ */
+export const RAIL_BREAKPOINT = 664;
 
 /**
  * The drawer's motion, up here because two places drive it.
@@ -50,7 +65,14 @@ export type NavSheet =
   | { kind: 'newFolder' };
 
 interface SidebarValue {
+  /** The sidebar is pinned beside the content, in full or as a rail. */
   wide: boolean;
+  /**
+   * Pinned, but only as a rail: the window is between `RAIL_BREAKPOINT` and
+   * `WIDE_BREAKPOINT`. Expanding it opens the full sidebar as the drawer, over
+   * the content, since there is no room to push the content aside for it.
+   */
+  railOnly: boolean;
   openDrawer: () => void;
   /**
    * How far the drawer is out: 0 shut, 1 fully open.
@@ -105,7 +127,11 @@ const DrawerStateContext = createContext<DrawerStateValue | null>(null);
 const CollapsedContext = createContext(false);
 
 export function SidebarProvider({ children }: { children: React.ReactNode }) {
-  const wide = useWindowSelector((window) => window.width >= WIDE_BREAKPOINT);
+  const layout = useWindowSelector((window) =>
+    window.width >= WIDE_BREAKPOINT ? 'full' : FINE_POINTER && window.width >= RAIL_BREAKPOINT ? 'rail' : 'narrow'
+  );
+  const wide = layout !== 'narrow';
+  const railOnly = layout === 'rail';
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const [serverOpen, setServerOpen] = useState(false);
@@ -113,10 +139,10 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
   const [navSheet, setNavSheet] = useState<NavSheet | null>(null);
   const drawerProgress = useSharedValue(0);
 
-  // The drawer is a narrow-layout affordance; going wide pins the sidebar instead.
+  // The drawer is a narrow-layout affordance; room for the full sidebar pins it instead.
   useEffect(() => {
-    if (wide) setDrawerOpen(false);
-  }, [wide]);
+    if (layout === 'full') setDrawerOpen(false);
+  }, [layout]);
 
   /**
    * Both of these move the panel before telling React anything.
@@ -166,6 +192,7 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
   const value = useMemo<SidebarValue>(
     () => ({
       wide,
+      railOnly,
       openDrawer,
       drawerProgress,
       toggleCollapsed,
@@ -183,7 +210,7 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
       openNavSheet: (sheet: NavSheet) => { dismissDrawer(); setNavSheet(sheet); },
       closeNavSheet: () => setNavSheet(null),
     }),
-    [wide, openDrawer, drawerProgress, dismissDrawer, toggleCollapsed, serverOpen, serverPairCode, navSheet]
+    [wide, railOnly, openDrawer, drawerProgress, dismissDrawer, toggleCollapsed, serverOpen, serverPairCode, navSheet]
   );
 
   const drawerState = useMemo<DrawerStateValue>(
@@ -194,7 +221,8 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
   return (
     <SidebarContext.Provider value={value}>
       <DrawerStateContext.Provider value={drawerState}>
-        <CollapsedContext.Provider value={collapsed}>{children}</CollapsedContext.Provider>
+        {/* A rail-only window shows the rail whatever the preference, which is kept for when it widens. */}
+        <CollapsedContext.Provider value={collapsed || railOnly}>{children}</CollapsedContext.Provider>
       </DrawerStateContext.Provider>
     </SidebarContext.Provider>
   );

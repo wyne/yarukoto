@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { Platform } from 'react-native';
 
 /**
  * How many desktop layers — popovers, dialogs — are up right now.
@@ -25,6 +26,34 @@ export function useOpenLayer(active: boolean) {
       if (open === 0) closedListeners.forEach((listener) => listener());
     };
   }, [active]);
+}
+
+/**
+ * Runs `fn` now, or once the last open layer has gone.
+ *
+ * For a command that moves focus and can be run from the command menu, which
+ * is still closing when the command runs. On the web a dialog holds on to focus
+ * until it has faded out — focus handed elsewhere before then is pulled back
+ * into it — so there it waits for the dialog to leave the page, not just for
+ * the layer to be counted closed.
+ */
+export function afterLayersClose(fn: () => void) {
+  const run = () => (Platform.OS === 'web' ? afterWebDialogsGone(fn) : fn());
+  if (open === 0) return run();
+  const once = () => {
+    closedListeners.delete(once);
+    run();
+  };
+  closedListeners.add(once);
+}
+
+/** About a second: a fade-out is a quarter of that, and this must not wait forever. */
+const DIALOG_GONE_FRAMES = 60;
+
+function afterWebDialogsGone(fn: () => void, frames = 0) {
+  const up = typeof document !== 'undefined' && document.querySelector('[aria-modal="true"]');
+  if (!up || frames >= DIALOG_GONE_FRAMES) return fn();
+  requestAnimationFrame(() => afterWebDialogsGone(fn, frames + 1));
 }
 
 /** Calls `listener` whenever the last open layer closes. */

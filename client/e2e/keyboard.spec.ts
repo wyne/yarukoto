@@ -123,3 +123,137 @@ test('Return edits, Space opens, and the list and sidebar answer their keys', as
   await expect(page.getByText('Keyboard Shortcuts', { exact: true })).toBeVisible();
   await expect(page.getByText('Last Task', { exact: true })).toBeVisible();
 });
+
+test('a narrowed window keeps the sidebar as a rail, and expanding it hands it the keyboard', async ({ page }) => {
+  await connect(page);
+  const palette = async (command: string) => {
+    await page.keyboard.press('ControlOrMeta+k');
+    const search = page.getByPlaceholder('Go to or do…');
+    await expect(search).toBeFocused();
+    await search.fill(command);
+    await expect(page.getByText(command, { exact: true }).last()).toBeVisible();
+    await page.keyboard.press('Enter');
+    await expect(search).toBeHidden();
+  };
+
+  // Too narrow for the full sidebar, wide enough for the rail: no menu button.
+  await page.setViewportSize({ width: 760, height: 900 });
+  await expect(page.getByLabel('Expand sidebar')).toBeVisible();
+
+  // Back to full width, collapsed by hand, then expanded from the command menu.
+  await page.setViewportSize({ width: 1400, height: 900 });
+  await palette('Toggle Sidebar');
+  await expect(page.getByLabel('Expand sidebar')).toBeVisible();
+  await page.getByPlaceholder(/Add a task/).click();
+  await page.keyboard.press('Escape');
+  await palette('Toggle Sidebar');
+  await expect(page.getByLabel('Collapse sidebar')).toBeVisible();
+
+  // The arrows go straight to the sidebar.
+  await expect.poll(async () => (await focused(page)).tag).toBe('DIV');
+  const before = page.url();
+  await page.keyboard.press('ArrowDown');
+  await expect.poll(() => page.url()).not.toBe(before);
+});
+
+test('the sidebar keeps the keyboard row in view, and Space and ← fold a folder', async ({ page, request }) => {
+  const stamp = Date.now();
+  const now = new Date().toISOString();
+  const folderName = `Keys folder ${stamp}`;
+  const inFolder = `Keys inside ${stamp}`;
+  const lists = Array.from({ length: 24 }, (_, i) => ({
+    id: `keys-list-${stamp}-${i}`,
+    name: `Keys list ${String(i).padStart(2, '0')} ${stamp}`,
+    color: '#4A7BF7',
+    folderId: null,
+    order: 10 + i,
+    updatedAt: now,
+  }));
+  const folderId = `keys-folder-${stamp}`;
+  const response = await request.post('/api/v1/sync', {
+    headers: { Authorization: `Bearer ${TOKEN}` },
+    data: {
+      folders: [{ id: folderId, name: folderName, order: 0, updatedAt: now }],
+      lists: [
+        { id: `keys-inside-${stamp}`, name: inFolder, color: '#4A7BF7', folderId, order: 0, updatedAt: now },
+        ...lists,
+      ],
+    },
+  });
+  expect(response.ok()).toBe(true);
+
+  await page.setViewportSize({ width: 1400, height: 600 });
+  await connect(page);
+  const last = page.getByLabel(lists[lists.length - 1].name, { exact: true });
+  await expect(last).toBeAttached();
+  await expect(last).not.toBeInViewport();
+
+  /** Arrows through the sidebar until the view shown is `id`'s. Other tests' lists may be in the tree too. */
+  const arrowTo = async (key: 'ArrowDown' | 'ArrowUp', id: string) => {
+    for (let i = 0; i < 200 && !page.url().includes(id); i++) {
+      const before = page.url();
+      await page.keyboard.press(key);
+      await expect.poll(() => page.url()).not.toBe(before);
+    }
+    expect(page.url()).toContain(id);
+  };
+
+  // ← from the list goes to the sidebar; ↓ to the last list scrolls it into view.
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('ArrowLeft');
+  await expect.poll(async () => (await focused(page)).tag).toBe('DIV');
+  await arrowTo('ArrowDown', lists[lists.length - 1].id);
+  await expect(last).toBeInViewport();
+
+  // Back up to the list inside the folder: ← folds the folder and moves up to it.
+  await arrowTo('ArrowUp', `keys-inside-${stamp}`);
+  const inside = page.getByLabel(inFolder, { exact: true });
+  await expect(inside).toBeInViewport();
+  await page.keyboard.press('ArrowLeft');
+  await expect(inside).toHaveCount(0);
+  await expect.poll(() => page.url()).toContain(folderId);
+
+  // Space opens the folder again, and folds it.
+  await page.keyboard.press(' ');
+  await expect(inside).toBeVisible();
+  await page.keyboard.press(' ');
+  await expect(inside).toHaveCount(0);
+});
+
+test('Browse opens blank after leaving it on a saved filter', async ({ page, request }) => {
+  const stamp = Date.now();
+  const query = `keysfilter${stamp}`;
+  const filterId = `sf-keys-${stamp}`;
+  const now = new Date().toISOString();
+  const response = await request.post('/api/v1/sync', {
+    headers: { Authorization: `Bearer ${TOKEN}` },
+    data: {
+      savedFilters: [
+        {
+          id: filterId,
+          name: `Keys filter ${stamp}`,
+          criteria: { query, listIds: [], folderIds: [], tags: [], due: [], status: 'active' },
+          order: 0,
+          updatedAt: now,
+        },
+      ],
+    },
+  });
+  expect(response.ok()).toBe(true);
+
+  await connect(page);
+  const search = page.getByPlaceholder('Search tasks and tags');
+  await page.getByLabel(`Saved filter Keys filter ${stamp}`, { exact: true }).click();
+  await expect(search).toHaveValue(query);
+
+  await page.getByLabel('Inbox', { exact: true }).click();
+  await page.getByLabel('Browse', { exact: true }).click();
+  await expect(search).toHaveValue('');
+  expect(page.url()).not.toContain(filterId);
+
+  // A question that isn't saved is still there when you come back.
+  await search.fill('unsaved question');
+  await page.getByLabel('Inbox', { exact: true }).click();
+  await page.getByLabel('Browse', { exact: true }).click();
+  await expect(search).toHaveValue('unsaved question');
+});
