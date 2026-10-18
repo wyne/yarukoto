@@ -10,19 +10,22 @@ sync with your server whenever it's reachable.
 - **iPhone and Android:** install Yarukoto from the App Store or Google Play.
 - **In a browser:** open your server's address. The server hosts the web app itself, so there's
   nothing to install.
-- **Mac:** [download Yarukoto for Mac](https://github.com/wyne/yarukoto-desktop/releases/latest/download/Yarukoto-mac.dmg),
+- **Mac:** [download Yarukoto for Mac](https://github.com/wyne/yarukoto/releases/latest/download/Yarukoto-mac.dmg),
   open the disk image and drag Yarukoto to Applications. It's signed and notarized by Apple.
-- **Windows:** [download the installer](https://github.com/wyne/yarukoto-desktop/releases/latest/download/Yarukoto-windows-setup.exe)
+- **Windows:** [download the installer](https://github.com/wyne/yarukoto/releases/latest/download/Yarukoto-windows-setup.exe)
   and run it. It installs for your account only, with no admin prompt. The installer isn't signed
   yet, so Windows shows "Windows protected your PC" the first time: choose **More info**, then
   **Run anyway**.
 
 The desktop apps work like the web app, in their own window. Every release, with checksums and an
-`.msi` for Windows, is on the [releases page](https://github.com/wyne/yarukoto-desktop/releases).
+`.msi` for Windows, is on the [releases page](https://github.com/wyne/yarukoto/releases).
 On a computer, open **Settings → General → Check for updates** at any time. The Mac also has
 **Yarukoto → Check for Updates…** in its menu bar, and Windows offers the same command under
-Ctrl+K. When a release is available, Yarukoto opens the signed Mac disk image or Windows installer
-in your browser; installing it replaces the old version without touching your tasks or sign-in.
+Ctrl+K. When a release is available, Yarukoto opens its release page in your browser. Download the
+signed Mac disk image, or on Windows choose the same installer format (`.exe` or `.msi`) that you
+originally installed. The Windows installer is not signed yet, so choose **More info → Run anyway**
+if SmartScreen appears. Installing the matching package replaces the old version without touching
+your tasks or sign-in.
 On a computer, everything can be done from the keyboard: see [Keyboard shortcuts](/using/keyboard/).
 
 You need a [Yarukoto server](/getting-started/docker/) to connect to. To look around first, see

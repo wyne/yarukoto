@@ -90,4 +90,10 @@ describe('checking for an update', () => {
   test('fails closed when the service does not return a release', async () => {
     await expect(checkForAppUpdate('mac', '1.4.1', response({}, false))).rejects.toThrow('503');
   });
+
+  test('fails closed when the embedded app version is unavailable', async () => {
+    const fetcher = response(release);
+    await expect(checkForAppUpdate('mac', null, fetcher)).rejects.toThrow('unknown');
+    expect(fetcher).not.toHaveBeenCalled();
+  });
 });

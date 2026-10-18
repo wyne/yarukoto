@@ -1,5 +1,5 @@
 import Constants from 'expo-constants';
-import { Alert, Platform } from 'react-native';
+import { confirmAsync, notify } from './confirm';
 import { openLink } from './links';
 import { DESKTOP_APP, MAC, WINDOWS_APP } from './platform';
 
@@ -21,7 +21,7 @@ const DOWNLOAD_NAMES = {
 
 const CHECK_TIMEOUT_MS = 15_000;
 
-export const APP_VERSION = Constants.expoConfig?.version ?? '0.0.0';
+export const APP_VERSION = Constants.expoConfig?.version ?? null;
 
 export type DesktopPlatform = 'mac' | 'windows';
 
@@ -109,10 +109,12 @@ export function currentDesktopPlatform(): DesktopPlatform | null {
 
 export async function checkForAppUpdate(
   platform: DesktopPlatform,
-  currentVersion = APP_VERSION,
+  currentVersion: string | null = APP_VERSION,
   fetcher: typeof fetch = fetch
 ): Promise<UpdateCheckResult> {
-  if (!versionParts(currentVersion)) throw new Error(`This app has an invalid version: ${currentVersion}`);
+  if (!currentVersion || !versionParts(currentVersion)) {
+    throw new Error(`This app has an invalid version: ${currentVersion ?? 'unknown'}`);
+  }
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), CHECK_TIMEOUT_MS);
@@ -133,27 +135,13 @@ export async function checkForAppUpdate(
   }
 }
 
-function showMessage(title: string, message: string): void {
-  if (Platform.OS === 'web') {
-    // Alert.alert is a no-op in react-native-web.
-    // eslint-disable-next-line no-alert
-    window.alert(`${title}\n\n${message}`);
-    return;
-  }
-  Alert.alert(title, message);
+function isConnectivityError(error: unknown): boolean {
+  return error instanceof TypeError || (error instanceof Error && error.name === 'AbortError');
 }
 
-function offerDownload(manifest: UpdateManifest): void {
-  const message = `Yarukoto ${manifest.version} is available. Download and install it to update this copy.`;
-  if (Platform.OS === 'web') {
-    // eslint-disable-next-line no-alert
-    if (window.confirm(`${message}\n\nDownload now?`)) openLink(manifest.downloadUrl);
-    return;
-  }
-  Alert.alert('Update available', message, [
-    { text: 'Not now', style: 'cancel' },
-    { text: 'Download', onPress: () => openLink(manifest.downloadUrl) },
-  ]);
+async function offerUpdate(manifest: UpdateManifest): Promise<void> {
+  const message = `Yarukoto ${manifest.version} is available. View the release notes and choose the installer to update this copy.`;
+  if (await confirmAsync('Update available', message, 'View release')) openLink(manifest.notesUrl);
 }
 
 let interactiveCheck: Promise<void> | null = null;
@@ -166,10 +154,15 @@ export function checkForAppUpdatesInteractively(): Promise<void> {
     if (!DESKTOP_APP || !platform) return;
     try {
       const result = await checkForAppUpdate(platform);
-      if (result.status === 'available') offerDownload(result.manifest);
-      else showMessage('Yarukoto is up to date', `You have the latest version, ${result.currentVersion}.`);
-    } catch {
-      showMessage('Couldn’t check for updates', 'Check your internet connection and try again.');
+      if (result.status === 'available') await offerUpdate(result.manifest);
+      else notify('Yarukoto is up to date', `You have the latest version, ${result.currentVersion}.`);
+    } catch (error) {
+      notify(
+        'Couldn’t check for updates',
+        isConnectivityError(error)
+          ? 'Check your internet connection and try again.'
+          : 'Yarukoto couldn’t read the latest release. Try again later.'
+      );
     }
   })().finally(() => {
     interactiveCheck = null;

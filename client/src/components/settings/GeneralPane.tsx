@@ -88,7 +88,7 @@ export function UpdatesGroup() {
 
   return (
     <Group label="Updates">
-      <Row title="Version" value={`v${APP_VERSION}`} mono />
+      <Row title="Version" value={APP_VERSION ? `v${APP_VERSION}` : 'Unknown'} mono />
       <Row divided title="Check for updates…" tone="action" onPress={check} busy={checking} />
     </Group>
   );

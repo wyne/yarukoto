@@ -114,8 +114,8 @@ const plain = (input: KeyInput, ...modifiers: Modifier[]): Shortcut => ({ input,
 
 /** In menu order: menus as listed, groups as first met. */
 export const COMMANDS: readonly CommandDef[] = [
-  { id: 'settings', title: 'Settings…', menu: 'app', group: 'settings', shortcut: cmd(','), keywords: 'preferences server theme' },
   { id: 'checkForUpdates', title: 'Check for Updates…', menu: 'app', group: 'updates', keywords: 'version upgrade download' },
+  { id: 'settings', title: 'Settings…', menu: 'app', group: 'settings', shortcut: cmd(','), keywords: 'preferences server theme' },
 
   { id: 'newTask', title: 'New Task', menu: 'file', group: 'new', shortcut: cmd('n'), keywords: 'add create' },
 
