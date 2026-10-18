@@ -85,12 +85,12 @@ That adds the token and re-seeds the data once.
 
 ## Looking after it
 
-- **Reset now:** `sudo /opt/yarukoto-demo/reset.sh` on the VM. It also pulls the
-  latest server image, as the nightly run does.
+- **Reset now:** `sudo /opt/yarukoto-demo/reset.sh` on the VM. Like the nightly run,
+  it first fetches the latest demo files from `main` and pulls the latest server image.
 - **Logs:** `/var/log/yarukoto-demo-reset.log`, and `docker compose logs` in
   `/opt/yarukoto-demo`.
 - **New tokens:** delete `/opt/yarukoto-demo/.env`, re-run the startup script with
   `sudo google_metadata_script_runner startup`, and update the review notes.
-- The startup script fetches the other files from `main` on every boot, so changes to
-  them reach the VM on its next restart. Changes to `startup.sh` itself need the
-  `add-metadata` step above.
+- Changes merged to `main` reach the VM by the next morning: the nightly reset fetches
+  the other files and the server image. Changes to `startup.sh` itself need the
+  `add-metadata` step above, because the VM runs the copy in its metadata.
