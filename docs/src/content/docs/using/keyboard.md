@@ -86,7 +86,7 @@ To group or sort the list in front, type **group** or **sort** in the command me
 |---|---|
 | ↩ Return | Add the task and stay in the field for the next one |
 | ↓ | Go down into the list. While suggestions are showing, ↑ and ↓ move through them |
-| ⇥ Tab | Take the highlighted suggestion, or move on to the list |
+| ⇥ Tab | Complete the tag, list or priority being typed with the highlighted suggestion (the first one if none is highlighted), or move on to the list |
 | ⎋ Escape | Give the keyboard to the list |
 
 So a quick capture is **⌘N**, type, **Return**, and **↓** or **Escape** to get back to the list.

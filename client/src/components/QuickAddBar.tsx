@@ -70,8 +70,9 @@ export default function QuickAddBar({ onSubmit, contextLabel }: Props) {
    * The field's own keys, by `keyName`. ↑ and ↓ walk the suggestions while there
    * are any; otherwise ↓ goes down into the list, so ⌘N, type, Return, ↓ is a
    * whole loop. Escape hands the keyboard to the list rather than leaving it
-   * with nothing, and Tab takes a highlighted suggestion or moves on round the
-   * window's panes (focusPanes.ts).
+   * with nothing. Tab completes the token being typed — the highlighted
+   * suggestion, or the first one, so "#wo" then Tab is "#work" — and with
+   * nothing to complete moves on round the window's panes (focusPanes.ts).
    */
   const handleKey = (name: string): boolean => {
     switch (name) {
@@ -87,7 +88,7 @@ export default function QuickAddBar({ onSubmit, contextLabel }: Props) {
         if (!focusPane('list')) inputRef.current?.blur();
         return true;
       case 'tab':
-        if (selectedIndex >= 0 && suggestions[selectedIndex]) chooseSuggestion(suggestions[selectedIndex].value);
+        if (suggestions.length > 0) chooseSuggestion(suggestions[Math.max(selectedIndex, 0)].value);
         else focusNextPane('add', 1);
         return true;
       case 'shift+tab':
@@ -172,6 +173,8 @@ export default function QuickAddBar({ onSubmit, contextLabel }: Props) {
             >
               <Text style={styles.suggestionValue}>{s.value}</Text>
               {!!s.hint && <Text style={styles.suggestionHint}>{s.hint}</Text>}
+              {/* The row Tab will take: the highlighted one, else the first. */}
+              {i === Math.max(selectedIndex, 0) && <Text style={styles.suggestionTab}>⇥</Text>}
             </Pressable>
           ))}
         </View>
@@ -246,6 +249,12 @@ const useStyles = makeStyles((c) => ({
     color: c.textPrimary,
   },
   suggestionHint: {
+    fontFamily: fonts.sansRegular,
+    fontSize: 12.5,
+    color: c.textFaint,
+  },
+  suggestionTab: {
+    marginLeft: 'auto',
     fontFamily: fonts.sansRegular,
     fontSize: 12.5,
     color: c.textFaint,
