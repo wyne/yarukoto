@@ -171,7 +171,7 @@ export function UpdatesGroup() {
 
   return (
     <Group label="Updates">
-      <Row title="Version" value={APP_VERSION ? `v${APP_VERSION}` : 'Unknown'} mono />
+      <Row title="Client version" value={APP_VERSION ? `v${APP_VERSION}` : 'Unknown'} mono />
       <Row divided title="Check for updates…" tone="action" onPress={check} busy={checking} />
     </Group>
   );
@@ -179,15 +179,16 @@ export function UpdatesGroup() {
 
 /**
  * The app's version, as a quiet line at the foot of Settings, where the phone's
- * own apps and the web put it. The desktop apps show it in Updates instead,
+ * own apps and the web put it. Labelled "client" so it isn't read as the
+ * server's, which the Server page shows. The desktop apps show it in Updates instead,
  * beside the check it answers, and the Mac in About Yarukoto too.
  */
 export function VersionFooter() {
   const styles = useStyles();
   if (DESKTOP_APP || !APP_VERSION) return null;
   return (
-    <Text style={styles.version} selectable accessibilityLabel={`Yarukoto version ${APP_VERSION}`}>
-      Yarukoto {APP_VERSION}
+    <Text style={styles.version} selectable accessibilityLabel={`Client version ${APP_VERSION}`}>
+      Client v{APP_VERSION}
     </Text>
   );
 }
