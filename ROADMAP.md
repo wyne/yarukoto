@@ -30,7 +30,7 @@ Data lives in one SQLite file the owner controls, and the server snapshots it da
 no portable export and no way in from another app. Self-hosters check for this before they move.
 
 **Done when:** a person can download their own lists and tasks as JSON and import that file into
-another server, and at least one importer (Todoist or CSV) exists.
+another server, and at least one importer (such as CSV) exists.
 
 ---
 

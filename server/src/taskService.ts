@@ -346,7 +346,7 @@ export function completeTaskAt(
   return { task, applied: true };
 }
 
-/** TickTick's "Skip": on to the next date, with no completed copy left behind. */
+/** "Skip": on to the next date, with no completed copy left behind. */
 export function skipTask(db: Database.Database, id: string, viewer: Viewer = OWNER_VIEWER): Task {
   const current = getTask(db, id, viewer);
   if (current.deletedAt) throw new TaskServiceError('bad_request', 'Task is in the trash; restore it first');
