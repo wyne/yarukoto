@@ -1,5 +1,25 @@
 # Changelog
 
+## [1.2.0](https://github.com/wyne/yarukoto/compare/v1.1.0...v1.2.0) (2026-10-19)
+
+
+### Features
+
+* Go to places, Move to List and Edit Tags pickers in ⌘K ([#231](https://github.com/wyne/yarukoto/issues/231)) ([0ffd38c](https://github.com/wyne/yarukoto/commit/0ffd38caa7cce44d2296a3aac441e3911100e974))
+* group and sort from ⌘K, tag search, and ⌘-hold shortcut hints ([#228](https://github.com/wyne/yarukoto/issues/228)) ([113039b](https://github.com/wyne/yarukoto/commit/113039b06ce0d3c376979e44871a3eec85586fc7))
+
+
+### Bug Fixes
+
+* **activity:** refresh the feed after syncs, drop the bell, add quick filters ([#234](https://github.com/wyne/yarukoto/issues/234)) ([117a7fe](https://github.com/wyne/yarukoto/commit/117a7feae9f31c7cef4f16cbbaf346eed5664d33))
+* **android:** let the composer's list, tag and priority menus scroll ([#233](https://github.com/wyne/yarukoto/issues/233)) ([246a1ea](https://github.com/wyne/yarukoto/commit/246a1ea595a34c7d9116bbd7cb2c50b5af1235ae))
+* **demo:** refresh the demo kit from main on the nightly reset ([#235](https://github.com/wyne/yarukoto/issues/235)) ([69a3121](https://github.com/wyne/yarukoto/commit/69a3121afea05102139b52b09797dc6e871e3553))
+* **desktop:** keep the sidebar as a rail on narrow windows, and show and take its keyboard focus ([#236](https://github.com/wyne/yarukoto/issues/236)) ([6acf1ad](https://github.com/wyne/yarukoto/commit/6acf1ad6e6eeb4d5d4aea389c93956e47cb30c91))
+* **notes:** grow the notes editor with its text on the web and Windows ([#237](https://github.com/wyne/yarukoto/issues/237)) ([7d1c424](https://github.com/wyne/yarukoto/commit/7d1c424ec2d7035437d48353f2b02cc430e180f3))
+* report the app release version from the server instead of a fixed 1.0.0 ([#229](https://github.com/wyne/yarukoto/issues/229)) ([f7cc05b](https://github.com/wyne/yarukoto/commit/f7cc05bd1aa35399cbc0233e3c57c5a18b11e51a))
+* **web:** replace the browser focus ring on text fields with an accent frame ([#232](https://github.com/wyne/yarukoto/issues/232)) ([d2db98b](https://github.com/wyne/yarukoto/commit/d2db98bae28988341b3d218521bebf59523dd430))
+* **web:** theme the reminder picker instead of a bare select ([#238](https://github.com/wyne/yarukoto/issues/238)) ([e7be2dc](https://github.com/wyne/yarukoto/commit/e7be2dc5b98ddb67d9e5e7d9dbf4f303d5d286c7))
+
 ## [1.1.0](https://github.com/wyne/yarukoto/compare/v1.0.0...v1.1.0) (2026-10-18)
 
 
