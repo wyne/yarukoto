@@ -220,6 +220,45 @@ test('the sidebar keeps the keyboard row in view, and Space and ← fold a folde
   await expect(inside).toHaveCount(0);
 });
 
+test('the list keeps the cursor row in view', async ({ page, request }) => {
+  const stamp = Date.now();
+  const now = new Date().toISOString();
+  const list = { id: `keys-rows-${stamp}`, name: `Keys rows ${stamp}`, color: '#4A7BF7', folderId: null, order: -1, updatedAt: now };
+  const response = await request.post('/api/v1/sync', {
+    headers: { Authorization: `Bearer ${TOKEN}` },
+    data: { lists: [list] },
+  });
+  expect(response.ok()).toBe(true);
+
+  await page.setViewportSize({ width: 1400, height: 600 });
+  await connect(page);
+  await page.getByLabel(list.name, { exact: true }).click();
+  await expect.poll(() => page.url()).toContain(list.id);
+  // Loaded afresh, so the view behind it, with its own copy of each row, isn't mounted.
+  await page.goto(page.url());
+
+  const titles = Array.from({ length: 30 }, (_, i) => `Row ${String(i).padStart(2, '0')} ${stamp}`);
+  const quickAdd = page.getByPlaceholder(`Add a task to ${list.name}`);
+  await quickAdd.click();
+  for (const title of titles) {
+    await quickAdd.fill(title);
+    await quickAdd.press('Enter');
+  }
+  await expect(page.getByText(titles[29], { exact: true })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect.poll(async () => typingIn(await focused(page))).toBe(false);
+
+  // Newest first, so ↓ walks from the last added towards the first.
+  const first = page.getByText(titles[0], { exact: true });
+  await expect(first).not.toBeInViewport();
+  for (let i = 0; i < titles.length; i++) await page.keyboard.press('ArrowDown');
+  await expect(first).toBeInViewport();
+
+  // And ↑ brings the top back.
+  for (let i = 0; i < titles.length; i++) await page.keyboard.press('ArrowUp');
+  await expect(page.getByText(titles[29], { exact: true })).toBeInViewport();
+});
+
 test('Browse opens blank after leaving it on a saved filter', async ({ page, request }) => {
   const stamp = Date.now();
   const query = `keysfilter${stamp}`;
