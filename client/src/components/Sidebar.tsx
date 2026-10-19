@@ -200,7 +200,13 @@ const Sidebar = React.memo(function Sidebar({ state, navigation, onNavigate }: P
           const above = rowTop - REVEAL_MARGIN - top;
           const below = rowTop + rowHeight + REVEAL_MARGIN - (top + height);
           const by = above < 0 ? above : below > 0 ? below : 0;
-          if (by !== 0) scrollRef.current?.scrollTo({ y: Math.max(0, scrollOffset.value + by), animated: false });
+          if (by === 0) return;
+          // The rows were measured where they are now, so `by` is from the
+          // scroller's real position. On the web that is its own scrollTop;
+          // the shared offset only catches up when the scroll event lands, so
+          // arrows held down read a stale one and fall short of the row.
+          if (Platform.OS === 'web') (scroller as unknown as HTMLElement).scrollTop += by;
+          else scrollRef.current?.scrollTo({ y: Math.max(0, scrollOffset.value + by), animated: false });
         });
       });
     },
