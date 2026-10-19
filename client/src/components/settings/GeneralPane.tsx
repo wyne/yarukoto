@@ -1,9 +1,10 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { AppState, Switch, View } from 'react-native';
+import { AppState, Switch, Text, View } from 'react-native';
 import MacStatusItem, { LoginItemStatus } from '../../../modules/mac-status-item/src/MacStatusItem';
 import Pressable from '../HoverPressable';
 import { ACCENT_OPTIONS, SchemePref } from '../../theme/colors';
 import { makeStyles } from '../../theme/styles';
+import { fonts } from '../../theme/typography';
 import { useColors, useTheme } from '../../theme/ThemeContext';
 import { LINKS, openLink } from '../../data/links';
 import { APP_VERSION, checkForAppUpdatesInteractively } from '../../data/appUpdates';
@@ -176,7 +177,29 @@ export function UpdatesGroup() {
   );
 }
 
-const useStyles = makeStyles(() => ({
+/**
+ * The app's version, as a quiet line at the foot of Settings, where the phone's
+ * own apps and the web put it. The desktop apps show it in Updates instead,
+ * beside the check it answers, and the Mac in About Yarukoto too.
+ */
+export function VersionFooter() {
+  const styles = useStyles();
+  if (DESKTOP_APP || !APP_VERSION) return null;
+  return (
+    <Text style={styles.version} selectable accessibilityLabel={`Yarukoto version ${APP_VERSION}`}>
+      Yarukoto {APP_VERSION}
+    </Text>
+  );
+}
+
+const useStyles = makeStyles((c) => ({
+  version: {
+    paddingHorizontal: 4,
+    textAlign: 'center',
+    fontFamily: fonts.monoRegular,
+    fontSize: 12,
+    color: c.textTertiary,
+  },
   scheme: {
     width: 196,
   },

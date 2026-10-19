@@ -13,7 +13,7 @@ import { lastSyncedLabel } from '../../data/dateUtils';
 import { MAC } from '../../data/platform';
 import AccountPane from '../settings/AccountPane';
 import AddDevicePane, { ApproveFor } from '../settings/AddDevicePane';
-import { AppearanceGroup, HelpGroup, MacAppGroup, UpdatesGroup } from '../settings/GeneralPane';
+import { AppearanceGroup, HelpGroup, MacAppGroup, UpdatesGroup, VersionFooter } from '../settings/GeneralPane';
 import { DevicesPane, PeoplePane } from '../settings/HouseholdPanes';
 import ServerPane, { LeaveGroup } from '../settings/ServerPane';
 import { Group, Note, PAGE_GAP, Row } from '../settings/parts';
@@ -132,6 +132,7 @@ export default function ServerSheet({ visible, onClose, pairCode }: Props) {
           <Group>
             <Row title={sample ? 'Leave sample data' : 'Disconnect'} tone="danger" onPress={leave} />
           </Group>
+          <VersionFooter />
         </View>
       </Sheet>
     );
@@ -169,6 +170,7 @@ export default function ServerSheet({ visible, onClose, pairCode }: Props) {
               <UpdatesGroup />
               {/* The Mac's Help menu already carries these. */}
               {!MAC && <HelpGroup />}
+              <VersionFooter />
             </>
           )}
           {tab === 'account' && <AccountPane household={household} onLeft={onClose} />}
@@ -275,6 +277,8 @@ function PhoneRoot({
       <HelpGroup />
 
       <LeaveGroup onLeft={onLeft} />
+
+      <VersionFooter />
     </View>
   );
 }
