@@ -15,9 +15,9 @@ interface Segment {
 
 /**
  * The text field both task-entry surfaces type into, with every token the
- * quick-add parser recognizes tinted where it was typed, as Todoist and TickTick
- * do. The tints come from `quickAddSpans`, the same pass that builds the task,
- * so a highlighted word is exactly a word that won't end up in the title.
+ * quick-add parser recognizes tinted where it was typed. The tints come from
+ * `quickAddSpans`, the same pass that builds the task, so a highlighted word is
+ * exactly a word that won't end up in the title.
  *
  * Native fields (iOS, the Mac, Android) take the runs as styled `<Text>`
  * children, which React Native turns into attributed text. React Native Web
