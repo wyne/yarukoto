@@ -30,7 +30,7 @@ import SidebarDrawer from '../components/SidebarDrawer';
 import TaskDetailView from '../components/TaskDetailView';
 import TaskDetailSheet from '../components/TaskDetailSheet';
 import BulkActions from '../components/BulkActions';
-import { DESKTOP_UI, FINE_POINTER, MAC } from '../data/platform';
+import { DESKTOP_UI, FINE_POINTER, MAC, WINDOWS_APP } from '../data/platform';
 import UndoToast from '../components/UndoToast';
 import DragOverlay from '../drag/DragOverlay';
 import { useDragActive } from '../drag/DragContext';
@@ -41,6 +41,7 @@ import NavSheets from '../components/sidebar/NavSheets';
 import TaskReminderNotifications from './TaskReminderNotifications';
 import MenuCommands, { dispatchCommand } from './MenuCommands';
 import MacStatusMenu from './MacStatusMenu';
+import WindowsTrayMenu from './WindowsTrayMenu';
 import KeyCommandsView from '../../modules/mac-pointer/src/KeyCommandsView';
 import ResizeCursorView from '../../modules/mac-pointer/src/ResizeCursorView';
 import { anyLayerOpen } from '../components/openLayers';
@@ -295,6 +296,7 @@ function Layout() {
       <TaskReminderNotifications />
       <MenuCommands />
       {MAC && <MacStatusMenu />}
+      {WINDOWS_APP && <WindowsTrayMenu />}
     </View>
   );
 }

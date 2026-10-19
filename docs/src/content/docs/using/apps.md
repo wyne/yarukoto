@@ -32,6 +32,12 @@ On the Mac, Yarukoto also lives in the menu bar, with today's tasks and their co
 a task off or start a new one from there. Closing the window leaves it running in the menu bar
 until you choose **Quit**. Both that and **Open at login** are in **Settings → General**.
 
+On Windows, Yarukoto has an icon in the notification area at the right of the taskbar. Click it to
+open the window, or right-click it for today's tasks and a new one. Closing the window leaves it
+running there until you choose **Exit**, and the taskbar button shows how many tasks are due. Both
+that and **Open at login** are in **Settings → General**. Windows 11 may tuck a new icon behind the
+**^** at first; drag it onto the taskbar to keep it in view.
+
 You need a [Yarukoto server](/getting-started/docker/) to connect to. To look around first, see
 [Trying it without a server](#trying-it-without-a-server).
 

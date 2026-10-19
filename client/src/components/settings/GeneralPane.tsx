@@ -7,7 +7,8 @@ import { makeStyles } from '../../theme/styles';
 import { useColors, useTheme } from '../../theme/ThemeContext';
 import { LINKS, openLink } from '../../data/links';
 import { APP_VERSION, checkForAppUpdatesInteractively } from '../../data/appUpdates';
-import { DESKTOP_APP, MAC } from '../../data/platform';
+import { DESKTOP_APP, MAC, WINDOWS_APP } from '../../data/platform';
+import { setOpenAtLogin, setShowInTray, traySettings, TraySettings } from '../../data/windowsTray';
 import { Group, Note, Row, Segmented } from './parts';
 
 const SCHEME_OPTIONS: Array<{ value: SchemePref; label: string }> = [
@@ -137,6 +138,90 @@ export function MacAppGroup() {
         )}
       </Group>
       {(loginError ?? LOGIN_NOTES[login]) && <Note tone="error">{loginError ?? LOGIN_NOTES[login]}</Note>}
+    </>
+  );
+}
+
+/**
+ * The Windows app's notification area icon and login item, the counterpart of
+ * `MacAppGroup`. Native state for the same reasons: the shell reads the icon
+ * setting before the page loads, and the login item can be turned off from
+ * Task Manager's Startup apps too, hence the re-read when the app comes back.
+ */
+export function WindowsAppGroup() {
+  const [settings, setSettings] = useState<TraySettings | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const refresh = useCallback(() => {
+    if (!WINDOWS_APP) return;
+    traySettings().then(setSettings, () => setSettings(null));
+  }, []);
+
+  useEffect(() => {
+    refresh();
+    const subscription = AppState.addEventListener('change', (next) => {
+      if (next === 'active') refresh();
+    });
+    return () => subscription.remove();
+  }, [refresh]);
+
+  if (!WINDOWS_APP || !settings) return null;
+
+  const toggleTray = (enabled: boolean) => {
+    setError(null);
+    setSettings({ ...settings, showInTray: enabled });
+    setShowInTray(enabled).catch((e: unknown) => {
+      setError(String(e));
+      refresh();
+    });
+  };
+
+  const toggleLogin = (enabled: boolean) => {
+    setError(null);
+    setOpenAtLogin(enabled).then(
+      (openAtLogin) => setSettings((current) => current && { ...current, openAtLogin }),
+      (e: unknown) => {
+        setError(String(e));
+        refresh();
+      }
+    );
+  };
+
+  return (
+    <>
+      <Group
+        label="Windows"
+        note={
+          settings.showInTray
+            ? "Closing the window keeps Yarukoto running in the notification area, with today's tasks a right-click away. Exit it from there."
+            : undefined
+        }
+      >
+        <Row
+          title="Show in notification area"
+          trailing={
+            <Switch
+              value={settings.showInTray}
+              onValueChange={toggleTray}
+              accessibilityLabel="Show in notification area"
+            />
+          }
+        />
+        <Row
+          divided
+          title="Open at login"
+          subtitle={settings.showInTray ? 'Starts in the notification area, without a window.' : null}
+          trailing={
+            <Switch
+              value={settings.openAtLogin === true}
+              disabled={settings.openAtLogin === null}
+              onValueChange={toggleLogin}
+              accessibilityLabel="Open at login"
+            />
+          }
+        />
+      </Group>
+      {error && <Note tone="error">{error}</Note>}
     </>
   );
 }
