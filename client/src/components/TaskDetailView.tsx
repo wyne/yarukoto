@@ -41,6 +41,7 @@ import RepeatQuickMenu from './pickers/RepeatQuickMenu';
 import { describeRepeat } from '../data/recurrence';
 import ListPickerSheet from './pickers/ListPickerSheet';
 import TagPickerSheet from './pickers/TagPickerSheet';
+import TaskHistorySheet from './TaskHistorySheet';
 import { measureAnchor, PopoverAnchor } from './Popover';
 import { useNativeDateTimePicker } from '../navigation/DateTimePickerContext';
 import { useTaskTextDraft } from './useTaskTextDraft';
@@ -49,6 +50,7 @@ import NativeOwnedTextInput from './NativeOwnedTextInput';
 import RichNotes, { RichNotesHandle } from './RichNotes';
 import KeyCommandsView from '../../modules/mac-pointer/src/KeyCommandsView';
 import { focusNextPane, focusPane, usePaneFocus } from '../navigation/focusPanes';
+import { useCommand } from '../navigation/MenuCommands';
 
 /** A reminder or a repeat counts from the date, so clearing it clears them; say so. */
 function clearDateLabel(task: { reminders?: unknown[]; repeat?: unknown }): string | undefined {
@@ -120,6 +122,8 @@ export default function TaskDetailView({ taskId, onClose, variant, active = true
 
   const [picker, setPicker] = useState<'list' | 'tags' | null>(null);
   const [pickerAnchor, setPickerAnchor] = useState<PopoverAnchor | null>(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyAnchor, setHistoryAnchor] = useState<PopoverAnchor | null>(null);
   const [addingSubtask, setAddingSubtask] = useState(false);
   const [newSubtask, setNewSubtask] = useState('');
   const [focusedSubtaskId, setFocusedSubtaskId] = useState<string | null>(null);
@@ -229,6 +233,25 @@ export default function TaskDetailView({ taskId, onClose, variant, active = true
     return true;
   };
   usePaneFocus('pane', () => focusField('title'), variant === 'pane' && !!task);
+
+  // The server's record of this task. Local and sample mode keep none, which
+  // supportsFeature would otherwise answer yes to.
+  const historySupported = state.mode === 'server' && supportsFeature('taskHistory');
+  // From the link it hangs off the link; from the menu bar or ⌘K there is
+  // nothing pressed to tether to, so it opens as a dialog.
+  const openHistory = (e?: { currentTarget: unknown }) => {
+    textDraft.flush();
+    if (!e) {
+      setHistoryAnchor(null);
+      setHistoryOpen(true);
+      return;
+    }
+    measureAnchor(e, (at) => {
+      setHistoryAnchor(at);
+      setHistoryOpen(true);
+    });
+  };
+  useCommand('showHistory', () => openHistory(), variant === 'pane' && active && !!task && historySupported);
 
   if (!task) {
     return (
@@ -749,9 +772,16 @@ export default function TaskDetailView({ taskId, onClose, variant, active = true
           )}
         </Card>
 
-        <Pressable onPress={confirmDelete}>
-          <Text style={styles.delete}>Delete task</Text>
-        </Pressable>
+        <View style={styles.footer}>
+          {historySupported && (
+            <Pressable onPress={openHistory} accessibilityRole="button" hitSlop={6}>
+              <Text style={styles.history}>Show history</Text>
+            </Pressable>
+          )}
+          <Pressable onPress={confirmDelete} accessibilityRole="button" hitSlop={6}>
+            <Text style={styles.delete}>Delete task</Text>
+          </Pressable>
+        </View>
       </Scroll>
       {Platform.OS === 'ios' && variant === 'pane' && (
         <InputAccessoryView nativeID={KEYBOARD_ACCESSORY_ID} backgroundColor="transparent">
@@ -800,6 +830,14 @@ export default function TaskDetailView({ taskId, onClose, variant, active = true
         initialTags={task.tags}
         onApply={(tags) => updateTask(task.id, { tags })}
       />
+      {historySupported && (
+        <TaskHistorySheet
+          visible={historyOpen}
+          onClose={() => setHistoryOpen(false)}
+          taskId={task.id}
+          anchor={historyAnchor}
+        />
+      )}
     </View>
   );
 
@@ -1078,6 +1116,18 @@ const useStyles = makeStyles((c) => ({
   },
   addSubtaskText: {
     fontFamily: fonts.sansRegular,
+    fontSize: 15,
+    color: c.textTertiary,
+  },
+  footer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 24,
+  },
+  history: {
+    paddingVertical: 14,
+    fontFamily: fonts.sansMedium,
     fontSize: 15,
     color: c.textTertiary,
   },

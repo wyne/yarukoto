@@ -13,8 +13,6 @@ yet — see [ROADMAP.md](https://github.com/wyne/yarukoto/blob/main/ROADMAP.md).
   Everything else merges cleanly per record.
 - **"Delete forever" is local-only.** It removes the task from that device immediately; the server
   drops it independently once the retention window elapses.
-- **Per-task history has no UI.** The Activity tab shows recent changes across everything, but
-  one task's full revision list is only at `GET /api/v1/tasks/:id/history`.
 - **Android needs HTTPS.** The Android app won't connect to a plain `http://` server, even on your
   home network, because Android blocks unencrypted traffic. The iPhone app and browsers can use
   `http://` on a local network. See [HTTPS and reverse proxies](/self-hosting/reverse-proxy/).

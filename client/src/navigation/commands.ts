@@ -74,6 +74,7 @@ export type CommandId =
   | 'priorityMedium'
   | 'priorityLow'
   | 'priorityNone'
+  | 'showHistory'
   | 'deleteTask'
   | 'moveToList'
   | 'editTags'
@@ -212,6 +213,9 @@ export const COMMANDS: readonly CommandDef[] = [
   // ⇧⌘M as in Things. Neither on the web, where ⇧⌘T reopens a closed tab.
   { id: 'moveToList', title: 'Move to List…', menu: 'task', group: 'organize', shortcut: cmd('m', 'shift'), list: true, picker: true, keywords: 'list folder file' },
   { id: 'editTags', title: 'Edit Tags…', menu: 'task', group: 'organize', shortcut: cmd('t', 'shift'), list: true, picker: true, keywords: 'tag label add remove' },
+
+  // Answered by the open task's pane, so it needs no selection of its own.
+  { id: 'showHistory', title: 'Show History…', menu: 'task', group: 'history', keywords: 'activity changes revisions log' },
 
   // Plain Delete on the list, not ⌘⌫ in the menu bar: a menu key equivalent
   // fires whatever has focus, and ⌘⌫ is "delete to start of line" in every
