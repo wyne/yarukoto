@@ -1,7 +1,15 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "The app is a web page that talks to its own server over fetch; it calls no Tauri commands, so it is granted none.",
+  "description": "The app is a web page that talks to its own server over fetch. Its only calls into the shell are the notification area icon's (tray.rs): its settings, Today's tasks for its menu, the taskbar badge, and the menu's choices coming back as events.",
   "windows": ["main"],
-  "permissions": []
+  "permissions": [
+    "core:event:allow-listen",
+    "core:event:allow-unlisten",
+    "allow-tray-settings",
+    "allow-set-show-in-tray",
+    "allow-set-open-at-login",
+    "allow-set-tray-tasks",
+    "allow-set-taskbar-badge"
+  ]
 }

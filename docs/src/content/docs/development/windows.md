@@ -52,6 +52,33 @@ Everything else is the page, unchanged. The shell only stops it from behaving li
 | No link-URL popup | `webview2.rs` | WebView2's status bar shows the URL under the pointer, a browser tell. |
 | Browser right-click menu only in text | `init.js` | Back, Refresh and Inspect are meaningless here; Cut, Copy and Paste in a field are not. |
 | OS file drop off | `dragDropEnabled: false` | With it on, WebView2 swallows the page's own drag events. |
+| Notification area icon | `tray.rs` | Today's tasks a right-click away, and the window closes into it instead of exiting. See below. |
+| Open at login | `tauri-plugin-autostart` | The user's Run key, so it is listed in Task Manager's Startup apps. |
+
+## The notification area icon
+
+The Windows counterpart of [the Mac's menu bar extra](/development/mac/), done the Windows way
+rather than copied from it:
+
+- **Left-click** opens the window. **Right-click** opens the menu: Today's tasks (choosing one marks
+  it done), *N more in Today…*, New task…, Open Yarukoto, Settings…, and **Exit**, which is what
+  quits.
+- **The count** of tasks due by today is in the icon's tooltip and on the taskbar button, as an
+  overlay badge. Windows gives tray icons no badge of their own.
+- **The close button** hides the window while the icon is on, the way chat apps do; the page keeps
+  running, so sync carries on. WebView2 slows a hidden page's timers to about once a minute.
+- **Open at login** passes `--hidden`, and a launch with it starts with no window, unless the icon is
+  off and there would be nothing to open it from.
+
+Both are switches under **Settings → General → Windows**, kept by the shell rather than synced
+(`tray.json` in the app's config folder), because a login launch needs them before the page loads.
+The page sends Today with `set_tray_tasks`, built by the same `statusMenuContents` the Mac uses
+(`client/src/navigation/WindowsTrayMenu.tsx`), and gets the menu's choices back as `tray-action`
+events. Those commands are the only ones `capabilities/default.json` grants it.
+
+Windows 11 puts a new app's icon in the overflow (**^**) at first, and an app can't move itself out;
+drag it onto the taskbar, or turn it on under **Settings → Personalization → Taskbar → Other system
+tray icons**.
 
 ## Connecting to a server
 
