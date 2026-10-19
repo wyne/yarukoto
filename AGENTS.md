@@ -5,6 +5,12 @@
 web export as a Windows app (Tauri), and `docs/` contains the Starlight documentation site.
 Subdirectories may add their own `AGENTS.md`; those apply on top of this file.
 
+## Writing about the app
+
+Describe Yarukoto on its own terms. PR titles and descriptions, commit messages, docs, code
+comments and test names don't name other task apps or justify a choice by how another app does
+it. Explain the behavior and why it is right for Yarukoto instead.
+
 ## Backend/Mobile Compatibility
 
 A user's server is updated on their schedule, and their phone updates on the App

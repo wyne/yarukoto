@@ -21,7 +21,7 @@ interface Props {
   onMove: () => void;
   onTags: () => void;
   onToggleComplete: () => void;
-  /** Present for an open repeating task: on to its next date, as TickTick's Skip. */
+  /** Present for an open repeating task: skips on to its next date. */
   onSkip?: () => void;
   onDelete: () => void;
 }

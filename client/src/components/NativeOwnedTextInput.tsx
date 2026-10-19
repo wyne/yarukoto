@@ -64,7 +64,9 @@ const NativeOwnedTextInput = forwardRef<TextInput, Props>(function NativeOwnedTe
       ref={inputRef as never}
       keyboardAppearance={scheme}
       {...props}
-      {...(Platform.OS === 'web' ? { value } : { defaultValue: initialValueRef.current })}
+      // Styled children (QuickAddInput's tokens) carry the text themselves, and
+      // React Native refuses a field given both.
+      {...(Platform.OS === 'web' ? { value } : props.children ? {} : { defaultValue: initialValueRef.current })}
       onChangeText={handleChangeText}
     />
   );

@@ -57,7 +57,7 @@ function task(fields: Partial<Task> = {}): Task {
 }
 
 describe('parseRepeatRule', () => {
-  test('reads TickTick-style rules, with or without the RRULE: prefix', () => {
+  test('reads RRULE bodies, with or without the RRULE: prefix', () => {
     const rule = parseRepeatRule('RRULE:FREQ=MONTHLY;INTERVAL=2;BYDAY=-1FR;UNTIL=20271231T000000Z;TT_SKIP=HOLIDAY,WEEKEND');
     expect(rule).toEqual({
       freq: 'monthly',
@@ -174,7 +174,7 @@ describe('nextOccurrence from the due date', () => {
     expect(walk(due('FREQ=WEEKLY;INTERVAL=1;UNTIL=20261020'), '2026-10-01', 5)).toEqual(['2026-10-01', '2026-10-08', '2026-10-15']);
   });
 
-  test("TickTick's weekend skip", () => {
+  test('TT_SKIP=WEEKEND skips Saturday and Sunday', () => {
     expect(walk(due('FREQ=DAILY;INTERVAL=1;TT_SKIP=WEEKEND'), '2026-10-08', 3)).toEqual([
       '2026-10-08',
       '2026-10-09',
@@ -248,7 +248,7 @@ describe('completeRepeating', () => {
 });
 
 describe('describeRepeat', () => {
-  test('reads like TickTick', () => {
+  test('describes a rule in plain words', () => {
     expect(describeRepeat(due('FREQ=DAILY;INTERVAL=1'))).toBe('Daily');
     expect(describeRepeat(due('FREQ=DAILY;INTERVAL=2'))).toBe('Every 2 days');
     expect(describeRepeat(due('FREQ=WEEKLY;INTERVAL=1;BYDAY=WE,MO'))).toBe('Weekly on Mon, Wed');
@@ -295,7 +295,7 @@ describe('parseRepeatPhrase', () => {
     expect(rule('every year')?.repeat).toEqual(due('FREQ=YEARLY;INTERVAL=1'));
   });
 
-  test('completion-based: Todoist every! and TickTick "after completion"', () => {
+  test('completion-based: "every!" and "after completion"', () => {
     expect(rule('every! 3 days')?.repeat).toEqual({ rule: 'FREQ=DAILY;INTERVAL=3', from: 'completion' });
     expect(rule('every 2 weeks after completion')).toEqual({
       repeat: { rule: 'FREQ=WEEKLY;INTERVAL=2', from: 'completion' },
