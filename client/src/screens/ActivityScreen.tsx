@@ -16,6 +16,7 @@ import { ActivityRevision, createApi } from '../data/api';
 import { useSyncStatus, useTasks } from '../data/TaskContext';
 import { ListDef, Task } from '../data/types';
 import { markdownToPlainText } from '../data/markdown';
+import { NotesDiff, diffNotes } from '../data/notesDiff';
 import {
   ACTIVITY_FILTERS,
   ActivityFilter,
@@ -33,6 +34,8 @@ interface ActivityChange {
   label: string;
   before: string;
   after: string;
+  /** Changed lines, shown instead of before › after when there are any. */
+  diff?: NotesDiff;
 }
 
 interface ActivityItem {
@@ -118,6 +121,7 @@ function changesFor(task: Task, previous: Task | null, lists: ListDef[]): Activi
       label: 'Notes',
       before: markdownToPlainText(previous.notes),
       after: markdownToPlainText(task.notes),
+      diff: diffNotes(previous.notes, task.notes),
     });
   }
   if (task.priority !== previous.priority) {
@@ -510,7 +514,30 @@ export default function ActivityScreen() {
                           )}
                           {!!item.changes?.length && (
                             <View style={styles.changes}>
-                              {item.changes.slice(0, 2).map((change) => (
+                              {item.changes.slice(0, 2).map((change) =>
+                                change.diff?.lines.length ? (
+                                  <View key={change.label} style={styles.diffRow}>
+                                    <Text style={styles.changeLabel}>{change.label}</Text>
+                                    <View style={styles.diffLines}>
+                                      {change.diff.lines.map((line, n) => (
+                                        <Text
+                                          key={n}
+                                          style={line.kind === 'removed' ? styles.diffRemoved : styles.diffAdded}
+                                          numberOfLines={1}
+                                          ellipsizeMode="tail"
+                                        >
+                                          <Text style={styles.diffSign}>{line.kind === 'removed' ? '− ' : '+ '}</Text>
+                                          {line.text}
+                                        </Text>
+                                      ))}
+                                      {change.diff.hidden > 0 && (
+                                        <Text style={styles.diffMore}>
+                                          +{change.diff.hidden} more {change.diff.hidden === 1 ? 'line' : 'lines'}
+                                        </Text>
+                                      )}
+                                    </View>
+                                  </View>
+                                ) : (
                                 <View key={change.label} style={styles.changeRow}>
                                   <Text style={styles.changeLabel}>{change.label}</Text>
                                   <Text style={styles.changeBefore} numberOfLines={1} ellipsizeMode="tail">
@@ -521,7 +548,8 @@ export default function ActivityScreen() {
                                     {change.after}
                                   </Text>
                                 </View>
-                              ))}
+                                )
+                              )}
                               {item.changes.length > 2 && (
                                 <Text style={styles.changeMore}>+{item.changes.length - 2} more</Text>
                               )}
@@ -686,6 +714,35 @@ const useStyles = makeStyles((c) => ({
     fontFamily: fonts.sansMedium,
     fontSize: 12.5,
     color: c.textSecondary,
+  },
+  diffRow: {
+    minWidth: 0,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 5,
+  },
+  diffLines: {
+    flex: 1,
+    minWidth: 0,
+    gap: 1,
+  },
+  diffSign: {
+    fontFamily: fonts.monoRegular,
+  },
+  diffRemoved: {
+    fontFamily: fonts.sansRegular,
+    fontSize: 12.5,
+    color: c.priorityHigh,
+  },
+  diffAdded: {
+    fontFamily: fonts.sansRegular,
+    fontSize: 12.5,
+    color: c.success,
+  },
+  diffMore: {
+    fontFamily: fonts.monoRegular,
+    fontSize: 11,
+    color: c.textTertiary,
   },
   changeMore: {
     marginLeft: 55,
