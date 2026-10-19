@@ -82,6 +82,25 @@ export function IconCalendarBox({ size = 18, color: colorProp, strokeWidth = 1.6
   );
 }
 
+/** The calendar with an arrow across it: the date moved on by a week. */
+export function IconCalendarNext({ size = 18, color: colorProp, strokeWidth = 1.6 }: IconProps) {
+  const c = useColors();
+  const color = colorProp ?? c.textSecondary;
+  return (
+    <Svg width={size} height={size} viewBox="0 0 18 18" fill="none">
+      <Rect x={2.5} y={3.5} width={13} height={12} rx={2} stroke={color} strokeWidth={strokeWidth} />
+      <Path d="M6 1.5v3M12 1.5v3" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" />
+      <Path
+        d="M6 10.5h6M10 8.5l2 2-2 2"
+        stroke={color}
+        strokeWidth={strokeWidth}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
 // White by default because it is only ever drawn on a filled accent or success
 // shape, both of which keep their colour in dark.
 export function IconCheckBig({ size = 18, color = '#fff', strokeWidth = 2 }: IconProps) {

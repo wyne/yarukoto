@@ -412,7 +412,7 @@ function DraggableTask({
 }) {
   const styles = useStyles();
   const colors = useColors();
-  const { state, toggleComplete, scheduleToday, snoozeTask } = useTasks();
+  const { state, toggleComplete, scheduleToday, snoozeTask, scheduleNextWeek } = useTasks();
   const { onLongPress, ...handlers } = useDraggable({
     taskId: task.id,
     taskIds: selected ? selectedIds : [task.id],
@@ -439,7 +439,7 @@ function DraggableTask({
         onToggleComplete={() => toggleComplete(task.id)}
         onToday={() => scheduleToday(task.id)}
         onLater={() => snoozeTask(task.id)}
-        onDone={() => toggleComplete(task.id)}
+        onNextWeek={() => scheduleNextWeek(task.id)}
       />
     </View>
   );

@@ -157,6 +157,7 @@ const TaskListBody = memo(
     skipOccurrence,
     scheduleToday,
     snoozeTask,
+    scheduleNextWeek,
     reorderTasks,
     setArrangement,
     clearArrangement,
@@ -826,7 +827,7 @@ const TaskListBody = memo(
               onToggleComplete={() => toggleComplete(task.id)}
               onToday={() => scheduleToday(task.id)}
               onLater={() => snoozeTask(task.id)}
-              onDone={() => toggleComplete(task.id)}
+              onNextWeek={() => scheduleNextWeek(task.id)}
             />
             {i < tasks.length - 1 &&
               (() => {
@@ -873,6 +874,7 @@ const TaskListBody = memo(
     toggleComplete,
     scheduleToday,
     snoozeTask,
+    scheduleNextWeek,
     selectionMode,
     isSelected,
     selectionCount: webSelection.length,
@@ -884,6 +886,7 @@ const TaskListBody = memo(
     toggleComplete,
     scheduleToday,
     snoozeTask,
+    scheduleNextWeek,
     selectionMode,
     isSelected,
     selectionCount: webSelection.length,
@@ -929,7 +932,7 @@ const TaskListBody = memo(
             onToggleComplete={() => live.current.toggleComplete(task.id)}
             onToday={() => live.current.scheduleToday(task.id)}
             onLater={() => live.current.snoozeTask(task.id)}
-            onDone={() => live.current.toggleComplete(task.id)}
+            onNextWeek={() => live.current.scheduleNextWeek(task.id)}
           />
         );
       }
@@ -961,7 +964,7 @@ const TaskListBody = memo(
             onToggleComplete={() => live.current.toggleComplete(task.id)}
             onToday={() => live.current.scheduleToday(task.id)}
             onLater={() => live.current.snoozeTask(task.id)}
-            onDone={() => live.current.toggleComplete(task.id)}
+            onNextWeek={() => live.current.scheduleNextWeek(task.id)}
           />
         </ContextMenuTarget>
       );
@@ -1173,7 +1176,7 @@ const TaskListBody = memo(
                           onToggleComplete={() => toggleComplete(task.id)}
                           onToday={() => scheduleToday(task.id)}
                           onLater={() => snoozeTask(task.id)}
-                          onDone={() => toggleComplete(task.id)}
+                          onNextWeek={() => scheduleNextWeek(task.id)}
                         />
                         {i < completed.length - 1 && (
                           <Divider railColor={task.listId ? listsById.get(task.listId)?.color : undefined} />

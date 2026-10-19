@@ -645,6 +645,8 @@ interface TaskContextValue {
   scheduleToday: (id: string) => void;
   /** Due tomorrow. */
   snoozeTask: (id: string) => void;
+  /** Due a week from today. */
+  scheduleNextWeek: (id: string) => void;
   /** `ids` is the visible slice in its new order. */
   reorderTasks: (ids: string[], prevId: string | null, nextId: string | null) => void;
   setArrangement: (key: string, sortBy: SortBy, groupKey: string, ids: string[]) => void;
@@ -1003,6 +1005,13 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
   const snoozeTask = useCallback(
     (id: string) => {
       dispatch({ type: 'SET_DUE_DAY', id, days: 1 });
+      markDirty([id]);
+    },
+    [markDirty]
+  );
+  const scheduleNextWeek = useCallback(
+    (id: string) => {
+      dispatch({ type: 'SET_DUE_DAY', id, days: 7 });
       markDirty([id]);
     },
     [markDirty]
@@ -1549,6 +1558,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       toggleSubtask,
       scheduleToday,
       snoozeTask,
+      scheduleNextWeek,
       reorderTasks,
       setArrangement,
       clearArrangement,
@@ -1597,6 +1607,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       toggleSubtask,
       scheduleToday,
       snoozeTask,
+      scheduleNextWeek,
       reorderTasks,
       setArrangement,
       clearArrangement,
