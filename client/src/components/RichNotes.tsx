@@ -1,5 +1,5 @@
 import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
-import { Linking, ScrollView, Text, TextInput, TextInputProps, View } from 'react-native';
+import { Linking, Platform, ScrollView, Text, TextInput, TextInputProps, View } from 'react-native';
 import Markdown, { ASTNode, MarkdownIt, MarkdownStyles, RenderRules } from 'react-native-markdown-renderer';
 import { useAccent } from '../theme/ThemeContext';
 import { makeStyles } from '../theme/styles';
@@ -54,6 +54,19 @@ function openSafeLink(url: string): boolean {
   return true;
 }
 
+/**
+ * A textarea on the web holds the height it opens at and scrolls inside it, so
+ * the notes field showed about four lines however long the note was — unlike
+ * native, where a multiline field with scrolling off grows with its text.
+ * `field-sizing: content` hands the sizing to the browser, which grows and
+ * shrinks the box with the text (Chromium, so the Windows app too). Where it
+ * isn't supported the field's measured content height is fed back in instead,
+ * which grows the box but can't shrink it while the editor stays open.
+ */
+const WEB_FIELD_SIZING =
+  Platform.OS === 'web' && typeof CSS !== 'undefined' && CSS.supports?.('field-sizing', 'content');
+const NOTES_MIN_HEIGHT = 96;
+
 export interface RichNotesHandle {
   focusAtEnd: () => void;
 }
@@ -89,6 +102,8 @@ const RichNotes = forwardRef<RichNotesHandle, Props>(function RichNotes(
   const focusWhenMountedRef = useRef(false);
   const [editing, setEditing] = useState(() => value.trim().length === 0);
   const [focused, setFocused] = useState(false);
+  const [measuredHeight, setMeasuredHeight] = useState(NOTES_MIN_HEIGHT);
+  const growsByMeasure = Platform.OS === 'web' && !WEB_FIELD_SIZING;
 
   const focusEditor = () => {
     selectionRef.current = { start: valueRef.current.length, end: valueRef.current.length };
@@ -261,7 +276,16 @@ const RichNotes = forwardRef<RichNotesHandle, Props>(function RichNotes(
             }}
             placeholder="Add notes with Markdown…"
             placeholderTextColor={styles.notesPlaceholder.color}
-            style={styles.notesInput}
+            style={[
+              styles.notesInput,
+              WEB_FIELD_SIZING && styles.notesInputFieldSizing,
+              growsByMeasure && { height: Math.max(NOTES_MIN_HEIGHT, measuredHeight) },
+            ]}
+            onContentSizeChange={
+              growsByMeasure
+                ? (event) => setMeasuredHeight(Math.ceil(event.nativeEvent.contentSize.height))
+                : undefined
+            }
             multiline
             scrollEnabled={false}
             inputAccessoryViewID={inputAccessoryViewID}
@@ -368,7 +392,12 @@ const useStyles = makeStyles((c) => ({
     color: c.textPrimary,
     marginTop: 10,
     padding: 0,
-    minHeight: 96,
+    minHeight: NOTES_MIN_HEIGHT,
+  },
+  notesInputFieldSizing: {
+    // Spread as a plain object, as `subtaskTitleInput` in TaskDetailView does:
+    // the property isn't in React Native's style types.
+    ...({ fieldSizing: 'content' } as object),
   },
   notesPlaceholder: {
     color: c.textTertiary,
