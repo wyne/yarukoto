@@ -17,7 +17,7 @@ import { getListById, navGroups } from '../data/selectors';
 import { applySuggestion, useQuickAddSuggestions } from '../data/quickAddSuggestions';
 import DueDateQuickMenu from './pickers/DueDateQuickMenu';
 import NativeSheet from './NativeSheet';
-import NativeOwnedTextInput from './NativeOwnedTextInput';
+import QuickAddInput from './QuickAddInput';
 import { IconCalendarBox, IconCheckBig, IconFlag, IconFolder, IconPlus, IconTag } from '../icons/Icons';
 import { useNativeDateTimePicker } from '../navigation/DateTimePickerContext';
 
@@ -236,7 +236,7 @@ export default function TaskComposerSheet({ visible, onClose, defaults, contextL
       // than open-then-keyboard.
       onShow={() => inputRef.current?.focus()}
     >
-      <NativeOwnedTextInput
+      <QuickAddInput
         ref={inputRef}
         sheet
         value={text}

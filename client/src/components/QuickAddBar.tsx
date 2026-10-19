@@ -14,6 +14,8 @@ import { focusNextPane, focusPane, usePaneFocus } from '../navigation/focusPanes
 import KeyCommandsView from '../../modules/mac-pointer/src/KeyCommandsView';
 import { MAC } from '../data/platform';
 import ShortcutHint from './ShortcutHint';
+import QuickAddInput from './QuickAddInput';
+import { activeLists } from '../data/selectors';
 
 const HINT = 'Add a task… try "pay rent fri 6pm #home !high ~admin"';
 
@@ -37,6 +39,11 @@ export default function QuickAddBar({ onSubmit, contextLabel }: Props) {
   usePaneFocus('add', () => inputRef.current?.focus());
   const parsed = text.trim() ? parseQuickAdd(text) : null;
   const dueLabel = parsed ? formatDueShort(new Date(), parsed.dueDate, parsed.dueTime) : null;
+  // The field tints the tokens themselves; underneath goes only what they
+  // resolve to that the typed word doesn't say — the date, and the list's name.
+  const typedList = parsed?.listName
+    ? activeLists(state.lists).find((l) => l.name.toLowerCase() === parsed.listName!.toLowerCase())
+    : undefined;
 
   const submit = () => {
     if (!text.trim()) return;
@@ -116,14 +123,14 @@ export default function QuickAddBar({ onSubmit, contextLabel }: Props) {
     setSelectedIndex(-1);
   };
 
-  const hasChips = !!(dueLabel || parsed?.tags.length || parsed?.listName || (parsed && parsed.priority !== 'none'));
+  const hasChips = !!(dueLabel || typedList);
 
   const field = (
     <>
       <Pressable onPress={submit} hitSlop={8}>
         <IconPlus size={16} color={accent} />
       </Pressable>
-      <TextInput
+      <QuickAddInput
         ref={inputRef}
         value={text}
         onChangeText={handleChangeText}
@@ -176,19 +183,9 @@ export default function QuickAddBar({ onSubmit, contextLabel }: Props) {
               <Text style={[styles.chipText, { color: accent }]}>{dueLabel.toLowerCase()}</Text>
             </View>
           )}
-          {parsed?.tags.map((t) => (
-            <View key={t} style={[styles.chip, { backgroundColor: colors.chipBg }]}>
-              <Text style={[styles.chipText, { color: colors.textSecondary }]}>#{t}</Text>
-            </View>
-          ))}
-          {parsed?.listName && (
+          {typedList && (
             <View style={[styles.chip, { backgroundColor: colors.chipBg }]}>
-              <Text style={[styles.chipText, { color: colors.textSecondary }]}>~{parsed.listName}</Text>
-            </View>
-          )}
-          {parsed && parsed.priority !== 'none' && (
-            <View style={[styles.chip, { backgroundColor: colors.priorityHighBg }]}>
-              <Text style={[styles.chipText, { color: colors.priorityHigh }]}>!{parsed.priority}</Text>
+              <Text style={[styles.chipText, { color: colors.textSecondary }]}>{typedList.name}</Text>
             </View>
           )}
         </View>

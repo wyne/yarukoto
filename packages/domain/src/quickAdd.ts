@@ -14,7 +14,17 @@ export interface ParsedQuickAdd {
   repeat?: TaskRepeat;
 }
 
-const WEEKDAYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+/** What a recognized run of the input sets, for highlighting it where it was typed. */
+export type QuickAddTokenKind = 'date' | 'time' | 'repeat' | 'tag' | 'list' | 'priority';
+
+/** A recognized run of the input, as `[start, end)` character offsets into it. */
+export interface QuickAddSpan {
+  kind: QuickAddTokenKind;
+  start: number;
+  end: number;
+}
+
+const WEEKDAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
 
 const PRIORITY_WORDS: Record<string, Priority> = {
   high: 'high',
@@ -29,7 +39,9 @@ const PRIORITY_WORDS: Record<string, Priority> = {
 
 function matchWeekday(word: string): number | null {
   const w = word.toLowerCase();
-  const i = WEEKDAYS.findIndex((d) => d === w || d === w.slice(0, 3));
+  // A prefix of the day's name, three letters or more: "thu", "thurs", "thursday".
+  // Not the other way round, which read "monkey" and "satin" as days.
+  const i = w.length >= 3 ? WEEKDAYS.findIndex((d) => d.startsWith(w)) : -1;
   return i === -1 ? null : i;
 }
 
@@ -66,7 +78,24 @@ function matchTime(word: string): string | null {
  * Unrecognized tokens are kept, in order, as the task title.
  */
 export function parseQuickAdd(input: string, now: Date = new Date()): ParsedQuickAdd {
-  const tokens = input.trim().split(/\s+/).filter(Boolean);
+  return scanQuickAdd(input, now).parsed;
+}
+
+/**
+ * Where each recognized token sits in `input`, in order — what the entry fields
+ * tint. Every span is a run the parser took out of the title, so the highlight
+ * and the created task can't disagree.
+ */
+export function quickAddSpans(input: string, now: Date = new Date()): QuickAddSpan[] {
+  return scanQuickAdd(input, now).spans;
+}
+
+function scanQuickAdd(input: string, now: Date): { parsed: ParsedQuickAdd; spans: QuickAddSpan[] } {
+  const words = Array.from(input.matchAll(/\S+/g), (m) => ({ text: m[0], start: m.index!, end: m.index! + m[0].length }));
+  const tokens = words.map((w) => w.text);
+  const spans: QuickAddSpan[] = [];
+  const mark = (kind: QuickAddTokenKind, first: number, last = first) =>
+    spans.push({ kind, start: words[first].start, end: words[last].end });
   const titleParts: string[] = [];
   const tags: string[] = [];
   let priority: Priority = 'none';
@@ -84,42 +113,50 @@ export function parseQuickAdd(input: string, now: Date = new Date()): ParsedQuic
       const phrase = parseRepeatPhrase(tokens.slice(index));
       if (phrase) {
         repeat = phrase.repeat;
+        mark('repeat', index, index + phrase.wordCount - 1);
         index += phrase.wordCount - 1;
         continue;
       }
     }
     if (raw.startsWith('#') && raw.length > 1) {
       tags.push(raw.slice(1).toLowerCase());
+      mark('tag', index);
       continue;
     }
     if (raw.startsWith('~') && raw.length > 1) {
       listName = raw.slice(1);
+      mark('list', index);
       continue;
     }
     if (raw.startsWith('!') && raw.length > 1) {
       const p = PRIORITY_WORDS[raw.slice(1).toLowerCase()];
       if (p) {
         priority = p;
+        mark('priority', index);
         continue;
       }
     }
     const lower = raw.toLowerCase();
     if (lower === 'today') {
       dueDate = toISODate(now);
+      mark('date', index);
       continue;
     }
     if (lower === 'tomorrow' || lower === 'tmrw') {
       dueDate = toISODate(addDays(now, 1));
+      mark('date', index);
       continue;
     }
     const dow = matchWeekday(lower);
     if (dow !== null) {
       dueDate = toISODate(nextWeekday(now, dow));
+      mark('date', index);
       continue;
     }
     const time = matchTime(lower);
     if (time && (dueDate || repeat || tokens.some((t) => matchWeekday(t.toLowerCase()) !== null || ['today', 'tomorrow', 'tmrw'].includes(t.toLowerCase())))) {
       dueTime = time;
+      mark('time', index);
       continue;
     }
     titleParts.push(raw);
@@ -138,5 +175,5 @@ export function parseQuickAdd(input: string, now: Date = new Date()): ParsedQuic
     listName,
   };
   if (repeat) parsed.repeat = repeat;
-  return parsed;
+  return { parsed, spans };
 }
