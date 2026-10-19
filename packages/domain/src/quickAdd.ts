@@ -162,8 +162,8 @@ function scanQuickAdd(input: string, now: Date): { parsed: ParsedQuickAdd; spans
     titleParts.push(raw);
   }
 
-  // A repeat needs a date to count from: the first day it falls on, as
-  // TickTick does for "every monday" typed on a Friday.
+  // A repeat needs a date to count from: the first day it falls on, so
+  // "every monday" typed on a Friday starts on Monday.
   if (repeat && !dueDate) dueDate = firstOccurrenceOnOrAfter(repeat, toISODate(now));
 
   const parsed: ParsedQuickAdd = {

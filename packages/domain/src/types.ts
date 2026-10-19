@@ -29,10 +29,10 @@ export interface TaskReminder {
 }
 
 /**
- * How a task comes back after it is completed, modelled on TickTick's.
+ * How a task comes back after it is completed.
  *
  * `rule` is an RFC 5545 RRULE body — `FREQ=WEEKLY;INTERVAL=1;BYDAY=MO,WE` — the
- * same notation TickTick stores, so an imported rule survives as written. See
+ * common notation for repeats, so an imported rule survives as written. See
  * `recurrence.ts` for the subset that is understood.
  */
 export interface TaskRepeat {

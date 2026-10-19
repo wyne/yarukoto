@@ -51,7 +51,7 @@ interface Props {
 
 /**
  * The task composer: a title field with helper buttons that each open a small
- * menu, in the shape of TickTick's.
+ * menu.
  *
  * List, tag, and priority menus render in-flow because the sheet clips overlays
  * to its rounded corners. Date and time use native picker modals instead.
@@ -156,10 +156,10 @@ export default function TaskComposerSheet({ visible, onClose, defaults, contextL
   };
 
   /**
-   * The keyboard's return key: add this one and stay open for the next, the way
-   * TickTick's composer does. The sheet and keyboard don't move — the draft just
-   * empties back to the view's scope, so a run of tasks is one continuous typing
-   * session rather than reopening the sheet each time.
+   * The keyboard's return key: add this one and stay open for the next. The
+   * sheet and keyboard don't move — the draft just empties back to the view's
+   * scope, so a run of tasks is one continuous typing session rather than
+   * reopening the sheet each time.
    */
   const submitAndContinue = () => {
     if (!commit()) return;

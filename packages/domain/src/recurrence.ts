@@ -2,16 +2,15 @@ import { Task, TaskRepeat } from './types';
 import { addDays, fromISODate, toISODate } from './dates';
 
 /**
- * Repeating tasks, modelled on TickTick's.
+ * Repeating tasks.
  *
  * A repeating task is one row — the *series* — whose due date moves forward each
  * time it is completed. The occurrence that was just done is kept as its own
- * completed row, so "what did I do last week" still has an answer, exactly as
- * TickTick leaves a completed copy behind in the list.
+ * completed row, so "what did I do last week" still has an answer.
  *
- * Rules are RFC 5545 RRULE bodies, which is also what TickTick stores, so an
+ * Rules are RFC 5545 RRULE bodies, the common notation for repeats, so an
  * imported rule is kept as written. The subset understood here is everything
- * TickTick's own repeat picker can produce:
+ * the repeat picker can produce:
  *
  *   FREQ       DAILY | WEEKLY | MONTHLY | YEARLY
  *   INTERVAL   every N periods
@@ -21,7 +20,7 @@ import { addDays, fromISODate, toISODate } from './dates';
  *   BYSETPOS   the nth of the month's candidates (-1 with MO..FR = last weekday)
  *   COUNT      how many occurrences are *left*, this one included
  *   UNTIL      the last date an occurrence may fall on
- *   TT_SKIP    TickTick's WEEKEND skip; HOLIDAY is accepted and ignored
+ *   TT_SKIP    WEEKEND skips Saturday and Sunday; HOLIDAY is accepted and ignored
  *
  * Shared because the app rolls a series forward when you tick it off, and the
  * server does the same for every other way in — the task API, MCP, Home
@@ -144,7 +143,7 @@ export function parseRepeatRule(text: string): RepeatRule | null {
       rule.skipWeekends = value.toUpperCase().split(',').indexOf('WEEKEND') >= 0;
     }
     // WKST and anything else are accepted and dropped: the week starts on
-    // Monday here, which is the RFC's default and what TickTick writes.
+    // Monday here, which is the RFC's default.
   }
   if (!freq) return null;
   rule.freq = freq;
@@ -346,9 +345,9 @@ function addMonthsClamped(d: Date, months: number): Date {
 }
 
 /**
- * TickTick's "repeat from completion date": the interval is counted from the
- * day it was done, in whole periods. Weekday lists and the like have no meaning
- * here and are ignored, as TickTick's picker doesn't offer them in this mode.
+ * "Repeat from completion date": the interval is counted from the day it was
+ * done, in whole periods. Weekday lists and the like have no meaning here and
+ * are ignored; the picker doesn't offer them in this mode.
  */
 function nextFromCompletion(rule: RepeatRule, completedOnISO: string): string | null {
   const base = fromISODate(completedOnISO);
@@ -408,7 +407,7 @@ function isRepeating(task: Task): task is Task & { repeat: TaskRepeat; dueDate: 
  *
  * `at` stamps both rows, so a completion carried in from a notification keeps
  * the time it was actually tapped. Checklist items start unchecked again on the
- * next occurrence, as they do in TickTick.
+ * next occurrence.
  */
 export function completeRepeating(task: Task, at: string, completedOn: string): RolledSeries | null {
   if (!isRepeating(task)) return null;
@@ -435,7 +434,7 @@ export function completeRepeating(task: Task, at: string, completedOn: string): 
 }
 
 /**
- * TickTick's "Skip": move to the next date without recording a completion.
+ * "Skip": move to the next date without recording a completion.
  * Null when there is no next date to skip to.
  */
 export function skipRepeating(task: Task, at: string, today: string): Task | null {
@@ -551,7 +550,7 @@ export interface RepeatPreset {
   repeat: TaskRepeat;
 }
 
-/** TickTick's quick choices, worded for the task's own date. */
+/** The quick repeat choices, worded for the task's own date. */
 export function repeatPresets(dueDate: string): RepeatPreset[] {
   const d = fromISODate(dueDate);
   const dayCode = DAY_CODES[d.getDay()];
@@ -612,11 +611,10 @@ export interface ParsedRepeatPhrase {
 }
 
 /**
- * Reads a repeat the way people type one, after TickTick's and Todoist's smart
- * dates: "daily", "every day", "every other week", "every 3 months",
- * "every mon, wed", "every weekday", "every 15th", "every last day",
- * "every 2nd tue", "every year". Todoist's "every!" means from completion, as
- * does a trailing "after completion" — TickTick's wording.
+ * Reads a repeat the way people type one: "daily", "every day",
+ * "every other week", "every 3 months", "every mon, wed", "every weekday",
+ * "every 15th", "every last day", "every 2nd tue", "every year". "every!" means
+ * from completion, as does a trailing "after completion".
  *
  * `words` starts at the trigger word. Returns null unless the words that follow
  * really are a repeat, so "every time I forget" stays a title.
