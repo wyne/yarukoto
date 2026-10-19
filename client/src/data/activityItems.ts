@@ -1,5 +1,6 @@
 import { ListDef, Task } from './types';
 import { markdownToPlainText } from './markdown';
+import { NotesDiff, diffNotes } from './notesDiff';
 import { ActivityKind } from './activityFilter';
 import { addDays, formatDueFull, formatDueShort, fromISODate, toISODate } from './dateUtils';
 import type { ActivityRevision } from './api';
@@ -14,6 +15,8 @@ export interface ActivityChange {
   label: string;
   before: string;
   after: string;
+  /** Changed lines, shown instead of before › after when there are any. */
+  diff?: NotesDiff;
 }
 
 export interface ActivityItem {
@@ -77,6 +80,7 @@ export function changesFor(task: Task, previous: Task | null, lists: ListDef[]):
       label: 'Notes',
       before: markdownToPlainText(previous.notes),
       after: markdownToPlainText(task.notes),
+      diff: diffNotes(previous.notes, task.notes),
     });
   }
   if (task.priority !== previous.priority) {

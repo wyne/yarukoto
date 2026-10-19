@@ -39,20 +39,46 @@ export default function ActivityChanges({ changes, limit }: Props) {
   const shown = limit === undefined ? changes : changes.slice(0, limit);
   return (
     <View style={styles.changes}>
-      {shown.map((change) => (
-        <View key={change.label} style={styles.changeRow}>
-          <Text style={styles.changeLabel} numberOfLines={1}>
-            {change.label}
-          </Text>
-          <Text style={styles.changeBefore} numberOfLines={1} ellipsizeMode="tail">
-            {change.before}
-          </Text>
-          <IconChevronRight size={11} color={colors.textFaint} />
-          <Text style={styles.changeAfter} numberOfLines={1} ellipsizeMode="tail">
-            {change.after}
-          </Text>
-        </View>
-      ))}
+      {shown.map((change) =>
+        change.diff?.lines.length ? (
+          <View key={change.label} style={styles.diffRow}>
+            <Text style={styles.changeLabel} numberOfLines={1}>
+              {change.label}
+            </Text>
+            <View style={styles.diffLines}>
+              {change.diff.lines.map((line, n) => (
+                <Text
+                  key={n}
+                  style={line.kind === 'removed' ? styles.diffRemoved : styles.diffAdded}
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                >
+                  <Text style={styles.diffSign}>{line.kind === 'removed' ? '− ' : '+ '}</Text>
+                  {line.text}
+                </Text>
+              ))}
+              {change.diff.hidden > 0 && (
+                <Text style={styles.diffMore}>
+                  +{change.diff.hidden} more {change.diff.hidden === 1 ? 'line' : 'lines'}
+                </Text>
+              )}
+            </View>
+          </View>
+        ) : (
+          <View key={change.label} style={styles.changeRow}>
+            <Text style={styles.changeLabel} numberOfLines={1}>
+              {change.label}
+            </Text>
+            <Text style={styles.changeBefore} numberOfLines={1} ellipsizeMode="tail">
+              {change.before}
+            </Text>
+            <IconChevronRight size={11} color={colors.textFaint} />
+            <Text style={styles.changeAfter} numberOfLines={1} ellipsizeMode="tail">
+              {change.after}
+            </Text>
+          </View>
+        )
+      )}
       {changes.length > shown.length && <Text style={styles.changeMore}>+{changes.length - shown.length} more</Text>}
     </View>
   );
@@ -89,6 +115,35 @@ const useStyles = makeStyles((c) => ({
     fontFamily: fonts.sansMedium,
     fontSize: 12.5,
     color: c.textSecondary,
+  },
+  diffRow: {
+    minWidth: 0,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 5,
+  },
+  diffLines: {
+    flex: 1,
+    minWidth: 0,
+    gap: 1,
+  },
+  diffSign: {
+    fontFamily: fonts.monoRegular,
+  },
+  diffRemoved: {
+    fontFamily: fonts.sansRegular,
+    fontSize: 12.5,
+    color: c.priorityHigh,
+  },
+  diffAdded: {
+    fontFamily: fonts.sansRegular,
+    fontSize: 12.5,
+    color: c.success,
+  },
+  diffMore: {
+    fontFamily: fonts.monoRegular,
+    fontSize: 11,
+    color: c.textTertiary,
   },
   changeMore: {
     marginLeft: 63,

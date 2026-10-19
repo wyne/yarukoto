@@ -93,6 +93,8 @@ const TITLES = { all: 'All', inbox: 'Inbox', today: 'Today' } as const;
  * web keeps the fully built column, whose drag and hover wiring is DOM-specific.
  */
 const VIRTUALIZED = Platform.OS !== 'web';
+/** Room left between a revealed row and the edge it was brought in from. */
+const REVEAL_MARGIN = 8;
 const GROUP_LAYOUT = LinearTransition.duration(180);
 const GROUP_ENTER = FadeIn.duration(140);
 /**
@@ -474,6 +476,24 @@ const TaskListBody = memo(
     if (taskPane && openTaskId && openTaskId !== id) openTask(id);
   };
   const stepTo = (delta: 1 | -1) => moveCursor(stepCursor(navIds, cursor, delta));
+  /**
+   * Brings the cursor's row into view on the web, as `VirtualTaskList` does
+   * natively. The web column is fully built, so the row is always on the page
+   * to find; it comes in at whichever edge it was past, the least scrolling
+   * that shows it.
+   */
+  useEffect(() => {
+    if (Platform.OS !== 'web' || !cursor) return;
+    const scroller = scrollRef.current as unknown as HTMLElement | null;
+    const row = scroller?.querySelector?.(`[data-task-row="${CSS.escape(cursor)}"]`);
+    if (!scroller || !row) return;
+    const view = scroller.getBoundingClientRect();
+    const { top, bottom } = row.getBoundingClientRect();
+    const above = top - REVEAL_MARGIN - view.top;
+    const below = bottom + REVEAL_MARGIN - view.bottom;
+    const by = above < 0 ? above : below > 0 ? below : 0;
+    if (by !== 0) scroller.scrollTop += by;
+  }, [cursor, scrollRef]);
   const extendTo = (delta: 1 | -1) => {
     if (!cursor) return stepTo(delta);
     const from = head.current && navIds.includes(head.current) ? head.current : cursor;
@@ -783,6 +803,8 @@ const TaskListBody = memo(
         dragCount={(id) => (isSelected(id) ? webSelection.length : 1)}
         renderItem={(task, i) => (
           <ContextMenuTarget
+            // How the cursor's row is found to bring it into view.
+            dataSet={{ taskRow: task.id }}
             onOpen={(pos) => {
               setMenuTask(task.id);
               setMenuAt({ x: pos.x, y: pos.y, width: 0, height: 0 });
