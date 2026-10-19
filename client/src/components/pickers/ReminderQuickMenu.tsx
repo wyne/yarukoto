@@ -43,6 +43,14 @@ const UNIT_TAB_LABELS: Record<ReminderOffsetUnit, string> = { day: 'Day', week: 
 const INLINE_TIME = Platform.OS === 'ios';
 
 /**
+ * The web has neither a wheel nor a native menu. `Picker` falls back to a bare
+ * `<select>` there, which takes the wheel's height and none of the theme, so the
+ * offset is stepped instead, as the repeat panel steps its interval, and the
+ * menu's quick choices live in the panel.
+ */
+const WEB = Platform.OS === 'web';
+
+/**
  * Wheel geometry, gathered here because it is the only lever on the selection
  * capsule. Each wheel hands its host width straight to the capsule drawn behind
  * the chosen rung, so these widths are the capsule widths.
@@ -109,6 +117,7 @@ export default function ReminderQuickMenu({ reminders: rawReminders, dueTime, on
   const [customTime, setCustomTime] = useState(DEFAULT_REMINDER_TIME);
   const [offsetUnit, setOffsetUnit] = useState<ReminderOffsetUnit>('day');
   const offsetOptions = useMemo(() => reminderOffsetOptions(offsetUnit), [offsetUnit]);
+  const offsetIndex = Math.max(0, offsetOptions.findIndex((option) => option.offsetDays === customOffset));
   const customExists = hasReminder(reminders, { offsetDays: customOffset, time: customTime });
 
   // Switching units moves the wheel to the nearest rung the new one has, so the
@@ -243,7 +252,7 @@ export default function ReminderQuickMenu({ reminders: rawReminders, dueTime, on
       <Sheet
         visible={customOpen}
         onClose={() => setCustomOpen(false)}
-        title="Custom reminder"
+        title={WEB ? 'Reminders' : 'Custom reminder'}
         anchor={customAnchor}
         popoverWidth={320}
         stackBehavior="push"
@@ -253,6 +262,43 @@ export default function ReminderQuickMenu({ reminders: rawReminders, dueTime, on
         confirmDisabled={customExists}
       >
         <View style={styles.sheetBody}>
+          {WEB && (
+            <View style={styles.presets}>
+              {presets.map((preset) => {
+                const on = hasReminder(reminders, preset);
+                return (
+                  <Pressable
+                    key={presetToggleId(preset)}
+                    style={[styles.preset, on && { borderColor: accent }]}
+                    onPress={() => toggle(preset.offsetDays, preset.time)}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: on }}
+                  >
+                    <Text style={[styles.presetText, on && { color: accent }]}>{preset.label}</Text>
+                  </Pressable>
+                );
+              })}
+              {customReminders.map((reminder) => (
+                <Pressable
+                  key={reminder.id}
+                  style={[styles.preset, { borderColor: accent }]}
+                  onPress={() => removeById(reminder.id)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Remove ${formatReminder(reminder)}`}
+                  accessibilityState={{ selected: true }}
+                >
+                  <Text style={[styles.presetText, { color: accent }]}>{formatReminder(reminder)}  ×</Text>
+                </Pressable>
+              ))}
+              {reminders.length > 0 && (
+                <Pressable style={styles.preset} onPress={() => onChange([])} accessibilityRole="button">
+                  <Text style={styles.presetText}>Clear all</Text>
+                </Pressable>
+              )}
+            </View>
+          )}
+          {WEB && <Text style={styles.sectionLabel}>Custom</Text>}
+
           {/*
             Drawn here rather than with the native segmented control: that one
             is a SwiftUI Host, and inside the sheet it rendered but never took a
@@ -308,6 +354,35 @@ export default function ReminderQuickMenu({ reminders: rawReminders, dueTime, on
                   </Text>
                 </View>
               </MenuView>
+            ) : WEB ? (
+              <View style={styles.stepper}>
+                <Pressable
+                  style={styles.stepButton}
+                  onPress={() => setCustomOffset(offsetOptions[offsetIndex - 1].offsetDays)}
+                  disabled={offsetIndex <= 0}
+                  accessibilityRole="button"
+                  accessibilityLabel="Closer to the due date"
+                >
+                  <Text style={[styles.stepText, { color: offsetIndex <= 0 ? colors.textTertiary : accent }]}>−</Text>
+                </Pressable>
+                <Text style={styles.stepValue}>{offsetOptions[offsetIndex].label}</Text>
+                <Pressable
+                  style={styles.stepButton}
+                  onPress={() => setCustomOffset(offsetOptions[offsetIndex + 1].offsetDays)}
+                  disabled={offsetIndex >= offsetOptions.length - 1}
+                  accessibilityRole="button"
+                  accessibilityLabel="Further before the due date"
+                >
+                  <Text
+                    style={[
+                      styles.stepText,
+                      { color: offsetIndex >= offsetOptions.length - 1 ? colors.textTertiary : accent },
+                    ]}
+                  >
+                    +
+                  </Text>
+                </Pressable>
+              </View>
             ) : (
               <Picker
                 style={styles.offsetWheel}
@@ -370,6 +445,33 @@ const useStyles = makeStyles((c) => ({
     gap: 14,
     paddingTop: 4,
   },
+  presets: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  preset: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: c.border,
+    backgroundColor: c.surfaceMuted,
+  },
+  presetText: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 13,
+    color: c.textPrimary,
+  },
+  sectionLabel: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 12,
+    color: c.textTertiary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    textAlign: 'center',
+    marginTop: 4,
+  },
   unitTabs: {
     flexDirection: 'row',
     alignSelf: 'center',
@@ -422,6 +524,31 @@ const useStyles = makeStyles((c) => ({
   timeWheel: {
     width: TIME_WHEEL_WIDTH,
     height: WHEEL_HEIGHT,
+  },
+  stepper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: c.border,
+    borderRadius: 8,
+    backgroundColor: c.surfaceMuted,
+  },
+  stepButton: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stepText: {
+    fontFamily: fonts.sansSemiBold,
+    fontSize: 18,
+  },
+  stepValue: {
+    minWidth: 96,
+    textAlign: 'center',
+    fontFamily: fonts.sansSemiBold,
+    fontSize: 16,
+    color: c.textPrimary,
   },
   timeButton: {
     minHeight: 42,
