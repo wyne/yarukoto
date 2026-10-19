@@ -60,6 +60,18 @@ const MARGIN = 8;
 const EDGE = 12;
 
 /**
+ * Where a popover from this anchor goes: below it, or above when there isn't
+ * room below and there is more above. `room` is the height it has there, for
+ * content that scrolls rather than run off the window.
+ */
+export function popoverPlacement(anchor: PopoverAnchor, winHeight: number): { flip: boolean; room: number } {
+  const below = anchor.y + anchor.height + MARGIN;
+  const spaceBelow = winHeight - below - EDGE;
+  const flip = spaceBelow < 200 && anchor.y > spaceBelow;
+  return { flip, room: flip ? anchor.y - MARGIN - EDGE : spaceBelow };
+}
+
+/**
  * Below this a touch-screen browser is probably a phone, where the panel would
  * cover most of the screen and a bottom sheet is the better shape — a tethered
  * panel only reads as one when there is visibly a page behind it. A narrow
@@ -99,13 +111,11 @@ export default function Popover({
   // would overflow it.
   const wanted = align === 'start' ? anchor.x : anchor.x + anchor.width - width;
   const left = Math.min(Math.max(EDGE, wanted), Math.max(EDGE, winWidth - width - EDGE));
-  const below = anchor.y + anchor.height + MARGIN;
-  const spaceBelow = winHeight - below - EDGE;
-  const flip = spaceBelow < 200 && anchor.y > spaceBelow;
+  const { flip } = popoverPlacement(anchor, winHeight);
 
   const place = [
     { width, left },
-    flip ? { bottom: winHeight - anchor.y + MARGIN } : { top: below },
+    flip ? { bottom: winHeight - anchor.y + MARGIN } : { top: anchor.y + anchor.height + MARGIN },
   ];
 
   // Escape closes, as it would for any other dismissible layer on a desktop.
