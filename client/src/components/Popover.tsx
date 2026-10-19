@@ -1,17 +1,12 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Modal, Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
 import ThemedGlassView from './ThemedGlassView';
 import EscapeToClose from './EscapeToClose';
 import { LIQUID_GLASS } from '../data/platform';
 import { makeStyles } from '../theme/styles';
+import { placePopover, POPOVER_EDGE as EDGE, type PopoverAnchor } from './popoverPlacement';
 
-/** Where the control that opened the popover sits, in window coordinates. */
-export interface PopoverAnchor {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
+export type { PopoverAnchor };
 
 /**
  * Measures the control a press landed on, for a popover to tether to. Hands back
@@ -56,21 +51,6 @@ interface Props {
   children: React.ReactNode;
 }
 
-const MARGIN = 8;
-const EDGE = 12;
-
-/**
- * Where a popover from this anchor goes: below it, or above when there isn't
- * room below and there is more above. `room` is the height it has there, for
- * content that scrolls rather than run off the window.
- */
-export function popoverPlacement(anchor: PopoverAnchor, winHeight: number): { flip: boolean; room: number } {
-  const below = anchor.y + anchor.height + MARGIN;
-  const spaceBelow = winHeight - below - EDGE;
-  const flip = spaceBelow < 200 && anchor.y > spaceBelow;
-  return { flip, room: flip ? anchor.y - MARGIN - EDGE : spaceBelow };
-}
-
 /**
  * Below this a touch-screen browser is probably a phone, where the panel would
  * cover most of the screen and a bottom sheet is the better shape — a tethered
@@ -85,9 +65,9 @@ export const POPOVER_MIN_WIDTH = 600;
  * where a bottom sheet is the wrong shape — it travels the full height of the
  * window to answer a question asked in the top corner.
  *
- * Aligned to one edge of its anchor and flipped above it when there isn't room
- * below. An anchor with no size is a point, which is how a context menu opens
- * at the pointer.
+ * Aligned to one edge of its anchor and kept inside the window: see
+ * `placePopover`. An anchor with no size is a point, which is how a context menu
+ * opens at the pointer.
  */
 export default function Popover({
   visible,
@@ -105,18 +85,27 @@ export default function Popover({
   // Narrow windows get whatever is available rather than an overflowing card.
   const width = Math.min(preferred, winWidth - EDGE * 2);
 
+  // The panel's own height, measured once it lays out, since only the content
+  // knows it. Until then the panel is drawn but invisible, so it never shows a
+  // frame in the wrong place; a closed popover forgets it, since the next one
+  // may hold something else.
+  const [height, setHeight] = useState<number | null>(null);
+  useEffect(() => {
+    if (!visible || !anchor) setHeight(null);
+  }, [visible, anchor]);
+
   if (!anchor) return null;
 
-  // Aligned to the requested edge, then pulled back inside the window if that
-  // would overflow it.
-  const wanted = align === 'start' ? anchor.x : anchor.x + anchor.width - width;
-  const left = Math.min(Math.max(EDGE, wanted), Math.max(EDGE, winWidth - width - EDGE));
-  const { flip } = popoverPlacement(anchor, winHeight);
+  const { left, top } = placePopover({
+    anchor,
+    width,
+    height: height ?? 0,
+    bounds: { width: winWidth, height: winHeight },
+    align,
+  });
 
-  const place = [
-    { width, left },
-    flip ? { bottom: winHeight - anchor.y + MARGIN } : { top: anchor.y + anchor.height + MARGIN },
-  ];
+  const place = [{ width, left, top }, height === null && { opacity: 0 }];
+  const measure = (e: { nativeEvent: { layout: { height: number } } }) => setHeight(e.nativeEvent.layout.height);
 
   // Escape closes, as it would for any other dismissible layer on a desktop.
   const body = (
@@ -135,11 +124,17 @@ export default function Popover({
          * sticker of glass. `isInteractive` stays off: that is for controls that
          * morph under a finger, and this is a surface things sit on.
          */
-        <ThemedGlassView glassEffectStyle="regular" style={[styles.card, styles.glassCard, place]}>
+        <ThemedGlassView
+          glassEffectStyle="regular"
+          style={[styles.card, styles.glassCard, place]}
+          onLayout={measure}
+        >
           {children}
         </ThemedGlassView>
       ) : (
-        <View style={[styles.card, place]}>{children}</View>
+        <View style={[styles.card, place]} onLayout={measure}>
+          {children}
+        </View>
       )}
     </EscapeToClose>
   );

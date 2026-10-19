@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ScrollView, Text, View } from 'react-native';
 import Sheet, { useDesktopPresentation } from './Sheet';
-import { popoverPlacement, PopoverAnchor } from './Popover';
+import type { PopoverAnchor } from './Popover';
+import { POPOVER_EDGE } from './popoverPlacement';
 import ActivityChanges, { eventColor } from './ActivityChanges';
 import { makeStyles } from '../theme/styles';
 import { fonts } from '../theme/typography';
@@ -15,8 +16,6 @@ import { useWindowSelector } from './useWindowSelector';
 const MAX_HEIGHT_RATIO = 0.7;
 /** The popover's title row and padding, which sit outside its scrolling body. */
 const POPOVER_CHROME = 64;
-/** Shortest the popover's body gets, so a cramped spot still shows a few entries. */
-const POPOVER_MIN_BODY = 160;
 
 interface Props {
   visible: boolean;
@@ -41,11 +40,9 @@ export default function TaskHistorySheet({ visible, onClose, taskId, anchor }: P
   const desktop = useDesktopPresentation();
   const height = useWindowSelector((window) => window.height);
   const maxHeight = Math.round(height * MAX_HEIGHT_RATIO);
-  // The link sits at the foot of the task, so the popover often has less of the
-  // window than the sheet would; it scrolls within what is left beside the link.
-  const popoverBody = anchor
-    ? Math.max(POPOVER_MIN_BODY, Math.min(maxHeight, popoverPlacement(anchor, height).room - POPOVER_CHROME))
-    : maxHeight;
+  // A popover is slid to wherever it fits whole, so its body only has to keep
+  // the panel inside the window; past that it scrolls.
+  const popoverBody = Math.min(maxHeight, height - POPOVER_EDGE * 2 - POPOVER_CHROME);
   const [items, setItems] = useState<ActivityItem[] | null>(null);
   const [error, setError] = useState(false);
 
