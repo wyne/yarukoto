@@ -186,7 +186,7 @@ const DATE_BUCKET_ORDER = ['overdue', 'today', 'tomorrow', 'week', 'later', 'nod
 
 /**
  * Splits tasks into display groups. Grouping by tag is the one case where a task can
- * appear more than once — a task tagged #dev #docs shows under both, same as TickTick.
+ * appear more than once — a task tagged #dev #docs shows under both.
  * Empty groups are dropped. `sortBy` orders tasks within each group.
  */
 export function groupTasks(tasks: Task[], options: ViewOptions, ctx: GroupContext): TaskGroup[] {

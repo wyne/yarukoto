@@ -51,7 +51,8 @@ Already have a server? [Getting the apps](/using/apps/) covers signing in, the
   anything left there past its retention window.
 - **Task history** — every change writes a full snapshot server-side, capped per task.
   The Activity tab shows recent changes as they sync, filters them by what happened, and opens or
-  restores the task behind each one.
+  restores the task behind each one. **Show history** at the bottom of a task lists that task's own
+  changes.
 - **Offline-tolerant sync** — the UI never waits on the network. Local changes queue in an outbox and
   push on the next cycle, so the app stays responsive when the server is unreachable. A dot at the
   bottom of the sidebar reports the real state: synced, syncing, changes pending, offline, or a

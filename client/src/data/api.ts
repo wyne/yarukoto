@@ -98,6 +98,8 @@ export interface Api {
   pull: (since?: string) => Promise<SyncBatch>;
   push: (batch: SyncPush) => Promise<SyncBatch>;
   activity: (limit?: number, beforeId?: number) => Promise<ActivityRevision[]>;
+  /** One task's revisions, newest first. Gated on the `taskHistory` feature. */
+  taskHistory: (taskId: string) => Promise<ActivityRevision[]>;
   me: () => Promise<WhoAmI>;
   household: () => Promise<HouseholdView>;
   approvePairing: (code: string, how: ApproveAs) => Promise<{ device: HouseholdDevice; member: HouseholdMember | null }>;
@@ -205,6 +207,10 @@ export function createApi(serverUrl: string, token: string): Api {
       const params = new URLSearchParams({ limit: String(limit) });
       if (beforeId !== undefined) params.set('beforeId', String(beforeId));
       const body = await request(`/api/v1/activity?${params.toString()}`);
+      return Array.isArray(body?.revisions) ? body.revisions : [];
+    },
+    taskHistory: async (taskId) => {
+      const body = await request(`/api/v1/tasks/${encodeURIComponent(taskId)}/history`);
       return Array.isArray(body?.revisions) ? body.revisions : [];
     },
     me: () => request('/api/v1/me'),

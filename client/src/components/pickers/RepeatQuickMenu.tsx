@@ -24,7 +24,7 @@ import Sheet from '../Sheet';
 
 const FREQ_TABS: RepeatFrequency[] = ['daily', 'weekly', 'monthly', 'yearly'];
 const FREQ_LABELS: Record<RepeatFrequency, string> = { daily: 'Day', weekly: 'Week', monthly: 'Month', yearly: 'Year' };
-/** Monday first, as TickTick lays the week out. */
+/** Monday first. */
 const WEEK_ORDER = [1, 2, 3, 4, 5, 6, 0];
 const WEEKDAY_INITIALS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -70,8 +70,7 @@ function draftFrom(repeat: TaskRepeat | null | undefined, dueDate: string): Draf
 
 /**
  * The rule a draft stands for. Completion-based repeats keep only the interval,
- * since "every Monday, counted from when I did it" has no meaning — TickTick's
- * picker drops the weekday choice in that mode too.
+ * since "every Monday, counted from when I did it" has no meaning.
  */
 function repeatFromDraft(draft: Draft, dueDate: string): TaskRepeat {
   const due = fromISODate(dueDate);
@@ -109,14 +108,14 @@ interface Props {
   dueDate: string;
   repeat?: TaskRepeat | null;
   onChange: (repeat: TaskRepeat | null) => void;
-  /** TickTick's "Skip": on to the next date without completing this one. */
+  /** "Skip": on to the next date without completing this one. */
   onSkip?: () => void;
   children: React.ReactNode;
   style?: StyleProp<ViewStyle>;
 }
 
 /**
- * The task detail's Repeat row: TickTick's quick choices in a native menu, and
+ * The task detail's Repeat row: the quick choices in a native menu, and
  * a custom panel for everything else — every N days/weeks/months/years, which
  * weekdays, which day of the month, from the due date or from completion, and
  * when it ends.

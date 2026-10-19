@@ -1,4 +1,4 @@
-import { parseQuickAdd } from '../src/data/quickAdd';
+import { parseQuickAdd, quickAddSpans } from '../src/data/quickAdd';
 
 describe('quick add parser', () => {
   const now = new Date(2026, 8, 27, 12);
@@ -23,6 +23,11 @@ describe('quick add parser', () => {
       tags: [],
       listName: undefined,
     });
+  });
+
+  test('reads a weekday only from a prefix of its name', () => {
+    expect(parseQuickAdd('feed the monkey', now)).toMatchObject({ title: 'feed the monkey', dueDate: undefined });
+    expect(parseQuickAdd('buy satin thurs', now)).toMatchObject({ title: 'buy satin', dueDate: '2026-10-01' });
   });
 
   test('keeps a time-looking token in the title without a due date', () => {
@@ -83,5 +88,35 @@ describe('quick add repeats', () => {
     const parsed = parseQuickAdd('Write weekly report every time it rains', now);
     expect(parsed.title).toBe('Write weekly report every time it rains');
     expect(parsed.repeat).toBeUndefined();
+  });
+});
+
+describe('quick add spans', () => {
+  const now = new Date(2026, 8, 27, 12);
+  const words = (input: string) => quickAddSpans(input, now).map((s) => [s.kind, input.slice(s.start, s.end)]);
+
+  test('marks each recognized token where it was typed', () => {
+    expect(words('Pay rent fri 6pm #Home !high ~Admin')).toEqual([
+      ['date', 'fri'],
+      ['time', '6pm'],
+      ['tag', '#Home'],
+      ['priority', '!high'],
+      ['list', '~Admin'],
+    ]);
+  });
+
+  test('keeps offsets right across leading and repeated whitespace', () => {
+    expect(words('  call   mom  tmrw')).toEqual([['date', 'tmrw']]);
+  });
+
+  test('covers a whole repeat phrase as one span', () => {
+    expect(words('standup every mon, wed 9am')).toEqual([
+      ['repeat', 'every mon, wed'],
+      ['time', '9am'],
+    ]);
+  });
+
+  test('leaves title words that only look like tokens unmarked', () => {
+    expect(words('Review 6pm draft !urgent #')).toEqual([]);
   });
 });

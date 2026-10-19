@@ -24,6 +24,7 @@ test('activity picks up an edit from another device and filters by action', asyn
   const edited = await request.patch(`/api/v1/tasks/${task.id}`, { headers: auth, data: { notes: 'from elsewhere' } });
   expect(edited.ok()).toBe(true);
   await expect(page.getByText('Edited notes')).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByText('+ from elsewhere')).toBeVisible();
 
   await page.getByRole('button', { name: 'Deleted' }).click();
   await expect(page.getByText('Edited notes')).toHaveCount(0);

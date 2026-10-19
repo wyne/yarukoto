@@ -50,15 +50,31 @@ export function registerHistoryRoutes(app: FastifyInstance, db: Database.Databas
     const viewer = viewerOf(request);
     const rows = db
       .prepare(
-        `SELECT r.snapshot, r.op, r.recorded_at
+        `SELECT r.id, r.snapshot, r.op, r.recorded_at
          FROM task_revisions r JOIN tasks ON tasks.id = r.task_id
          WHERE r.task_id = @id AND ${taskVisibleSql(viewer)}
          ORDER BY r.id DESC`
       )
-      .all({ ...viewerParams(viewer), id: request.params.id }) as { snapshot: string; op: string; recorded_at: string }[];
+      .all({ ...viewerParams(viewer), id: request.params.id }) as {
+        id: number;
+        snapshot: string;
+        op: string;
+        recorded_at: string;
+      }[];
 
+    // Newest first, each with the one before it, which is the next row down: the
+    // same shape as /activity, so the app reads both the same way. The oldest
+    // kept revision has nothing before it once older ones have been pruned.
+    const snapshots = rows.map((r) => JSON.parse(r.snapshot));
     reply.send({
-      revisions: rows.map((r) => ({ task: JSON.parse(r.snapshot), op: r.op, recordedAt: r.recorded_at })),
+      revisions: rows.map((r, i) => ({
+        id: r.id,
+        taskId: request.params.id,
+        task: snapshots[i],
+        previousTask: snapshots[i + 1] ?? null,
+        op: r.op,
+        recordedAt: r.recorded_at,
+      })),
     });
   });
 }

@@ -11,7 +11,7 @@ export type Priority = 'none' | 'low' | 'medium' | 'high';
  * the client hides the UI but keeps sending the field, since a wrongly stripped field
  * is unrecoverable and a wrongly hidden row is not. See AGENTS.md.
  */
-export const SERVER_FEATURES = ['taskReminders', 'savedFilters', 'household', 'taskRepeat', 'deleteAccount', 'eraseHousehold'] as const;
+export const SERVER_FEATURES = ['taskReminders', 'savedFilters', 'household', 'taskRepeat', 'deleteAccount', 'eraseHousehold', 'taskHistory'] as const;
 export type ServerFeature = (typeof SERVER_FEATURES)[number];
 
 export interface Subtask {
@@ -29,10 +29,10 @@ export interface TaskReminder {
 }
 
 /**
- * How a task comes back after it is completed, modelled on TickTick's.
+ * How a task comes back after it is completed.
  *
  * `rule` is an RFC 5545 RRULE body — `FREQ=WEEKLY;INTERVAL=1;BYDAY=MO,WE` — the
- * same notation TickTick stores, so an imported rule survives as written. See
+ * common notation for repeats, so an imported rule survives as written. See
  * `recurrence.ts` for the subset that is understood.
  */
 export interface TaskRepeat {
