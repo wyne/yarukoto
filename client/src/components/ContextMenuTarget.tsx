@@ -6,6 +6,8 @@ import { MAC } from '../data/platform';
 interface Props extends ViewProps {
   /** Called with the pointer position, in window coordinates. */
   onOpen: (at: { x: number; y: number }) => void;
+  /** Written out as `data-*` attributes on web, where react-native-web reads it. */
+  dataSet?: Record<string, string>;
   children: React.ReactNode;
 }
 
