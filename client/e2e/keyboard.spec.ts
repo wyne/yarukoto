@@ -296,3 +296,57 @@ test('Browse opens blank after leaving it on a saved filter', async ({ page, req
   await page.getByLabel('Browse', { exact: true }).click();
   await expect(search).toHaveValue('unsaved question');
 });
+
+test('New Task from the command menu puts the keyboard in the add field', async ({ page }) => {
+  await connect(page);
+  await page.keyboard.press('ControlOrMeta+k');
+  const search = page.getByPlaceholder('Go to or do…');
+  await expect(search).toBeFocused();
+  await search.fill('New Task');
+  await page.keyboard.press('Enter');
+  await expect(search).toBeHidden();
+  await expect(page.getByPlaceholder(/Add a task/)).toBeFocused();
+});
+
+test('⌘O finds a task that isn\'t done by its title and opens it in its list', async ({ page, request }) => {
+  const stamp = Date.now();
+  const auth = { Authorization: `Bearer ${TOKEN}` };
+  const listId = `goto-list-${stamp}`;
+  const now = new Date().toISOString();
+  const synced = await request.post('/api/v1/sync', {
+    headers: auth,
+    data: { lists: [{ id: listId, name: `Go to list ${stamp}`, color: '#4A7BF7', folderId: null, order: 0, updatedAt: now }] },
+  });
+  expect(synced.ok()).toBe(true);
+  const create = async (title: string, notes?: string) => {
+    const created = await request.post('/api/v1/tasks', { headers: auth, data: { title, listId, notes } });
+    expect(created.ok()).toBe(true);
+    return (await created.json()).task as { id: string };
+  };
+  const wanted = `Goto open ${stamp}`;
+  await create(wanted);
+  const done = await create(`Goto done ${stamp}`);
+  expect((await request.post(`/api/v1/tasks/${done.id}/complete`, { headers: auth, data: {} })).ok()).toBe(true);
+  // Found by its notes only, which the search doesn't read.
+  await create(`Unrelated ${stamp}`, `goto ${stamp}`);
+
+  await connect(page);
+  await page.getByPlaceholder(/Add a task/).click();
+  await page.keyboard.press('ControlOrMeta+o');
+  const search = page.getByPlaceholder('Find a task by name…');
+  await expect(search).toBeFocused();
+  await search.fill(`goto ${stamp}`);
+  const menu = page.locator('[aria-modal="true"]');
+  await expect(menu.getByText(wanted, { exact: true })).toBeVisible();
+  await expect(menu.getByText(`Goto done ${stamp}`, { exact: true })).toHaveCount(0);
+  await expect(menu.getByText(`Unrelated ${stamp}`, { exact: true })).toHaveCount(0);
+
+  await page.keyboard.press('Enter');
+  await expect(search).toBeHidden();
+  await expect.poll(() => page.url()).toContain(listId);
+  await expect(page.locator(`input[value="${wanted}"]`)).toHaveCount(1);
+  // The keyboard is on the list, with the cursor on the task: Return edits its title.
+  await expect.poll(async () => typingIn(await focused(page))).toBe(false);
+  await page.keyboard.press('Enter');
+  await expect.poll(async () => (await focused(page)).value).toBe(wanted);
+});

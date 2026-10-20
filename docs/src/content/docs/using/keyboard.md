@@ -30,6 +30,7 @@ does.
 | ⌘N | Puts the cursor in the add field *(Mac)* |
 | ⌘F | Search, in Browse *(Mac)* |
 | ⌘K | Command menu: go to any view, list, folder, tag or saved filter, or run any command |
+| ⌘O | Go to a task: search the tasks that aren't done by title, and open the one you pick |
 | ⌘1 to ⌘7 | All, Inbox, Today, Calendar, Activity, Browse, Trash *(Mac)* |
 | ⌘S | Show or hide the sidebar, which takes the keyboard as it opens *(Mac)* |
 | ⌘D | Show or hide the task pane *(Mac)* |
@@ -57,7 +58,7 @@ While the sidebar has the keyboard, the row you're on is outlined in your accent
 | Page Up, Page Down | Move ten tasks at a time |
 | ⇧↑ ⇧↓ | Select several tasks |
 | ↩ Return | Open the task and start editing its title |
-| Space, or ⌘O | Open the task beside the list, keeping the keyboard on the list |
+| Space | Open the task beside the list, keeping the keyboard on the list |
 | → | Into the task pane, opening the task if it isn't |
 | ← | To the sidebar |
 | ⎋ Escape | Clear the selection, then close the task pane |

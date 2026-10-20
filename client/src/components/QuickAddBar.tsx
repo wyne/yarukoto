@@ -16,6 +16,7 @@ import { MAC } from '../data/platform';
 import ShortcutHint from './ShortcutHint';
 import QuickAddInput from './QuickAddInput';
 import { activeLists } from '../data/selectors';
+import { afterLayersClose } from './openLayers';
 
 const HINT = 'Add a task… try "pay rent fri 6pm #home !high ~admin"';
 
@@ -35,7 +36,9 @@ export default function QuickAddBar({ onSubmit, contextLabel }: Props) {
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const inputRef = useRef<TextInput>(null);
   // File ▸ New Task (⌘N) on the Mac: this field is where a new task starts.
-  useCommand('newTask', () => inputRef.current?.focus());
+  // Once the command menu it may have come from is gone, which on the web
+  // pulls focus back to itself until then.
+  useCommand('newTask', () => afterLayersClose(() => inputRef.current?.focus()));
   usePaneFocus('add', () => inputRef.current?.focus());
   const parsed = text.trim() ? parseQuickAdd(text) : null;
   const dueLabel = parsed ? formatDueShort(new Date(), parsed.dueDate, parsed.dueTime) : null;

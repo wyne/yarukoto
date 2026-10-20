@@ -496,7 +496,8 @@ const TaskListBody = memo(
   }, [cursor, scrollRef]);
   const extendTo = (delta: 1 | -1) => {
     if (!cursor) return stepTo(delta);
-    const from = head.current && navIds.includes(head.current) ? head.current : cursor;
+    // With nothing selected the range starts here, wherever the cursor came from.
+    const from = visibleSelection.length > 0 && head.current && navIds.includes(head.current) ? head.current : cursor;
     const to = stepCursor(navIds, from, delta);
     if (!to) return;
     head.current = to;
