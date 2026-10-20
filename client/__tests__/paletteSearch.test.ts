@@ -29,6 +29,18 @@ test('keywords find a command after titles do', () => {
   expect(titles('date')).toEqual(['Remove Due Date', 'Due Tomorrow']);
 });
 
+test('visible prefixes are searchable without outranking the title', () => {
+  const prefixed = [
+    { title: 'Due Today', prefix: 'Set' },
+    { title: 'Today', prefix: 'Go to' },
+    { title: 'Inbox', prefix: 'Go to' },
+  ];
+  const found = (query: string) => rankPaletteItems(prefixed, query).map((i) => `${i.prefix} ${i.title}`);
+  expect(found('go to')).toEqual(['Go to Today', 'Go to Inbox']);
+  expect(found('set')).toEqual(['Set Due Today']);
+  expect(found('today')).toEqual(['Go to Today', 'Set Due Today']);
+});
+
 test('case does not matter', () => {
   expect(titles('GROC')).toEqual(['Groceries']);
 });

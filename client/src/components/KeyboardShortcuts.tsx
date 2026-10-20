@@ -1,17 +1,20 @@
-import React, { useRef } from 'react';
-import { Text, View } from 'react-native';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Text, TextInput, View } from 'react-native';
 import Pressable from './HoverPressable';
 import Dialog from './Dialog';
 import { makeStyles } from '../theme/styles';
 import { fonts } from '../theme/typography';
-import { useAccent } from '../theme/ThemeContext';
+import { useAccent, useColors } from '../theme/ThemeContext';
+import { useFieldFocus } from '../theme/focus';
 import { MAC, MAC_KEYS } from '../data/platform';
 import { LINKS, openLink } from '../data/links';
+import { filterShortcutSections, shortcutSearchTerms } from '../data/shortcutSearch';
 import { COMMANDS, CommandDef, CommandId, Shortcut, formatShortcut, paletteTitle } from '../navigation/commands';
 
 interface Row {
   title: string;
   keys: string;
+  searchTerms?: string;
 }
 
 /** The views, which are seven commands but one row: ⌘1 to ⌘7. */
@@ -35,31 +38,46 @@ function keysFor(def: CommandDef, mac: boolean): string | null {
  * Built from the command list, as the menu bar and ⌘K are, so it can't teach a
  * key the app doesn't have. The few keys that belong to fields rather than to
  * commands — Tab and Escape between panes — are spelled out here, as they are
- * on the docs page this links to.
+ * on the docs page this links to. Search narrows this complete, read-only
+ * reference; unlike ⌘K, it does not depend on what the current screen can do.
  */
 function sections(): { title: string; rows: Row[] }[] {
   const fmt = (input: string, ...modifiers: Shortcut['modifiers']) => formatShortcut({ input, modifiers }, MAC_KEYS);
+  const terms = (input: string, ...modifiers: Shortcut['modifiers']) => shortcutSearchTerms([{ input, modifiers }]);
   const window: Row[] = [
-    { title: 'Next pane or field', keys: fmt('tab') },
-    { title: 'Previous pane or field', keys: fmt('tab', 'shift') },
-    { title: 'Leave a field for the list', keys: fmt('escape') },
+    { title: 'Next pane or field', keys: fmt('tab'), searchTerms: terms('tab') },
+    { title: 'Previous pane or field', keys: fmt('tab', 'shift'), searchTerms: terms('tab', 'shift') },
+    { title: 'Leave a field for the list', keys: fmt('escape'), searchTerms: terms('escape') },
   ];
   const list: Row[] = [];
   const editing: Row[] = [
-    { title: 'Title to notes', keys: fmt('return') },
+    { title: 'Title to notes', keys: fmt('return'), searchTerms: terms('return') },
   ];
   if (MAC) {
+    const viewShortcuts = Array.from({ length: 7 }, (_, i): Shortcut => ({
+      input: String(i + 1),
+      modifiers: ['command'],
+    }));
     window.push({
       title: 'All, Inbox, Today, Calendar, Activity, Browse, Trash',
       keys: `${fmt('1', 'command')} – ${fmt('7', 'command')}`,
+      searchTerms: shortcutSearchTerms(viewShortcuts),
     });
   }
   for (const def of COMMANDS) {
     // The plain ⌫ that only names ⌘⌫ isn't a key to learn.
-    if (VIEW_IDS.has(def.id) || def.menu === 'help' || def.id === 'trashKeyHint') continue;
+    if (VIEW_IDS.has(def.id) || def.id === 'trashKeyHint') continue;
     const keys = keysFor(def, MAC_KEYS);
     if (!keys) continue;
-    const row = { title: def.hiddenFromPalette ? def.title : paletteTitle(def), keys };
+    const shortcuts = [
+      ...(def.shortcut && (MAC || def.web) ? [def.shortcut] : []),
+      ...(def.listKeys ?? []),
+    ];
+    const row = {
+      title: def.hiddenFromPalette ? def.title : paletteTitle(def),
+      keys,
+      searchTerms: `${def.keywords ?? ''} ${shortcutSearchTerms(shortcuts)}`,
+    };
     if (EDITING_IDS.has(def.id)) editing.push(row);
     else if (def.list) list.push(row);
     else window.push(row);
@@ -74,18 +92,40 @@ function sections(): { title: string; rows: Row[] }[] {
 export default function KeyboardShortcuts({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const styles = useStyles();
   const accent = useAccent();
-  // On the web a modal closes on Escape only with focus inside it, and nothing
-  // here is a field to take it. (The Mac's dialog takes the key itself.)
-  const linkRef = useRef<View>(null);
+  const colors = useColors();
+  const [query, setQuery] = useState('');
+  const inputRef = useRef<TextInput>(null);
+  const { focusProps, focusStyle } = useFieldFocus();
+  useEffect(() => {
+    if (visible) setQuery('');
+  }, [visible]);
+  const filtered = useMemo(() => filterShortcutSections(sections(), query), [query]);
   return (
     <Dialog
       visible={visible}
       onClose={onClose}
-      onShow={() => (linkRef.current as unknown as { focus?: () => void } | null)?.focus?.()}
+      onShow={() => inputRef.current?.focus()}
       width={560}
-      header={<Text style={styles.heading}>Keyboard Shortcuts</Text>}
+      header={(
+        <View style={styles.header}>
+          <Text style={styles.heading} accessibilityRole="header">Keyboard Shortcuts</Text>
+          <TextInput
+            ref={inputRef}
+            value={query}
+            onChangeText={setQuery}
+            placeholder="Search shortcuts…"
+            placeholderTextColor={colors.textFaint}
+            accessibilityLabel="Search keyboard shortcuts"
+            style={[styles.input, focusStyle && { borderBottomColor: focusStyle.borderColor }]}
+            {...focusProps}
+            autoFocus
+            autoCorrect={false}
+            autoCapitalize="none"
+          />
+        </View>
+      )}
     >
-      {sections().map((section) => (
+      {filtered.map((section) => (
         <View key={section.title} style={styles.section}>
           <Text style={styles.sectionTitle}>{section.title}</Text>
           {section.rows.map((row) => (
@@ -98,7 +138,8 @@ export default function KeyboardShortcuts({ visible, onClose }: { visible: boole
           ))}
         </View>
       ))}
-      <Pressable ref={linkRef} onPress={() => openLink(LINKS.keyboard)} style={styles.more} accessibilityRole="link">
+      {filtered.length === 0 && <Text style={styles.empty}>No shortcuts match.</Text>}
+      <Pressable onPress={() => openLink(LINKS.keyboard)} style={styles.more} accessibilityRole="link">
         <Text style={[styles.moreText, { color: accent }]}>All shortcuts, explained</Text>
       </Pressable>
     </Dialog>
@@ -106,11 +147,23 @@ export default function KeyboardShortcuts({ visible, onClose }: { visible: boole
 }
 
 const useStyles = makeStyles((c) => ({
+  header: {
+    paddingHorizontal: 16,
+  },
   heading: {
     fontFamily: fonts.sansSemiBold,
     fontSize: 17,
     color: c.textPrimary,
-    marginBottom: 4,
+  },
+  input: {
+    fontFamily: fonts.sansRegular,
+    fontSize: 15,
+    color: c.textPrimary,
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+    marginTop: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: c.divider,
   },
   section: {
     marginTop: 14,
@@ -150,5 +203,11 @@ const useStyles = makeStyles((c) => ({
   moreText: {
     fontFamily: fonts.sansMedium,
     fontSize: 14,
+  },
+  empty: {
+    fontFamily: fonts.sansRegular,
+    fontSize: 14,
+    color: c.textTertiary,
+    paddingVertical: 16,
   },
 }));
