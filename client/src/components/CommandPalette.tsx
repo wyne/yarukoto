@@ -61,7 +61,7 @@ const VIEWS: { route: string; title: string; keywords?: string }[] = [
   { route: 'InboxTab', title: 'Inbox' },
   { route: 'TodayTab', title: 'Today' },
   { route: 'AllTab', title: 'All' },
-  { route: 'CalendarTab', title: 'Calendar' },
+  { route: 'CalendarTab', title: 'Plan', keywords: 'calendar schedule' },
   { route: 'BrowseTab', title: 'Browse', keywords: 'search find' },
   { route: 'ActivityTab', title: 'Activity', keywords: 'history log' },
   { route: 'TrashTab', title: 'Trash', keywords: 'deleted bin' },

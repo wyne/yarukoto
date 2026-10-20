@@ -59,7 +59,7 @@ function sections(): { title: string; rows: Row[] }[] {
       modifiers: ['command'],
     }));
     window.push({
-      title: 'All, Inbox, Today, Calendar, Activity, Browse, Trash',
+      title: 'All, Inbox, Today, Plan, Activity, Browse, Trash',
       keys: `${fmt('1', 'command')} – ${fmt('7', 'command')}`,
       searchTerms: shortcutSearchTerms(viewShortcuts),
     });

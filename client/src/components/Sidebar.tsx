@@ -100,7 +100,7 @@ const VIEWS = [
   { route: 'AllTab', label: 'All', Icon: IconStack, command: 'goAll' },
   { route: 'InboxTab', label: 'Inbox', Icon: IconInboxTray, command: 'goInbox' },
   { route: 'TodayTab', label: 'Today', Icon: IconClock, command: 'goToday' },
-  { route: 'CalendarTab', label: 'Calendar', Icon: IconCalendar, command: 'goCalendar' },
+  { route: 'CalendarTab', label: 'Plan', Icon: IconCalendar, command: 'goCalendar' },
   { route: 'ActivityTab', label: 'Activity', Icon: IconBell, command: 'goActivity' },
   { route: 'BrowseTab', label: 'Browse', Icon: IconFolder, command: 'goBrowse' },
   { route: 'TrashTab', label: 'Trash', Icon: IconTrash, command: 'goTrash' },

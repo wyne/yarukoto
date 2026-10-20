@@ -448,7 +448,7 @@ const Tabs = memo(function Tabs() {
       <Tab.Screen name="AllTab" component={AllScreen} options={{ title: 'All' }} />
       <Tab.Screen name="InboxTab" component={InboxScreen} options={{ title: 'Inbox' }} />
       <Tab.Screen name="TodayTab" component={TodayScreen} options={{ title: 'Today' }} />
-      <Tab.Screen name="CalendarTab" component={CalendarScreen} options={{ title: 'Calendar' }} />
+      <Tab.Screen name="CalendarTab" component={CalendarScreen} options={{ title: 'Plan' }} />
       <Tab.Screen name="ActivityTab" component={ActivityScreen} options={{ title: 'Activity' }} />
       <Tab.Screen name="BrowseTab" component={BrowseScreen} options={{ title: 'Browse' }} />
       <Tab.Screen name="TrashTab" component={TrashScreen} options={{ title: 'Trash' }} />
@@ -526,8 +526,8 @@ function AndroidTabs() {
         name="CalendarTab"
         component={CalendarScreen}
         options={{
-          title: 'Calendar',
-          tabBarLabel: 'Calendar',
+          title: 'Plan',
+          tabBarLabel: 'Plan',
           tabBarIcon: ({ color, size }) => <IconCalendar size={size} color={color} strokeWidth={1.8} />,
         }}
       />
@@ -613,8 +613,8 @@ function NativeTabs() {
         name="CalendarTab"
         component={CalendarScreen}
         options={{
-          title: 'Calendar',
-          tabBarLabel: 'Calendar',
+          title: 'Plan',
+          tabBarLabel: 'Plan',
           tabBarIcon: Platform.OS === 'ios'
             ? { type: 'sfSymbol', name: 'calendar' }
             : undefined,

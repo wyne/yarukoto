@@ -180,7 +180,7 @@ export const COMMANDS: readonly CommandDef[] = [
   { id: 'goAll', title: 'All', menu: 'view', group: 'go', shortcut: cmd('1'), hiddenFromPalette: true },
   { id: 'goInbox', title: 'Inbox', menu: 'view', group: 'go', shortcut: cmd('2'), hiddenFromPalette: true },
   { id: 'goToday', title: 'Today', menu: 'view', group: 'go', shortcut: cmd('3'), hiddenFromPalette: true },
-  { id: 'goCalendar', title: 'Calendar', menu: 'view', group: 'go', shortcut: cmd('4'), hiddenFromPalette: true },
+  { id: 'goCalendar', title: 'Plan', menu: 'view', group: 'go', shortcut: cmd('4'), hiddenFromPalette: true },
   { id: 'goActivity', title: 'Activity', menu: 'view', group: 'go', shortcut: cmd('5'), hiddenFromPalette: true },
   { id: 'goBrowse', title: 'Browse', menu: 'view', group: 'go', shortcut: cmd('6'), hiddenFromPalette: true },
   { id: 'goTrash', title: 'Trash', menu: 'view', group: 'go', shortcut: cmd('7'), hiddenFromPalette: true },
