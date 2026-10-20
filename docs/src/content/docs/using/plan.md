@@ -1,11 +1,11 @@
 ---
-title: Planning with the Calendar
-description: Find the tasks that still need a day and drag them onto the calendar, on a phone or a computer.
+title: Planning with the Plan tab
+description: Find the tasks that still need a day and drag them onto a calendar, on a phone or a computer.
 ---
 
-The **Calendar** tab is where you decide when things happen. It isn't a place for appointments:
-it shows your tasks by their due date and lets you move them around by dragging. Swiping a task to
-**Today**, **Tmrw** or **Next week** handles one task at a time; the Calendar is for when you have a
+The **Plan** tab is where you decide when things happen. It isn't a place for appointments: it
+shows your tasks on a calendar by their due date and lets you move them around by dragging. Swiping a task to
+**Today**, **Tmrw** or **Next week** handles one task at a time; Plan is for when you have a
 handful, or a whole backlog, to spread across the days ahead.
 
 For where this fits in a typical day, see [A daily workflow](/using/workflow/).
@@ -34,7 +34,7 @@ covers are shaded on the month grid, so you can see where you are.
 The sort button chooses between **Custom**, where you arrange each day's tasks yourself, and
 **Priority**, highest first. **Completed** shows finished tasks too; they're hidden by default.
 
-Adding a task while the Calendar is open makes it due on the selected day.
+Adding a task while Plan is open makes it due on the selected day.
 
 ## Planning on a phone
 

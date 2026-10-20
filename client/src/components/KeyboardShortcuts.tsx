@@ -50,7 +50,7 @@ function sections(): { title: string; rows: Row[] }[] {
   ];
   if (MAC) {
     window.push({
-      title: 'All, Inbox, Today, Calendar, Activity, Browse, Trash',
+      title: 'All, Inbox, Today, Plan, Activity, Browse, Trash',
       keys: `${fmt('1', 'command')} – ${fmt('7', 'command')}`,
     });
   }

@@ -1,11 +1,11 @@
 ---
 title: A daily workflow
-description: How the Inbox, Today and Calendar tabs fit together, from writing a task down to planning the weeks ahead.
+description: How the Inbox, Today and Plan tabs fit together, from writing a task down to planning the weeks ahead.
 ---
 
 Yarukoto doesn't make you work any particular way, but its tabs are laid out in the order a task
 usually travels: it's written down in the **Inbox**, given a day, done from **Today**, and
-anything that needs more thought than a swipe is placed on the **Calendar**. This page walks
+anything that needs more thought than a swipe is placed on a calendar in **Plan**. This page walks
 through that progression and the habits that keep it light.
 
 ## 1. Capture everything into the Inbox
@@ -29,7 +29,7 @@ anything: when something comes to mind, add it there and get back to what you we
   So `call the dentist fri 9am !high` is a high-priority task due Friday at 9 AM. Everything is
   optional: a bare `call the dentist` is a perfectly good Inbox entry.
 - Where you add a task decides its defaults. In a list, it goes into that list. On **Today**, it's
-  due today. On the **Calendar**, it's due on the day you've selected. In the Inbox, it has no list
+  due today. On **Plan**, it's due on the day you've selected. In the Inbox, it has no list
   and no date until you give it one.
 
 The point of the Inbox is speed, so resist filling in every detail while capturing. Triage is a
@@ -70,13 +70,13 @@ lost.
 On a Mac, the menu bar icon shows today's count and lets you check tasks off without opening the
 window. Windows has the same in the notification area.
 
-## 4. Plan with the Calendar
+## 4. Plan the days ahead
 
 Swiping is for one task at a time. When you have a pile to spread out, or want to think about the
-week rather than the day, open the **Calendar** tab. It puts the tasks that still need a day beside
+week rather than the day, open the **Plan** tab. It puts the tasks that still need a day beside
 a calendar, and you drag them onto the days they belong to.
 
-- **On a phone**, tap **Plan task** at the bottom of the Calendar. A sheet opens with every task
+- **On a phone**, tap **Plan task** at the bottom of Plan. A sheet opens with every task
   that has no date or is overdue, highest priority first. Long-press one, and the sheet gets out of
   the way so you can drag it onto any day. Tap a few tasks first to carry them together.
 - **On a computer**, the same tasks sit in a pane beside the calendar. Drag them onto a day in the
@@ -85,7 +85,7 @@ a calendar, and you drag them onto the days they belong to.
 Tasks already on the calendar can be dragged too: drag one to another day to move it, or within a
 day to change its order.
 
-[Planning with the Calendar](/using/calendar/) covers the views, the filters and the gestures in
+[Planning with the Plan tab](/using/plan/) covers the views, the filters and the gestures in
 detail.
 
 ## Making it a habit
@@ -95,13 +95,13 @@ A rhythm that works well with these tabs:
 - **Through the day:** capture into the Inbox without stopping to organize.
 - **Once a day,** often first thing or at the end of the day: empty the Inbox with swipes, then look
   at Today and push what won't happen to tomorrow.
-- **Once a week:** open the Calendar in the week view, work through the overdue and undated tasks in
+- **Once a week:** open Plan in the week view, work through the overdue and undated tasks in
   the side pane, and drop each onto a day. Anything you can't place is a sign it belongs in a list
   rather than on the calendar, or doesn't need doing.
 
 Some other habits that help:
 
-- **Use priorities sparingly.** The Calendar's planning pane sorts by priority, so keeping `!high`
+- **Use priorities sparingly.** Plan's task pane sorts by priority, so keeping `!high`
   for what really matters puts those tasks at the top when you plan.
 - **Give dates, not just lists.** A task in a list with no date never reaches Today. If it should
   happen, give it a day, even a rough one; dragging it to a different day later is easy.
