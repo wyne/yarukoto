@@ -47,6 +47,8 @@ interface Props {
   /** What the view contributes — the composer starts from these each time it opens. */
   defaults?: QuickAddDefaults;
   contextLabel?: string;
+  /** Called with each task added, so the list behind can show where it landed. */
+  onAdded?: (taskId: string) => void;
 }
 
 /**
@@ -60,7 +62,7 @@ interface Props {
  * never animates once the sheet is up. Combined with the panel's fixed height,
  * the only movement while composing is the sheet growing by that one amount.
  */
-export default function TaskComposerSheet({ visible, onClose, defaults, contextLabel }: Props) {
+export default function TaskComposerSheet({ visible, onClose, defaults, contextLabel, onAdded }: Props) {
   const colors = useColors();
   const styles = useStyles();
   const accent = useAccent();
@@ -140,13 +142,14 @@ export default function TaskComposerSheet({ visible, onClose, defaults, contextL
 
   const commit = () => {
     if (!canSubmit) return false;
-    addTaskFromQuickAdd(text, {
+    const id = addTaskFromQuickAdd(text, {
       listId,
       tags,
       dueDate,
       dueTime,
       priority,
     });
+    if (id) onAdded?.(id);
     return true;
   };
 

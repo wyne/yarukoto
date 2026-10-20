@@ -21,6 +21,8 @@ interface Props {
    * bottom, and a calendar drag wants the corner clear.
    */
   hidden?: boolean;
+  /** Called with each task the composer adds. */
+  onAdded?: (taskId: string) => void;
 }
 
 /**
@@ -30,7 +32,7 @@ interface Props {
  * pinned QuickAddBar instead — a keyboard-driven session wants a field it can
  * type into without a tap first.
  */
-export default function AddTaskFab({ defaults, contextLabel, hidden }: Props) {
+export default function AddTaskFab({ defaults, contextLabel, hidden, onAdded }: Props) {
   const styles = useStyles();
   const accent = useAccent();
   const insets = useSafeAreaInsets();
@@ -76,6 +78,7 @@ export default function AddTaskFab({ defaults, contextLabel, hidden }: Props) {
           onClose={() => setOpen(false)}
           defaults={defaults}
           contextLabel={contextLabel}
+          onAdded={onAdded}
         />
       )}
     </>

@@ -259,6 +259,54 @@ test('the list keeps the cursor row in view', async ({ page, request }) => {
   await expect(page.getByText(titles[29], { exact: true })).toBeInViewport();
 });
 
+test('a task added off screen is scrolled to and becomes the cursor', async ({ page, request }) => {
+  const stamp = Date.now();
+  const now = new Date().toISOString();
+  const list = { id: `keys-added-${stamp}`, name: `Keys added ${stamp}`, color: '#4A7BF7', folderId: null, order: -1, updatedAt: now };
+  // Ordered ahead of anything the add field makes, so the new task lands below them all.
+  const tasks = Array.from({ length: 30 }, (_, i) => ({
+    id: `keys-added-task-${stamp}-${i}`,
+    title: `Seeded ${String(i).padStart(2, '0')} ${stamp}`,
+    notes: '',
+    priority: 'none',
+    reminders: [],
+    listId: list.id,
+    tags: [],
+    subtasks: [],
+    completed: false,
+    createdAt: now,
+    updatedAt: now,
+    order: -1e15 + i,
+  }));
+  const response = await request.post('/api/v1/sync', {
+    headers: { Authorization: `Bearer ${TOKEN}` },
+    data: { lists: [list], tasks },
+  });
+  expect(response.ok()).toBe(true);
+
+  await page.setViewportSize({ width: 1400, height: 600 });
+  await connect(page);
+  await page.getByLabel(list.name, { exact: true }).click();
+  await expect.poll(() => page.url()).toContain(list.id);
+  await page.goto(page.url());
+  await expect(page.getByText(tasks[29].title, { exact: true })).toBeAttached();
+
+  const title = `Added last ${stamp}`;
+  const quickAdd = page.getByPlaceholder(`Add a task to ${list.name}`);
+  await quickAdd.click();
+  await quickAdd.fill(title);
+  await quickAdd.press('Enter');
+  await expect(page.getByText(title, { exact: true })).toBeInViewport();
+  // The add field keeps the keyboard for the next one.
+  await expect(quickAdd).toBeFocused();
+
+  // The list takes the keyboard on the new task, so Return edits it.
+  await page.keyboard.press('Escape');
+  await expect.poll(async () => typingIn(await focused(page))).toBe(false);
+  await page.keyboard.press('Enter');
+  await expect.poll(async () => (await focused(page)).value).toBe(title);
+});
+
 test('Browse opens blank after leaving it on a saved filter', async ({ page, request }) => {
   const stamp = Date.now();
   const query = `keysfilter${stamp}`;

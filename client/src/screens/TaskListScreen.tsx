@@ -95,6 +95,10 @@ const TITLES = { all: 'All', inbox: 'Inbox', today: 'Today' } as const;
 const VIRTUALIZED = Platform.OS !== 'web';
 /** Room left between a revealed row and the edge it was brought in from. */
 const REVEAL_MARGIN = 8;
+/** How long a task added on a touchscreen keeps its tint. */
+const ADDED_FLASH_MS = 1200;
+/** How many frames a revealed row on the web is followed while it settles. */
+const REVEAL_SETTLE_FRAMES = 45;
 const GROUP_LAYOUT = LinearTransition.duration(180);
 const GROUP_ENTER = FadeIn.duration(140);
 /**
@@ -397,6 +401,7 @@ const TaskListBody = memo(
     isSelected(id) ||
     contextTaskId === id ||
     openTaskId === id ||
+    flashId === id ||
     (FINE_POINTER && anchorId === id);
 
   /** Every visible task in display order — the sequence a shift range spans. */
@@ -477,23 +482,77 @@ const TaskListBody = memo(
   };
   const stepTo = (delta: 1 | -1) => moveCursor(stepCursor(navIds, cursor, delta));
   /**
+   * A task just added from this view, until the list has drawn it.
+   *
+   * It lands wherever the view's sort puts it, which can be well off screen,
+   * so the list goes to it. Where there is a cursor the cursor moves onto it,
+   * which also brings it into view, and the next key acts on what was just
+   * typed; the task pane is left on whatever it was showing. A touchscreen has
+   * no cursor to show, so the row is tinted for a moment instead.
+   *
+   * Taken on the first change of rows after the add, which is the add's own:
+   * a task typed into another list or date never shows here, and is dropped.
+   */
+  const justAdded = useRef<string | null>(null);
+  const [flashId, setFlashId] = useState<string | null>(null);
+  useEffect(() => {
+    const id = justAdded.current;
+    justAdded.current = null;
+    if (!id || !navIds.includes(id)) return;
+    if (DESKTOP_UI) {
+      clearSelection();
+      setAnchor(id);
+      head.current = id;
+    }
+    if (!DESKTOP_UI || !FINE_POINTER) setFlashId(id);
+  }, [navIds, clearSelection, setAnchor]);
+  useEffect(() => {
+    if (!flashId) return;
+    const timer = setTimeout(() => setFlashId(null), ADDED_FLASH_MS);
+    return () => clearTimeout(timer);
+  }, [flashId]);
+  const onAdded = (id: string | undefined) => {
+    if (id) justAdded.current = id;
+  };
+  /** The row kept in view: the cursor's, or the one just added on a touchscreen. */
+  const revealId = DESKTOP_UI ? cursor : flashId;
+  /**
    * Brings the cursor's row into view on the web, as `VirtualTaskList` does
    * natively. The web column is fully built, so the row is always on the page
    * to find; it comes in at whichever edge it was past, the least scrolling
    * that shows it.
+   *
+   * A row that has only just been added isn't where it will end up yet: the
+   * column places its rows itself once it has measured them, some frames
+   * later, and grows to fit after that. So it is followed for a short while,
+   * and brought back into view whenever it or the column moves. A row already
+   * in place never moves, so scrolling away from it isn't fought.
    */
   useEffect(() => {
-    if (Platform.OS !== 'web' || !cursor) return;
+    if (Platform.OS !== 'web' || !revealId) return;
     const scroller = scrollRef.current as unknown as HTMLElement | null;
-    const row = scroller?.querySelector?.(`[data-task-row="${CSS.escape(cursor)}"]`);
-    if (!scroller || !row) return;
-    const view = scroller.getBoundingClientRect();
-    const { top, bottom } = row.getBoundingClientRect();
-    const above = top - REVEAL_MARGIN - view.top;
-    const below = bottom + REVEAL_MARGIN - view.bottom;
-    const by = above < 0 ? above : below > 0 ? below : 0;
-    if (by !== 0) scroller.scrollTop += by;
-  }, [cursor, scrollRef]);
+    let frame = 0;
+    let placed: string | null = null;
+    const reveal = (framesLeft: number) => {
+      const row = scroller?.querySelector?.(`[data-task-row="${CSS.escape(revealId)}"]`);
+      if (!scroller || !row) return;
+      const view = scroller.getBoundingClientRect();
+      const { top, bottom } = row.getBoundingClientRect();
+      // Where the row sits in the column, which scrolling doesn't change, and
+      // how tall the column is.
+      const at = `${top - view.top + scroller.scrollTop}:${scroller.scrollHeight}`;
+      if (at !== placed) {
+        placed = at;
+        const above = top - REVEAL_MARGIN - view.top;
+        const below = bottom + REVEAL_MARGIN - view.bottom;
+        const by = above < 0 ? above : below > 0 ? below : 0;
+        if (by !== 0) scroller.scrollTop += by;
+      }
+      if (framesLeft > 0) frame = requestAnimationFrame(() => reveal(framesLeft - 1));
+    };
+    reveal(REVEAL_SETTLE_FRAMES);
+    return () => cancelAnimationFrame(frame);
+  }, [revealId, scrollRef]);
   const extendTo = (delta: 1 | -1) => {
     if (!cursor) return stepTo(delta);
     const from = head.current && navIds.includes(head.current) ? head.current : cursor;
@@ -1057,7 +1116,7 @@ const TaskListBody = memo(
       {DESKTOP_UI && !selectionMode && canQuickAdd && (
         <View style={[styles.quickAddBand, wide && styles.paneWide]}>
           <QuickAddBar
-            onSubmit={(text) => addTaskFromQuickAdd(text, quickAddDefaults)}
+            onSubmit={(text) => onAdded(addTaskFromQuickAdd(text, quickAddDefaults))}
             contextLabel={quickAddLabel}
           />
         </View>
@@ -1084,7 +1143,7 @@ const TaskListBody = memo(
           dragCount={DESKTOP_UI ? virtualDragCount : undefined}
           refreshControl={refreshControl}
           onScrollBeginDrag={closeOpenSwipeRow}
-          revealTaskId={DESKTOP_UI ? cursor : null}
+          revealTaskId={revealId}
           contentContainerStyle={[
             styles.listContent,
             !DESKTOP_UI && styles.scrollContentFab,
@@ -1190,7 +1249,12 @@ const TaskListBody = memo(
       </ListKeys>
 
       {!DESKTOP_UI && canQuickAdd && (
-        <AddTaskFab defaults={quickAddDefaults} contextLabel={quickAddLabel} hidden={selectionMode} />
+        <AddTaskFab
+          defaults={quickAddDefaults}
+          contextLabel={quickAddLabel}
+          hidden={selectionMode}
+          onAdded={onAdded}
+        />
       )}
 
       {selectionMode && (
