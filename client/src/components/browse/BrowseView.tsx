@@ -45,7 +45,7 @@ export default function BrowseView({ criteria, onCriteriaChange }: Props) {
   const { wide } = useSidebar();
   const refreshControl = useSyncRefresh();
   const { openTask, openTaskId } = useDetail();
-  const { state, toggleComplete, scheduleToday, snoozeTask } = useTasks();
+  const { state, toggleComplete, scheduleToday, snoozeTask, scheduleNextWeek } = useTasks();
   const now = new Date();
 
   // Edit ▸ Find… (⌘F) on the Mac.
@@ -124,7 +124,7 @@ export default function BrowseView({ criteria, onCriteriaChange }: Props) {
                   onToggleComplete={() => toggleComplete(task.id)}
                   onToday={() => scheduleToday(task.id)}
                   onLater={() => snoozeTask(task.id)}
-                  onDone={() => toggleComplete(task.id)}
+                  onNextWeek={() => scheduleNextWeek(task.id)}
                 />
                 {i < tasks.length - 1 && (
                   <Divider railColor={task.listId ? listsById.get(task.listId)?.color : undefined} />

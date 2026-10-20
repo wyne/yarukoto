@@ -7,7 +7,7 @@ import { scheduleOnRN } from 'react-native-worklets';
 import { makeStyles } from '../theme/styles';
 import { useDragActive } from '../drag/DragContext';
 import { hapticAction } from '../data/haptics';
-import { IconCalendarBox, IconCheckBig, IconClock } from '../icons/Icons';
+import { IconCalendarBox, IconCalendarNext, IconClock } from '../icons/Icons';
 
 /**
  * Narrower than the two actions were, so that three of them still leave enough
@@ -88,18 +88,24 @@ interface Props {
   children: React.ReactNode;
   onToday: () => void;
   onLater: () => void;
-  onDone: () => void;
+  onNextWeek: () => void;
   disabled?: boolean;
 }
 
 /**
- * Swipe a row left to reveal Today, Tmrw and Done.
+ * Swipe a row left to reveal Today, Tmrw and Next week.
  *
- * The two dates read as the days they set rather than as directions to push the
+ * All three reschedule. Completing already has its own control on the row, the
+ * checkbox, so a swipe to do the same was a second way to one thing; a swipe is
+ * where a task gets moved, and three dates make it a complete way to move one.
+ * They are the same dates the due-date picker and context menu offer, so "next
+ * week" means a week from today here as it does there.
+ *
+ * The dates read as the days they set rather than as directions to push the
  * task in: "Later" was already tomorrow and nothing else, so naming it that is
- * only saying what the tap has always done. Today sits before it because a row
- * you are already looking at is more often due now than deferred, and because
- * the pair then reads left to right in the order the days fall in.
+ * only saying what the tap has always done. They run left to right in the order
+ * the days fall in, Today first because a row you are already looking at is more
+ * often due now than deferred.
  *
  * Built on gesture-handler's swipeable rather than a PanResponder: the row also
  * sits inside a scroll view and a reorderable list, and a JS-thread responder
@@ -113,7 +119,7 @@ interface Props {
  * motion as dragging a row somewhere, and the context menu already offers all
  * three actions.
  */
-export default function SwipeableRow({ children, onToday, onLater, onDone, disabled }: Props) {
+export default function SwipeableRow({ children, onToday, onLater, onNextWeek, disabled }: Props) {
   const colors = useColors();
   const styles = useStyles();
   // A cross-pane drag is armed by holding the row, and moving off with it is
@@ -150,8 +156,8 @@ export default function SwipeableRow({ children, onToday, onLater, onDone, disab
   }, [forget, translate]);
   self.current ??= { close: () => close() };
 
-  // Unmounting while open — completing the task from its own action does exactly
-  // this — would otherwise leave the registry pointing at a dead row.
+  // Unmounting while open — moving the task out of the view from its own action
+  // does exactly this — would otherwise leave the registry pointing at a dead row.
   useEffect(() => forget, [forget]);
 
   const claim = useCallback(() => {
@@ -225,11 +231,13 @@ export default function SwipeableRow({ children, onToday, onLater, onDone, disab
               <Text style={styles.actionLabel}>Tmrw</Text>
             </Pressable>
             <Pressable
-              style={[styles.action, { backgroundColor: colors.swipeDone }]}
-              onPress={() => runAction(onDone)}
+              style={[styles.action, { backgroundColor: colors.swipeNextWeek }]}
+              onPress={() => runAction(onNextWeek)}
             >
-              <IconCheckBig size={18} color="#fff" strokeWidth={2} />
-              <Text style={styles.actionLabel}>Done</Text>
+              <IconCalendarNext size={18} color="#fff" strokeWidth={1.6} />
+              <Text style={styles.actionLabel} numberOfLines={1}>
+                Next week
+              </Text>
             </Pressable>
           </View>
         )}
