@@ -332,6 +332,7 @@ export default function CommandPalette({ visible, onClose, picker = null, onLeav
       onShow={() => inputRef.current?.focus()}
       fade={false}
       width={520}
+      topAligned
     >
       {picker && (
         <Text style={styles.crumb}>
