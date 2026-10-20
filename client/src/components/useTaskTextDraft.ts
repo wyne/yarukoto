@@ -143,8 +143,11 @@ export function useTaskTextDraft({
   useEffect(() => {
     if (!active || AppState.currentState !== 'active') return;
     hold();
+    // Opening isn't typing: a task left open in the pane, untouched, still
+    // syncs. A task added from the list opens there, and has to reach the server.
+    idleTimerRef.current = setTimeout(unhold, IDLE_RELEASE_MS);
     return release;
-  }, [active, hold, release]);
+  }, [active, hold, release, unhold]);
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (next) => {

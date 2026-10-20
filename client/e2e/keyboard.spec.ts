@@ -259,7 +259,7 @@ test('the list keeps the cursor row in view', async ({ page, request }) => {
   await expect(page.getByText(titles[29], { exact: true })).toBeInViewport();
 });
 
-test('a task added off screen is scrolled to and becomes the cursor', async ({ page, request }) => {
+test('a task added off screen is scrolled to, becomes the cursor and opens beside the list', async ({ page, request }) => {
   const stamp = Date.now();
   const now = new Date().toISOString();
   const list = { id: `keys-added-${stamp}`, name: `Keys added ${stamp}`, color: '#4A7BF7', folderId: null, order: -1, updatedAt: now };
@@ -297,7 +297,8 @@ test('a task added off screen is scrolled to and becomes the cursor', async ({ p
   await quickAdd.fill(title);
   await quickAdd.press('Enter');
   await expect(page.getByText(title, { exact: true })).toBeInViewport();
-  // The add field keeps the keyboard for the next one.
+  // It opens beside the list, and the add field keeps the keyboard for the next one.
+  await expect(page.locator(`input[value="${title}"]`)).toBeVisible();
   await expect(quickAdd).toBeFocused();
 
   // The list takes the keyboard on the new task, so Return edits it.

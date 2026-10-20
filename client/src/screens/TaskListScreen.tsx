@@ -97,8 +97,6 @@ const TITLES = { all: 'All', inbox: 'Inbox', today: 'Today' } as const;
 const VIRTUALIZED = Platform.OS !== 'web';
 /** Room left between a revealed row and the edge it was brought in from. */
 const REVEAL_MARGIN = 8;
-/** How long a task added on a touchscreen keeps its tint. */
-const ADDED_FLASH_MS = 1200;
 /** How many frames a revealed row on the web is followed while it settles. */
 const REVEAL_SETTLE_FRAMES = 45;
 const GROUP_LAYOUT = LinearTransition.duration(180);
@@ -393,18 +391,17 @@ const TaskListBody = memo(
   /**
    * Rows drawn with a tint: selected, or the one the surrounding UI is about.
    *
-   * The anchor keeps its tint after the detail closes, because it is where the
-   * next shift-click measures from and there would otherwise be nothing saying
-   * so. Only that anchor state is gated on the pointer: a narrow desktop window
-   * still has a shift key, and a phone has none, so on a touchscreen an anchor
-   * tint would be pointing at a gesture that cannot be made.
+   * The anchor keeps its tint after the detail closes: on the desktop it is the
+   * keyboard's cursor and where the next shift-click measures from, and on a
+   * phone it is the task last opened or added, so closing the sheet, or adding
+   * a task that lands mid-list, leaves you knowing where you were. Picking
+   * tasks out on a phone is its own mode, whose checkmarks say all there is.
    */
   const highlighted = (id: string) =>
     isSelected(id) ||
     contextTaskId === id ||
     openTaskId === id ||
-    flashId === id ||
-    (FINE_POINTER && anchorId === id);
+    (anchorId === id && (DESKTOP_UI || !selectionMode));
 
   /** Every visible task in display order — the sequence a shift range spans. */
   const flatIds = useMemo(() => groups.flatMap((g) => g.tasks.map((t) => t.id)), [groups]);
@@ -418,8 +415,9 @@ const TaskListBody = memo(
     closeOpenSwipeRow();
     claimKeyboard();
     if (!DESKTOP_UI) {
-      if (selectionMode) toggleSelected(id);
-      else openTask(id);
+      if (selectionMode) return toggleSelected(id);
+      setAnchor(id);
+      openTask(id);
       return;
     }
     if (shiftHeld.current && anchorId) {
@@ -487,37 +485,28 @@ const TaskListBody = memo(
    * A task just added from this view, until the list has drawn it.
    *
    * It lands wherever the view's sort puts it, which can be well off screen,
-   * so the list goes to it. Where there is a cursor the cursor moves onto it,
-   * which also brings it into view, and the next key acts on what was just
-   * typed; the task pane is left on whatever it was showing. A touchscreen has
-   * no cursor to show, so the row is tinted for a moment instead.
+   * so the list goes to it. It becomes the anchor, which brings it into view
+   * and tints it as the last task touched; on the desktop that is the cursor,
+   * so the next key acts on what was just typed. With a column beside the list
+   * it opens there too, to fill in the rest; a narrow window's pane would cover
+   * the field being typed into, so there only the cursor moves.
    *
    * Taken on the first change of rows after the add, which is the add's own:
    * a task typed into another list or date never shows here, and is dropped.
    */
   const justAdded = useRef<string | null>(null);
-  const [flashId, setFlashId] = useState<string | null>(null);
   useEffect(() => {
     const id = justAdded.current;
     justAdded.current = null;
     if (!id || !navIds.includes(id)) return;
-    if (DESKTOP_UI) {
-      clearSelection();
-      setAnchor(id);
-      head.current = id;
-    }
-    if (!DESKTOP_UI || !FINE_POINTER) setFlashId(id);
-  }, [navIds, clearSelection, setAnchor]);
-  useEffect(() => {
-    if (!flashId) return;
-    const timer = setTimeout(() => setFlashId(null), ADDED_FLASH_MS);
-    return () => clearTimeout(timer);
-  }, [flashId]);
+    clearSelection();
+    setAnchor(id);
+    head.current = id;
+    if (DESKTOP_UI && wide) openTask(id);
+  }, [navIds, clearSelection, setAnchor, wide, openTask]);
   const onAdded = (id: string | undefined) => {
     if (id) justAdded.current = id;
   };
-  /** The row kept in view: the cursor's, or the one just added on a touchscreen. */
-  const revealId = DESKTOP_UI ? cursor : flashId;
   /**
    * Brings the cursor's row into view on the web, as `VirtualTaskList` does
    * natively. The web column is fully built, so the row is always on the page
@@ -531,12 +520,12 @@ const TaskListBody = memo(
    * in place never moves, so scrolling away from it isn't fought.
    */
   useEffect(() => {
-    if (Platform.OS !== 'web' || !revealId) return;
+    if (Platform.OS !== 'web' || !cursor) return;
     const scroller = scrollRef.current as unknown as HTMLElement | null;
     let frame = 0;
     let placed: string | null = null;
     const reveal = (framesLeft: number) => {
-      const row = scroller?.querySelector?.(`[data-task-row="${CSS.escape(revealId)}"]`);
+      const row = scroller?.querySelector?.(`[data-task-row="${CSS.escape(cursor)}"]`);
       if (!scroller || !row) return;
       const view = scroller.getBoundingClientRect();
       const { top, bottom } = row.getBoundingClientRect();
@@ -554,7 +543,7 @@ const TaskListBody = memo(
     };
     reveal(REVEAL_SETTLE_FRAMES);
     return () => cancelAnimationFrame(frame);
-  }, [revealId, scrollRef]);
+  }, [cursor, scrollRef]);
   const extendTo = (delta: 1 | -1) => {
     if (!cursor) return stepTo(delta);
     // With nothing selected the range starts here, wherever the cursor came from.
@@ -632,7 +621,9 @@ const TaskListBody = memo(
     if (!cursor) return;
     // A phone opens it as a sheet instead, with no pane to go into.
     if (openTaskId === cursor) {
-      if (taskPane) focusPane('pane');
+      // The pane follows the cursor a little behind, so it may still be the
+      // last task's; the keyboard waits for this one's.
+      if (taskPane) focusPane('pane', { key: cursor });
       return;
     }
     openTask(cursor);
@@ -1151,7 +1142,7 @@ const TaskListBody = memo(
           dragCount={DESKTOP_UI ? virtualDragCount : undefined}
           refreshControl={refreshControl}
           onScrollBeginDrag={closeOpenSwipeRow}
-          revealTaskId={revealId}
+          revealTaskId={cursor}
           contentContainerStyle={[
             styles.listContent,
             !DESKTOP_UI && styles.scrollContentFab,
