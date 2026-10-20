@@ -108,11 +108,18 @@ describe('matching DOM keys', () => {
     expect(webCommandFor(key('o', 'KeyO', { metaKey: true }))).toMatchObject({ listKey: false });
   });
 
-  test('trashes on a plain Delete in the list, and leaves ⌘⌫ to text fields', () => {
-    // ⌘⌫ deletes to the start of the line wherever text is typed, notes included.
-    expect(webCommandFor(key('Backspace', 'Backspace', { metaKey: true }))).toBeUndefined();
-    expect(webCommandFor(key('Backspace', 'Backspace'))).toMatchObject({ def: { id: 'deleteTask' }, listKey: true });
+  test('trashes on ⌘⌫ in the list only, and a plain Delete just names that key', () => {
+    // A list key, so a text field keeps ⌘⌫ for deleting to the start of the line.
+    expect(webCommandFor(key('Backspace', 'Backspace', { metaKey: true }))).toMatchObject({
+      def: { id: 'deleteTask' },
+      listKey: true,
+    });
+    expect(webCommandFor(key('Backspace', 'Backspace', { ctrlKey: true }))).toMatchObject({ def: { id: 'deleteTask' } });
     expect(COMMANDS.find((c) => c.id === 'deleteTask')!.shortcut).toBeUndefined();
+    // The key reached for to fix a typo never trashes anything.
+    expect(webCommandFor(key('Backspace', 'Backspace'))).toMatchObject({ def: { id: 'trashKeyHint' }, listKey: true });
+    expect(LIST_KEYS.get('delete')).toBe('trashKeyHint');
+    expect(LIST_KEYS.get('command+delete')).toBe('deleteTask');
   });
 
   test('leaves the browser its own keys', () => {

@@ -76,6 +76,7 @@ export type CommandId =
   | 'priorityNone'
   | 'showHistory'
   | 'deleteTask'
+  | 'trashKeyHint'
   | 'moveToList'
   | 'editTags'
   | 'deselect'
@@ -217,10 +218,14 @@ export const COMMANDS: readonly CommandDef[] = [
   // Answered by the open task's pane, so it needs no selection of its own.
   { id: 'showHistory', title: 'Show History…', menu: 'task', group: 'history', keywords: 'activity changes revisions log' },
 
-  // Plain Delete on the list, not ⌘⌫ in the menu bar: a menu key equivalent
-  // fires whatever has focus, and ⌘⌫ is "delete to start of line" in every
-  // text field, the note editor included.
-  { id: 'deleteTask', title: 'Move to Trash', menu: 'task', group: 'delete', listKeys: [plain('delete')], list: true, keywords: 'delete remove' },
+  // ⌘⌫ held by the list, not by the menu bar: a menu key equivalent fires
+  // whatever has focus, and ⌘⌫ is "delete to start of line" in every text
+  // field, the note editor included. Not a plain ⌫ either: that is the key a
+  // hand reaches for to fix a typo, and the keyboard can be on the list
+  // without the eye having followed it there. A plain ⌫ only says which key
+  // trashes, so a stray one costs nothing.
+  { id: 'deleteTask', title: 'Move to Trash', menu: 'task', group: 'delete', listKeys: [plain('delete', 'command')], list: true, keywords: 'delete remove' },
+  { id: 'trashKeyHint', title: 'Move to Trash Key', group: 'delete', listKeys: [plain('delete')], list: true, hiddenFromPalette: true },
 
   // In place of the system's "Yarukoto Help", which only says help isn't
   // available. Each opens a page in the browser (src/data/links.ts).

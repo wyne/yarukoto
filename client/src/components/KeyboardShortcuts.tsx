@@ -55,7 +55,8 @@ function sections(): { title: string; rows: Row[] }[] {
     });
   }
   for (const def of COMMANDS) {
-    if (VIEW_IDS.has(def.id) || def.menu === 'help') continue;
+    // The plain ⌫ that only names ⌘⌫ isn't a key to learn.
+    if (VIEW_IDS.has(def.id) || def.menu === 'help' || def.id === 'trashKeyHint') continue;
     const keys = keysFor(def, MAC_KEYS);
     if (!keys) continue;
     const row = { title: def.hiddenFromPalette ? def.title : paletteTitle(def), keys };

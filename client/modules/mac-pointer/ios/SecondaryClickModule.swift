@@ -42,6 +42,10 @@ public final class KeyCommandsModule: Module {
       Prop("focusKey") { (view: KeyCommandsView, focusKey: Int?) in
         view.focusKey = focusKey ?? 0
       }
+
+      Prop("anyDevice") { (view: KeyCommandsView, anyDevice: Bool?) in
+        view.anyDevice = anyDevice ?? false
+      }
     }
   }
 }

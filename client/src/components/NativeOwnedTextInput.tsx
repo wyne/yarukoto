@@ -44,15 +44,33 @@ const NativeOwnedTextInput = forwardRef<TextInput, Props>(function NativeOwnedTe
 
   useImperativeHandle(forwardedRef, () => inputRef.current as TextInput, []);
 
+  // Every value native has reported that no render has caught up with yet.
+  // Typing outruns rendering, so a render can commit a keystroke or two behind
+  // the field; that value came from native and must not be written back to it.
+  const unrenderedRef = useRef<string[]>([]);
+  const hasChildren = props.children != null;
+
   const handleChangeText = useCallback((next: string) => {
     nativeValueRef.current = next;
+    if (Platform.OS !== 'web') unrenderedRef.current.push(next);
     onChangeTextRef.current(next);
   }, []);
 
   useEffect(() => {
-    if (Platform.OS === 'web' || value === nativeValueRef.current) return;
-    inputRef.current?.setNativeProps({ text: value });
+    if (Platform.OS === 'web') return;
+    const unrendered = unrenderedRef.current;
+    const reported = unrendered.lastIndexOf(value);
+    if (reported !== -1) {
+      unrendered.splice(0, reported + 1);
+      return;
+    }
+    if (value === nativeValueRef.current) return;
+    unrenderedRef.current = [];
     nativeValueRef.current = value;
+    // Styled children already carry the new text to native. Writing `text` as
+    // well would leave it pinned on the field, and native shows it in front of
+    // the children: the whole value again before every later edit.
+    if (!hasChildren) inputRef.current?.setNativeProps({ text: value });
     onExternalText?.();
   }, [value, syncKey]);
 
@@ -66,7 +84,7 @@ const NativeOwnedTextInput = forwardRef<TextInput, Props>(function NativeOwnedTe
       {...props}
       // Styled children (QuickAddInput's tokens) carry the text themselves, and
       // React Native refuses a field given both.
-      {...(Platform.OS === 'web' ? { value } : props.children ? {} : { defaultValue: initialValueRef.current })}
+      {...(Platform.OS === 'web' ? { value } : hasChildren ? {} : { defaultValue: initialValueRef.current })}
       onChangeText={handleChangeText}
     />
   );

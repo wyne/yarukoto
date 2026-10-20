@@ -23,6 +23,7 @@ export default function KeyCommandsView({
   onKeyCommand,
   focusable = false,
   focusKey = 0,
+  anyDevice: _anyDevice,
   onFocusChange,
   style,
   ...rest

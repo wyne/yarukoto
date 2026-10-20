@@ -9,6 +9,7 @@ import { IconCheckBig, IconTrash } from '../icons/Icons';
 import { useSidebar } from '../navigation/SidebarContext';
 import { nativeTabBarClearance } from '../navigation/nativeTabBarLayout';
 import { FLOATING_TAB_BAR } from '../data/platform';
+import { useKeyHint } from '../navigation/keyHint';
 
 const NATIVE_DRIVER = Platform.OS !== 'web';
 
@@ -20,8 +21,10 @@ export default function UndoToast() {
   const accent = useAccent();
   const { wide } = useSidebar();
 
+  // A key hint takes the same spot, but never over an undo still on offer.
+  const keyHint = useKeyHint();
   const anim = useRef(new Animated.Value(0)).current;
-  const token = pendingUndo?.token ?? null;
+  const token = pendingUndo ? `undo-${pendingUndo.token}` : keyHint ? `hint-${keyHint.token}` : null;
 
   useEffect(() => {
     anim.setValue(0);
@@ -29,7 +32,7 @@ export default function UndoToast() {
     Animated.timing(anim, { toValue: 1, duration: 180, useNativeDriver: NATIVE_DRIVER }).start();
   }, [token, anim]);
 
-  if (!pendingUndo) return null;
+  if (!pendingUndo && !keyHint) return null;
 
   return (
     <View
@@ -48,21 +51,29 @@ export default function UndoToast() {
           },
         ]}
       >
-        {pendingUndo.kind === 'delete' ? (
-          <View style={[styles.check, styles.trash]}>
-            <IconTrash size={11} color="#fff" strokeWidth={2} />
-          </View>
+        {pendingUndo ? (
+          <>
+            {pendingUndo.kind === 'delete' ? (
+              <View style={[styles.check, styles.trash]}>
+                <IconTrash size={11} color="#fff" strokeWidth={2} />
+              </View>
+            ) : (
+              <View style={styles.check}>
+                <IconCheckBig size={12} color="#fff" strokeWidth={2.4} />
+              </View>
+            )}
+            <Text style={styles.label} numberOfLines={1}>
+              {pendingUndo.title}
+            </Text>
+            <Pressable onPress={undo} hitSlop={10}>
+              <Text style={[styles.undo, { color: accent }]}>Undo</Text>
+            </Pressable>
+          </>
         ) : (
-          <View style={styles.check}>
-            <IconCheckBig size={12} color="#fff" strokeWidth={2.4} />
-          </View>
+          <Text style={styles.label} numberOfLines={1}>
+            {keyHint!.text}
+          </Text>
         )}
-        <Text style={styles.label} numberOfLines={1}>
-          {pendingUndo.title}
-        </Text>
-        <Pressable onPress={undo} hitSlop={10}>
-          <Text style={[styles.undo, { color: accent }]}>Undo</Text>
-        </Pressable>
       </Animated.View>
     </View>
   );

@@ -23,7 +23,10 @@ import UIKit
  * take Return from every text field in the app.
  *
  * Mac only, like EscapeKeyView: a phone has no keyboard to speak of, and
- * taking focus there would fight the on-screen one.
+ * taking focus there would fight the on-screen one. A view around a field can
+ * opt in with `anyDevice`, for an iPhone or iPad with a hardware keyboard
+ * attached; it still never takes focus there, so it only hears keys while the
+ * field inside it has them.
  */
 public final class KeyCommandsView: ExpoView {
   let onKeyCommand = EventDispatcher()
@@ -43,13 +46,15 @@ public final class KeyCommandsView: ExpoView {
   var focusKey = 0 {
     didSet { if focusKey != oldValue { claimFocus() } }
   }
+  /// Answers off the Mac too, for a field's hardware-keyboard keys.
+  var anyDevice = false
 
   public override var canBecomeFirstResponder: Bool {
     Self.isMac && focusable && active
   }
 
   public override var keyCommands: [UIKeyCommand]? {
-    guard Self.isMac, active else { return nil }
+    guard Self.isMac || anyDevice, active else { return nil }
     return keys.compactMap { name in
       guard let (input, flags) = Self.parse(name) else { return nil }
       let command = UIKeyCommand(input: input, modifierFlags: flags, action: #selector(fire(_:)))

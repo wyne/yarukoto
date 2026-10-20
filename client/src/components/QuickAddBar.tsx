@@ -15,6 +15,7 @@ import KeyCommandsView from '../../modules/mac-pointer/src/KeyCommandsView';
 import { MAC } from '../data/platform';
 import ShortcutHint from './ShortcutHint';
 import QuickAddInput from './QuickAddInput';
+import { addFieldKey } from '../data/addFieldKeys';
 import { activeLists } from '../data/selectors';
 
 const HINT = 'Add a task… try "pay rent fri 6pm #home !high ~admin"';
@@ -67,33 +68,29 @@ export default function QuickAddBar({ onSubmit, contextLabel }: Props) {
   };
 
   /**
-   * The field's own keys, by `keyName`. ↑ and ↓ walk the suggestions while there
-   * are any; otherwise ↓ goes down into the list, so ⌘N, type, Return, ↓ is a
-   * whole loop. Escape hands the keyboard to the list rather than leaving it
-   * with nothing, and Tab takes a highlighted suggestion or moves on round the
-   * window's panes (focusPanes.ts).
+   * The field's own keys, by `keyName`; which does what is `addFieldKey`'s to
+   * say. Only an empty field lets ↓ or Tab take the keyboard elsewhere, so
+   * ⌘N, type, Return, ↓ is still a whole loop, but a key reached for while
+   * typing never lands on the list.
    */
   const handleKey = (name: string): boolean => {
-    switch (name) {
-      case 'down':
-        if (suggestions.length > 0) moveSelection(1);
-        else focusPane('list');
+    const action = addFieldKey(name, { text, suggestionCount: suggestions.length, selectedIndex });
+    switch (action.kind) {
+      case 'complete':
+        chooseSuggestion(suggestions[action.index].value);
         return true;
-      case 'up':
-        if (suggestions.length === 0) return false;
-        moveSelection(-1);
+      case 'highlight':
+        moveSelection(action.delta);
         return true;
-      case 'escape':
+      case 'leave':
+        focusNextPane('add', action.delta);
+        return true;
+      case 'toList':
         if (!focusPane('list')) inputRef.current?.blur();
         return true;
-      case 'tab':
-        if (selectedIndex >= 0 && suggestions[selectedIndex]) chooseSuggestion(suggestions[selectedIndex].value);
-        else focusNextPane('add', 1);
+      case 'swallow':
         return true;
-      case 'shift+tab':
-        focusNextPane('add', -1);
-        return true;
-      default:
+      case 'pass':
         return false;
     }
   };
@@ -154,7 +151,14 @@ export default function QuickAddBar({ onSubmit, contextLabel }: Props) {
       {MAC ? (
         <KeyCommandsView
           style={styles.row}
-          keys={['down', 'escape', 'tab', 'shift+tab', ...(suggestions.length > 0 ? ['up'] : [])]}
+          // ↓ only while it has something to do here; otherwise the field keeps
+          // it, to move its caret like any field's.
+          keys={[
+            'escape',
+            'tab',
+            'shift+tab',
+            ...(suggestions.length > 0 ? ['up', 'down'] : text.trim() === '' ? ['down'] : []),
+          ]}
           onKeyCommand={({ nativeEvent }) => handleKey(nativeEvent.key)}
         >
           {field}
@@ -172,6 +176,8 @@ export default function QuickAddBar({ onSubmit, contextLabel }: Props) {
             >
               <Text style={styles.suggestionValue}>{s.value}</Text>
               {!!s.hint && <Text style={styles.suggestionHint}>{s.hint}</Text>}
+              {/* The row Tab will take: the highlighted one, else the first. */}
+              {i === Math.max(selectedIndex, 0) && <Text style={styles.suggestionTab}>⇥</Text>}
             </Pressable>
           ))}
         </View>
@@ -246,6 +252,12 @@ const useStyles = makeStyles((c) => ({
     color: c.textPrimary,
   },
   suggestionHint: {
+    fontFamily: fonts.sansRegular,
+    fontSize: 12.5,
+    color: c.textFaint,
+  },
+  suggestionTab: {
+    marginLeft: 'auto',
     fontFamily: fonts.sansRegular,
     fontSize: 12.5,
     color: c.textFaint,

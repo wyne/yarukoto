@@ -23,7 +23,7 @@ import { isSameDay, toISODate } from '../data/dateUtils';
 import { QuickAddDefaults } from '../data/TaskContext';
 import { hapticSelect } from '../data/haptics';
 import { useSyncRefresh } from '../data/useSyncRefresh';
-import { DESKTOP_UI, FINE_POINTER, FLOATING_TAB_BAR } from '../data/platform';
+import { DESKTOP_UI, FINE_POINTER, FLOATING_TAB_BAR, MAC_KEYS } from '../data/platform';
 import {
   GroupBy,
   INBOX_GROUP_KEY,
@@ -43,6 +43,8 @@ import { NATIVE_FAB_CLEARANCE, nativeTabBarClearance } from '../navigation/nativ
 import { useDetail } from '../navigation/DetailContext';
 import { useSelection } from '../navigation/SelectionContext';
 import { showPalettePicker, useCommand } from '../navigation/MenuCommands';
+import { commandDef, formatShortcut } from '../navigation/commands';
+import { showKeyHint } from '../navigation/keyHint';
 import { rangeBetween, stepCursor } from '../data/listCursor';
 import TaskRow from '../components/TaskRow';
 import ListKeys from '../components/ListKeys';
@@ -642,6 +644,11 @@ const TaskListBody = memo(
   useCommand('priorityLow', () => actOnTargets((ids) => bulkUpdate(ids, { priority: 'low' })), hasTargets);
   useCommand('priorityNone', () => actOnTargets((ids) => bulkUpdate(ids, { priority: 'none' })), hasTargets);
   useCommand('deleteTask', () => actOnTargets(deleteTasks, true), hasTargets);
+  useCommand(
+    'trashKeyHint',
+    () => showKeyHint(`Press ${formatShortcut(commandDef('deleteTask').listKeys![0], MAC_KEYS)} to move to Trash`),
+    hasTargets
+  );
   // Pickers in the command menu, for the tasks the commands act on now: what
   // was chosen in the list before the menu came up.
   useCommand('moveToList', () => showPalettePicker({ kind: 'moveToList', taskIds: commandTargets }), hasTargets);
