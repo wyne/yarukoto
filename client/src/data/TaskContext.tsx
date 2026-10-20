@@ -620,7 +620,8 @@ interface TaskContextValue {
   refreshHousehold: () => Promise<void>;
   /** Shares a list with everyone in the household, or makes it private again. Owner only. */
   setListShared: (listId: string, shared: boolean) => void;
-  addTaskFromQuickAdd: (text: string, defaults?: QuickAddDefaults) => void;
+  /** Adds the task the text describes, returning its id; undefined when the text has no title. */
+  addTaskFromQuickAdd: (text: string, defaults?: QuickAddDefaults) => string | undefined;
   toggleComplete: (id: string) => void;
   /** Moves a repeating task to its next date without completing this one. */
   skipOccurrence: (id: string) => void;
@@ -808,7 +809,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
 
   const addTaskFromQuickAdd = useCallback((text: string, defaults?: QuickAddDefaults) => {
     const parsed = parseQuickAdd(text);
-    if (!parsed.title.trim()) return;
+    if (!parsed.title.trim()) return undefined;
     const typedList = parsed.listName
       ? activeLists(state.lists).find((l) => l.name.toLowerCase() === parsed.listName!.toLowerCase())
       : undefined;
@@ -838,6 +839,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     };
     dispatch({ type: 'ADD_TASK', task });
     markDirty([task.id]);
+    return task.id;
   }, [state.lists, state.mode, serverFeatures, markDirty]);
 
   const [pendingUndo, setPendingUndo] = useState<PendingUndo | null>(null);
