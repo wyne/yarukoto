@@ -58,8 +58,10 @@ describe('the command list', () => {
 });
 
 test('the command menu shows the menu key, else the list key', () => {
+  const goTo = COMMANDS.find((c) => c.id === 'goToTask')!;
+  expect(keyName(displayShortcut(goTo, false)!)).toBe('command+o');
   const open = COMMANDS.find((c) => c.id === 'openTask')!;
-  expect(keyName(displayShortcut(open, false)!)).toBe('command+o');
+  expect(keyName(displayShortcut(open, false)!)).toBe('space');
   const today = COMMANDS.find((c) => c.id === 'dueToday')!;
   // ⌘T is the browser's, so the web has nothing to show.
   expect(displayShortcut(today, true)).toBeUndefined();

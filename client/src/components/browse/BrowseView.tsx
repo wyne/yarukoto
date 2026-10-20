@@ -20,6 +20,7 @@ import FilterBar from './FilterBar';
 import SavedFilterBar from './SavedFilterBar';
 import { useCommand } from '../../navigation/MenuCommands';
 import ShortcutHint from '../ShortcutHint';
+import { afterLayersClose } from '../openLayers';
 
 interface Props {
   criteria: TaskCriteria;
@@ -50,7 +51,8 @@ export default function BrowseView({ criteria, onCriteriaChange }: Props) {
   // Edit ▸ Find… (⌘F) on the Mac.
   const searchRef = useRef<TextInput>(null);
   const searchFocus = useFieldFocus();
-  useCommand('find', () => searchRef.current?.focus());
+  // After the command menu it may have come from is gone, as New Task waits.
+  useCommand('find', () => afterLayersClose(() => searchRef.current?.focus()));
 
   const tasks = useMemo(
     () => filterTasks(state.tasks, criteria, { lists: state.lists, now }),

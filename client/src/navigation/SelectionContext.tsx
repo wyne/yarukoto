@@ -28,6 +28,13 @@ type SelectionValue = SelectedValue & AnchorValue;
  */
 const SelectedContext = createContext<SelectedValue | null>(null);
 const AnchorContext = createContext<AnchorValue | null>(null);
+/** Moving the cursor and clearing the selection, which never change; see `useSelectionActions`. */
+const ActionsContext = createContext<SelectionActions | null>(null);
+
+interface SelectionActions {
+  setAnchor: (taskId: string) => void;
+  clear: () => void;
+}
 
 /**
  * Which tasks are selected, held above the list because the bulk actions are not
@@ -49,10 +56,13 @@ export function SelectionProvider({ children }: { children: React.ReactNode }) {
     [selectedIds, select, clear]
   );
   const anchor = useMemo<AnchorValue>(() => ({ anchorId, setAnchor }), [anchorId, setAnchor]);
+  const actions = useMemo<SelectionActions>(() => ({ setAnchor, clear }), [setAnchor, clear]);
 
   return (
     <SelectedContext.Provider value={selected}>
-      <AnchorContext.Provider value={anchor}>{children}</AnchorContext.Provider>
+      <AnchorContext.Provider value={anchor}>
+        <ActionsContext.Provider value={actions}>{children}</ActionsContext.Provider>
+      </AnchorContext.Provider>
     </SelectedContext.Provider>
   );
 }
@@ -70,4 +80,14 @@ export function useSelection(): SelectionValue {
   const anchor = useContext(AnchorContext);
   if (!anchor) throw new Error('useSelection must be used within a SelectionProvider');
   return useMemo(() => ({ ...selected, ...anchor }), [selected, anchor]);
+}
+
+/**
+ * Putting the cursor on a task from outside the list — the command menu's Go to
+ * Task… — without redrawing on every move of it, as reading the anchor would.
+ */
+export function useSelectionActions(): SelectionActions {
+  const ctx = useContext(ActionsContext);
+  if (!ctx) throw new Error('useSelectionActions must be used within a SelectionProvider');
+  return ctx;
 }

@@ -32,6 +32,7 @@ export type CommandId =
   | 'closeWindow'
   | 'checkForUpdates'
   | 'newTask'
+  | 'goToTask'
   | 'find'
   | 'commandMenu'
   | 'goAll'
@@ -138,6 +139,9 @@ export const COMMANDS: readonly CommandDef[] = [
   { id: 'settings', title: 'Settings…', menu: 'app', group: 'settings', shortcut: cmd(','), keywords: 'preferences server theme' },
 
   { id: 'newTask', title: 'New Task', menu: 'file', group: 'new', shortcut: cmd('n'), keywords: 'add create' },
+  // File ▸ Open…'s key, for the thing this app opens: a search of the open
+  // tasks by title, in the command menu.
+  { id: 'goToTask', title: 'Go to Task…', menu: 'file', group: 'new', shortcut: cmd('o'), web: true, picker: true, keywords: 'open find search jump' },
   // In place of the system's Close, which Catalyst leaves dimmed. Mac only (MacStatusMenu).
   { id: 'closeWindow', title: 'Close Window', menu: 'file', group: 'close', shortcut: cmd('w'), hiddenFromPalette: true },
 
@@ -179,7 +183,7 @@ export const COMMANDS: readonly CommandDef[] = [
 
   // Space opens the task beside the list and leaves the keyboard on the list,
   // as Quick Look does; Return opens it to edit, with the caret in its title.
-  { id: 'openTask', title: 'Open Task', menu: 'task', group: 'open', shortcut: cmd('o'), listKeys: [plain('space')], list: true, web: true },
+  { id: 'openTask', title: 'Open Task', menu: 'task', group: 'open', listKeys: [plain('space')], list: true },
   { id: 'editTask', title: 'Edit Task', group: 'open', listKeys: [plain('return')], list: true, hiddenFromPalette: true },
   { id: 'nextTask', title: 'Next Task', group: 'move', listKeys: [plain('down')], list: true, hiddenFromPalette: true },
   { id: 'previousTask', title: 'Previous Task', group: 'move', listKeys: [plain('up')], list: true, hiddenFromPalette: true },
