@@ -1,16 +1,17 @@
 import { FolderDef, ListDef, Task } from './types';
-import { activeFolders, activeLists, orderedLists, tagCounts } from './selectors';
+import { activeFolders, activeLists, activeTasks, orderedLists, tagCounts } from './selectors';
 
 /**
- * What the command menu's pickers offer — Task ▸ Move to List… and Edit Tags… —
- * and what choosing does, for the tasks the list's commands act on.
+ * What the command menu's pickers offer — Task ▸ Move to List… and Edit Tags…,
+ * for the tasks the list's commands act on, and File ▸ Go to Task… — and what
+ * choosing does.
  *
  * Pure, so the rules for several tasks at once are tested apart from the menu:
  * a list is checked only when every task is in it, and a tag only when every
  * task has it, which is also what decides whether choosing it adds or removes.
  */
 
-export type PalettePicker = { kind: 'moveToList' | 'editTags'; taskIds: string[] };
+export type PalettePicker = { kind: 'moveToList' | 'editTags'; taskIds: string[] } | { kind: 'goToTask' };
 
 export interface PickerItem {
   key: string;
@@ -24,6 +25,7 @@ export interface PickerItem {
 export const PICKER_TITLE: Record<PalettePicker['kind'], string> = {
   moveToList: 'Move to List',
   editTags: 'Edit Tags',
+  goToTask: 'Go to Task',
 };
 
 const INBOX_KEY = 'inbox';
@@ -91,4 +93,20 @@ export function toggleTag(tasks: Task[], ids: string[], key: string): { id: stri
   return targets
     .filter((t) => t.tags.includes(tag) === remove)
     .map((t) => ({ id: t.id, tags: remove ? t.tags.filter((x) => x !== tag) : [...t.tags, tag] }));
+}
+
+/**
+ * Every task not yet done, matched on its title alone: a word in the notes or a
+ * tag finding it would bury the task whose name you are typing. The list it is
+ * in goes beside it, unsearched, to tell two of the same name apart.
+ */
+export function taskPickerItems(tasks: Task[], lists: ListDef[]): PickerItem[] {
+  const listName = new Map(activeLists(lists).map((l) => [l.id, l.name]));
+  return activeTasks(tasks)
+    .filter((t) => t.title.trim())
+    .map((t) => ({
+      key: t.id,
+      title: t.title,
+      detail: t.listId === null ? 'Inbox' : listName.get(t.listId),
+    }));
 }

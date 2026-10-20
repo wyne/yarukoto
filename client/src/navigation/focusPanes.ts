@@ -19,15 +19,18 @@ export type Pane = 'sidebar' | 'add' | 'list' | 'pane';
 /** The order Tab goes round in. Shift-Tab goes the other way. */
 const RING: Pane[] = ['sidebar', 'add', 'list', 'pane'];
 
-/** Registered focusers per pane; the last one is the screen in front. */
-const focusers = new Map<Pane, (() => void)[]>();
+/**
+ * Registered focusers per pane; the last one is the screen in front. `key` says
+ * what a pane is showing, for the task pane: the task.
+ */
+const focusers = new Map<Pane, { run: () => void; key?: string }[]>();
 
 /**
  * A pane asked for before it was there — the task pane, a frame after the task
  * was opened. Short-lived, so a pane that turns up much later for some other
  * reason doesn't take the keyboard.
  */
-let pending: { pane: Pane; at: number } | null = null;
+let pending: { pane: Pane; at: number; key?: string } | null = null;
 const PENDING_MS = 1500;
 
 /**
@@ -37,16 +40,23 @@ const PENDING_MS = 1500;
  * task pane is keyed by its task, and built a little after the task is opened
  * (MainTabs defers it). The keyboard then goes to the pane that registers
  * next, rather than to the one on its way out.
+ *
+ * `key` asks for the pane showing that one thing: while the one on screen is
+ * still showing something else, the keyboard waits for it as with `mounting`.
  */
-export function focusPane(pane: Pane, { mounting = false }: { mounting?: boolean } = {}): boolean {
-  if (mounting) {
-    pending = { pane, at: Date.now() };
+export function focusPane(
+  pane: Pane,
+  { mounting = false, key }: { mounting?: boolean; key?: string } = {}
+): boolean {
+  const stack = focusers.get(pane);
+  const top = stack?.[stack.length - 1];
+  if (mounting || (key !== undefined && top && top.key !== key)) {
+    pending = { pane, at: Date.now(), key };
     return true;
   }
-  const stack = focusers.get(pane);
-  if (!stack?.length) return false;
+  if (!top) return false;
   pending = null;
-  stack[stack.length - 1]();
+  top.run();
   return true;
 }
 
@@ -63,7 +73,7 @@ export function focusNextPane(from: Pane, delta: 1 | -1): void {
 }
 
 /** Takes the keyboard for `pane` while this screen is in front, and `enabled`. */
-export function usePaneFocus(pane: Pane, focus: () => void, enabled = true) {
+export function usePaneFocus(pane: Pane, focus: () => void, enabled = true, key?: string) {
   const screenFocused = useScreenFocused();
   const latest = useRef(focus);
   latest.current = focus;
@@ -72,15 +82,16 @@ export function usePaneFocus(pane: Pane, focus: () => void, enabled = true) {
   useEffect(() => {
     if (!active) return;
     const run = () => latest.current();
-    focusers.set(pane, [...(focusers.get(pane) ?? []), run]);
-    if (pending?.pane === pane) {
+    const entry = { run, key };
+    focusers.set(pane, [...(focusers.get(pane) ?? []), entry]);
+    if (pending?.pane === pane && (pending.key === undefined || pending.key === key)) {
       if (Date.now() - pending.at < PENDING_MS) requestAnimationFrame(run);
       pending = null;
     }
     return () => {
-      focusers.set(pane, (focusers.get(pane) ?? []).filter((f) => f !== run));
+      focusers.set(pane, (focusers.get(pane) ?? []).filter((f) => f !== entry));
     };
-  }, [pane, active]);
+  }, [pane, active, key]);
 }
 
 /**

@@ -232,7 +232,7 @@ export default function TaskDetailView({ taskId, onClose, variant, active = true
     if (!focusPane('list')) Keyboard.dismiss();
     return true;
   };
-  usePaneFocus('pane', () => focusField('title'), variant === 'pane' && !!task);
+  usePaneFocus('pane', () => focusField('title'), variant === 'pane' && !!task, taskId);
 
   // The server's record of this task. Local and sample mode keep none, which
   // supportsFeature would otherwise answer yes to.

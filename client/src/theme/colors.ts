@@ -100,7 +100,7 @@ export const lightPalette = {
 
   swipeToday: '#B5540C',
   swipeLater: '#55554F',
-  swipeDone: '#1E7A3C',
+  swipeNextWeek: '#3D5A80',
 
   /**
    * A surface painted in the text colour, carrying text painted in the
@@ -195,7 +195,7 @@ export const darkPalette: Palette = {
 
   swipeToday: '#96521C',
   swipeLater: '#6E6D66',
-  swipeDone: '#2A6B41',
+  swipeNextWeek: '#3A5070',
 
   inverseSurface: '#F2F2EE',
   inverseText: '#161614',

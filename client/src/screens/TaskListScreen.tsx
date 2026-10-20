@@ -23,7 +23,7 @@ import { isSameDay, toISODate } from '../data/dateUtils';
 import { QuickAddDefaults } from '../data/TaskContext';
 import { hapticSelect } from '../data/haptics';
 import { useSyncRefresh } from '../data/useSyncRefresh';
-import { DESKTOP_UI, FINE_POINTER, FLOATING_TAB_BAR } from '../data/platform';
+import { DESKTOP_UI, FINE_POINTER, FLOATING_TAB_BAR, MAC_KEYS } from '../data/platform';
 import {
   GroupBy,
   INBOX_GROUP_KEY,
@@ -43,6 +43,8 @@ import { NATIVE_FAB_CLEARANCE, nativeTabBarClearance } from '../navigation/nativ
 import { useDetail } from '../navigation/DetailContext';
 import { useSelection } from '../navigation/SelectionContext';
 import { showPalettePicker, useCommand } from '../navigation/MenuCommands';
+import { commandDef, formatShortcut } from '../navigation/commands';
+import { showKeyHint } from '../navigation/keyHint';
 import { rangeBetween, stepCursor } from '../data/listCursor';
 import TaskRow from '../components/TaskRow';
 import ListKeys from '../components/ListKeys';
@@ -95,6 +97,8 @@ const TITLES = { all: 'All', inbox: 'Inbox', today: 'Today' } as const;
 const VIRTUALIZED = Platform.OS !== 'web';
 /** Room left between a revealed row and the edge it was brought in from. */
 const REVEAL_MARGIN = 8;
+/** How many frames a revealed row on the web is followed while it settles. */
+const REVEAL_SETTLE_FRAMES = 45;
 const GROUP_LAYOUT = LinearTransition.duration(180);
 const GROUP_ENTER = FadeIn.duration(140);
 /**
@@ -157,6 +161,7 @@ const TaskListBody = memo(
     skipOccurrence,
     scheduleToday,
     snoozeTask,
+    scheduleNextWeek,
     reorderTasks,
     setArrangement,
     clearArrangement,
@@ -387,17 +392,17 @@ const TaskListBody = memo(
   /**
    * Rows drawn with a tint: selected, or the one the surrounding UI is about.
    *
-   * The anchor keeps its tint after the detail closes, because it is where the
-   * next shift-click measures from and there would otherwise be nothing saying
-   * so. Only that anchor state is gated on the pointer: a narrow desktop window
-   * still has a shift key, and a phone has none, so on a touchscreen an anchor
-   * tint would be pointing at a gesture that cannot be made.
+   * The anchor keeps its tint after the detail closes: on the desktop it is the
+   * keyboard's cursor and where the next shift-click measures from, and on a
+   * phone it is the task last opened or added, so closing the sheet, or adding
+   * a task that lands mid-list, leaves you knowing where you were. Picking
+   * tasks out on a phone is its own mode, whose checkmarks say all there is.
    */
   const highlighted = (id: string) =>
     isSelected(id) ||
     contextTaskId === id ||
     openTaskId === id ||
-    (FINE_POINTER && anchorId === id);
+    (anchorId === id && (DESKTOP_UI || !selectionMode));
 
   /** Every visible task in display order — the sequence a shift range spans. */
   const flatIds = useMemo(() => groups.flatMap((g) => g.tasks.map((t) => t.id)), [groups]);
@@ -411,8 +416,9 @@ const TaskListBody = memo(
     closeOpenSwipeRow();
     claimKeyboard();
     if (!DESKTOP_UI) {
-      if (selectionMode) toggleSelected(id);
-      else openTask(id);
+      if (selectionMode) return toggleSelected(id);
+      setAnchor(id);
+      openTask(id);
       return;
     }
     if (shiftHeld.current && anchorId) {
@@ -477,26 +483,72 @@ const TaskListBody = memo(
   };
   const stepTo = (delta: 1 | -1) => moveCursor(stepCursor(navIds, cursor, delta));
   /**
+   * A task just added from this view, until the list has drawn it.
+   *
+   * It lands wherever the view's sort puts it, which can be well off screen,
+   * so the list goes to it. It becomes the anchor, which brings it into view
+   * and tints it as the last task touched; on the desktop that is the cursor,
+   * so the next key acts on what was just typed. With a column beside the list
+   * it opens there too, to fill in the rest; a narrow window's pane would cover
+   * the field being typed into, so there only the cursor moves.
+   *
+   * Taken on the first change of rows after the add, which is the add's own:
+   * a task typed into another list or date never shows here, and is dropped.
+   */
+  const justAdded = useRef<string | null>(null);
+  useEffect(() => {
+    const id = justAdded.current;
+    justAdded.current = null;
+    if (!id || !navIds.includes(id)) return;
+    clearSelection();
+    setAnchor(id);
+    head.current = id;
+    if (DESKTOP_UI && wide) openTask(id);
+  }, [navIds, clearSelection, setAnchor, wide, openTask]);
+  const onAdded = (id: string | undefined) => {
+    if (id) justAdded.current = id;
+  };
+  /**
    * Brings the cursor's row into view on the web, as `VirtualTaskList` does
    * natively. The web column is fully built, so the row is always on the page
    * to find; it comes in at whichever edge it was past, the least scrolling
    * that shows it.
+   *
+   * A row that has only just been added isn't where it will end up yet: the
+   * column places its rows itself once it has measured them, some frames
+   * later, and grows to fit after that. So it is followed for a short while,
+   * and brought back into view whenever it or the column moves. A row already
+   * in place never moves, so scrolling away from it isn't fought.
    */
   useEffect(() => {
     if (Platform.OS !== 'web' || !cursor) return;
     const scroller = scrollRef.current as unknown as HTMLElement | null;
-    const row = scroller?.querySelector?.(`[data-task-row="${CSS.escape(cursor)}"]`);
-    if (!scroller || !row) return;
-    const view = scroller.getBoundingClientRect();
-    const { top, bottom } = row.getBoundingClientRect();
-    const above = top - REVEAL_MARGIN - view.top;
-    const below = bottom + REVEAL_MARGIN - view.bottom;
-    const by = above < 0 ? above : below > 0 ? below : 0;
-    if (by !== 0) scroller.scrollTop += by;
+    let frame = 0;
+    let placed: string | null = null;
+    const reveal = (framesLeft: number) => {
+      const row = scroller?.querySelector?.(`[data-task-row="${CSS.escape(cursor)}"]`);
+      if (!scroller || !row) return;
+      const view = scroller.getBoundingClientRect();
+      const { top, bottom } = row.getBoundingClientRect();
+      // Where the row sits in the column, which scrolling doesn't change, and
+      // how tall the column is.
+      const at = `${top - view.top + scroller.scrollTop}:${scroller.scrollHeight}`;
+      if (at !== placed) {
+        placed = at;
+        const above = top - REVEAL_MARGIN - view.top;
+        const below = bottom + REVEAL_MARGIN - view.bottom;
+        const by = above < 0 ? above : below > 0 ? below : 0;
+        if (by !== 0) scroller.scrollTop += by;
+      }
+      if (framesLeft > 0) frame = requestAnimationFrame(() => reveal(framesLeft - 1));
+    };
+    reveal(REVEAL_SETTLE_FRAMES);
+    return () => cancelAnimationFrame(frame);
   }, [cursor, scrollRef]);
   const extendTo = (delta: 1 | -1) => {
     if (!cursor) return stepTo(delta);
-    const from = head.current && navIds.includes(head.current) ? head.current : cursor;
+    // With nothing selected the range starts here, wherever the cursor came from.
+    const from = visibleSelection.length > 0 && head.current && navIds.includes(head.current) ? head.current : cursor;
     const to = stepCursor(navIds, from, delta);
     if (!to) return;
     head.current = to;
@@ -570,7 +622,9 @@ const TaskListBody = memo(
     if (!cursor) return;
     // A phone opens it as a sheet instead, with no pane to go into.
     if (openTaskId === cursor) {
-      if (taskPane) focusPane('pane');
+      // The pane follows the cursor a little behind, so it may still be the
+      // last task's; the keyboard waits for this one's.
+      if (taskPane) focusPane('pane', { key: cursor });
       return;
     }
     openTask(cursor);
@@ -642,6 +696,11 @@ const TaskListBody = memo(
   useCommand('priorityLow', () => actOnTargets((ids) => bulkUpdate(ids, { priority: 'low' })), hasTargets);
   useCommand('priorityNone', () => actOnTargets((ids) => bulkUpdate(ids, { priority: 'none' })), hasTargets);
   useCommand('deleteTask', () => actOnTargets(deleteTasks, true), hasTargets);
+  useCommand(
+    'trashKeyHint',
+    () => showKeyHint(`Press ${formatShortcut(commandDef('deleteTask').listKeys![0], MAC_KEYS)} to move to Trash`),
+    hasTargets
+  );
   // Pickers in the command menu, for the tasks the commands act on now: what
   // was chosen in the list before the menu came up.
   useCommand('moveToList', () => showPalettePicker({ kind: 'moveToList', taskIds: commandTargets }), hasTargets);
@@ -826,7 +885,7 @@ const TaskListBody = memo(
               onToggleComplete={() => toggleComplete(task.id)}
               onToday={() => scheduleToday(task.id)}
               onLater={() => snoozeTask(task.id)}
-              onDone={() => toggleComplete(task.id)}
+              onNextWeek={() => scheduleNextWeek(task.id)}
             />
             {i < tasks.length - 1 &&
               (() => {
@@ -873,6 +932,7 @@ const TaskListBody = memo(
     toggleComplete,
     scheduleToday,
     snoozeTask,
+    scheduleNextWeek,
     selectionMode,
     isSelected,
     selectionCount: webSelection.length,
@@ -884,6 +944,7 @@ const TaskListBody = memo(
     toggleComplete,
     scheduleToday,
     snoozeTask,
+    scheduleNextWeek,
     selectionMode,
     isSelected,
     selectionCount: webSelection.length,
@@ -929,7 +990,7 @@ const TaskListBody = memo(
             onToggleComplete={() => live.current.toggleComplete(task.id)}
             onToday={() => live.current.scheduleToday(task.id)}
             onLater={() => live.current.snoozeTask(task.id)}
-            onDone={() => live.current.toggleComplete(task.id)}
+            onNextWeek={() => live.current.scheduleNextWeek(task.id)}
           />
         );
       }
@@ -961,7 +1022,7 @@ const TaskListBody = memo(
             onToggleComplete={() => live.current.toggleComplete(task.id)}
             onToday={() => live.current.scheduleToday(task.id)}
             onLater={() => live.current.snoozeTask(task.id)}
-            onDone={() => live.current.toggleComplete(task.id)}
+            onNextWeek={() => live.current.scheduleNextWeek(task.id)}
           />
         </ContextMenuTarget>
       );
@@ -1057,7 +1118,7 @@ const TaskListBody = memo(
       {DESKTOP_UI && !selectionMode && canQuickAdd && (
         <View style={[styles.quickAddBand, wide && styles.paneWide]}>
           <QuickAddBar
-            onSubmit={(text) => addTaskFromQuickAdd(text, quickAddDefaults)}
+            onSubmit={(text) => onAdded(addTaskFromQuickAdd(text, quickAddDefaults))}
             contextLabel={quickAddLabel}
           />
         </View>
@@ -1084,7 +1145,7 @@ const TaskListBody = memo(
           dragCount={DESKTOP_UI ? virtualDragCount : undefined}
           refreshControl={refreshControl}
           onScrollBeginDrag={closeOpenSwipeRow}
-          revealTaskId={DESKTOP_UI ? cursor : null}
+          revealTaskId={cursor}
           contentContainerStyle={[
             styles.listContent,
             !DESKTOP_UI && styles.scrollContentFab,
@@ -1173,7 +1234,7 @@ const TaskListBody = memo(
                           onToggleComplete={() => toggleComplete(task.id)}
                           onToday={() => scheduleToday(task.id)}
                           onLater={() => snoozeTask(task.id)}
-                          onDone={() => toggleComplete(task.id)}
+                          onNextWeek={() => scheduleNextWeek(task.id)}
                         />
                         {i < completed.length - 1 && (
                           <Divider railColor={task.listId ? listsById.get(task.listId)?.color : undefined} />
@@ -1190,7 +1251,12 @@ const TaskListBody = memo(
       </ListKeys>
 
       {!DESKTOP_UI && canQuickAdd && (
-        <AddTaskFab defaults={quickAddDefaults} contextLabel={quickAddLabel} hidden={selectionMode} />
+        <AddTaskFab
+          defaults={quickAddDefaults}
+          contextLabel={quickAddLabel}
+          hidden={selectionMode}
+          onAdded={onAdded}
+        />
       )}
 
       {selectionMode && (

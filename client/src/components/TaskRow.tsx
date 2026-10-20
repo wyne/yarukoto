@@ -76,10 +76,10 @@ interface Props {
   onToggleComplete: () => void;
   onToday: () => void;
   onLater: () => void;
-  onDone: () => void;
+  onNextWeek: () => void;
 }
 
-type Handlers = Pick<Props, 'onPress' | 'onLongPress' | 'onToggleComplete' | 'onToday' | 'onLater' | 'onDone'>;
+type Handlers = Pick<Props, 'onPress' | 'onLongPress' | 'onToggleComplete' | 'onToday' | 'onLater' | 'onNextWeek'>;
 
 /**
  * Every row re-renders whenever its parent does, and the parents re-render on
@@ -103,7 +103,7 @@ export default function TaskRow(props: Props) {
       onToggleComplete: () => latest.current.onToggleComplete(),
       onToday: () => latest.current.onToday(),
       onLater: () => latest.current.onLater(),
-      onDone: () => latest.current.onDone(),
+      onNextWeek: () => latest.current.onNextWeek(),
     }),
     []
   );
@@ -145,7 +145,7 @@ const TaskRowBody = memo(function TaskRowBody({
   onToggleComplete,
   onToday,
   onLater,
-  onDone,
+  onNextWeek,
 }: BodyProps) {
   const now = new Date(today);
   const colors = useColors();
@@ -292,7 +292,7 @@ const TaskRowBody = memo(function TaskRowBody({
   if (selectionMode || task.completed || Platform.OS === 'web') return row;
 
   return (
-    <SwipeableRow onToday={onToday} onLater={onLater} onDone={onDone}>
+    <SwipeableRow onToday={onToday} onLater={onLater} onNextWeek={onNextWeek}>
       {row}
     </SwipeableRow>
   );

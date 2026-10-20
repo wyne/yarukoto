@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, Text, TextInput, View } from 'react-native';
+import { Platform, Pressable, Text, TextInput, View } from 'react-native';
 // Gesture handler's ScrollView, not React Native's: the menus scroll inside the
 // sheet's pan gesture, and on Android that pan claims the drag and cancels a
 // plain ScrollView after a few pixels, so only the first rows were reachable.
@@ -18,6 +18,8 @@ import { applySuggestion, useQuickAddSuggestions } from '../data/quickAddSuggest
 import DueDateQuickMenu from './pickers/DueDateQuickMenu';
 import NativeSheet from './NativeSheet';
 import QuickAddInput from './QuickAddInput';
+import { addFieldKey } from '../data/addFieldKeys';
+import KeyCommandsView from '../../modules/mac-pointer/src/KeyCommandsView';
 import { IconCalendarBox, IconCheckBig, IconFlag, IconFolder, IconPlus, IconTag } from '../icons/Icons';
 import { useNativeDateTimePicker } from '../navigation/DateTimePickerContext';
 
@@ -47,6 +49,8 @@ interface Props {
   /** What the view contributes — the composer starts from these each time it opens. */
   defaults?: QuickAddDefaults;
   contextLabel?: string;
+  /** Called with each task added, so the list behind can show where it landed. */
+  onAdded?: (taskId: string) => void;
 }
 
 /**
@@ -60,7 +64,7 @@ interface Props {
  * never animates once the sheet is up. Combined with the panel's fixed height,
  * the only movement while composing is the sheet growing by that one amount.
  */
-export default function TaskComposerSheet({ visible, onClose, defaults, contextLabel }: Props) {
+export default function TaskComposerSheet({ visible, onClose, defaults, contextLabel, onAdded }: Props) {
   const colors = useColors();
   const styles = useStyles();
   const accent = useAccent();
@@ -140,13 +144,14 @@ export default function TaskComposerSheet({ visible, onClose, defaults, contextL
 
   const commit = () => {
     if (!canSubmit) return false;
-    addTaskFromQuickAdd(text, {
+    const id = addTaskFromQuickAdd(text, {
       listId,
       tags,
       dueDate,
       dueTime,
       priority,
     });
+    if (id) onAdded?.(id);
     return true;
   };
 
@@ -225,6 +230,32 @@ export default function TaskComposerSheet({ visible, onClose, defaults, contextL
     </Pressable>
   );
 
+  const field = (
+    <QuickAddInput
+      ref={inputRef}
+      sheet
+      value={text}
+      onChangeText={setText}
+      placeholder={contextLabel ? `Add to ${contextLabel}…` : 'What would you like to do?'}
+      placeholderTextColor={colors.textFaint}
+      style={styles.input}
+      autoCapitalize="sentences"
+      autoCorrect
+      autoComplete="off"
+      spellCheck
+      importantForAutofill="no"
+      // Multiline so a long title wraps, but return submits rather than
+      // inserting a newline — a task title is one line of text. 'newline' is
+      // the default for multiline inputs, which is what made return type into
+      // the title. 'submit' also leaves focus alone, which is what lets the
+      // sheet stay open for the next task.
+      multiline
+      submitBehavior="submit"
+      onSubmitEditing={handleSubmitEditing}
+      returnKeyType="next"
+    />
+  );
+
   return (
     <NativeSheet
       visible={visible}
@@ -236,29 +267,25 @@ export default function TaskComposerSheet({ visible, onClose, defaults, contextL
       // than open-then-keyboard.
       onShow={() => inputRef.current?.focus()}
     >
-      <QuickAddInput
-        ref={inputRef}
-        sheet
-        value={text}
-        onChangeText={setText}
-        placeholder={contextLabel ? `Add to ${contextLabel}…` : 'What would you like to do?'}
-        placeholderTextColor={colors.textFaint}
-        style={styles.input}
-        autoCapitalize="sentences"
-        autoCorrect
-        autoComplete="off"
-        spellCheck
-        importantForAutofill="no"
-        // Multiline so a long title wraps, but return submits rather than
-        // inserting a newline — a task title is one line of text. 'newline' is
-        // the default for multiline inputs, which is what made return type into
-        // the title. 'submit' also leaves focus alone, which is what lets the
-        // sheet stay open for the next task.
-        multiline
-        submitBehavior="submit"
-        onSubmitEditing={handleSubmitEditing}
-        returnKeyType="next"
-      />
+      {/* A hardware keyboard's Tab completes the token being typed — `~ad` Tab
+          is `~Admin` — so a list, tag or priority never has to be spelled out
+          or picked on screen. With nothing to complete it does nothing, rather
+          than typing a tab into the title: there are no panes here to move to.
+          Only iOS has a native view to hear the key. */}
+      {Platform.OS === 'ios' ? (
+        <KeyCommandsView
+          anyDevice
+          keys={['tab']}
+          onKeyCommand={() => {
+            const action = addFieldKey('tab', { text, suggestionCount: suggestions.length, selectedIndex: -1 });
+            if (action.kind === 'complete') chooseSuggestion(suggestions[action.index].value);
+          }}
+        >
+          {field}
+        </KeyCommandsView>
+      ) : (
+        field
+      )}
 
       {suggestions.length > 0 && (
         <View style={styles.suggestions}>

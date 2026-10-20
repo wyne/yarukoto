@@ -65,7 +65,8 @@ function sections(): { title: string; rows: Row[] }[] {
     });
   }
   for (const def of COMMANDS) {
-    if (VIEW_IDS.has(def.id)) continue;
+    // The plain ⌫ that only names ⌘⌫ isn't a key to learn.
+      if (VIEW_IDS.has(def.id) || def.id === 'trashKeyHint') continue;
     const keys = keysFor(def, MAC_KEYS);
     if (!keys) continue;
     const shortcuts = [

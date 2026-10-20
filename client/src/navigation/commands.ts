@@ -32,6 +32,7 @@ export type CommandId =
   | 'closeWindow'
   | 'checkForUpdates'
   | 'newTask'
+  | 'goToTask'
   | 'find'
   | 'commandMenu'
   | 'goAll'
@@ -76,6 +77,7 @@ export type CommandId =
   | 'priorityNone'
   | 'showHistory'
   | 'deleteTask'
+  | 'trashKeyHint'
   | 'moveToList'
   | 'editTags'
   | 'deselect'
@@ -141,6 +143,9 @@ export const COMMANDS: readonly CommandDef[] = [
   { id: 'settings', title: 'Settings…', menu: 'app', group: 'settings', shortcut: cmd(','), keywords: 'preferences server theme' },
 
   { id: 'newTask', title: 'New Task', menu: 'file', group: 'new', shortcut: cmd('n'), keywords: 'add create' },
+  // File ▸ Open…'s key, for the thing this app opens: a search of the open
+  // tasks by title, in the command menu.
+  { id: 'goToTask', title: 'Go to Task…', menu: 'file', group: 'new', shortcut: cmd('o'), web: true, picker: true, keywords: 'open find search jump' },
   // In place of the system's Close, which Catalyst leaves dimmed. Mac only (MacStatusMenu).
   { id: 'closeWindow', title: 'Close Window', menu: 'file', group: 'close', shortcut: cmd('w'), hiddenFromPalette: true },
 
@@ -182,7 +187,7 @@ export const COMMANDS: readonly CommandDef[] = [
 
   // Space opens the task beside the list and leaves the keyboard on the list,
   // as Quick Look does; Return opens it to edit, with the caret in its title.
-  { id: 'openTask', title: 'Open Task', menu: 'task', group: 'open', shortcut: cmd('o'), listKeys: [plain('space')], list: true, web: true },
+  { id: 'openTask', title: 'Open Task', menu: 'task', group: 'open', listKeys: [plain('space')], list: true },
   { id: 'editTask', title: 'Edit Task', group: 'open', listKeys: [plain('return')], list: true, hiddenFromPalette: true },
   { id: 'nextTask', title: 'Next Task', group: 'move', listKeys: [plain('down')], list: true, hiddenFromPalette: true },
   { id: 'previousTask', title: 'Previous Task', group: 'move', listKeys: [plain('up')], list: true, hiddenFromPalette: true },
@@ -221,10 +226,14 @@ export const COMMANDS: readonly CommandDef[] = [
   // Answered by the open task's pane, so it needs no selection of its own.
   { id: 'showHistory', title: 'Show History…', menu: 'task', group: 'history', keywords: 'activity changes revisions log' },
 
-  // Plain Delete on the list, not ⌘⌫ in the menu bar: a menu key equivalent
-  // fires whatever has focus, and ⌘⌫ is "delete to start of line" in every
-  // text field, the note editor included.
-  { id: 'deleteTask', title: 'Move to Trash', menu: 'task', group: 'delete', listKeys: [plain('delete')], list: true, keywords: 'delete remove' },
+  // ⌘⌫ held by the list, not by the menu bar: a menu key equivalent fires
+  // whatever has focus, and ⌘⌫ is "delete to start of line" in every text
+  // field, the note editor included. Not a plain ⌫ either: that is the key a
+  // hand reaches for to fix a typo, and the keyboard can be on the list
+  // without the eye having followed it there. A plain ⌫ only says which key
+  // trashes, so a stray one costs nothing.
+  { id: 'deleteTask', title: 'Move to Trash', menu: 'task', group: 'delete', listKeys: [plain('delete', 'command')], list: true, keywords: 'delete remove' },
+  { id: 'trashKeyHint', title: 'Move to Trash Key', group: 'delete', listKeys: [plain('delete')], list: true, hiddenFromPalette: true },
 
   // In place of the system's "Yarukoto Help", which only says help isn't
   // available. Each opens a page in the browser (src/data/links.ts).

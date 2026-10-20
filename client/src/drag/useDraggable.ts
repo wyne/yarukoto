@@ -43,8 +43,8 @@ export interface DraggableBindings extends GestureResponderHandlers {
  * root-down in capture and deepest-first in bubble, so claiming in capture beats
  * any descendant that wants the same touch.
  *
- * That used to be what settled drag against SwipeableRow, whose swipe to Done is
- * the same mostly-sideways motion. It no longer is: the swipe is a
+ * That used to be what settled drag against SwipeableRow, whose swipe to its
+ * actions is the same mostly-sideways motion. It no longer is: the swipe is a
  * gesture-handler recognizer now, and a JS responder claim doesn't reach it. The
  * two are separated at the source instead — SwipeableRow disables itself while a
  * drag is in flight, which this hook announces by arming the drag on long press,

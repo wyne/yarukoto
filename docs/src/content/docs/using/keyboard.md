@@ -24,12 +24,13 @@ does.
 
 | Key | What it does |
 |---|---|
-| ⇥ Tab | Next place: sidebar, add field, list, task pane, then round again |
+| ⇥ Tab | Next place: sidebar, add field, list, task pane, then round again. The add field passes it on only while empty |
 | ⇧⇥ Shift-Tab | The same, backwards |
 | ⎋ Escape | Leaves the field you're typing in and gives the keyboard to the list |
 | ⌘N | Puts the cursor in the add field *(Mac)* |
 | ⌘F | Search, in Browse *(Mac)* |
 | ⌘K | Command menu: go to any view, list, folder, tag or saved filter, or run any command |
+| ⌘O | Go to a task: search the tasks that aren't done by title, and open the one you pick |
 | ⌘1 to ⌘7 | All, Inbox, Today, Calendar, Activity, Browse, Trash *(Mac)* |
 | ⌘S | Show or hide the sidebar, which takes the keyboard as it opens *(Mac)* |
 | ⌘D | Show or hide the task pane *(Mac)* |
@@ -57,7 +58,7 @@ While the sidebar has the keyboard, the row you're on is outlined in your accent
 | Page Up, Page Down | Move ten tasks at a time |
 | ⇧↑ ⇧↓ | Select several tasks |
 | ↩ Return | Open the task and start editing its title |
-| Space, or ⌘O | Open the task beside the list, keeping the keyboard on the list |
+| Space | Open the task beside the list, keeping the keyboard on the list |
 | → | Into the task pane, opening the task if it isn't |
 | ← | To the sidebar |
 | ⎋ Escape | Clear the selection, then close the task pane |
@@ -67,7 +68,7 @@ While the sidebar has the keyboard, the row you're on is outlined in your accent
 | ⌥⌘1, ⌥⌘2, ⌥⌘3, ⌥⌘0 | Priority high, medium, low, none |
 | ⇧⌘M | Move to a list: pick one in the command menu *(Mac)* |
 | ⇧⌘T | Add or remove tags: pick them in the command menu *(Mac)* |
-| ⌫ Delete | Move to Trash |
+| ⌘⌫ | Move to Trash. A plain ⌫ only shows this reminder, so a key meant to fix a typo can't trash a task |
 | ⌘Z | Undo the last complete or delete, while its notice is showing *(Mac)* |
 
 With several tasks selected, the task keys act on all of them.
@@ -92,9 +93,14 @@ To group or sort the list in front, type **group** or **sort** in the command me
 | Key | What it does |
 |---|---|
 | ↩ Return | Add the task and stay in the field for the next one |
-| ↓ | Go down into the list. While suggestions are showing, ↑ and ↓ move through them |
-| ⇥ Tab | Take the highlighted suggestion, or move on to the list |
-| ⎋ Escape | Give the keyboard to the list |
+| ↓ | While suggestions are showing, ↑ and ↓ move through them. In an empty field, go down into the list |
+| ⇥ Tab | Complete the tag, list or priority being typed with the highlighted suggestion, or the first one if none is highlighted. In an empty field, move on to the list |
+| ⇧⇥ Shift-Tab | In an empty field, back to the sidebar |
+| ⎋ Escape | Give the keyboard to the list, keeping whatever you've typed |
+
+While there's text in the field, ↓, Tab and Shift-Tab never move you out of it: with nothing to
+complete, Tab does nothing. So the keyboard can't end up on the list mid-sentence, where the next
+key would act on a task. **Escape** is the way out with a draft half-typed.
 
 So a quick capture is **⌘N**, type, **Return**, and **↓** or **Escape** to get back to the list.
 

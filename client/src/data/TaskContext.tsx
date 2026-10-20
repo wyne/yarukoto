@@ -620,7 +620,8 @@ interface TaskContextValue {
   refreshHousehold: () => Promise<void>;
   /** Shares a list with everyone in the household, or makes it private again. Owner only. */
   setListShared: (listId: string, shared: boolean) => void;
-  addTaskFromQuickAdd: (text: string, defaults?: QuickAddDefaults) => void;
+  /** Adds the task the text describes, returning its id; undefined when the text has no title. */
+  addTaskFromQuickAdd: (text: string, defaults?: QuickAddDefaults) => string | undefined;
   toggleComplete: (id: string) => void;
   /** Moves a repeating task to its next date without completing this one. */
   skipOccurrence: (id: string) => void;
@@ -645,6 +646,8 @@ interface TaskContextValue {
   scheduleToday: (id: string) => void;
   /** Due tomorrow. */
   snoozeTask: (id: string) => void;
+  /** Due a week from today. */
+  scheduleNextWeek: (id: string) => void;
   /** `ids` is the visible slice in its new order. */
   reorderTasks: (ids: string[], prevId: string | null, nextId: string | null) => void;
   setArrangement: (key: string, sortBy: SortBy, groupKey: string, ids: string[]) => void;
@@ -808,7 +811,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
 
   const addTaskFromQuickAdd = useCallback((text: string, defaults?: QuickAddDefaults) => {
     const parsed = parseQuickAdd(text);
-    if (!parsed.title.trim()) return;
+    if (!parsed.title.trim()) return undefined;
     const typedList = parsed.listName
       ? activeLists(state.lists).find((l) => l.name.toLowerCase() === parsed.listName!.toLowerCase())
       : undefined;
@@ -838,6 +841,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     };
     dispatch({ type: 'ADD_TASK', task });
     markDirty([task.id]);
+    return task.id;
   }, [state.lists, state.mode, serverFeatures, markDirty]);
 
   const [pendingUndo, setPendingUndo] = useState<PendingUndo | null>(null);
@@ -1003,6 +1007,13 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
   const snoozeTask = useCallback(
     (id: string) => {
       dispatch({ type: 'SET_DUE_DAY', id, days: 1 });
+      markDirty([id]);
+    },
+    [markDirty]
+  );
+  const scheduleNextWeek = useCallback(
+    (id: string) => {
+      dispatch({ type: 'SET_DUE_DAY', id, days: 7 });
       markDirty([id]);
     },
     [markDirty]
@@ -1549,6 +1560,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       toggleSubtask,
       scheduleToday,
       snoozeTask,
+      scheduleNextWeek,
       reorderTasks,
       setArrangement,
       clearArrangement,
@@ -1597,6 +1609,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       toggleSubtask,
       scheduleToday,
       snoozeTask,
+      scheduleNextWeek,
       reorderTasks,
       setArrangement,
       clearArrangement,

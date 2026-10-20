@@ -15,6 +15,7 @@ import {
   listIdFor,
   listPickerItems,
   tagPickerItems,
+  taskPickerItems,
   toggleTag,
 } from '../data/palettePickers';
 import { MAC, MAC_KEYS } from '../data/platform';
@@ -23,11 +24,15 @@ import { COMMANDS, CommandId, displayShortcut, formatShortcut, paletteTitle } fr
 import { dispatchCommand, useAvailableCommands, useCheckedCommands } from '../navigation/MenuCommands';
 import { navigationRef } from '../navigation/DateTimePickerContext';
 import { tabNavigation } from '../navigation/destinations';
+import { useDetailActions } from '../navigation/DetailContext';
+import { useSelectionActions } from '../navigation/SelectionContext';
+import { focusPane } from '../navigation/focusPanes';
+import { afterLayersClose } from './openLayers';
 
 interface Props {
   visible: boolean;
   onClose: () => void;
-  /** A picker in place of the search: Move to List… and Edit Tags…, for these tasks. */
+  /** A picker in place of the search: Move to List… and Edit Tags… for these tasks, or Go to Task…. */
   picker?: PalettePicker | null;
   /** Escape from a picker: back to the search it came from, or closed if it came by its key. */
   onLeavePicker?: () => void;
@@ -71,11 +76,14 @@ const GO_TO = 'Go to';
 const PICKER_PLACEHOLDER: Record<PalettePicker['kind'], string> = {
   moveToList: 'Move to…',
   editTags: 'Add or remove a tag…',
+  goToTask: 'Find a task by name…',
 };
 
 /** Seen in this many rows at once; the rest scroll. */
 const MAX_ROWS = 9;
 const ROW_HEIGHT = 38;
+/** Drawn at most: Go to Task… can match thousands, and nobody scrolls past this many. */
+const MAX_RESULTS = 100;
 
 function goTo(route: string, params?: object) {
   const [name, next] = tabNavigation(route, params);
@@ -98,6 +106,8 @@ export default function CommandPalette({ visible, onClose, picker = null, onLeav
   const styles = useStyles();
   const colors = useColors();
   const { state, supportsFeature, bulkUpdate, updateTask } = useTasks();
+  const { openTask } = useDetailActions();
+  const { setAnchor, clear: clearSelection } = useSelectionActions();
   const available = useAvailableCommands();
   const checked = useCheckedCommands();
   const [query, setQuery] = useState('');
@@ -118,6 +128,24 @@ export default function CommandPalette({ visible, onClose, picker = null, onLeav
 
   const pickerEntries = useMemo<Entry[] | null>(() => {
     if (!visible || !picker) return null;
+    if (picker.kind === 'goToTask') {
+      return taskPickerItems(state.tasks, state.lists).map((item) => ({
+        ...item,
+        run: () => {
+          // Shown in its own list, with the cursor on it and the keyboard on
+          // the list, as if it had been clicked there.
+          const task = state.tasks.find((t) => t.id === item.key);
+          const listId = task?.listId ?? null;
+          if (listId === null) goTo('InboxTab');
+          else if (activeLists(state.lists).some((l) => l.id === listId)) goTo('InboxTab', { listId });
+          else goTo('AllTab');
+          clearSelection();
+          setAnchor(item.key);
+          openTask(item.key);
+          afterLayersClose(() => focusPane('list'));
+        },
+      }));
+    }
     const ids = picker.taskIds;
     if (picker.kind === 'moveToList') {
       return listPickerItems(state.lists, state.folders, state.tasks, ids).map((item) => ({
@@ -134,7 +162,7 @@ export default function CommandPalette({ visible, onClose, picker = null, onLeav
         setQuery('');
       },
     }));
-  }, [visible, picker, query, state.lists, state.folders, state.tasks, bulkUpdate, updateTask]);
+  }, [visible, picker, query, state.lists, state.folders, state.tasks, bulkUpdate, updateTask, openTask, setAnchor, clearSelection]);
 
   const entries = useMemo<Entry[]>(() => {
     if (!visible || picker) return [];
@@ -219,7 +247,10 @@ export default function CommandPalette({ visible, onClose, picker = null, onLeav
     return out;
   }, [visible, picker, available, checked, state.lists, state.folders, state.tasks, state.savedFilters, supportsFeature]);
 
-  const results = useMemo(() => rankPaletteItems(pickerEntries ?? entries, query), [pickerEntries, entries, query]);
+  const results = useMemo(
+    () => rankPaletteItems(pickerEntries ?? entries, query).slice(0, MAX_RESULTS),
+    [pickerEntries, entries, query]
+  );
   const selected = Math.min(index, Math.max(0, results.length - 1));
 
   /**
@@ -304,7 +335,7 @@ export default function CommandPalette({ visible, onClose, picker = null, onLeav
       {picker && (
         <Text style={styles.crumb}>
           {PICKER_TITLE[picker.kind]}
-          {picker.taskIds.length > 1 ? ` · ${picker.taskIds.length} tasks` : ''}
+          {'taskIds' in picker && picker.taskIds.length > 1 ? ` · ${picker.taskIds.length} tasks` : ''}
         </Text>
       )}
       {MAC ? (
@@ -340,7 +371,7 @@ export default function CommandPalette({ visible, onClose, picker = null, onLeav
             onPointerEnter={() => setIndex(i)}
             style={[styles.row, i === selected && styles.rowSelected]}
           >
-            {picker && <Text style={styles.check}>{entry.checked ? '✓' : ''}</Text>}
+            {picker && picker.kind !== 'goToTask' && <Text style={styles.check}>{entry.checked ? '✓' : ''}</Text>}
             <Text style={styles.title} numberOfLines={1}>
               {!!entry.prefix && <Text style={styles.prefix}>{entry.prefix} </Text>}
               {entry.title}

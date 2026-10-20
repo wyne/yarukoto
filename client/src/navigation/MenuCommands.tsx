@@ -270,6 +270,15 @@ export default function MenuCommands() {
     }, []),
     DESKTOP_UI
   );
+  // The command menu again, searching tasks: a picker with nothing to act on.
+  useCommandHandler(
+    'goToTask',
+    useCallback(() => {
+      setPicker({ picker: { kind: 'goToTask' }, fromSearch: paletteOpenNow.current });
+      setPaletteOpen(true);
+    }, []),
+    DESKTOP_UI
+  );
   useCommandHandler('keyboardShortcuts', useCallback(() => setShortcutsOpen(true), []), DESKTOP_UI);
   // A narrow window has no pinned sidebar to shrink, and a rail-only one no room
   // to grow it; the key shows and hides the drawer instead.

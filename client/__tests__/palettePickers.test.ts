@@ -1,4 +1,5 @@
-import { listIdFor, listPickerItems, normalizeTag, tagPickerItems, toggleTag } from '../src/data/palettePickers';
+import { listIdFor, listPickerItems, normalizeTag, tagPickerItems, taskPickerItems, toggleTag } from '../src/data/palettePickers';
+import { rankPaletteItems } from '../src/data/paletteSearch';
 import type { ListDef, Task } from '../src/data/types';
 
 const task = (id: string, listId: string | null, tags: string[]) => ({ id, listId, tags }) as unknown as Task;
@@ -43,5 +44,27 @@ describe('Edit Tags', () => {
     ]);
     expect(toggleTag(tasks, ['a', 'b'], 'home')).toEqual([{ id: 'a', tags: ['work', 'home'] }]);
     expect(toggleTag(tasks, ['c'], `new:${normalizeTag('Later')}`)).toEqual([{ id: 'c', tags: ['later'] }]);
+  });
+});
+
+describe('Go to Task', () => {
+  const t = (id: string, title: string, extra: Partial<Task> = {}) =>
+    ({ id, title, listId: null, tags: [], notes: '', completed: false, order: 0, ...extra }) as unknown as Task;
+  const all = [
+    t('open', 'Pay rent', { listId: 'l1' }),
+    t('done', 'Pay tax', { completed: true }),
+    t('trashed', 'Pay fine', { deletedAt: '2026-01-01T00:00:00Z' }),
+    t('inbox', 'Call mum', { notes: 'about rent', tags: ['rent'] }),
+  ];
+
+  test('offers only the tasks not yet done or trashed, with the list each is in', () => {
+    expect(taskPickerItems(all, lists)).toEqual([
+      { key: 'open', title: 'Pay rent', detail: 'Errands' },
+      { key: 'inbox', title: 'Call mum', detail: 'Inbox' },
+    ]);
+  });
+
+  test('matches the title alone, not notes or tags', () => {
+    expect(rankPaletteItems(taskPickerItems(all, lists), 'rent').map((i) => i.key)).toEqual(['open']);
   });
 });

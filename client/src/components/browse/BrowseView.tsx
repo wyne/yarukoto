@@ -20,6 +20,7 @@ import FilterBar from './FilterBar';
 import SavedFilterBar from './SavedFilterBar';
 import { useCommand } from '../../navigation/MenuCommands';
 import ShortcutHint from '../ShortcutHint';
+import { afterLayersClose } from '../openLayers';
 
 interface Props {
   criteria: TaskCriteria;
@@ -44,13 +45,14 @@ export default function BrowseView({ criteria, onCriteriaChange }: Props) {
   const { wide } = useSidebar();
   const refreshControl = useSyncRefresh();
   const { openTask, openTaskId } = useDetail();
-  const { state, toggleComplete, scheduleToday, snoozeTask } = useTasks();
+  const { state, toggleComplete, scheduleToday, snoozeTask, scheduleNextWeek } = useTasks();
   const now = new Date();
 
   // Edit ▸ Find… (⌘F) on the Mac.
   const searchRef = useRef<TextInput>(null);
   const searchFocus = useFieldFocus();
-  useCommand('find', () => searchRef.current?.focus());
+  // After the command menu it may have come from is gone, as New Task waits.
+  useCommand('find', () => afterLayersClose(() => searchRef.current?.focus()));
 
   const tasks = useMemo(
     () => filterTasks(state.tasks, criteria, { lists: state.lists, now }),
@@ -122,7 +124,7 @@ export default function BrowseView({ criteria, onCriteriaChange }: Props) {
                   onToggleComplete={() => toggleComplete(task.id)}
                   onToday={() => scheduleToday(task.id)}
                   onLater={() => snoozeTask(task.id)}
-                  onDone={() => toggleComplete(task.id)}
+                  onNextWeek={() => scheduleNextWeek(task.id)}
                 />
                 {i < tasks.length - 1 && (
                   <Divider railColor={task.listId ? listsById.get(task.listId)?.color : undefined} />
