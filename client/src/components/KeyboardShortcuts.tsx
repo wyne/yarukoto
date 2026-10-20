@@ -66,7 +66,7 @@ function sections(): { title: string; rows: Row[] }[] {
   }
   for (const def of COMMANDS) {
     // The plain ⌫ that only names ⌘⌫ isn't a key to learn.
-      if (VIEW_IDS.has(def.id) || def.id === 'trashKeyHint') continue;
+    if (VIEW_IDS.has(def.id) || def.id === 'trashKeyHint') continue;
     const keys = keysFor(def, MAC_KEYS);
     if (!keys) continue;
     const shortcuts = [
@@ -108,7 +108,7 @@ export default function KeyboardShortcuts({ visible, onClose }: { visible: boole
       width={560}
       header={(
         <View style={styles.header}>
-          <Text style={styles.heading}>Keyboard Shortcuts</Text>
+          <Text style={styles.heading} accessibilityRole="header">Keyboard Shortcuts</Text>
           <TextInput
             ref={inputRef}
             value={query}

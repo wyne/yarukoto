@@ -120,7 +120,7 @@ test('Return edits, Space opens, and the list and sidebar answer their keys', as
 
   // ⌘/ lists the keys.
   await page.keyboard.press('ControlOrMeta+/');
-  await expect(page.getByText('Keyboard Shortcuts', { exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Keyboard Shortcuts', exact: true })).toBeVisible();
   await expect(page.getByText('Last Task', { exact: true })).toBeVisible();
 });
 
