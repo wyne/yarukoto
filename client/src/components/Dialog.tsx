@@ -23,6 +23,11 @@ interface Props {
   topAligned?: boolean;
   /** Drawn above the body and kept in place while the body scrolls. */
   header?: React.ReactNode;
+  /**
+   * Off for a search field summoned by a key, ⌘K or ⌘/, which is there to be
+   * typed into at once and gone the moment it's done; a fade only gets in the way.
+   */
+  fade?: boolean;
   children: React.ReactNode;
 }
 
@@ -47,6 +52,7 @@ export default function Dialog({
   minHeight,
   topAligned = false,
   header,
+  fade = true,
   children,
 }: Props) {
   const styles = useStyles();
@@ -57,7 +63,7 @@ export default function Dialog({
   const maxHeight = Math.max(200, window.height - MARGIN_Y * 2);
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose} onShow={onShow}>
+    <Modal visible={visible} transparent animationType={fade ? 'fade' : 'none'} onRequestClose={onClose} onShow={onShow}>
       <EscapeToClose
         active={visible}
         onEscape={onClose}

@@ -105,6 +105,7 @@ export default function KeyboardShortcuts({ visible, onClose }: { visible: boole
       visible={visible}
       onClose={onClose}
       onShow={() => inputRef.current?.focus()}
+      fade={false}
       width={560}
       topAligned
       header={(

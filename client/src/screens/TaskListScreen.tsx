@@ -31,7 +31,6 @@ import {
   TaskGroup,
   ViewOptions,
   groupTasks,
-  hasArrangement,
   viewKey,
 } from '../data/viewOptions';
 import { useCollapsedSections } from '../data/uiPrefs';
@@ -78,7 +77,6 @@ import ViewOptionsSheet from '../components/ViewOptionsSheet';
 import ContextMenuTarget from '../components/ContextMenuTarget';
 import TaskContextMenu from '../components/TaskContextMenu';
 import Popover, { type PopoverAnchor } from '../components/Popover';
-import SortOverrideBanner from '../components/SortOverrideBanner';
 import Tooltip from '../components/Tooltip';
 import { closeOpenSwipeRow } from '../components/SwipeableRow';
 import { useLazyMount } from '../components/lazyMount';
@@ -817,7 +815,6 @@ const TaskListBody = memo(
   const tagMounted = useLazyMount(tagOpen);
   const headerMenuMounted = useLazyMount(headerMenuOpen);
 
-  const arranged = hasArrangement(options.arrangements, options.sortBy);
   const restoreSort = () => clearArrangement(key, options.sortBy);
 
   /** What choosing in Group & sort does, for the sheet and for View ▸ Group By / Sort By alike. */
@@ -1105,12 +1102,6 @@ const TaskListBody = memo(
               </GlassIconMenuLabel>
             </MenuView>
           )}
-        </View>
-      )}
-
-      {arranged && !selectionMode && (
-        <View style={wide && styles.paneWide}>
-          <SortOverrideBanner sortBy={options.sortBy} onRestore={restoreSort} />
         </View>
       )}
 
