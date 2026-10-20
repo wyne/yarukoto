@@ -1,5 +1,30 @@
 # Changelog
 
+## [1.3.0](https://github.com/wyne/yarukoto/compare/v1.2.0...v1.3.0) (2026-10-20)
+
+
+### Features
+
+* **activity:** show notes edits as a line diff ([#242](https://github.com/wyne/yarukoto/issues/242)) ([22b171e](https://github.com/wyne/yarukoto/commit/22b171ef285ddc4fdf58f8292d4c114603a5968a))
+* bring a newly added task into view and select it ([#251](https://github.com/wyne/yarukoto/issues/251)) ([36131c5](https://github.com/wyne/yarukoto/commit/36131c5ddfcd2937adbba80054a1c20f7fa9646d))
+* improve command and shortcut search ([#253](https://github.com/wyne/yarukoto/issues/253)) ([bdeae73](https://github.com/wyne/yarukoto/commit/bdeae737a998133d64fadf6c570186a3f19320e5))
+* open a newly added task beside the list and keep the last task tinted on phones ([#252](https://github.com/wyne/yarukoto/issues/252)) ([6e57760](https://github.com/wyne/yarukoto/commit/6e577607980cd40911decc56354fed65110af05c))
+* rename the Calendar tab to Plan and add a workflow guide ([#255](https://github.com/wyne/yarukoto/issues/255)) ([2e9d046](https://github.com/wyne/yarukoto/commit/2e9d04630b1faab746c311d88a23c60d16fe900e))
+* safer quick-add keys, Tab completion, and fix iOS highlight duplication ([#249](https://github.com/wyne/yarukoto/issues/249)) ([a38e7b2](https://github.com/wyne/yarukoto/commit/a38e7b2f01feaee808194e657ef7d6770d469c87))
+* search open tasks by title with ⌘O ([#250](https://github.com/wyne/yarukoto/issues/250)) ([e8d8a6f](https://github.com/wyne/yarukoto/commit/e8d8a6f9c89a1242227f17216b40195fbc84aeb9))
+* show a task's change history from the bottom of the task ([#244](https://github.com/wyne/yarukoto/issues/244)) ([09a531b](https://github.com/wyne/yarukoto/commit/09a531b46c056bfddf18ecc10dce86ddd679e303))
+* show the app version in Settings on phone and web ([#239](https://github.com/wyne/yarukoto/issues/239)) ([f274ae6](https://github.com/wyne/yarukoto/commit/f274ae69137f45c8d392a00c58570c89d1e981d1))
+* swap the swipe menu's Done for Next week ([#248](https://github.com/wyne/yarukoto/issues/248)) ([95a884e](https://github.com/wyne/yarukoto/commit/95a884e134bfea88443748e772c93d7c706d2f09))
+* tint quick-add tokens where they're typed ([#243](https://github.com/wyne/yarukoto/issues/243)) ([96a7267](https://github.com/wyne/yarukoto/commit/96a72671f9adcae2c523bcb9708d522acfb56613))
+* **windows:** add a notification area icon with open at login ([#240](https://github.com/wyne/yarukoto/issues/240)) ([08f7cf9](https://github.com/wyne/yarukoto/commit/08f7cf9ae25751573cf383579d0a583fe98cc75c))
+
+
+### Bug Fixes
+
+* keep right-click menus inside the window ([#245](https://github.com/wyne/yarukoto/issues/245)) ([d0e5369](https://github.com/wyne/yarukoto/commit/d0e53699adfde8c545d86908199ace6b3f41c026))
+* **web:** bring the sidebar row into view from the real scroll position ([#247](https://github.com/wyne/yarukoto/issues/247)) ([ef743f7](https://github.com/wyne/yarukoto/commit/ef743f7c7a2166bc0c23ab306c882904a6a9fcc0))
+* **web:** scroll the task list to keep the cursor row in view ([#241](https://github.com/wyne/yarukoto/issues/241)) ([9d8db0a](https://github.com/wyne/yarukoto/commit/9d8db0a041a36d2fbdf332248b53fefe3e4a4b25))
+
 ## [1.2.0](https://github.com/wyne/yarukoto/compare/v1.1.0...v1.2.0) (2026-10-19)
 
 
