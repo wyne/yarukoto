@@ -330,6 +330,7 @@ export default function CommandPalette({ visible, onClose, picker = null, onLeav
       visible={visible}
       onClose={picker ? onLeavePicker : onClose}
       onShow={() => inputRef.current?.focus()}
+      fade={false}
       width={520}
     >
       {picker && (
