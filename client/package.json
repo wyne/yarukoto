@@ -80,6 +80,56 @@
       "!src/**/*.d.ts"
     ],
     "coverageDirectory": "coverage",
+    "coverageThreshold": {
+      "./src/components/useTaskTextDraft.ts": {
+        "branches": 95,
+        "functions": 100,
+        "lines": 100,
+        "statements": 100
+      },
+      "./src/data/TaskContext.tsx": {
+        "branches": 45,
+        "functions": 50,
+        "lines": 55,
+        "statements": 50
+      },
+      "./src/data/TaskReminderNotificationScheduler.tsx": {
+        "branches": 80,
+        "functions": 85,
+        "lines": 95,
+        "statements": 95
+      },
+      "./src/data/api.ts": {
+        "branches": 80,
+        "functions": 90,
+        "lines": 95,
+        "statements": 90
+      },
+      "./src/data/notificationActionTask.ts": {
+        "branches": 85,
+        "functions": 100,
+        "lines": 100,
+        "statements": 100
+      },
+      "./src/data/notificationActions.ts": {
+        "branches": 95,
+        "functions": 100,
+        "lines": 100,
+        "statements": 100
+      },
+      "./src/data/storage.ts": {
+        "branches": 80,
+        "functions": 85,
+        "lines": 90,
+        "statements": 90
+      },
+      "./src/data/taskReminderNotifications.ts": {
+        "branches": 90,
+        "functions": 100,
+        "lines": 100,
+        "statements": 95
+      }
+    },
     "testPathIgnorePatterns": ["/node_modules/", "/e2e/"]
   },
   "private": true
