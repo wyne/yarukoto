@@ -18,6 +18,11 @@ interface Props {
   minHeight?: number;
   /** Drawn above the body and kept in place while the body scrolls. */
   header?: React.ReactNode;
+  /**
+   * Off for a search field summoned by a key, ⌘K or ⌘/, which is there to be
+   * typed into at once and gone the moment it's done; a fade only gets in the way.
+   */
+  fade?: boolean;
   children: React.ReactNode;
 }
 
@@ -34,7 +39,7 @@ const MARGIN_Y = 48;
  * where a pointer is. Click-away and Escape close it, as they close any other
  * desktop layer.
  */
-export default function Dialog({ visible, onClose, onShow, width: preferred = 440, minHeight, header, children }: Props) {
+export default function Dialog({ visible, onClose, onShow, width: preferred = 440, minHeight, header, fade = true, children }: Props) {
   const styles = useStyles();
   const colors = useColors();
   const window = useWindowDimensions();
@@ -43,7 +48,7 @@ export default function Dialog({ visible, onClose, onShow, width: preferred = 44
   const maxHeight = Math.max(200, window.height - MARGIN_Y * 2);
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose} onShow={onShow}>
+    <Modal visible={visible} transparent animationType={fade ? 'fade' : 'none'} onRequestClose={onClose} onShow={onShow}>
       <EscapeToClose active={visible} onEscape={onClose} inModal style={styles.root}>
         <Pressable
           style={[StyleSheet.absoluteFill, { backgroundColor: colors.scrim, opacity: colors.scrimOpacity }]}

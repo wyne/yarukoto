@@ -33,9 +33,9 @@ export function useOpenLayer(active: boolean) {
  *
  * For a command that moves focus and can be run from the command menu, which
  * is still closing when the command runs. On the web a dialog holds on to focus
- * until it has faded out — focus handed elsewhere before then is pulled back
- * into it — so there it waits for the dialog to leave the page, not just for
- * the layer to be counted closed.
+ * until it has left the page — after its fade-out, if it has one — and focus
+ * handed elsewhere before then is pulled back into it, so there it waits for
+ * that, not just for the layer to be counted closed.
  */
 export function afterLayersClose(fn: () => void) {
   const run = () => (Platform.OS === 'web' ? afterWebDialogsGone(fn) : fn());
