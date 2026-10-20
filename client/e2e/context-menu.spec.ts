@@ -30,7 +30,9 @@ const rightClickAt = (page: Page, title: string, x: number, y: number) =>
 
 /** The menu's first and last items, which between them span the whole panel. */
 async function menuExtent(page: Page) {
-  const first = await page.getByText('Date', { exact: true }).boundingBox();
+  // The menu is drawn after the page, so its item is the last of the name; the
+  // task just added is open beside the list with a Date of its own.
+  const first = await page.getByText('Date', { exact: true }).last().boundingBox();
   const last = await page.getByText('Delete', { exact: true }).boundingBox();
   if (!first || !last) throw new Error('context menu not laid out');
   return { top: first.y, bottom: last.y + last.height, left: Math.min(first.x, last.x), right: last.x + last.width };
