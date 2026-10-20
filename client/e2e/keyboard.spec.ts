@@ -122,6 +122,11 @@ test('Return edits, Space opens, and the list and sidebar answer their keys', as
   await page.keyboard.press('ControlOrMeta+/');
   await expect(page.getByRole('heading', { name: 'Keyboard Shortcuts', exact: true })).toBeVisible();
   await expect(page.getByText('Last Task', { exact: true })).toBeVisible();
+  const shortcutSearch = page.getByPlaceholder('Search shortcuts…');
+  const top = (await shortcutSearch.boundingBox())?.y;
+  await shortcutSearch.fill('no-such-shortcut');
+  await expect(page.getByText('No shortcuts match.', { exact: true })).toBeVisible();
+  await expect.poll(async () => (await shortcutSearch.boundingBox())?.y).toBe(top);
 });
 
 test('a narrowed window keeps the sidebar as a rail, and expanding it hands it the keyboard', async ({ page }) => {
