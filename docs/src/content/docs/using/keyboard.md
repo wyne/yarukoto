@@ -72,10 +72,17 @@ While the sidebar has the keyboard, the row you're on is outlined in your accent
 
 With several tasks selected, the task keys act on all of them.
 
+Press **⌘/** to open the complete keyboard shortcut reference. Search it by action, area, or key —
+for example, **due**, **task**, **cmd t**, or **option command t**.
+
 In the command menu, a list, folder or tag is always **Go to**: choosing it opens it. To put the
 selected tasks in a list or tag them instead, choose **Move to List…** or **Edit Tags…** there, which
 turns the menu into a picker. In Edit Tags, Return adds the tag or, when every selected task has it
 already, removes it; type a new name to make a new tag.
+
+Commands that change a selected task's due date or priority begin with **Set**, distinguishing them
+from places beginning with **Go to**. These prefixes are searchable, so typing **go to** lists every
+place you can open.
 
 To group or sort the list in front, type **group** or **sort** in the command menu (⌘K), or use
 **View ▸ Group By** and **View ▸ Sort By** in the Mac menu bar, where the one in use is checked.

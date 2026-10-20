@@ -53,7 +53,14 @@ describe('the command list', () => {
   test('a submenu item is named with its submenu in the palette', () => {
     const high = COMMANDS.find((c) => c.id === 'priorityHigh')!;
     expect(paletteTitle(high)).toBe('Priority: High');
+    expect(paletteTitle(COMMANDS.find((c) => c.id === 'clearDue')!)).toBe('Due Date: None');
     expect(paletteTitle(COMMANDS.find((c) => c.id === 'settings')!)).toBe('Settings');
+  });
+
+  test('commands that set a task value share a palette prefix', () => {
+    for (const id of ['dueToday', 'dueTomorrow', 'clearDue', 'priorityHigh', 'priorityMedium', 'priorityLow', 'priorityNone']) {
+      expect(COMMANDS.find((c) => c.id === id)?.palettePrefix).toBe('Set');
+    }
   });
 });
 

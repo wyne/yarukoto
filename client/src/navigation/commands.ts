@@ -121,6 +121,10 @@ export interface CommandDef {
   hiddenFromPalette?: boolean;
   /** Extra words the command menu matches, beyond the title. */
   keywords?: string;
+  /** A visible category before the command's title in the command menu. */
+  palettePrefix?: string;
+  /** A command-menu-specific title when the menu-bar wording needs more context. */
+  paletteTitle?: string;
   /**
    * Opens a picker in the command menu rather than acting at once, so choosing
    * it there keeps the menu open instead of closing it first.
@@ -200,14 +204,14 @@ export const COMMANDS: readonly CommandDef[] = [
 
   { id: 'completeTask', title: 'Mark as Done', menu: 'task', group: 'complete', shortcut: cmd('return'), list: true, web: true, keywords: 'complete check finish' },
 
-  { id: 'dueToday', title: 'Due Today', menu: 'task', group: 'due', shortcut: cmd('t'), list: true, keywords: 'date schedule' },
-  { id: 'dueTomorrow', title: 'Due Tomorrow', menu: 'task', group: 'due', shortcut: cmd('t', 'option'), list: true, web: true, keywords: 'date schedule snooze' },
-  { id: 'clearDue', title: 'Remove Due Date', menu: 'task', group: 'due', list: true, keywords: 'date schedule clear' },
+  { id: 'dueToday', title: 'Due Today', menu: 'task', group: 'due', shortcut: cmd('t'), list: true, keywords: 'date schedule', palettePrefix: 'Set', paletteTitle: 'Due Date: Today' },
+  { id: 'dueTomorrow', title: 'Due Tomorrow', menu: 'task', group: 'due', shortcut: cmd('t', 'option'), list: true, web: true, keywords: 'date schedule snooze', palettePrefix: 'Set', paletteTitle: 'Due Date: Tomorrow' },
+  { id: 'clearDue', title: 'Remove Due Date', menu: 'task', group: 'due', list: true, keywords: 'date schedule clear remove', palettePrefix: 'Set', paletteTitle: 'Due Date: None' },
 
-  { id: 'priorityHigh', title: 'High', menu: 'task', group: 'priority', submenu: 'Priority', shortcut: cmd('1', 'option'), list: true, web: true },
-  { id: 'priorityMedium', title: 'Medium', menu: 'task', group: 'priority', submenu: 'Priority', shortcut: cmd('2', 'option'), list: true, web: true },
-  { id: 'priorityLow', title: 'Low', menu: 'task', group: 'priority', submenu: 'Priority', shortcut: cmd('3', 'option'), list: true, web: true },
-  { id: 'priorityNone', title: 'None', menu: 'task', group: 'priority', submenu: 'Priority', shortcut: cmd('0', 'option'), list: true, web: true },
+  { id: 'priorityHigh', title: 'High', menu: 'task', group: 'priority', submenu: 'Priority', shortcut: cmd('1', 'option'), list: true, web: true, palettePrefix: 'Set' },
+  { id: 'priorityMedium', title: 'Medium', menu: 'task', group: 'priority', submenu: 'Priority', shortcut: cmd('2', 'option'), list: true, web: true, palettePrefix: 'Set' },
+  { id: 'priorityLow', title: 'Low', menu: 'task', group: 'priority', submenu: 'Priority', shortcut: cmd('3', 'option'), list: true, web: true, palettePrefix: 'Set' },
+  { id: 'priorityNone', title: 'None', menu: 'task', group: 'priority', submenu: 'Priority', shortcut: cmd('0', 'option'), list: true, web: true, palettePrefix: 'Set' },
 
   // Each opens a picker in the command menu, for the tasks the list's commands act on.
   // ⇧⌘M as in Things. Neither on the web, where ⇧⌘T reopens a closed tab.
@@ -238,6 +242,7 @@ export function commandDef(id: CommandId): CommandDef {
 
 /** What the command menu calls it: a submenu's items need their submenu to make sense. */
 export function paletteTitle(def: CommandDef): string {
+  if (def.paletteTitle) return def.paletteTitle;
   return def.submenu ? `${def.submenu}: ${def.title}` : def.title.replace(/…$/, '');
 }
 

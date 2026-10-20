@@ -35,9 +35,9 @@ interface Props {
 
 interface Entry {
   key: string;
-  /** What the search matches, so "today" finds the view before Due Today. */
+  /** The primary search text, so "today" finds the view before Set Due Date: Today. */
   title: string;
-  /** Drawn before the title and not searched: "Go to", which says choosing navigates. */
+  /** Drawn before the title and searched after it: "Go to" or "Set". */
   prefix?: string;
   keywords?: string;
   /** A picker's current value, drawn with a check. */
@@ -152,6 +152,7 @@ export default function CommandPalette({ visible, onClose, picker = null, onLeav
       out.push({
         key: `c:${def.id}`,
         title: paletteTitle(def),
+        prefix: def.palettePrefix,
         keywords: def.keywords,
         detail: shortcut ? formatShortcut(shortcut, MAC_KEYS) : undefined,
         detailIsShortcut: true,
