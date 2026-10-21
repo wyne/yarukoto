@@ -1,4 +1,4 @@
-import { parseQuickAdd, quickAddSpans } from '../src/data/quickAdd';
+import { parseQuickAdd, quickAddSpans, shiftLiteralRanges } from '../src/data/quickAdd';
 
 describe('quick add parser', () => {
   const now = new Date(2026, 8, 27, 12);
@@ -118,5 +118,66 @@ describe('quick add spans', () => {
 
   test('leaves title words that only look like tokens unmarked', () => {
     expect(words('Review 6pm draft !urgent #')).toEqual([]);
+  });
+});
+
+describe('words kept as title text', () => {
+  const now = new Date(2026, 8, 27, 12);
+  const at = (text: string, word: string) => {
+    const start = text.indexOf(word);
+    return { start, end: start + word.length };
+  };
+
+  test('a kept word stays in the title and sets nothing', () => {
+    const text = 'watch the today show #tv !high ~Media';
+    const literal = [at(text, 'today'), at(text, '#tv'), at(text, '!high'), at(text, '~Media')];
+    expect(parseQuickAdd(text, now, literal)).toEqual({
+      title: 'watch the today show #tv !high ~Media',
+      priority: 'none',
+      dueDate: undefined,
+      dueTime: undefined,
+      tags: [],
+      listName: undefined,
+    });
+    expect(quickAddSpans(text, now, literal)).toEqual([]);
+  });
+
+  test('a kept date no longer lets a time count', () => {
+    const text = 'today 6pm standup';
+    expect(parseQuickAdd(text, now, [at(text, 'today')])).toMatchObject({
+      title: 'today 6pm standup',
+      dueDate: undefined,
+      dueTime: undefined,
+    });
+  });
+
+  test('a kept repeat keeps all of its words', () => {
+    const text = 'every monday review';
+    expect(parseQuickAdd(text, now, [{ start: 0, end: 'every monday'.length }])).toMatchObject({
+      title: 'every monday review',
+      dueDate: undefined,
+    });
+  });
+
+  test('other words still tokenize', () => {
+    const text = 'today show tomorrow';
+    expect(parseQuickAdd(text, now, [at(text, 'today')])).toMatchObject({
+      title: 'today show',
+      dueDate: '2026-09-28',
+    });
+  });
+
+  test('ranges move with edits around them', () => {
+    const r = [{ start: 6, end: 11 }]; // "today" in "watch today"
+    expect(shiftLiteralRanges('watch today', 'go watch today', r)).toEqual([{ start: 9, end: 14 }]);
+    expect(shiftLiteralRanges('watch today', 'watch today show', r)).toEqual(r);
+    expect(shiftLiteralRanges('watch today', 'watch', r)).toEqual([]);
+  });
+
+  test('a range is dropped once its word is edited or joined', () => {
+    const r = [{ start: 6, end: 11 }];
+    expect(shiftLiteralRanges('watch today', 'watch todays', r)).toEqual([]);
+    expect(shiftLiteralRanges('watch today', 'watch tday', r)).toEqual([]);
+    expect(shiftLiteralRanges('watch today', 'watchtoday', r)).toEqual([]);
   });
 });

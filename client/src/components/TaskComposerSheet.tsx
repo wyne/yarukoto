@@ -11,7 +11,7 @@ import { fonts } from '../theme/typography';
 import { useAccent, useColors } from '../theme/ThemeContext';
 import { QuickAddDefaults, useTasks } from '../data/TaskContext';
 import { Priority } from '../data/types';
-import { parseQuickAdd } from '../data/quickAdd';
+import { parseQuickAdd, QuickAddRange, QuickAddSpan, quickAddSpans, shiftLiteralRanges } from '../data/quickAdd';
 import { formatDueShort } from '../data/dateUtils';
 import { getListById, navGroups } from '../data/selectors';
 import { applySuggestion, useQuickAddSuggestions } from '../data/quickAddSuggestions';
@@ -42,6 +42,8 @@ type Menu = 'priority' | 'tags' | 'list';
  * of the fixed menus so those never scroll, and the open-ended ones scroll within.
  */
 const MENU_PANEL_HEIGHT = 222;
+
+const WHEN_KINDS = new Set<QuickAddSpan['kind']>(['date', 'time', 'repeat']);
 
 interface Props {
   visible: boolean;
@@ -79,6 +81,9 @@ export default function TaskComposerSheet({ visible, onClose, defaults, contextL
   const [tags, setTags] = useState<string[]>([]);
   const [listId, setListId] = useState<string | null>(null);
   const [menu, setMenu] = useState<Menu | null>(null);
+  // Typed words the person cleared with a tool: still in the title, no longer tokens.
+  const [literal, setLiteral] = useState<QuickAddRange[]>([]);
+  const textRef = useRef('');
   const submitAndContinueRef = useRef<() => void>(() => {});
 
   // Read through a ref so the reseed below can use the current scope without
@@ -93,6 +98,8 @@ export default function TaskComposerSheet({ visible, onClose, defaults, contextL
     const d = defaultsRef.current;
     inputRef.current?.clear();
     setText('');
+    textRef.current = '';
+    setLiteral([]);
     setDueDate(d?.dueDate);
     setDueTime(d?.dueTime);
     setPriority(d?.priority ?? 'none');
@@ -117,8 +124,26 @@ export default function TaskComposerSheet({ visible, onClose, defaults, contextL
     onClose();
   };
 
+  /** Every edit to the field, so the kept words move with the text around them. */
+  const changeText = (next: string) => {
+    const prev = textRef.current;
+    textRef.current = next;
+    setText(next);
+    setLiteral((ranges) => shiftLiteralRanges(prev, next, ranges));
+  };
+
+  /**
+   * Clearing something a typed word set keeps the word, as title text. A tool
+   * can't override a token — typed tokens win — so without this the only way to
+   * unset "today" would be to delete it from the title too.
+   */
+  const keepAsText = (match: (span: QuickAddSpan, word: string) => boolean) => {
+    const hits = quickAddSpans(text, new Date(), literal).filter((s) => match(s, text.slice(s.start, s.end)));
+    if (hits.length > 0) setLiteral((ranges) => [...ranges, ...hits.map(({ start, end }) => ({ start, end }))]);
+  };
+
   const suggestions = useQuickAddSuggestions(text, state);
-  const parsed = text.trim() ? parseQuickAdd(text) : null;
+  const parsed = text.trim() ? parseQuickAdd(text, new Date(), literal) : null;
 
   // Typed tokens win over the buttons, matching how view defaults have always
   // behaved — so the chips show what will actually be created.
@@ -144,13 +169,17 @@ export default function TaskComposerSheet({ visible, onClose, defaults, contextL
 
   const commit = () => {
     if (!canSubmit) return false;
-    const id = addTaskFromQuickAdd(text, {
-      listId,
-      tags,
-      dueDate,
-      dueTime,
-      priority,
-    });
+    const id = addTaskFromQuickAdd(
+      text,
+      {
+        listId,
+        tags,
+        dueDate,
+        dueTime,
+        priority,
+      },
+      literal
+    );
     if (id) onAdded?.(id);
     return true;
   };
@@ -175,13 +204,25 @@ export default function TaskComposerSheet({ visible, onClose, defaults, contextL
   const handleSubmitEditing = useCallback(() => submitAndContinueRef.current(), []);
 
   const chooseSuggestion = (value: string) => {
-    const next = applySuggestion(text, value);
-    setText(next);
+    changeText(applySuggestion(text, value));
     inputRef.current?.focus();
   };
 
   const toggleTag = (tag: string) => {
+    if (parsed?.tags.includes(tag)) {
+      keepAsText((s, word) => s.kind === 'tag' && word.slice(1).toLowerCase() === tag);
+      setTags((prev) => prev.filter((t) => t !== tag));
+      return;
+    }
     setTags((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]));
+  };
+
+  const changeDue = (nextDate: string | undefined, nextTime: string | undefined) => {
+    // A repeat is a date too, so clearing the date keeps "every monday" as words.
+    if (!nextDate) keepAsText((s) => WHEN_KINDS.has(s.kind));
+    else if (!nextTime) keepAsText((s) => s.kind === 'time');
+    setDueDate(nextDate);
+    setDueTime(nextTime);
   };
 
   /**
@@ -203,10 +244,7 @@ export default function TaskComposerSheet({ visible, onClose, defaults, contextL
       mode,
       date: effective.dueDate,
       time: effective.dueTime,
-      onChange: (nextDate, nextTime) => {
-        setDueDate(nextDate);
-        setDueTime(nextTime);
-      },
+      onChange: changeDue,
       onDismiss: () => requestAnimationFrame(() => inputRef.current?.focus()),
     });
   };
@@ -235,7 +273,8 @@ export default function TaskComposerSheet({ visible, onClose, defaults, contextL
       ref={inputRef}
       sheet
       value={text}
-      onChangeText={setText}
+      literal={literal}
+      onChangeText={changeText}
       placeholder={contextLabel ? `Add to ${contextLabel}…` : 'What would you like to do?'}
       placeholderTextColor={colors.textFaint}
       style={styles.input}
@@ -329,10 +368,7 @@ export default function TaskComposerSheet({ visible, onClose, defaults, contextL
         <DueDateQuickMenu
           date={effective.dueDate}
           time={effective.dueTime}
-          onChange={(nextDate, nextTime) => {
-            setDueDate(nextDate);
-            setDueTime(nextTime);
-          }}
+          onChange={changeDue}
           onCustomDate={() => openDuePicker('date')}
           onCustomTime={() => openDuePicker('time')}
           onDone={closeMenu}
@@ -371,6 +407,7 @@ export default function TaskComposerSheet({ visible, onClose, defaults, contextL
                   key={p.key}
                   style={styles.menuRow}
                   onPress={() => {
+                    if (p.key === 'none') keepAsText((s) => s.kind === 'priority');
                     setPriority(p.key);
                     closeMenu();
                   }}
@@ -400,6 +437,7 @@ export default function TaskComposerSheet({ visible, onClose, defaults, contextL
                 <Pressable
                   style={styles.menuRow}
                   onPress={() => {
+                    keepAsText((s) => s.kind === 'list');
                     setListId(null);
                     closeMenu();
                   }}

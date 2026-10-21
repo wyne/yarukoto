@@ -17,11 +17,15 @@ export interface ParsedQuickAdd {
 /** What a recognized run of the input sets, for highlighting it where it was typed. */
 export type QuickAddTokenKind = 'date' | 'time' | 'repeat' | 'tag' | 'list' | 'priority';
 
-/** A recognized run of the input, as `[start, end)` character offsets into it. */
-export interface QuickAddSpan {
-  kind: QuickAddTokenKind;
+/** A run of the input, as `[start, end)` character offsets into it. */
+export interface QuickAddRange {
   start: number;
   end: number;
+}
+
+/** A recognized run of the input. */
+export interface QuickAddSpan extends QuickAddRange {
+  kind: QuickAddTokenKind;
 }
 
 const WEEKDAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
@@ -76,9 +80,17 @@ function matchTime(word: string): string | null {
 /**
  * Parses input like "pay rent fri 6pm #home !high ~admin" into structured fields.
  * Unrecognized tokens are kept, in order, as the task title.
+ *
+ * Words inside a `literal` range are title text whatever they look like — how a
+ * word the parser would take ("today", "#home") is kept as typed once the
+ * person has said it isn't a token.
  */
-export function parseQuickAdd(input: string, now: Date = new Date()): ParsedQuickAdd {
-  return scanQuickAdd(input, now).parsed;
+export function parseQuickAdd(
+  input: string,
+  now: Date = new Date(),
+  literal: readonly QuickAddRange[] = []
+): ParsedQuickAdd {
+  return scanQuickAdd(input, now, literal).parsed;
 }
 
 /**
@@ -86,13 +98,51 @@ export function parseQuickAdd(input: string, now: Date = new Date()): ParsedQuic
  * tint. Every span is a run the parser took out of the title, so the highlight
  * and the created task can't disagree.
  */
-export function quickAddSpans(input: string, now: Date = new Date()): QuickAddSpan[] {
-  return scanQuickAdd(input, now).spans;
+export function quickAddSpans(
+  input: string,
+  now: Date = new Date(),
+  literal: readonly QuickAddRange[] = []
+): QuickAddSpan[] {
+  return scanQuickAdd(input, now, literal).spans;
 }
 
-function scanQuickAdd(input: string, now: Date): { parsed: ParsedQuickAdd; spans: QuickAddSpan[] } {
+/**
+ * Carries literal ranges across an edit from `prev` to `next`. A range before or
+ * after the changed stretch moves with its text; one the edit touches is
+ * dropped, since the word it covered is no longer the one that was kept.
+ */
+export function shiftLiteralRanges(prev: string, next: string, ranges: readonly QuickAddRange[]): QuickAddRange[] {
+  if (ranges.length === 0 || prev === next) return [...ranges];
+  let head = 0;
+  const shorter = Math.min(prev.length, next.length);
+  while (head < shorter && prev[head] === next[head]) head++;
+  let tail = 0;
+  while (tail < shorter - head && prev[prev.length - 1 - tail] === next[next.length - 1 - tail]) tail++;
+  const oldEnd = prev.length - tail;
+  const newEnd = next.length - tail;
+  const isSpace = (c: string | undefined) => c === undefined || /\s/.test(c);
+  const out: QuickAddRange[] = [];
+  for (const r of ranges) {
+    // Before the edit, unless what now follows it joins it into a longer word.
+    if (r.end <= head && (r.end < head || isSpace(next[head]))) out.push(r);
+    // After the edit, unless what now precedes it does the same.
+    else if (r.start >= oldEnd && (r.start > oldEnd || isSpace(next[newEnd - 1]))) {
+      const delta = newEnd - oldEnd;
+      out.push({ start: r.start + delta, end: r.end + delta });
+    }
+  }
+  return out;
+}
+
+function scanQuickAdd(
+  input: string,
+  now: Date,
+  literal: readonly QuickAddRange[]
+): { parsed: ParsedQuickAdd; spans: QuickAddSpan[] } {
   const words = Array.from(input.matchAll(/\S+/g), (m) => ({ text: m[0], start: m.index!, end: m.index! + m[0].length }));
   const tokens = words.map((w) => w.text);
+  // Words the person kept as plain text, which no rule below may take.
+  const kept = words.map((w) => literal.some((r) => w.start >= r.start && w.end <= r.end));
   const spans: QuickAddSpan[] = [];
   const mark = (kind: QuickAddTokenKind, first: number, last = first) =>
     spans.push({ kind, start: words[first].start, end: words[last].end });
@@ -107,11 +157,15 @@ function scanQuickAdd(input: string, now: Date): { parsed: ParsedQuickAdd; spans
 
   for (let index = 0; index < tokens.length; index++) {
     const raw = tokens[index];
+    if (kept[index]) {
+      titleParts.push(raw);
+      continue;
+    }
     // "every mon, wed" — only behind "every", so a title like "weekly report"
     // keeps its words. The phrase parser refuses anything that isn't a repeat.
     if (!repeat && /^every!?$/i.test(raw)) {
       const phrase = parseRepeatPhrase(tokens.slice(index));
-      if (phrase) {
+      if (phrase && !kept.slice(index, index + phrase.wordCount).some(Boolean)) {
         repeat = phrase.repeat;
         mark('repeat', index, index + phrase.wordCount - 1);
         index += phrase.wordCount - 1;
@@ -154,7 +208,10 @@ function scanQuickAdd(input: string, now: Date): { parsed: ParsedQuickAdd; spans
       continue;
     }
     const time = matchTime(lower);
-    if (time && (dueDate || repeat || tokens.some((t) => matchWeekday(t.toLowerCase()) !== null || ['today', 'tomorrow', 'tmrw'].includes(t.toLowerCase())))) {
+    if (time && (dueDate || repeat || tokens.some(
+        (t, i) =>
+          !kept[i] && (matchWeekday(t.toLowerCase()) !== null || ['today', 'tomorrow', 'tmrw'].includes(t.toLowerCase()))
+      ))) {
       dueTime = time;
       mark('time', index);
       continue;

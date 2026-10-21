@@ -1,12 +1,18 @@
 import React, { forwardRef, useEffect, useImperativeHandle, useMemo, useRef } from 'react';
 import { Platform, StyleProp, StyleSheet, Text, TextInput, TextStyle, View } from 'react-native';
 import NativeOwnedTextInput from './NativeOwnedTextInput';
-import { parseQuickAdd, quickAddSpans, QuickAddTokenKind } from '../data/quickAdd';
+import { parseQuickAdd, QuickAddRange, quickAddSpans, QuickAddTokenKind } from '../data/quickAdd';
 import { Priority } from '../data/types';
 import { Palette, priorityColor } from '../theme/colors';
 import { useAccent, useColors } from '../theme/ThemeContext';
 
-type Props = React.ComponentProps<typeof NativeOwnedTextInput> & { style?: StyleProp<TextStyle> };
+type Props = React.ComponentProps<typeof NativeOwnedTextInput> & {
+  style?: StyleProp<TextStyle>;
+  /** Runs of `value` kept as plain title text, so they aren't tinted as tokens. */
+  literal?: readonly QuickAddRange[];
+};
+
+const NO_LITERAL: readonly QuickAddRange[] = [];
 
 interface Segment {
   text: string;
@@ -25,13 +31,13 @@ interface Segment {
  * over a copy drawn behind it — the same text, wrapped and scrolled the same
  * way, with the tokens tinted.
  */
-const QuickAddInput = forwardRef<TextInput, Props>(function QuickAddInput({ value, style, ...props }, ref) {
+const QuickAddInput = forwardRef<TextInput, Props>(function QuickAddInput({ value, style, literal = NO_LITERAL, ...props }, ref) {
   const colors = useColors();
   const accent = useAccent();
-  const segments = useMemo(() => segmentsOf(value), [value]);
+  const segments = useMemo(() => segmentsOf(value, literal), [value, literal]);
   // Only the last priority typed counts, as in the parser; every !token is out
   // of the title either way, so they all take the one that will be set.
-  const priority = useMemo(() => parseQuickAdd(value).priority, [value]);
+  const priority = useMemo(() => parseQuickAdd(value, new Date(), literal).priority, [value, literal]);
   const paint = (kind: QuickAddTokenKind) => tokenColors(kind, priority, colors, accent);
 
   if (Platform.OS !== 'web') {
@@ -162,11 +168,11 @@ function mirrorType(flat: TextStyle): TextStyle {
 const WHEN = new Set<QuickAddTokenKind>(['date', 'time', 'repeat']);
 
 /** The input cut into plain runs and token runs, in order. */
-function segmentsOf(text: string): Segment[] {
+function segmentsOf(text: string, literal: readonly QuickAddRange[]): Segment[] {
   if (!text) return [];
   const segments: Segment[] = [];
   let at = 0;
-  for (const span of quickAddSpans(text)) {
+  for (const span of quickAddSpans(text, new Date(), literal)) {
     const gap = text.slice(at, span.start);
     const prev = segments[segments.length - 1];
     // "fri 6pm" reads as one when, so it gets one tint rather than two.

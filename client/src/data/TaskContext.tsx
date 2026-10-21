@@ -15,7 +15,7 @@ import {
 } from './types';
 import { TaskCriteria } from './taskFilter';
 import { addDays, toISODate } from './dateUtils';
-import { parseQuickAdd } from './quickAdd';
+import { parseQuickAdd, type QuickAddRange } from './quickAdd';
 import { normalizeTaskPatch } from './reminders';
 import { completeRepeating, skipRepeating } from './recurrence';
 import { newFolderId, newListId, newSavedFilterId, newSubtaskId, newTaskId } from './ids';
@@ -620,8 +620,15 @@ interface TaskContextValue {
   refreshHousehold: () => Promise<void>;
   /** Shares a list with everyone in the household, or makes it private again. Owner only. */
   setListShared: (listId: string, shared: boolean) => void;
-  /** Adds the task the text describes, returning its id; undefined when the text has no title. */
-  addTaskFromQuickAdd: (text: string, defaults?: QuickAddDefaults) => string | undefined;
+  /**
+   * Adds the task the text describes, returning its id; undefined when the text has no title.
+   * `literal` is the runs of `text` the composer was told to keep as title text.
+   */
+  addTaskFromQuickAdd: (
+    text: string,
+    defaults?: QuickAddDefaults,
+    literal?: readonly QuickAddRange[]
+  ) => string | undefined;
   toggleComplete: (id: string) => void;
   /** Moves a repeating task to its next date without completing this one. */
   skipOccurrence: (id: string) => void;
@@ -809,40 +816,43 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
-  const addTaskFromQuickAdd = useCallback((text: string, defaults?: QuickAddDefaults) => {
-    const parsed = parseQuickAdd(text);
-    if (!parsed.title.trim()) return undefined;
-    const typedList = parsed.listName
-      ? activeLists(state.lists).find((l) => l.name.toLowerCase() === parsed.listName!.toLowerCase())
-      : undefined;
-    const task: Task = {
-      id: newTaskId(),
-      title: parsed.title,
-      notes: '',
-      // 'none' is what the parser returns when no !token was typed, so it reads
-      // as "unspecified" here and lets the composer's flag through.
-      priority: parsed.priority !== 'none' ? parsed.priority : (defaults?.priority ?? 'none'),
-      // A typed date overrides the view's date; tags from both are merged.
-      dueDate: parsed.dueDate ?? defaults?.dueDate,
-      dueTime: parsed.dueTime ?? defaults?.dueTime,
-      reminders: [],
-      // Only where the server can keep it — an "every …" typed against one
-      // that can't stays a one-off task on its first date.
-      ...(parsed.repeat && (state.mode !== 'server' || hasServerFeature(serverFeatures ?? [], 'taskRepeat'))
-        ? { repeat: parsed.repeat }
-        : {}),
-      listId: typedList ? typedList.id : (defaults?.listId ?? null),
-      tags: Array.from(new Set([...(defaults?.tags ?? []), ...parsed.tags])),
-      subtasks: [],
-      completed: false,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      order: -Date.now(),
-    };
-    dispatch({ type: 'ADD_TASK', task });
-    markDirty([task.id]);
-    return task.id;
-  }, [state.lists, state.mode, serverFeatures, markDirty]);
+  const addTaskFromQuickAdd = useCallback(
+    (text: string, defaults?: QuickAddDefaults, literal?: readonly QuickAddRange[]) => {
+      const parsed = parseQuickAdd(text, new Date(), literal);
+      if (!parsed.title.trim()) return undefined;
+      const typedList = parsed.listName
+        ? activeLists(state.lists).find((l) => l.name.toLowerCase() === parsed.listName!.toLowerCase())
+        : undefined;
+      const task: Task = {
+        id: newTaskId(),
+        title: parsed.title,
+        notes: '',
+        // 'none' is what the parser returns when no !token was typed, so it reads
+        // as "unspecified" here and lets the composer's flag through.
+        priority: parsed.priority !== 'none' ? parsed.priority : (defaults?.priority ?? 'none'),
+        // A typed date overrides the view's date; tags from both are merged.
+        dueDate: parsed.dueDate ?? defaults?.dueDate,
+        dueTime: parsed.dueTime ?? defaults?.dueTime,
+        reminders: [],
+        // Only where the server can keep it — an "every …" typed against one
+        // that can't stays a one-off task on its first date.
+        ...(parsed.repeat && (state.mode !== 'server' || hasServerFeature(serverFeatures ?? [], 'taskRepeat'))
+          ? { repeat: parsed.repeat }
+          : {}),
+        listId: typedList ? typedList.id : (defaults?.listId ?? null),
+        tags: Array.from(new Set([...(defaults?.tags ?? []), ...parsed.tags])),
+        subtasks: [],
+        completed: false,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        order: -Date.now(),
+      };
+      dispatch({ type: 'ADD_TASK', task });
+      markDirty([task.id]);
+      return task.id;
+    },
+    [state.lists, state.mode, serverFeatures, markDirty]
+  );
 
   const [pendingUndo, setPendingUndo] = useState<PendingUndo | null>(null);
 
