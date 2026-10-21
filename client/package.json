@@ -81,6 +81,12 @@
     ],
     "coverageDirectory": "coverage",
     "coverageThreshold": {
+      "./src/components/CommandPalette.tsx": {
+        "branches": 70,
+        "functions": 70,
+        "lines": 90,
+        "statements": 85
+      },
       "./src/components/useTaskTextDraft.ts": {
         "branches": 95,
         "functions": 100,
@@ -128,6 +134,18 @@
         "functions": 100,
         "lines": 100,
         "statements": 95
+      },
+      "./src/navigation/MenuCommands.tsx": {
+        "branches": 70,
+        "functions": 75,
+        "lines": 90,
+        "statements": 80
+      },
+      "./src/navigation/focusPanes.ts": {
+        "branches": 60,
+        "functions": 65,
+        "lines": 75,
+        "statements": 70
       }
     },
     "testPathIgnorePatterns": ["/node_modules/", "/e2e/"]
