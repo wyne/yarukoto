@@ -1,66 +1,141 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 import { makeStyles } from '../theme/styles';
 import { fonts } from '../theme/typography';
 import { useAccent, useColors } from '../theme/ThemeContext';
 import { useFieldFocus } from '../theme/focus';
-import { useTasks } from '../data/TaskContext';
-import { IconPlus } from '../icons/Icons';
-import { parseQuickAdd } from '../data/quickAdd';
+import { useHoverBg } from '../theme/hover';
+import { priorityColor } from '../theme/colors';
+import { QuickAddDefaults, useTasks } from '../data/TaskContext';
+import { IconCalendarBox, IconFlag, IconFolder, IconPlus, IconTag } from '../icons/Icons';
 import { formatDueShort } from '../data/dateUtils';
+import { getListById } from '../data/selectors';
 import { applySuggestion, useQuickAddSuggestions } from '../data/quickAddSuggestions';
 import { useCommand } from '../navigation/MenuCommands';
 import { focusNextPane, focusPane, usePaneFocus } from '../navigation/focusPanes';
+import { useNativeDateTimePicker } from '../navigation/DateTimePickerContext';
 import KeyCommandsView from '../../modules/mac-pointer/src/KeyCommandsView';
 import { MAC } from '../data/platform';
 import ShortcutHint from './ShortcutHint';
 import QuickAddInput from './QuickAddInput';
 import { addFieldKey } from '../data/addFieldKeys';
-import { activeLists } from '../data/selectors';
 import { afterLayersClose } from './openLayers';
+import Tooltip from './Tooltip';
+import HoverPressable from './HoverPressable';
+import { measureAnchor, PopoverAnchor } from './Popover';
+import DueDateQuickMenu from './pickers/DueDateQuickMenu';
+import PriorityPickerSheet from './pickers/PriorityPickerSheet';
+import TagPickerSheet from './pickers/TagPickerSheet';
+import ListPickerSheet from './pickers/ListPickerSheet';
+import { useQuickAddDraft } from './useQuickAddDraft';
 
 const HINT = 'Add a task… try "pay rent fri 6pm #home !high ~admin"';
 
+type Picker = 'priority' | 'tags' | 'list';
+
 interface Props {
-  onSubmit: (text: string) => void;
+  /** What the view contributes: the tools start from these. */
+  defaults?: QuickAddDefaults;
   /** Where the task will land — shown in the placeholder on scoped views. */
   contextLabel?: string;
+  /** Called with each task added, so the list can show where it landed. */
+  onAdded?: (taskId: string | undefined) => void;
 }
 
-export default function QuickAddBar({ onSubmit, contextLabel }: Props) {
+/**
+ * The desktop add field: the quick-add syntax, with the composer's tools beside
+ * it for setting the same fields without knowing the syntax — and for clearing
+ * what a typed word set while keeping the word.
+ */
+export default function QuickAddBar({ defaults, contextLabel, onAdded }: Props) {
   const colors = useColors();
   const styles = useStyles();
   const accent = useAccent();
+  const hoverBg = useHoverBg();
   const { focusProps, focusStyle } = useFieldFocus();
   const { state } = useTasks();
-  const [text, setText] = useState('');
+  const presentDateTimePicker = useNativeDateTimePicker();
+  const draft = useQuickAddDraft();
+  const { text, effective, parsed } = draft;
   const [selectedIndex, setSelectedIndex] = useState(-1);
+  const [picker, setPicker] = useState<Picker | null>(null);
+  const [anchor, setAnchor] = useState<PopoverAnchor | undefined>(undefined);
   const inputRef = useRef<TextInput>(null);
+  const dateRef = useRef<View>(null);
   // File ▸ New Task (⌘N) on the Mac: this field is where a new task starts.
   // Once the command menu it may have come from is gone, which on the web
   // pulls focus back to itself until then.
   useCommand('newTask', () => afterLayersClose(() => inputRef.current?.focus()));
   usePaneFocus('add', () => inputRef.current?.focus());
-  const parsed = text.trim() ? parseQuickAdd(text) : null;
-  const dueLabel = parsed ? formatDueShort(new Date(), parsed.dueDate, parsed.dueTime) : null;
-  // The field tints the tokens themselves; underneath goes only what they
-  // resolve to that the typed word doesn't say — the date, and the list's name.
-  const typedList = parsed?.listName
-    ? activeLists(state.lists).find((l) => l.name.toLowerCase() === parsed.listName!.toLowerCase())
-    : undefined;
+
+  // The screens build `defaults` inline, so it's compared by value. A draft
+  // already under way keeps what it has; an empty one follows the view.
+  const defaultsRef = useRef(defaults);
+  defaultsRef.current = defaults;
+  const defaultsKey = JSON.stringify(defaults ?? {});
+  const { reset } = draft;
+  useEffect(() => {
+    if (!text) reset(defaultsRef.current);
+    // Only a change of view reseeds; typing must not.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [defaultsKey, reset]);
 
   const submit = () => {
-    if (!text.trim()) return;
-    onSubmit(text);
-    setText('');
+    if (!draft.canSubmit) return;
+    onAdded?.(draft.commit());
+    reset(defaultsRef.current);
   };
+
+  const refocus = () => afterLayersClose(() => inputRef.current?.focus());
+  const openPicker = (which: Picker) => (e: { currentTarget: unknown }) => {
+    // The popover gives focus back to whatever had it when it opened, on the
+    // web; that should be the field, not the button.
+    inputRef.current?.focus();
+    measureAnchor(e, (at) => {
+      setAnchor(at ?? undefined);
+      setPicker(which);
+    });
+  };
+  const closePicker = () => {
+    setPicker(null);
+    refocus();
+  };
+  // The Mac's menu offers "Pick date" for the native picker; the web's menu
+  // has its own calendar.
+  const openDatePicker = () => {
+    const node = dateRef.current as unknown as {
+      measureInWindow?: (cb: (x: number, y: number, width: number, height: number) => void) => void;
+    } | null;
+    const present = (at?: PopoverAnchor) =>
+      presentDateTimePicker({
+        anchor: at,
+        mode: 'date',
+        date: effective.dueDate,
+        time: effective.dueTime,
+        onChange: draft.changeDue,
+        onDismiss: refocus,
+      });
+    if (node?.measureInWindow) node.measureInWindow((x, y, width, height) => present({ x, y, width, height }));
+    else present();
+  };
+
+  // A tool shows what it set only when the text doesn't already say it, or the
+  // view's own scope.
+  const pickedDate =
+    effective.dueDate && !parsed?.dueDate && effective.dueDate !== defaults?.dueDate
+      ? formatDueShort(new Date(), effective.dueDate, effective.dueTime)
+      : null;
+  const pickedList =
+    effective.listId && !parsed?.listName && effective.listId !== (defaults?.listId ?? null)
+      ? getListById(state.lists, effective.listId)?.name
+      : undefined;
 
   // Shared with the composer sheet's autocomplete, so the two surfaces can't
   // drift into disagreeing about what a trailing `~`/`#`/`!` token offers.
   const suggestions = useQuickAddSuggestions(text, state);
 
   const chooseSuggestion = (value: string) => {
-    setText(applySuggestion(text, value));
+    draft.changeText(applySuggestion(text, value));
     setSelectedIndex(-1);
     inputRef.current?.focus();
   };
@@ -119,11 +194,60 @@ export default function QuickAddBar({ onSubmit, contextLabel }: Props) {
   };
 
   const handleChangeText = (next: string) => {
-    setText(next);
+    draft.changeText(next);
     setSelectedIndex(-1);
   };
 
-  const hasChips = !!(dueLabel || typedList);
+  /** A tool's face: tinted once it sets something, with the value when the text doesn't say it. */
+  const face = (
+    Icon: React.ComponentType<{ size?: number; color?: string }>,
+    color: string | null,
+    value?: string | null
+  ) => (
+    <>
+      <Icon size={16} color={color ?? colors.textTertiary} />
+      {!!value && (
+        <Text style={[styles.toolValue, { color: color ?? colors.textSecondary }]} numberOfLines={1}>
+          {value}
+        </Text>
+      )}
+    </>
+  );
+
+  const tools = (
+    <View style={styles.tools}>
+      <Tooltip label="Due date" align="center">
+        <View ref={dateRef} collapsable={false}>
+          <DueDateQuickMenu
+            date={effective.dueDate}
+            time={effective.dueTime}
+            onChange={draft.changeDue}
+            onCustomDate={openDatePicker}
+            onDone={refocus}
+          >
+            <View style={styles.tool}>
+              {face(IconCalendarBox, effective.dueDate ? accent : null, pickedDate?.toLowerCase())}
+            </View>
+          </DueDateQuickMenu>
+        </View>
+      </Tooltip>
+      <Tooltip label="Priority" align="center">
+        <HoverPressable style={hoverBg(styles.tool)} onPress={openPicker('priority')} accessibilityLabel="Priority">
+          {face(IconFlag, effective.priority !== 'none' ? priorityColor(effective.priority, colors) : null)}
+        </HoverPressable>
+      </Tooltip>
+      <Tooltip label="Tags" align="center">
+        <HoverPressable style={hoverBg(styles.tool)} onPress={openPicker('tags')} accessibilityLabel="Tags">
+          {face(IconTag, effective.tags.length > 0 ? accent : null)}
+        </HoverPressable>
+      </Tooltip>
+      <Tooltip label="List" align="center">
+        <HoverPressable style={hoverBg(styles.tool)} onPress={openPicker('list')} accessibilityLabel="List">
+          {face(IconFolder, pickedList || parsed?.listName ? accent : null, pickedList)}
+        </HoverPressable>
+      </Tooltip>
+    </View>
+  );
 
   const field = (
     <>
@@ -133,6 +257,7 @@ export default function QuickAddBar({ onSubmit, contextLabel }: Props) {
       <QuickAddInput
         ref={inputRef}
         value={text}
+        literal={draft.literal}
         onChangeText={handleChangeText}
         placeholder={contextLabel ? `Add a task to ${contextLabel}…` : HINT}
         placeholderTextColor={colors.textFaint}
@@ -144,6 +269,7 @@ export default function QuickAddBar({ onSubmit, contextLabel }: Props) {
         {...focusProps}
       />
       {text.length > 0 && <View style={[styles.caret, { backgroundColor: accent }]} />}
+      {tools}
       <ShortcutHint command="newTask" />
     </>
   );
@@ -185,20 +311,26 @@ export default function QuickAddBar({ onSubmit, contextLabel }: Props) {
           ))}
         </View>
       )}
-      {hasChips && (
-        <View style={styles.chipsRow}>
-          {dueLabel && (
-            <View style={[styles.chip, { backgroundColor: colors.accentTintBg }]}>
-              <Text style={[styles.chipText, { color: accent }]}>{dueLabel.toLowerCase()}</Text>
-            </View>
-          )}
-          {typedList && (
-            <View style={[styles.chip, { backgroundColor: colors.chipBg }]}>
-              <Text style={[styles.chipText, { color: colors.textSecondary }]}>{typedList.name}</Text>
-            </View>
-          )}
-        </View>
-      )}
+      <PriorityPickerSheet
+        visible={picker === 'priority'}
+        onClose={closePicker}
+        anchor={anchor}
+        onApply={draft.choosePriority}
+      />
+      <TagPickerSheet
+        visible={picker === 'tags'}
+        onClose={closePicker}
+        anchor={anchor}
+        initialTags={effective.tags}
+        onApply={draft.applyTags}
+      />
+      <ListPickerSheet
+        visible={picker === 'list'}
+        onClose={closePicker}
+        anchor={anchor}
+        value={effective.listId}
+        onApply={draft.chooseList}
+      />
     </View>
   );
 }
@@ -265,20 +397,24 @@ const useStyles = makeStyles((c) => ({
     fontSize: 12.5,
     color: c.textFaint,
   },
-  chipsRow: {
+  tools: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-    marginTop: 8,
-    paddingLeft: 26,
+    alignItems: 'center',
+    gap: 2,
   },
-  chip: {
-    borderRadius: 4,
+  tool: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    minWidth: 26,
+    height: 26,
     paddingHorizontal: 5,
-    paddingVertical: 1,
+    borderRadius: 6,
+    justifyContent: 'center',
   },
-  chipText: {
+  toolValue: {
     fontFamily: fonts.monoRegular,
-    fontSize: 13,
+    fontSize: 12.5,
+    maxWidth: 140,
   },
 }));

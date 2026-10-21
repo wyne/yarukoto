@@ -79,7 +79,7 @@ export default function CalendarScreen() {
   const refreshControl = useSyncRefresh();
   const { wide, openDrawer } = useSidebar();
   const { openTask } = useDetailActions();
-  const { state, bulkUpdate, addTaskFromQuickAdd, reorderTasks } = useTasks();
+  const { state, bulkUpdate, reorderTasks } = useTasks();
   // While a drag is in flight, the agenda must not scroll under the finger — the
   // whole point is carrying the task up out of the list onto the calendar. The
   // boolean, not the payload: this is the root of the screen, and it should wake
@@ -467,7 +467,7 @@ export default function CalendarScreen() {
             {!wide && DESKTOP_UI && (
               <View style={styles.quickAdd}>
                 <QuickAddBar
-                  onSubmit={(text) => addTaskFromQuickAdd(text, { dueDate: toISODate(selectedDate) })}
+                  defaults={{ dueDate: toISODate(selectedDate) }}
                   contextLabel={selectedDateLabel}
                 />
               </View>
@@ -604,7 +604,8 @@ const useStyles = makeStyles((c) => ({
   filterSpacer: {
     flex: 1,
   },
-  quickAdd: { paddingHorizontal: 12, paddingTop: 4 },
+  // Over the agenda below it, which the chips' tooltips hang down into.
+  quickAdd: { paddingHorizontal: 12, paddingTop: 4, zIndex: 1 },
   // ScrollView must not paint its scrolled-off content out past its frame — a
   // day group peeking above the viewport is exactly the "under the calendar"
   // artefact the clip is there to prevent. The flex is what lets it take the

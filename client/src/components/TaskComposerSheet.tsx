@@ -10,8 +10,8 @@ import { makeStyles } from '../theme/styles';
 import { fonts } from '../theme/typography';
 import { useAccent, useColors } from '../theme/ThemeContext';
 import { QuickAddDefaults, useTasks } from '../data/TaskContext';
+import { useQuickAddDraft } from './useQuickAddDraft';
 import { Priority } from '../data/types';
-import { parseQuickAdd } from '../data/quickAdd';
 import { formatDueShort } from '../data/dateUtils';
 import { getListById, navGroups } from '../data/selectors';
 import { applySuggestion, useQuickAddSuggestions } from '../data/quickAddSuggestions';
@@ -68,16 +68,11 @@ export default function TaskComposerSheet({ visible, onClose, defaults, contextL
   const colors = useColors();
   const styles = useStyles();
   const accent = useAccent();
-  const { state, addTaskFromQuickAdd } = useTasks();
+  const { state } = useTasks();
   const presentDateTimePicker = useNativeDateTimePicker();
   const inputRef = useRef<TextInput>(null);
-
-  const [text, setText] = useState('');
-  const [dueDate, setDueDate] = useState<string | undefined>(undefined);
-  const [dueTime, setDueTime] = useState<string | undefined>(undefined);
-  const [priority, setPriority] = useState<Priority>('none');
-  const [tags, setTags] = useState<string[]>([]);
-  const [listId, setListId] = useState<string | null>(null);
+  const draft = useQuickAddDraft();
+  const { text, effective, canSubmit } = draft;
   const [menu, setMenu] = useState<Menu | null>(null);
   const submitAndContinueRef = useRef<() => void>(() => {});
 
@@ -89,17 +84,12 @@ export default function TaskComposerSheet({ visible, onClose, defaults, contextL
 
   // A blank draft carrying only what the view scopes to. Shared by opening the
   // sheet and by adding a task without closing it — both want the same start.
+  const { reset } = draft;
   const resetDraft = useCallback(() => {
-    const d = defaultsRef.current;
     inputRef.current?.clear();
-    setText('');
-    setDueDate(d?.dueDate);
-    setDueTime(d?.dueTime);
-    setPriority(d?.priority ?? 'none');
-    setTags(d?.tags ?? []);
-    setListId(d?.listId ?? null);
+    reset(defaultsRef.current);
     setMenu(null);
-  }, []);
+  }, [reset]);
 
   // Reseed once per open: the view's scope may have changed since last time, and
   // a half-typed task from a previous open shouldn't reappear. Keyed on `visible`
@@ -118,20 +108,6 @@ export default function TaskComposerSheet({ visible, onClose, defaults, contextL
   };
 
   const suggestions = useQuickAddSuggestions(text, state);
-  const parsed = text.trim() ? parseQuickAdd(text) : null;
-
-  // Typed tokens win over the buttons, matching how view defaults have always
-  // behaved — so the chips show what will actually be created.
-  const effective = {
-    dueDate: parsed?.dueDate ?? dueDate,
-    dueTime: parsed?.dueTime ?? dueTime,
-    priority: parsed && parsed.priority !== 'none' ? parsed.priority : priority,
-    tags: Array.from(new Set([...tags, ...(parsed?.tags ?? [])])),
-    listId: parsed?.listName
-      ? (state.lists.find((l) => !l.deletedAt && l.name.toLowerCase() === parsed.listName!.toLowerCase())?.id ??
-        listId)
-      : listId,
-  };
 
   const dueLabel = formatDueShort(new Date(), effective.dueDate, effective.dueTime);
   const listName = getListById(state.lists, effective.listId)?.name;
@@ -140,17 +116,9 @@ export default function TaskComposerSheet({ visible, onClose, defaults, contextL
     [state.tasks]
   );
 
-  const canSubmit = !!(parsed?.title.trim());
-
   const commit = () => {
     if (!canSubmit) return false;
-    const id = addTaskFromQuickAdd(text, {
-      listId,
-      tags,
-      dueDate,
-      dueTime,
-      priority,
-    });
+    const id = draft.commit();
     if (id) onAdded?.(id);
     return true;
   };
@@ -175,13 +143,8 @@ export default function TaskComposerSheet({ visible, onClose, defaults, contextL
   const handleSubmitEditing = useCallback(() => submitAndContinueRef.current(), []);
 
   const chooseSuggestion = (value: string) => {
-    const next = applySuggestion(text, value);
-    setText(next);
+    draft.changeText(applySuggestion(text, value));
     inputRef.current?.focus();
-  };
-
-  const toggleTag = (tag: string) => {
-    setTags((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]));
   };
 
   /**
@@ -203,10 +166,7 @@ export default function TaskComposerSheet({ visible, onClose, defaults, contextL
       mode,
       date: effective.dueDate,
       time: effective.dueTime,
-      onChange: (nextDate, nextTime) => {
-        setDueDate(nextDate);
-        setDueTime(nextTime);
-      },
+      onChange: draft.changeDue,
       onDismiss: () => requestAnimationFrame(() => inputRef.current?.focus()),
     });
   };
@@ -235,7 +195,8 @@ export default function TaskComposerSheet({ visible, onClose, defaults, contextL
       ref={inputRef}
       sheet
       value={text}
-      onChangeText={setText}
+      literal={draft.literal}
+      onChangeText={draft.changeText}
       placeholder={contextLabel ? `Add to ${contextLabel}…` : 'What would you like to do?'}
       placeholderTextColor={colors.textFaint}
       style={styles.input}
@@ -329,10 +290,7 @@ export default function TaskComposerSheet({ visible, onClose, defaults, contextL
         <DueDateQuickMenu
           date={effective.dueDate}
           time={effective.dueTime}
-          onChange={(nextDate, nextTime) => {
-            setDueDate(nextDate);
-            setDueTime(nextTime);
-          }}
+          onChange={draft.changeDue}
           onCustomDate={() => openDuePicker('date')}
           onCustomTime={() => openDuePicker('time')}
           onDone={closeMenu}
@@ -371,7 +329,7 @@ export default function TaskComposerSheet({ visible, onClose, defaults, contextL
                   key={p.key}
                   style={styles.menuRow}
                   onPress={() => {
-                    setPriority(p.key);
+                    draft.choosePriority(p.key);
                     closeMenu();
                   }}
                 >
@@ -386,7 +344,7 @@ export default function TaskComposerSheet({ visible, onClose, defaults, contextL
               <>
                 {knownTags.length === 0 && <Text style={styles.menuEmpty}>No tags yet — type #name instead.</Text>}
                 {knownTags.map((tag) => (
-                  <Pressable key={tag} style={styles.menuRow} onPress={() => toggleTag(tag)}>
+                  <Pressable key={tag} style={styles.menuRow} onPress={() => draft.toggleTag(tag)}>
                     <IconTag size={16} color={colors.textTertiary} />
                     <Text style={styles.menuLabel}>{tag}</Text>
                     {effective.tags.includes(tag) && <IconCheckBig size={14} color={accent} strokeWidth={2.4} />}
@@ -400,7 +358,7 @@ export default function TaskComposerSheet({ visible, onClose, defaults, contextL
                 <Pressable
                   style={styles.menuRow}
                   onPress={() => {
-                    setListId(null);
+                    draft.chooseList(null);
                     closeMenu();
                   }}
                 >
@@ -415,7 +373,7 @@ export default function TaskComposerSheet({ visible, onClose, defaults, contextL
                         key={list.id}
                         style={[styles.menuRow, !!group.folder && styles.menuRowNested]}
                         onPress={() => {
-                          setListId(list.id);
+                          draft.chooseList(list.id);
                           closeMenu();
                         }}
                       >
