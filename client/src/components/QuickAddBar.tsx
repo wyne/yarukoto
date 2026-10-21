@@ -6,7 +6,7 @@ import { useAccent, useColors } from '../theme/ThemeContext';
 import { useFieldFocus } from '../theme/focus';
 import { useTasks } from '../data/TaskContext';
 import { IconPlus } from '../icons/Icons';
-import { parseQuickAdd } from '../data/quickAdd';
+import { parseQuickAdd, QuickAddRange, QuickAddSpan, quickAddSpans, shiftLiteralRanges } from '../data/quickAdd';
 import { formatDueShort } from '../data/dateUtils';
 import { applySuggestion, useQuickAddSuggestions } from '../data/quickAddSuggestions';
 import { useCommand } from '../navigation/MenuCommands';
@@ -18,11 +18,18 @@ import QuickAddInput from './QuickAddInput';
 import { addFieldKey } from '../data/addFieldKeys';
 import { activeLists } from '../data/selectors';
 import { afterLayersClose } from './openLayers';
+import Tooltip from './Tooltip';
+import HoverPressable from './HoverPressable';
+import { priorityColor } from '../theme/colors';
+import { hoverable } from '../theme/hover';
 
 const HINT = 'Add a task… try "pay rent fri 6pm #home !high ~admin"';
 
+const WHEN_KINDS = new Set<QuickAddSpan['kind']>(['date', 'time', 'repeat']);
+
 interface Props {
-  onSubmit: (text: string) => void;
+  /** `literal` is the runs of `text` to keep as title text — see the chips below the field. */
+  onSubmit: (text: string, literal: QuickAddRange[]) => void;
   /** Where the task will land — shown in the placeholder on scoped views. */
   contextLabel?: string;
 }
@@ -34,6 +41,9 @@ export default function QuickAddBar({ onSubmit, contextLabel }: Props) {
   const { focusProps, focusStyle } = useFieldFocus();
   const { state } = useTasks();
   const [text, setText] = useState('');
+  // Typed words dismissed from the chips: still in the title, no longer tokens.
+  const [literal, setLiteral] = useState<QuickAddRange[]>([]);
+  const textRef = useRef('');
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const inputRef = useRef<TextInput>(null);
   // File ▸ New Task (⌘N) on the Mac: this field is where a new task starts.
@@ -41,18 +51,35 @@ export default function QuickAddBar({ onSubmit, contextLabel }: Props) {
   // pulls focus back to itself until then.
   useCommand('newTask', () => afterLayersClose(() => inputRef.current?.focus()));
   usePaneFocus('add', () => inputRef.current?.focus());
-  const parsed = text.trim() ? parseQuickAdd(text) : null;
+  const parsed = text.trim() ? parseQuickAdd(text, new Date(), literal) : null;
   const dueLabel = parsed ? formatDueShort(new Date(), parsed.dueDate, parsed.dueTime) : null;
-  // The field tints the tokens themselves; underneath goes only what they
-  // resolve to that the typed word doesn't say — the date, and the list's name.
   const typedList = parsed?.listName
     ? activeLists(state.lists).find((l) => l.name.toLowerCase() === parsed.listName!.toLowerCase())
     : undefined;
 
+  /** Every edit to the field, so the kept words move with the text around them. */
+  const changeText = (next: string) => {
+    const prev = textRef.current;
+    textRef.current = next;
+    setText(next);
+    setLiteral((ranges) => shiftLiteralRanges(prev, next, ranges));
+  };
+
+  /**
+   * A chip under the field is what its typed words set; clicking it keeps
+   * those words as title text instead. There are no tools here to clear a
+   * field with, and a word like "today" is sometimes just part of the title.
+   */
+  const keepAsText = (match: (span: QuickAddSpan, word: string) => boolean) => {
+    const hits = quickAddSpans(text, new Date(), literal).filter((s) => match(s, text.slice(s.start, s.end)));
+    setLiteral((ranges) => [...ranges, ...hits.map(({ start, end }) => ({ start, end }))]);
+    inputRef.current?.focus();
+  };
+
   const submit = () => {
     if (!text.trim()) return;
-    onSubmit(text);
-    setText('');
+    onSubmit(text, literal);
+    changeText('');
   };
 
   // Shared with the composer sheet's autocomplete, so the two surfaces can't
@@ -60,7 +87,7 @@ export default function QuickAddBar({ onSubmit, contextLabel }: Props) {
   const suggestions = useQuickAddSuggestions(text, state);
 
   const chooseSuggestion = (value: string) => {
-    setText(applySuggestion(text, value));
+    changeText(applySuggestion(text, value));
     setSelectedIndex(-1);
     inputRef.current?.focus();
   };
@@ -119,11 +146,45 @@ export default function QuickAddBar({ onSubmit, contextLabel }: Props) {
   };
 
   const handleChangeText = (next: string) => {
-    setText(next);
+    changeText(next);
     setSelectedIndex(-1);
   };
 
-  const hasChips = !!(dueLabel || typedList);
+  const chips: { key: string; label: string; color: string; bg: string; dismiss: () => void }[] = [];
+  if (parsed) {
+    if (dueLabel)
+      chips.push({
+        key: 'when',
+        label: dueLabel.toLowerCase(),
+        color: accent,
+        bg: colors.accentTintBg,
+        dismiss: () => keepAsText((s) => WHEN_KINDS.has(s.kind)),
+      });
+    if (parsed.listName)
+      chips.push({
+        key: 'list',
+        label: typedList?.name ?? `~${parsed.listName}`,
+        color: colors.textSecondary,
+        bg: colors.chipBg,
+        dismiss: () => keepAsText((s) => s.kind === 'list'),
+      });
+    for (const tag of parsed.tags)
+      chips.push({
+        key: `#${tag}`,
+        label: `#${tag}`,
+        color: colors.textSecondary,
+        bg: colors.chipBg,
+        dismiss: () => keepAsText((s, word) => s.kind === 'tag' && word.slice(1).toLowerCase() === tag),
+      });
+    if (parsed.priority !== 'none')
+      chips.push({
+        key: 'priority',
+        label: `!${parsed.priority}`,
+        color: priorityColor(parsed.priority, colors),
+        bg: colors.chipBg,
+        dismiss: () => keepAsText((s) => s.kind === 'priority'),
+      });
+  }
 
   const field = (
     <>
@@ -133,6 +194,7 @@ export default function QuickAddBar({ onSubmit, contextLabel }: Props) {
       <QuickAddInput
         ref={inputRef}
         value={text}
+        literal={literal}
         onChangeText={handleChangeText}
         placeholder={contextLabel ? `Add a task to ${contextLabel}…` : HINT}
         placeholderTextColor={colors.textFaint}
@@ -185,18 +247,21 @@ export default function QuickAddBar({ onSubmit, contextLabel }: Props) {
           ))}
         </View>
       )}
-      {hasChips && (
+      {chips.length > 0 && (
         <View style={styles.chipsRow}>
-          {dueLabel && (
-            <View style={[styles.chip, { backgroundColor: colors.accentTintBg }]}>
-              <Text style={[styles.chipText, { color: accent }]}>{dueLabel.toLowerCase()}</Text>
-            </View>
-          )}
-          {typedList && (
-            <View style={[styles.chip, { backgroundColor: colors.chipBg }]}>
-              <Text style={[styles.chipText, { color: colors.textSecondary }]}>{typedList.name}</Text>
-            </View>
-          )}
+          {chips.map((c) => (
+            <Tooltip key={c.key} label="Keep as text" align="start">
+              <HoverPressable
+                onPress={c.dismiss}
+                accessibilityRole="button"
+                accessibilityLabel={`Keep ${c.label} as text`}
+                style={hoverable([styles.chip, { backgroundColor: c.bg }], styles.chipHovered)}
+              >
+                <Text style={[styles.chipText, { color: c.color }]}>{c.label}</Text>
+                <Text style={[styles.chipX, { color: c.color }]}>×</Text>
+              </HoverPressable>
+            </Tooltip>
+          ))}
         </View>
       )}
     </View>
@@ -273,9 +338,20 @@ const useStyles = makeStyles((c) => ({
     paddingLeft: 26,
   },
   chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     borderRadius: 4,
     paddingHorizontal: 5,
     paddingVertical: 1,
+  },
+  chipHovered: {
+    opacity: 0.75,
+  },
+  chipX: {
+    fontFamily: fonts.sansRegular,
+    fontSize: 13,
+    opacity: 0.7,
   },
   chipText: {
     fontFamily: fonts.monoRegular,

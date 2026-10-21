@@ -11,7 +11,14 @@ import { fonts } from '../theme/typography';
 import { useAccent, useColors } from '../theme/ThemeContext';
 import { QuickAddDefaults, useTasks } from '../data/TaskContext';
 import { Priority } from '../data/types';
-import { parseQuickAdd, QuickAddRange, QuickAddSpan, quickAddSpans, shiftLiteralRanges } from '../data/quickAdd';
+import {
+  parseQuickAdd,
+  QuickAddRange,
+  QuickAddSpan,
+  quickAddSpans,
+  removeQuickAddSpans,
+  shiftLiteralRanges,
+} from '../data/quickAdd';
 import { formatDueShort } from '../data/dateUtils';
 import { getListById, navGroups } from '../data/selectors';
 import { applySuggestion, useQuickAddSuggestions } from '../data/quickAddSuggestions';
@@ -132,14 +139,32 @@ export default function TaskComposerSheet({ visible, onClose, defaults, contextL
     setLiteral((ranges) => shiftLiteralRanges(prev, next, ranges));
   };
 
+  const typedSpans = (match: (span: QuickAddSpan, word: string) => boolean) =>
+    quickAddSpans(text, new Date(), literal).filter((s) => match(s, text.slice(s.start, s.end)));
+
   /**
-   * Clearing something a typed word set keeps the word, as title text. A tool
-   * can't override a token — typed tokens win — so without this the only way to
-   * unset "today" would be to delete it from the title too.
+   * Typed tokens win over the tools, so a tool that sets something a typed word
+   * already set has to deal with the word. Clearing keeps it, as title text —
+   * otherwise the only way to unset "today" would be to delete it from the title
+   * too.
    */
   const keepAsText = (match: (span: QuickAddSpan, word: string) => boolean) => {
-    const hits = quickAddSpans(text, new Date(), literal).filter((s) => match(s, text.slice(s.start, s.end)));
+    const hits = typedSpans(match);
     if (hits.length > 0) setLiteral((ranges) => [...ranges, ...hits.map(({ start, end }) => ({ start, end }))]);
+  };
+
+  /**
+   * Picking a different value takes the word out instead: the pick is what was
+   * meant, and a custom date or a list name with a space in it has no word to
+   * rewrite it as.
+   */
+  const replaceTyped = (match: (span: QuickAddSpan, word: string) => boolean) => {
+    const hits = typedSpans(match);
+    if (hits.length === 0) return;
+    const next = removeQuickAddSpans(text, hits, literal);
+    textRef.current = next.text;
+    setText(next.text);
+    setLiteral(next.literal);
   };
 
   const suggestions = useQuickAddSuggestions(text, state);
@@ -220,7 +245,12 @@ export default function TaskComposerSheet({ visible, onClose, defaults, contextL
   const changeDue = (nextDate: string | undefined, nextTime: string | undefined) => {
     // A repeat is a date too, so clearing the date keeps "every monday" as words.
     if (!nextDate) keepAsText((s) => WHEN_KINDS.has(s.kind));
+    // The time goes with a replaced date: a typed one only counts beside a
+    // typed date, and the pick carries it over anyway.
+    else if (parsed?.dueDate && nextDate !== parsed.dueDate)
+      replaceTyped((s) => s.kind === 'date' || s.kind === 'time');
     else if (!nextTime) keepAsText((s) => s.kind === 'time');
+    else if (parsed?.dueTime && nextTime !== parsed.dueTime) replaceTyped((s) => s.kind === 'time');
     setDueDate(nextDate);
     setDueTime(nextTime);
   };
@@ -408,6 +438,7 @@ export default function TaskComposerSheet({ visible, onClose, defaults, contextL
                   style={styles.menuRow}
                   onPress={() => {
                     if (p.key === 'none') keepAsText((s) => s.kind === 'priority');
+                    else if (p.key !== effective.priority) replaceTyped((s) => s.kind === 'priority');
                     setPriority(p.key);
                     closeMenu();
                   }}
@@ -453,6 +484,7 @@ export default function TaskComposerSheet({ visible, onClose, defaults, contextL
                         key={list.id}
                         style={[styles.menuRow, !!group.folder && styles.menuRowNested]}
                         onPress={() => {
+                          if (list.id !== effective.listId) replaceTyped((s) => s.kind === 'list');
                           setListId(list.id);
                           closeMenu();
                         }}

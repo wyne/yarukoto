@@ -134,6 +134,32 @@ export function shiftLiteralRanges(prev: string, next: string, ranges: readonly 
   return out;
 }
 
+/**
+ * Takes recognized runs out of the input altogether, with a space beside each,
+ * carrying the literal ranges along — for when a value picked some other way
+ * replaces what a typed word said.
+ */
+export function removeQuickAddSpans(
+  input: string,
+  spans: readonly QuickAddRange[],
+  literal: readonly QuickAddRange[]
+): { text: string; literal: QuickAddRange[] } {
+  let text = input;
+  let ranges = [...literal];
+  for (const span of [...spans].sort((a, b) => b.start - a.start)) {
+    let start = span.start;
+    let end = span.end;
+    if (/\s/.test(text[end] ?? '')) end++;
+    else if (/\s/.test(text[start - 1] ?? '')) start--;
+    text = text.slice(0, start) + text.slice(end);
+    const cut = end - start;
+    ranges = ranges.flatMap((r) =>
+      r.end <= start ? [r] : r.start >= end ? [{ start: r.start - cut, end: r.end - cut }] : []
+    );
+  }
+  return { text, literal: ranges };
+}
+
 function scanQuickAdd(
   input: string,
   now: Date,

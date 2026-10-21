@@ -1,4 +1,4 @@
-import { parseQuickAdd, quickAddSpans, shiftLiteralRanges } from '../src/data/quickAdd';
+import { parseQuickAdd, quickAddSpans, removeQuickAddSpans, shiftLiteralRanges } from '../src/data/quickAdd';
 
 describe('quick add parser', () => {
   const now = new Date(2026, 8, 27, 12);
@@ -179,5 +179,16 @@ describe('words kept as title text', () => {
     expect(shiftLiteralRanges('watch today', 'watch todays', r)).toEqual([]);
     expect(shiftLiteralRanges('watch today', 'watch tday', r)).toEqual([]);
     expect(shiftLiteralRanges('watch today', 'watchtoday', r)).toEqual([]);
+  });
+
+  test('removing a token takes its space with it and moves kept words along', () => {
+    const text = 'pay today rent fri 6pm';
+    const spans = quickAddSpans(text, now, [at(text, 'today')]);
+    expect(removeQuickAddSpans(text, spans, [at(text, 'today')])).toEqual({
+      text: 'pay today rent',
+      literal: [{ start: 4, end: 9 }],
+    });
+    const ending = 'pay rent ~Admin';
+    expect(removeQuickAddSpans(ending, quickAddSpans(ending, now), [])).toEqual({ text: 'pay rent', literal: [] });
   });
 });

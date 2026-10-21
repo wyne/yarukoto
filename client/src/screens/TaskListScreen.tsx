@@ -1109,7 +1109,7 @@ const TaskListBody = memo(
       {DESKTOP_UI && !selectionMode && canQuickAdd && (
         <View style={[styles.quickAddBand, wide && styles.paneWide]}>
           <QuickAddBar
-            onSubmit={(text) => onAdded(addTaskFromQuickAdd(text, quickAddDefaults))}
+            onSubmit={(text, literal) => onAdded(addTaskFromQuickAdd(text, quickAddDefaults, literal))}
             contextLabel={quickAddLabel}
           />
         </View>

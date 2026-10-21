@@ -467,7 +467,7 @@ export default function CalendarScreen() {
             {!wide && DESKTOP_UI && (
               <View style={styles.quickAdd}>
                 <QuickAddBar
-                  onSubmit={(text) => addTaskFromQuickAdd(text, { dueDate: toISODate(selectedDate) })}
+                  onSubmit={(text, literal) => addTaskFromQuickAdd(text, { dueDate: toISODate(selectedDate) }, literal)}
                   contextLabel={selectedDateLabel}
                 />
               </View>
