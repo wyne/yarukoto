@@ -12,6 +12,7 @@ import {
   listsInFolder,
   navGroups,
   orderedLists,
+  overdueCount,
   tagCounts,
   tasksByDate,
   tasksDueByToday,
@@ -129,5 +130,22 @@ describe('task selectors', () => {
     ]);
     expect(tasksByDate(dated).has('2026-09-28')).toBe(false);
     expect(tasksByDate(dated, true).get('2026-09-28')?.[0].id).toBe('done');
+  });
+});
+
+describe('overdueCount', () => {
+  test('counts open tasks dated before today, and nothing else', () => {
+    const now = new Date(2026, 9, 7, 9, 30);
+    const tasks = [
+      task('yesterday', { dueDate: '2026-10-06' }),
+      task('last-month', { dueDate: '2026-09-12', dueTime: '08:00' }),
+      task('earlier-today', { dueDate: '2026-10-07', dueTime: '08:00' }),
+      task('tomorrow', { dueDate: '2026-10-08' }),
+      task('done', { dueDate: '2026-10-01', completed: true }),
+      task('deleted', { dueDate: '2026-10-01', deletedAt: '2026-10-02T00:00:00Z' }),
+      task('undated'),
+    ];
+
+    expect(overdueCount(tasks, now)).toBe(2);
   });
 });

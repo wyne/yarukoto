@@ -35,6 +35,7 @@ import {
   clearServerSnapshot,
   clearServerUrl,
   clearToken,
+  flushServerSnapshot,
   loadDirtyIds,
   loadMode,
   loadServerUrl,
@@ -1505,6 +1506,12 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     else setNativeCredentials(null, null);
   }, [state.mode, state.serverUrl, state.token]);
 
+  /**
+   * The one place the merged collections and the sync cursor are persisted
+   * together. `saveServerSnapshot` coalesces the write, so a burst of edits
+   * re-serializes the store once rather than once per dispatch; the effect
+   * below flushes whatever is still queued before the process can go away.
+   */
   useEffect(() => {
     if (state.mode !== 'server') return;
     saveServerSnapshot({
@@ -1527,6 +1534,23 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     serverFeatures,
     household,
   ]);
+
+  /**
+   * Backgrounding is the last moment either platform reliably gives JS: iOS can
+   * suspend and then kill the process without running anything else, and on web
+   * a hidden tab may never come back. So the queued snapshot is written there
+   * rather than waited out, which is what keeps the coalescing window from
+   * costing the user their last edit on quit.
+   */
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (next) => {
+      if (next !== 'active') flushServerSnapshot();
+    });
+    return () => {
+      subscription.remove();
+      flushServerSnapshot();
+    };
+  }, []);
 
   const syncNow = useCallback(() => cycleRef.current?.() ?? Promise.resolve(), []);
   const refreshHousehold = useCallback(async () => {
