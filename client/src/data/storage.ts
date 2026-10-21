@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
-import { Platform } from 'react-native';
+import { AppState, Platform } from 'react-native';
 import { ACCENT_OPTIONS, AccentColor, DEFAULT_ACCENT, SchemePref } from '../theme/colors';
 import { SnoozedReminder } from './notificationActions';
 import { Household, parseHousehold } from './household';
@@ -608,6 +608,13 @@ export function saveServerSnapshot(snapshot: Omit<ServerSnapshot, 'schemaVersion
     ...snapshot,
     savedAt: new Date().toISOString(),
   };
+  // Once the app has left the foreground, the background flush has already run
+  // and there may be no later moment: a sync that lands after it would otherwise
+  // arm a timer the OS suspends the process before it fires. Write now instead.
+  if (AppState.currentState === 'background' || AppState.currentState === 'inactive') {
+    flushServerSnapshot();
+    return;
+  }
   // The timer is a deadline from the first call of a burst, not a quiet period
   // extended by each one: continuous editing must not keep postponing the write
   // indefinitely.

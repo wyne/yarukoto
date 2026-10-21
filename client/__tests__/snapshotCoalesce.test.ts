@@ -2,7 +2,7 @@
  * The store is one AsyncStorage value, so a write costs the whole dataset. These
  * cover the three things that make it dangerous to defer: that a burst really does
  * collapse to one write of the *final* state, that nothing is left queued when
- * the app goes away, and that what lands on disk still reads back — including the
+ * the app goes away (including a save that arrives after the background flush), and that what lands on disk still reads back — including the
  * distinction between a server that was never probed and one that answered with
  * no optional features.
  */
@@ -118,6 +118,39 @@ test('flushing persists the final state without waiting out the window', async (
   // Nothing left behind: the timer that was armed must not write a second time.
   jest.runOnlyPendingTimers();
   expect(snapshotWrites()).toHaveLength(1);
+});
+
+test('a snapshot saved after the background flush is written at once', async () => {
+  const storage = await freshStorage();
+  const { AppState } = require('react-native');
+  const previous = AppState.currentState;
+
+  try {
+    // 1. An edit is queued, then the app is backgrounded and the provider flushes.
+    storage.saveServerSnapshot(payload({ cursor: 'cursor-before-background' }));
+    AppState.currentState = 'background';
+    storage.flushServerSnapshot();
+    expect(snapshotWrites()).toHaveLength(1);
+
+    // 2. A sync that was already in flight finishes and the store saves again.
+    storage.saveServerSnapshot(payload({ tasks: [task('t-1'), task('t-synced')], cursor: 'cursor-after-sync' }));
+
+    // 3. No timer may be left to fire: the OS can suspend the process before it does.
+    expect(jest.getTimerCount()).toBe(0);
+    expect(snapshotWrites()).toHaveLength(2);
+    const written = JSON.parse(snapshotWrites()[1].value);
+    expect(written.cursor).toBe('cursor-after-sync');
+    expect(written.tasks.some((t: { id: string }) => t.id === 't-synced')).toBe(true);
+
+    // Back in the foreground, edits coalesce again.
+    AppState.currentState = 'active';
+    storage.saveServerSnapshot(payload({ cursor: 'cursor-foreground' }));
+    expect(snapshotWrites()).toHaveLength(2);
+    jest.runOnlyPendingTimers();
+    expect(snapshotWrites()).toHaveLength(3);
+  } finally {
+    AppState.currentState = previous;
+  }
 });
 
 test('flushing with nothing queued writes nothing', async () => {
