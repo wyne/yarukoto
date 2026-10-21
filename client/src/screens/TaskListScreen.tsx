@@ -1443,6 +1443,8 @@ const useStyles = makeStyles((c) => ({
   },
   quickAddBand: {
     paddingBottom: 2,
+    // Over the list below it, which the chips' tooltips hang down into.
+    zIndex: 1,
   },
   group: {
     gap: 2,

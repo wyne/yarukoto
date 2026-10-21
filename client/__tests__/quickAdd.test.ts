@@ -191,4 +191,20 @@ describe('words kept as title text', () => {
     const ending = 'pay rent ~Admin';
     expect(removeQuickAddSpans(ending, quickAddSpans(ending, now), [])).toEqual({ text: 'pay rent', literal: [] });
   });
+
+  test('only the last date, time, priority or list typed counts', () => {
+    expect(parseQuickAdd('tomorrow today', now)).toMatchObject({ title: 'tomorrow', dueDate: '2026-09-27' });
+    expect(parseQuickAdd('call fri 6pm 7pm !low !high ~Home ~Work', now)).toMatchObject({
+      title: 'call 6pm !low ~Home',
+      dueTime: '19:00',
+      priority: 'high',
+      listName: 'Work',
+    });
+    expect(quickAddSpans('tomorrow today', now)).toEqual([{ kind: 'date', start: 9, end: 14 }]);
+  });
+
+  test('every tag typed still counts', () => {
+    expect(parseQuickAdd('pack #trip #beach', now)).toMatchObject({ title: 'pack', tags: ['trip', 'beach'] });
+  });
 });
+

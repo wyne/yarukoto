@@ -160,11 +160,23 @@ export function removeQuickAddSpans(
   return { text, literal: ranges };
 }
 
-function scanQuickAdd(
-  input: string,
-  now: Date,
-  literal: readonly QuickAddRange[]
-): { parsed: ParsedQuickAdd; spans: QuickAddSpan[] } {
+/** What a task has one of, so a second token for it reads as a correction. */
+const SINGLE_KINDS = new Set<QuickAddTokenKind>(['date', 'time', 'priority', 'list']);
+
+type Scan = { parsed: ParsedQuickAdd; spans: QuickAddSpan[] };
+
+function scanQuickAdd(input: string, now: Date, literal: readonly QuickAddRange[]): Scan {
+  const scan = scanOnce(input, now, literal);
+  // Only the last date, time, priority or list typed counts. "tomorrow today"
+  // is a change of mind, and the earlier word goes back to being title text
+  // rather than vanishing from the task.
+  const superseded = scan.spans.filter(
+    (s, i) => SINGLE_KINDS.has(s.kind) && scan.spans.slice(i + 1).some((later) => later.kind === s.kind)
+  );
+  return superseded.length > 0 ? scanOnce(input, now, [...literal, ...superseded]) : scan;
+}
+
+function scanOnce(input: string, now: Date, literal: readonly QuickAddRange[]): Scan {
   const words = Array.from(input.matchAll(/\S+/g), (m) => ({ text: m[0], start: m.index!, end: m.index! + m[0].length }));
   const tokens = words.map((w) => w.text);
   // Words the person kept as plain text, which no rule below may take.

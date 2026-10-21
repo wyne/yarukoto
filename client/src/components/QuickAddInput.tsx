@@ -35,8 +35,7 @@ const QuickAddInput = forwardRef<TextInput, Props>(function QuickAddInput({ valu
   const colors = useColors();
   const accent = useAccent();
   const segments = useMemo(() => segmentsOf(value, literal), [value, literal]);
-  // Only the last priority typed counts, as in the parser; every !token is out
-  // of the title either way, so they all take the one that will be set.
+  // The one priority token takes the colour of the priority it sets.
   const priority = useMemo(() => parseQuickAdd(value, new Date(), literal).priority, [value, literal]);
   const paint = (kind: QuickAddTokenKind) => tokenColors(kind, priority, colors, accent);
 

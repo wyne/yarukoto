@@ -604,7 +604,8 @@ const useStyles = makeStyles((c) => ({
   filterSpacer: {
     flex: 1,
   },
-  quickAdd: { paddingHorizontal: 12, paddingTop: 4 },
+  // Over the agenda below it, which the chips' tooltips hang down into.
+  quickAdd: { paddingHorizontal: 12, paddingTop: 4, zIndex: 1 },
   // ScrollView must not paint its scrolled-off content out past its frame — a
   // day group peeking above the viewport is exactly the "under the calendar"
   // artefact the clip is there to prevent. The flex is what lets it take the
