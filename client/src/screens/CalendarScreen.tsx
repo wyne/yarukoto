@@ -79,7 +79,7 @@ export default function CalendarScreen() {
   const refreshControl = useSyncRefresh();
   const { wide, openDrawer } = useSidebar();
   const { openTask } = useDetailActions();
-  const { state, bulkUpdate, addTaskFromQuickAdd, reorderTasks } = useTasks();
+  const { state, bulkUpdate, reorderTasks } = useTasks();
   // While a drag is in flight, the agenda must not scroll under the finger — the
   // whole point is carrying the task up out of the list onto the calendar. The
   // boolean, not the payload: this is the root of the screen, and it should wake
@@ -467,7 +467,7 @@ export default function CalendarScreen() {
             {!wide && DESKTOP_UI && (
               <View style={styles.quickAdd}>
                 <QuickAddBar
-                  onSubmit={(text, literal) => addTaskFromQuickAdd(text, { dueDate: toISODate(selectedDate) }, literal)}
+                  defaults={{ dueDate: toISODate(selectedDate) }}
                   contextLabel={selectedDateLabel}
                 />
               </View>
