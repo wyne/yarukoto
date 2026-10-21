@@ -107,6 +107,7 @@ export default function KeyboardShortcuts({ visible, onClose }: { visible: boole
       onShow={() => inputRef.current?.focus()}
       fade={false}
       width={560}
+      topAligned
       header={(
         <View style={styles.header}>
           <Text style={styles.heading} accessibilityRole="header">Keyboard Shortcuts</Text>

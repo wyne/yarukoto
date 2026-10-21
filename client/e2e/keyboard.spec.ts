@@ -122,6 +122,11 @@ test('Return edits, Space opens, and the list and sidebar answer their keys', as
   await page.keyboard.press('ControlOrMeta+/');
   await expect(page.getByRole('heading', { name: 'Keyboard Shortcuts', exact: true })).toBeVisible();
   await expect(page.getByText('Last Task', { exact: true })).toBeVisible();
+  const shortcutSearch = page.getByPlaceholder('Search shortcuts…');
+  const top = (await shortcutSearch.boundingBox())?.y;
+  await shortcutSearch.fill('no-such-shortcut');
+  await expect(page.getByText('No shortcuts match.', { exact: true })).toBeVisible();
+  await expect.poll(async () => (await shortcutSearch.boundingBox())?.y).toBe(top);
 });
 
 test('a narrowed window keeps the sidebar as a rail, and expanding it hands it the keyboard', async ({ page }) => {
@@ -351,7 +356,9 @@ test('New Task from the command menu puts the keyboard in the add field', async 
   await page.keyboard.press('ControlOrMeta+k');
   const search = page.getByPlaceholder('Go to or do…');
   await expect(search).toBeFocused();
+  const top = (await search.boundingBox())?.y;
   await search.fill('New Task');
+  await expect.poll(async () => (await search.boundingBox())?.y).toBe(top);
   await page.keyboard.press('Enter');
   await expect(search).toBeHidden();
   await expect(page.getByPlaceholder(/Add a task/)).toBeFocused();
@@ -384,11 +391,13 @@ test('⌘O finds a task that isn\'t done by its title and opens it in its list',
   await page.keyboard.press('ControlOrMeta+o');
   const search = page.getByPlaceholder('Find a task by name…');
   await expect(search).toBeFocused();
+  const top = (await search.boundingBox())?.y;
   await search.fill(`goto ${stamp}`);
   const menu = page.locator('[aria-modal="true"]');
   await expect(menu.getByText(wanted, { exact: true })).toBeVisible();
   await expect(menu.getByText(`Goto done ${stamp}`, { exact: true })).toHaveCount(0);
   await expect(menu.getByText(`Unrelated ${stamp}`, { exact: true })).toHaveCount(0);
+  await expect.poll(async () => (await search.boundingBox())?.y).toBe(top);
 
   await page.keyboard.press('Enter');
   await expect(search).toBeHidden();

@@ -16,6 +16,11 @@ interface Props {
    * jumping with every switch. Still capped by the window.
    */
   minHeight?: number;
+  /**
+   * Anchors the card below the window's top margin instead of recentering it
+   * when changing content makes it shorter.
+   */
+  topAligned?: boolean;
   /** Drawn above the body and kept in place while the body scrolls. */
   header?: React.ReactNode;
   /**
@@ -39,7 +44,17 @@ const MARGIN_Y = 48;
  * where a pointer is. Click-away and Escape close it, as they close any other
  * desktop layer.
  */
-export default function Dialog({ visible, onClose, onShow, width: preferred = 440, minHeight, header, fade = true, children }: Props) {
+export default function Dialog({
+  visible,
+  onClose,
+  onShow,
+  width: preferred = 440,
+  minHeight,
+  topAligned = false,
+  header,
+  fade = true,
+  children,
+}: Props) {
   const styles = useStyles();
   const colors = useColors();
   const window = useWindowDimensions();
@@ -49,7 +64,12 @@ export default function Dialog({ visible, onClose, onShow, width: preferred = 44
 
   return (
     <Modal visible={visible} transparent animationType={fade ? 'fade' : 'none'} onRequestClose={onClose} onShow={onShow}>
-      <EscapeToClose active={visible} onEscape={onClose} inModal style={styles.root}>
+      <EscapeToClose
+        active={visible}
+        onEscape={onClose}
+        inModal
+        style={[styles.root, topAligned && styles.topAligned]}
+      >
         <Pressable
           style={[StyleSheet.absoluteFill, { backgroundColor: colors.scrim, opacity: colors.scrimOpacity }]}
           onPress={onClose}
@@ -72,6 +92,10 @@ const useStyles = makeStyles((c) => ({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  topAligned: {
+    justifyContent: 'flex-start',
+    paddingVertical: MARGIN_Y,
   },
   card: {
     backgroundColor: c.surface,
