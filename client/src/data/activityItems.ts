@@ -1,6 +1,6 @@
-import { ListDef, Task } from './types';
+import { ListDef, Subtask, Task } from './types';
 import { markdownToPlainText } from './markdown';
-import { NotesDiff, diffNotes } from './notesDiff';
+import { diffNotes } from './notesDiff';
 import { ActivityKind } from './activityFilter';
 import { addDays, formatDueFull, formatDueShort, fromISODate, toISODate } from './dateUtils';
 import type { ActivityRevision } from './api';
@@ -11,12 +11,31 @@ import type { ActivityRevision } from './api';
  * history, so the two describe the same edit the same way.
  */
 
+/**
+ * One line of a change shown line by line: a line of notes added or removed, or
+ * one subtask added, removed, checked off, unchecked or renamed.
+ */
+export type ChangeLine =
+  | { kind: 'added' | 'removed' | 'checked' | 'unchecked'; text: string }
+  | { kind: 'renamed'; before: string; text: string };
+
+export interface ChangeDiff {
+  lines: ChangeLine[];
+  /** Changed lines beyond the ones returned. */
+  hidden: number;
+  /** What the hidden count counts; lines when not given. */
+  unit?: string;
+}
+
 export interface ActivityChange {
   label: string;
   before: string;
   after: string;
   /** Changed lines, shown instead of before › after when there are any. */
-  diff?: NotesDiff;
+  diff?: ChangeDiff;
+  /** What to call the edit when this is the only field it touched. */
+  title?: string;
+  detail?: string;
 }
 
 export interface ActivityItem {
@@ -61,12 +80,68 @@ function tagsLabel(tags: string[]): string {
   return tags.length ? tags.map((tag) => `#${tag}`).join(' ') : 'None';
 }
 
-function subtasksLabel(task: Task, previous?: Task): string {
-  const done = task.subtasks.filter((subtask) => subtask.done).length;
-  const previousDone = previous?.subtasks.filter((subtask) => subtask.done).length;
-  if (previous && done !== previousDone) return `${done}/${task.subtasks.length} done`;
-  if (task.subtasks.length === 0) return 'None';
-  return task.subtasks.map((subtask) => compactText(subtask.title, 'Untitled')).join(', ');
+/** Subtask lines shown before the rest are counted; a list is often added in one go. */
+const SUBTASK_LINES = 4;
+
+function counted(count: number, verb: string): string {
+  return count === 1 ? `${verb} subtask` : `${verb} ${count} subtasks`;
+}
+
+/**
+ * Subtasks matched by id, so each one that changed gets its own line instead of
+ * the whole list being compared as one value. Null when nothing changed.
+ */
+export function subtasksChange(before: Subtask[], after: Subtask[]): ActivityChange | null {
+  const previous = new Map(before.map((subtask) => [subtask.id, subtask]));
+  const current = new Set(after.map((subtask) => subtask.id));
+  const title = (subtask: Subtask) => compactText(subtask.title, 'Untitled');
+
+  const added: ChangeLine[] = [];
+  const renamed: ChangeLine[] = [];
+  const checked: ChangeLine[] = [];
+  const unchecked: ChangeLine[] = [];
+  for (const subtask of after) {
+    const old = previous.get(subtask.id);
+    if (!old) {
+      added.push({ kind: 'added', text: title(subtask) });
+      continue;
+    }
+    if (title(old) !== title(subtask)) renamed.push({ kind: 'renamed', before: title(old), text: title(subtask) });
+    if (!old.done && subtask.done) checked.push({ kind: 'checked', text: title(subtask) });
+    if (old.done && !subtask.done) unchecked.push({ kind: 'unchecked', text: title(subtask) });
+  }
+  const removed: ChangeLine[] = before
+    .filter((subtask) => !current.has(subtask.id))
+    .map((subtask) => ({ kind: 'removed', text: title(subtask) }));
+
+  const kept = (list: Subtask[]) => list.filter((subtask) => previous.has(subtask.id) && current.has(subtask.id)).map((subtask) => subtask.id);
+  const reordered = kept(before).join('\n') !== kept(after).join('\n');
+
+  const groups = [added, removed, renamed, checked, unchecked].filter((group) => group.length > 0);
+  if (groups.length === 0 && !reordered) return null;
+
+  const lines = groups.flat();
+  const done = after.filter((subtask) => subtask.done).length;
+  const progress = `${done} of ${after.length} done`;
+  let headline = 'Edited subtasks';
+  let detail: string | undefined;
+  if (groups.length === 0) headline = 'Reordered subtasks';
+  else if (groups.length === 1 && !reordered) {
+    if (added.length) headline = counted(added.length, 'Added');
+    else if (removed.length) headline = counted(removed.length, 'Removed');
+    else if (renamed.length) headline = counted(renamed.length, 'Renamed');
+    else if (checked.length) [headline, detail] = [counted(checked.length, 'Checked off'), progress];
+    else [headline, detail] = [counted(unchecked.length, 'Unchecked'), progress];
+  }
+
+  return {
+    label: 'Subtasks',
+    before: `${before.length} ${before.length === 1 ? 'subtask' : 'subtasks'}`,
+    after: groups.length === 0 ? 'Reordered' : `${after.length} ${after.length === 1 ? 'subtask' : 'subtasks'}`,
+    diff: lines.length ? { lines: lines.slice(0, SUBTASK_LINES), hidden: Math.max(0, lines.length - SUBTASK_LINES), unit: 'subtask' } : undefined,
+    title: headline,
+    detail,
+  };
 }
 
 export function changesFor(task: Task, previous: Task | null, lists: ListDef[]): ActivityChange[] {
@@ -99,13 +174,8 @@ export function changesFor(task: Task, previous: Task | null, lists: ListDef[]):
   if (JSON.stringify(task.tags) !== JSON.stringify(previous.tags)) {
     changes.push({ label: 'Tags', before: tagsLabel(previous.tags), after: tagsLabel(task.tags) });
   }
-  if (JSON.stringify(task.subtasks) !== JSON.stringify(previous.subtasks)) {
-    changes.push({
-      label: 'Subtasks',
-      before: subtasksLabel(previous),
-      after: subtasksLabel(task, previous),
-    });
-  }
+  const subtasks = subtasksChange(previous.subtasks, task.subtasks);
+  if (subtasks) changes.push(subtasks);
   if (task.order !== previous.order) {
     changes.push({
       label: 'Position',
@@ -117,7 +187,7 @@ export function changesFor(task: Task, previous: Task | null, lists: ListDef[]):
 }
 
 function editTitle(changes: ActivityChange[]): string {
-  if (changes.length === 1) return `Edited ${changes[0].label.toLowerCase()}`;
+  if (changes.length === 1) return changes[0].title ?? `Edited ${changes[0].label.toLowerCase()}`;
   return `Edited ${changes.length} fields`;
 }
 
@@ -169,6 +239,7 @@ export function summarize(revision: ActivityRevision, now: Date, lists: ListDef[
       id: `${revision.id}-edited`,
       kind: 'edit',
       title: editTitle(changes),
+      detail: changes.length === 1 ? changes[0].detail : undefined,
       taskId: task.id,
       taskTitle,
       changes,
