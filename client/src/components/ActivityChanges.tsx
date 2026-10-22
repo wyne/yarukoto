@@ -5,7 +5,7 @@ import { makeStyles } from '../theme/styles';
 import { fonts } from '../theme/typography';
 import { useColors } from '../theme/ThemeContext';
 import { ActivityKind } from '../data/activityFilter';
-import { ActivityChange } from '../data/activityItems';
+import { ActivityChange, ChangeLine } from '../data/activityItems';
 import { IconChevronRight } from '../icons/Icons';
 
 /** A function rather than a table, because the colours it names now move. */
@@ -32,11 +32,25 @@ interface Props {
   limit?: number;
 }
 
+/** Changed lines a feed row shows of one field, however many the full history would. */
+const FEED_LINES = 3;
+
+const LINE_SIGN: Record<ChangeLine['kind'], string> = {
+  added: '+ ',
+  removed: '− ',
+  checked: '✓ ',
+  unchecked: '○ ',
+  renamed: '',
+};
+
 /** The fields an edit touched, each as its old value struck through beside the new one. */
 export default function ActivityChanges({ changes, limit }: Props) {
   const colors = useColors();
   const styles = useStyles();
   const shown = limit === undefined ? changes : changes.slice(0, limit);
+  const lineLimit = limit === undefined ? undefined : FEED_LINES;
+  const hiddenLines = (change: ActivityChange) =>
+    (change.diff?.hidden ?? 0) + Math.max(0, (change.diff?.lines.length ?? 0) - (lineLimit ?? Infinity));
   return (
     <View style={styles.changes}>
       {shown.map((change) =>
@@ -46,20 +60,27 @@ export default function ActivityChanges({ changes, limit }: Props) {
               {change.label}
             </Text>
             <View style={styles.diffLines}>
-              {change.diff.lines.map((line, n) => (
-                <Text
-                  key={n}
-                  style={line.kind === 'removed' ? styles.diffRemoved : styles.diffAdded}
-                  numberOfLines={1}
-                  ellipsizeMode="tail"
-                >
-                  <Text style={styles.diffSign}>{line.kind === 'removed' ? '− ' : '+ '}</Text>
-                  {line.text}
-                </Text>
-              ))}
-              {change.diff.hidden > 0 && (
+              {change.diff.lines.slice(0, lineLimit).map((line, n) =>
+                line.kind === 'renamed' ? (
+                  <View key={n} style={styles.changeRow}>
+                    <Text style={[styles.changeBefore, styles.renamed]} numberOfLines={1} ellipsizeMode="tail">
+                      {line.before}
+                    </Text>
+                    <IconChevronRight size={11} color={colors.textFaint} />
+                    <Text style={[styles.changeAfter, styles.renamed]} numberOfLines={1} ellipsizeMode="tail">
+                      {line.text}
+                    </Text>
+                  </View>
+                ) : (
+                  <Text key={n} style={styles[line.kind]} numberOfLines={1} ellipsizeMode="tail">
+                    <Text style={styles.diffSign}>{LINE_SIGN[line.kind]}</Text>
+                    {line.text}
+                  </Text>
+                )
+              )}
+              {hiddenLines(change) > 0 && (
                 <Text style={styles.diffMore}>
-                  +{change.diff.hidden} more {change.diff.hidden === 1 ? 'line' : 'lines'}
+                  +{hiddenLines(change)} more {hiddenLines(change) === 1 ? (change.diff.unit ?? 'line') : `${change.diff.unit ?? 'line'}s`}
                 </Text>
               )}
             </View>
@@ -127,18 +148,34 @@ const useStyles = makeStyles((c) => ({
     minWidth: 0,
     gap: 1,
   },
+  // Each title takes only its own width, so a short rename is not cut off.
+  renamed: {
+    flexGrow: 0,
+    flexShrink: 1,
+    flexBasis: 'auto',
+  },
   diffSign: {
     fontFamily: fonts.monoRegular,
   },
-  diffRemoved: {
+  removed: {
     fontFamily: fonts.sansRegular,
     fontSize: 12.5,
     color: c.priorityHigh,
   },
-  diffAdded: {
+  added: {
     fontFamily: fonts.sansRegular,
     fontSize: 12.5,
     color: c.success,
+  },
+  checked: {
+    fontFamily: fonts.sansRegular,
+    fontSize: 12.5,
+    color: c.purple,
+  },
+  unchecked: {
+    fontFamily: fonts.sansRegular,
+    fontSize: 12.5,
+    color: c.orange,
   },
   diffMore: {
     fontFamily: fonts.monoRegular,
