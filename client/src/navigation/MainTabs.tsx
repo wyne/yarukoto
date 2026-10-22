@@ -21,7 +21,7 @@ import {
   SidebarProvider,
   useSidebar,
 } from './SidebarContext';
-import { DetailProvider, useDetail } from './DetailContext';
+import { DetailProvider, useDetail, useDetailOverlay } from './DetailContext';
 import { SelectionProvider, useSelectedIds } from './SelectionContext';
 import Sidebar, { SIDEBAR_WIDTH } from '../components/Sidebar';
 import { closeOpenSwipeRow, swipeRowOpen } from '../components/SwipeableRow';
@@ -163,7 +163,14 @@ function Layout() {
   // showing one task's detail beside them would only mislead about what the next
   // click is going to change.
   const bulk = DESKTOP_UI && selectedIds.length > 0;
-  const showPane = wide && (bulk || !!openTaskId);
+  /**
+   * A screen can ask for the task over it even with room for a column: Plan's
+   * day columns are sized to the width they have, and a column opening beside
+   * them would squeeze and reflow every one of them. Desktop only; a tablet's
+   * column is the only pane it has that isn't a sheet.
+   */
+  const overlay = useDetailOverlay() && DESKTOP_UI;
+  const showPane = wide && (bulk || (!!openTaskId && !overlay));
   /**
    * A narrow desktop window has no column for the task, but it is still a
    * desktop window: a sheet pulled up from the bottom edge, with only a grabber
@@ -174,7 +181,7 @@ function Layout() {
    * Decided by the pointer, as popovers are (`useDesktopPresentation`): a
    * touch-screen browser is a phone's, and keeps the sheet.
    */
-  const slideOver = !wide && FINE_POINTER && !bulk && !!openTaskId;
+  const slideOver = ((!wide && FINE_POINTER) || (wide && overlay)) && !bulk && !!openTaskId;
 
   const clampDetailColumnWidth = useCallback(
     (width: number) => {

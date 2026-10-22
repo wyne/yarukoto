@@ -19,16 +19,19 @@ important one. Tap a day to select it.
 - Drag the month upwards to shrink it to a single week, which leaves more room for the days below.
   Swiping sideways then moves a week at a time. Drag it down again to bring back the month.
 - Tap the month's name at the top to jump back to today.
+- On a computer the calendar starts as a single week, so the day columns get the room. Click the
+  small arrow under it to open the whole month, and again to close it.
 
 Below the grid, the selected day and the days after it, in one of these views:
 
 | View | Shows |
 |---|---|
-| **Daily** | A scrolling agenda of the next days with tasks, starting from the selected day |
+| **Daily** | A scrolling agenda of the next days with tasks, starting from the selected day *(on a phone)* |
 | **2 days**, **3 days** | Side-by-side columns, one per day |
 | **Week** | Seven columns, Sunday to Saturday *(on a computer or a wide tablet)* |
 
-The view button in the header switches between them. While a column view is showing, the days it
+The view button switches between them. To look over the next few days without planning, Today can
+show them too: see [A daily workflow](/using/workflow/). While a column view is showing, the days it
 covers are shaded on the month grid, so you can see where you are.
 
 The sort button chooses between **Custom**, where you arrange each day's tasks yourself, and
@@ -52,10 +55,14 @@ Changed your mind mid-drag? While you're carrying a task, the **Plan task** butt
 
 ## Planning on a computer
 
-On a wide window the planning pane is always open on the left, with the same search, filters and
-starting list as the phone's sheet. In a narrower window, click the columns button in the header
-(**Show tasks to plan**) to bring it in. Drag the divider between the pane and the calendar to make
-either one wider.
+The planning pane sits on the left, with the same search, filters and starting list as the phone's
+sheet. The columns button in the header (**Show tasks to plan**) shows or hides it; a wide window
+remembers the choice, and a narrower one starts with it hidden. Drag the divider between the pane
+and the calendar to make either one wider.
+
+With room to spare, the view, sort and **Completed** controls sit in the header beside the
+calendar's name. Clicking a task opens it over the calendar rather than beside it, so the columns
+don't change width; press Escape or click outside it to close it.
 
 Drag a task from the pane onto any day. Click several tasks first to drag them together. The
 **Week** view is the one to plan in: you can see the whole week's load and drop tasks straight into

@@ -87,6 +87,7 @@ describe('device-local view state', () => {
         calendarOrder: { '2026-10-20': ['a', 3, 'b'], bad: 'not-an-array' },
         showCompleted: true,
         weekView: 'yes',
+        planPane: 'no',
       },
     });
     expect(storage.loadPlanPrefs()).toEqual({
@@ -96,11 +97,21 @@ describe('device-local view state', () => {
       calendarOrder: { '2026-10-20': ['a', 'b'] },
       showCompleted: true,
       weekView: false,
+      planPane: true,
     });
 
-    const next = { ...storage.DEFAULT_PLAN_PREFS, mode: 'week' as const, weekView: true };
+    const next = { ...storage.DEFAULT_PLAN_PREFS, mode: 'week' as const, weekView: true, planPane: false };
     storage.savePlanPrefs(next);
     expect(storage.loadPlanPrefs()).toEqual(next);
+  });
+
+  test('remembers how many days Today covers, and ignores anything else', async () => {
+    expect((await fresh({})).loadTodayDays()).toBe(1);
+    expect((await fresh({ 'yarukoto.todayDays': 5 })).loadTodayDays()).toBe(1);
+    const storage = await fresh({ 'yarukoto.todayDays': 3 });
+    expect(storage.loadTodayDays()).toBe(3);
+    storage.saveTodayDays(7);
+    expect(storage.loadTodayDays()).toBe(7);
   });
 
   test('validates collapsed groups and removes default entries', async () => {

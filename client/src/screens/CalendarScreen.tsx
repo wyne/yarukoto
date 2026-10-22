@@ -8,7 +8,7 @@ import { useAccent, useColors } from '../theme/ThemeContext';
 import { useSidebar } from '../navigation/SidebarContext';
 import { useClaimDrawerSwipe } from '../navigation/drawerSwipe';
 import { NATIVE_FAB_CLEARANCE, nativeTabBarClearance } from '../navigation/nativeTabBarLayout';
-import { useDetailActions } from '../navigation/DetailContext';
+import { useDetailActions, useOverlayDetailWhileFocused } from '../navigation/DetailContext';
 import { useTasks } from '../data/TaskContext';
 import { PlanMode, PlanSort, loadPlanPrefs, savePlanPrefs } from '../data/storage';
 import { tasksByDate } from '../data/selectors';
@@ -19,7 +19,6 @@ import AddExistingTaskSheet, { AddExistingTaskButton } from './calendar/AddExist
 import MonthGrid from './calendar/MonthGrid';
 import SchedulePane, { SCHEDULE_PANE_WIDTH } from './calendar/SchedulePane';
 import WeekGrid from './calendar/WeekGrid';
-import QuickAddBar from '../components/QuickAddBar';
 import { useWindowSelector } from '../components/useWindowSelector';
 import AddTaskFab from '../components/AddTaskFab';
 import { closeOpenSwipeRow } from '../components/SwipeableRow';
@@ -38,6 +37,8 @@ const PRIORITY_RANK = { high: 0, medium: 1, low: 2, none: 3 } as const;
 const PLAN_PANE_MIN_WIDTH = 280;
 const CALENDAR_MIN_WIDTH = 280;
 const PANE_RESIZER_WIDTH = 11;
+/** Wide enough for the view, sort and Completed controls to sit in the header beside the title. */
+const HEADER_CONTROLS_MIN_WIDTH = 600;
 
 function sortCalendarTasks(tasks: Task[], sort: PlanSort): Task[] {
   return [...tasks].sort((a, b) => {
@@ -70,6 +71,9 @@ type Mode = PlanMode;
  * Wide: a scoped task list beside a calendar, drag a task onto a day to schedule
  * it, with day/multi-day/week views. Narrow: the calendar and daily agenda only —
  * there's no room for the schedule pane or the extra view modes.
+ *
+ * The desktop leaves out the daily agenda. Today lists the days ahead, so here
+ * the day columns are the point: they are where a task is put.
  */
 export default function CalendarScreen() {
   const colors = useColors();
@@ -90,6 +94,9 @@ export default function CalendarScreen() {
   // rightward as often as any other way, so the drawer's own rightward swipe
   // stands down here. The menu button in the header still opens it.
   useClaimDrawerSwipe();
+  // A task opened from the calendar comes over it, so the day columns keep
+  // their width rather than reflowing each time one opens and closes.
+  useOverlayDetailWhileFocused();
   const today = new Date();
 
   // What the calendar is showing, read as a month or as a week depending on
@@ -108,8 +115,9 @@ export default function CalendarScreen() {
   const planFits = useWindowSelector(
     (window) => window.width >= PLAN_PANE_MIN_WIDTH + PANE_RESIZER_WIDTH + CALENDAR_MIN_WIDTH
   );
-  const canOpenPlan = !wide && DESKTOP_UI && planFits;
-  const showPlan = wide || (canOpenPlan && planOpen);
+  // A wide desktop window can put the pane away too, for looking at the calendar
+  // rather than filling it; that choice is kept, where a narrow window's is not.
+  const canTogglePlan = DESKTOP_UI && planFits;
   // A ref, not state: only the pane divider's drag reads it, and as state every
   // frame of a window resize re-rendered the whole calendar to store it.
   const rowWidth = useRef(0);
@@ -173,19 +181,39 @@ export default function CalendarScreen() {
   // Layout and the completed filter are how this screen is set up, not where you
   // are in it — so they're restored, while the date always opens on today.
   const [prefs, setPrefs] = useState(loadPlanPrefs);
-  const { mode, rangeDays, sort, showCompleted, weekView } = prefs;
+  const { mode, rangeDays, sort, showCompleted, weekView, planPane } = prefs;
   const updatePrefs = (patch: Partial<typeof prefs>) => {
     const next = { ...prefs, ...patch };
     setPrefs(next);
     savePlanPrefs(next);
   };
+  const showPlan = wide ? !DESKTOP_UI || planPane : canTogglePlan && planOpen;
+  const planShown = wide ? planPane : planOpen;
+  const togglePlan = () => (wide ? updatePrefs({ planPane: !planPane }) : setPlanOpen((open) => !open));
 
   // A phone-width window can't fit the week columns, so narrow offers Daily and
-  // 3-day only: a persisted 'week' falls back to Daily without touching the
-  // preference, which comes back whenever the window is wide again.
-  const effectiveMode: Mode = wide ? mode : mode === 'week' ? 'day' : mode;
+  // 3-day only: a persisted 'week' falls back without touching the preference,
+  // which comes back whenever the window is wide again. The desktop has no Daily
+  // (see above), so its 'day' — and a narrow window's 'week' — show as days.
+  const effectiveMode: Mode = DESKTOP_UI
+    ? mode === 'day' || (mode === 'week' && !wide)
+      ? 'multi'
+      : mode
+    : wide
+    ? mode
+    : mode === 'week'
+    ? 'day'
+    : mode;
 
-  const [rangeStart, setRangeStart] = useState(() => (mode === 'multi' ? today : startOfWeek(today)));
+  const [rangeStart, setRangeStart] = useState(() => (effectiveMode === 'multi' ? today : startOfWeek(today)));
+  // Measured, not derived from the window: the plan pane and the task pane both
+  // take from the same width.
+  const [headerRoom, setHeaderRoom] = useState(false);
+  const handleCalendarLayout = useCallback((event: LayoutChangeEvent) => {
+    const roomy = event.nativeEvent.layout.width >= HEADER_CONTROLS_MIN_WIDTH;
+    setHeaderRoom((current) => (current === roomy ? current : roomy));
+  }, []);
+  const controlsInHeader = DESKTOP_UI && headerRoom;
 
   // Completed tasks are hidden by default but stay reachable: on a calendar it's
   // useful to see what a day actually held, not just what's left of it.
@@ -250,7 +278,7 @@ export default function CalendarScreen() {
 
   const goToday = () => {
     setAnchor(today);
-    setRangeStart(mode === 'multi' ? today : startOfWeek(today));
+    setRangeStart(effectiveMode === 'multi' ? today : startOfWeek(today));
     setSelectedDate(today);
   };
 
@@ -288,10 +316,10 @@ export default function CalendarScreen() {
     if (nativeEvent.event === 'custom' || nativeEvent.event === 'priority') updatePrefs({ sort: nativeEvent.event });
   };
   const cycleView = () => {
-    if (effectiveMode === 'day') switchView('multi', 2);
+    if (effectiveMode === 'day' && !DESKTOP_UI) switchView('multi', 2);
     else if (effectiveMode === 'multi' && rangeDays === 2) switchView('multi', 3);
     else if (wide && effectiveMode === 'multi') switchView('week');
-    else switchView('day');
+    else switchView(DESKTOP_UI ? 'multi' : 'day', 2);
   };
   const toggleSort = () => updatePrefs({ sort: sort === 'custom' ? 'priority' : 'custom' });
 
@@ -329,25 +357,30 @@ export default function CalendarScreen() {
   // Rendered below the month grid in both modes: a filter belongs with the days it
   // filters, not crowded in among the range controls. The native menu triggers
   // are system-owned so their glass and menu transitions come from the platform.
-  const completedToggle = (
+  const completedPill = (
+    <Pressable
+      style={[
+        styles.todayBtn,
+        { borderColor: showCompleted ? accent : colors.border },
+        showCompleted && { backgroundColor: alpha(accent, 0.14) },
+      ]}
+      onPress={() => updatePrefs({ showCompleted: !showCompleted })}
+    >
+      <Text style={[styles.todayBtnText, { color: showCompleted ? accent : colors.textTertiary }]}>
+        Completed
+      </Text>
+    </Pressable>
+  );
+  // A roomy desktop column takes them into the header instead, so the day
+  // columns start right under the calendar.
+  const completedToggle = controlsInHeader ? null : (
     <View style={styles.filterRow}>
       <View style={styles.filterMenus}>
         {viewMenu}
         {sortMenu}
       </View>
       <View style={styles.filterSpacer} />
-      <Pressable
-        style={[
-          styles.todayBtn,
-          { borderColor: showCompleted ? accent : colors.border },
-          showCompleted && { backgroundColor: alpha(accent, 0.14) },
-        ]}
-        onPress={() => updatePrefs({ showCompleted: !showCompleted })}
-      >
-        <Text style={[styles.todayBtnText, { color: showCompleted ? accent : colors.textTertiary }]}>
-          Completed
-        </Text>
-      </Pressable>
+      {completedPill}
     </View>
   );
 
@@ -380,7 +413,10 @@ export default function CalendarScreen() {
         </ResizeCursorView>
       )}
 
-      <View style={[styles.calendarCol, showPlan && DESKTOP_UI && styles.calendarColResizable]}>
+      <View
+        style={[styles.calendarCol, showPlan && DESKTOP_UI && styles.calendarColResizable]}
+        onLayout={handleCalendarLayout}
+      >
         <View style={styles.header}>
           {!wide && (
             <GlassIconButton onPress={openDrawer} label="Menu" shortcut="toggleSidebar">
@@ -392,12 +428,16 @@ export default function CalendarScreen() {
               <Text style={styles.title}>{calendarLabel}</Text>
             </Pressable>
           </View>
-          {canOpenPlan && (
-            <GlassIconButton
-              onPress={() => setPlanOpen((open) => !open)}
-              label={planOpen ? 'Hide tasks to plan' : 'Show tasks to plan'}
-            >
-              <IconColumns />
+          {controlsInHeader && (
+            <View style={styles.headerControls}>
+              {viewMenu}
+              {sortMenu}
+              {completedPill}
+            </View>
+          )}
+          {canTogglePlan && (
+            <GlassIconButton onPress={togglePlan} label={planShown ? 'Hide tasks to plan' : 'Show tasks to plan'}>
+              <IconColumns color={planShown ? accent : undefined} />
             </GlassIconButton>
           )}
           <GlassIconButtonGroup>
@@ -463,15 +503,6 @@ export default function CalendarScreen() {
               />
             </View>
             {completedToggle}
-
-            {!wide && DESKTOP_UI && (
-              <View style={styles.quickAdd}>
-                <QuickAddBar
-                  defaults={{ dueDate: toISODate(selectedDate) }}
-                  contextLabel={selectedDateLabel}
-                />
-              </View>
-            )}
 
             <ScrollView
               ref={agendaRef}
@@ -582,6 +613,11 @@ const useStyles = makeStyles((c) => ({
     paddingBottom: 8,
     gap: 8,
   },
+  headerControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   filterMenus: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -604,8 +640,6 @@ const useStyles = makeStyles((c) => ({
   filterSpacer: {
     flex: 1,
   },
-  // Over the agenda below it, which the chips' tooltips hang down into.
-  quickAdd: { paddingHorizontal: 12, paddingTop: 4, zIndex: 1 },
   // ScrollView must not paint its scrolled-off content out past its frame — a
   // day group peeking above the viewport is exactly the "under the calendar"
   // artefact the clip is there to prevent. The flex is what lets it take the
