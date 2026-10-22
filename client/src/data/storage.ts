@@ -47,6 +47,7 @@ const BROWSE_KEY = 'yarukoto.browseCriteria';
 const SCHEME_KEY = 'yarukoto.scheme';
 const FIRST_TAB_VIEW_KEY = 'yarukoto.firstTabViews';
 const SNOOZES_KEY = 'yarukoto.snoozedReminders';
+const TODAY_DAYS_KEY = 'yarukoto.todayDays';
 
 const ALL_KEYS = [
   URL_KEY,
@@ -63,6 +64,7 @@ const ALL_KEYS = [
   SCHEME_KEY,
   FIRST_TAB_VIEW_KEY,
   SNOOZES_KEY,
+  TODAY_DAYS_KEY,
 ];
 
 /** Kept in SecureStore rather than AsyncStorage, on platforms that have one. */
@@ -307,6 +309,24 @@ export function loadPlanPrefs(): PlanPrefs {
 
 export function savePlanPrefs(prefs: PlanPrefs): void {
   writeJson(PLAN_KEY, prefs);
+}
+
+/**
+ * How many days Today covers, starting with today itself.
+ *
+ * Device-local like the Plan layout: a desktop with room for the week ahead and
+ * a phone that only wants today have no reason to agree.
+ */
+export type TodayDays = 1 | 2 | 3 | 7;
+export const TODAY_DAYS_OPTIONS: TodayDays[] = [1, 2, 3, 7];
+
+export function loadTodayDays(): TodayDays {
+  const stored = readJson<unknown>(TODAY_DAYS_KEY);
+  return TODAY_DAYS_OPTIONS.includes(stored as TodayDays) ? (stored as TodayDays) : 1;
+}
+
+export function saveTodayDays(days: TodayDays): void {
+  writeJson(TODAY_DAYS_KEY, days);
 }
 
 /** Which sections of one view are folded shut. */

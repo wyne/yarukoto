@@ -2,6 +2,8 @@ import {
   arrangementFor,
   arrangementFrom,
   dateBucket,
+  dayGroupKey,
+  groupByDay,
   DEFAULT_VIEW_OPTIONS,
   groupTasks,
   hasArrangement,
@@ -128,5 +130,33 @@ describe('task sorting and grouping', () => {
     expect(grouped).toHaveLength(1);
     expect(grouped[0].key).toBe(UNGROUPED_KEY);
     expect(grouped[0].tasks.map((item) => item.id)).toEqual(['beta', 'alpha', 'zebra', 'same-title']);
+  });
+});
+
+describe('Today by day', () => {
+  // A Saturday; the clocks go back in New York overnight into Sunday.
+  const saturday = new Date(2026, 9, 31, 12);
+
+  test('gives every day a group, overdue in today, empty days kept', () => {
+    const tasks = [
+      task('late', { dueDate: '2026-10-29', order: 2 }),
+      task('today', { dueDate: '2026-10-31', order: 1 }),
+      task('monday', { dueDate: '2026-11-02', order: 1 }),
+      task('beyond', { dueDate: '2026-11-03' }),
+      task('undated'),
+    ];
+    const groups = groupByDay(tasks, DEFAULT_VIEW_OPTIONS, saturday, 3);
+    expect(groups.map((g) => [g.key, g.label, g.tasks.map((t) => t.id)])).toEqual([
+      [UNGROUPED_KEY, 'Today', ['today', 'late']],
+      ['day:1', 'Tomorrow', []],
+      ['day:2', 'Mon Nov 2', ['monday']],
+    ]);
+  });
+
+  test('keys today like an ungrouped view so its arrangement carries over', () => {
+    expect(dayGroupKey(0)).toBe(UNGROUPED_KEY);
+    const tasks = [task('a', { dueDate: '2026-10-31' }), task('b', { dueDate: '2026-10-31' })];
+    const arranged = options({ sortBy: 'title', arrangements: { title: { [UNGROUPED_KEY]: arrangementFrom(['b', 'a']) } } });
+    expect(groupByDay(tasks, arranged, saturday, 2)[0].tasks.map((t) => t.id)).toEqual(['b', 'a']);
   });
 });

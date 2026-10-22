@@ -27,9 +27,19 @@ interface Props {
   onRestore: () => void;
   /** Where the header button sits, so the desktop popover can tether to it. */
   anchor?: PopoverAnchor | null;
+  /** False where the view already sections itself, as a multi-day Today does by day. */
+  showGroupBy?: boolean;
 }
 
-export default function ViewOptionsSheet({ visible, onClose, value, onChange, onRestore, anchor }: Props) {
+export default function ViewOptionsSheet({
+  visible,
+  onClose,
+  value,
+  onChange,
+  onRestore,
+  anchor,
+  showGroupBy = true,
+}: Props) {
   const hoverBg = useHoverBg();
   const styles = useStyles();
   const accent = useAccent();
@@ -86,9 +96,10 @@ export default function ViewOptionsSheet({ visible, onClose, value, onChange, on
 
   const body = (
     <>
-      {renderRow<GroupBy>('Group by', GROUP_BY_OPTIONS, displayedValue.groupBy, (groupBy) =>
-        updateValue({ ...displayedValue, groupBy })
-      )}
+      {showGroupBy &&
+        renderRow<GroupBy>('Group by', GROUP_BY_OPTIONS, displayedValue.groupBy, (groupBy) =>
+          updateValue({ ...displayedValue, groupBy })
+        )}
       {renderRow<SortBy>('Sort by', SORT_BY_OPTIONS, displayedValue.sortBy, (sortBy) =>
         updateValue({ ...displayedValue, sortBy })
       )}

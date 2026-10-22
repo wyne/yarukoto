@@ -1,5 +1,5 @@
 import { FolderDef, ListDef, Task } from './types';
-import { fromISODate, isOverdue, startOfDay } from './dateUtils';
+import { addDays, fromISODate, isOverdue, startOfDay } from './dateUtils';
 
 /**
  * Lists and folders are soft-deleted like tasks — the row stays so the deletion
@@ -174,9 +174,18 @@ export function tagCounts(tasks: Task[]): { tag: string; count: number }[] {
  * see `dateBucket`, which has an Overdue bucket for exactly this.
  */
 export function tasksDueByToday(tasks: Task[], now: Date): Task[] {
-  const today = startOfDay(now).getTime();
+  return tasksDueWithin(tasks, now, 1);
+}
+
+/**
+ * What Today shows when it covers more than one day: everything due by the last
+ * of `days` days, today included, with overdue still in it for the same reason
+ * as above.
+ */
+export function tasksDueWithin(tasks: Task[], now: Date, days: number): Task[] {
+  const last = addDays(startOfDay(now), days - 1).getTime();
   return activeTasks(tasks).filter(
-    (t) => t.dueDate && startOfDay(fromISODate(t.dueDate)).getTime() <= today
+    (t) => t.dueDate && startOfDay(fromISODate(t.dueDate)).getTime() <= last
   );
 }
 
