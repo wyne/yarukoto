@@ -179,7 +179,7 @@ export const COMMANDS: readonly CommandDef[] = [
   // ⌘1–9 (Ctrl+1–9) for its own tabs. The command menu already lists every view.
   { id: 'goAll', title: 'All', menu: 'view', group: 'go', shortcut: cmd('1'), hiddenFromPalette: true },
   { id: 'goInbox', title: 'Inbox', menu: 'view', group: 'go', shortcut: cmd('2'), hiddenFromPalette: true },
-  { id: 'goToday', title: 'Today', menu: 'view', group: 'go', shortcut: cmd('3'), hiddenFromPalette: true },
+  { id: 'goToday', title: 'Agenda', menu: 'view', group: 'go', shortcut: cmd('3'), hiddenFromPalette: true },
   { id: 'goCalendar', title: 'Plan', menu: 'view', group: 'go', shortcut: cmd('4'), hiddenFromPalette: true },
   { id: 'goActivity', title: 'Activity', menu: 'view', group: 'go', shortcut: cmd('5'), hiddenFromPalette: true },
   { id: 'goBrowse', title: 'Browse', menu: 'view', group: 'go', shortcut: cmd('6'), hiddenFromPalette: true },

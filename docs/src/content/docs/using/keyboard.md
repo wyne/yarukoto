@@ -31,7 +31,7 @@ does.
 | ⌘F | Search, in Browse *(Mac)* |
 | ⌘K | Command menu: go to any view, list, folder, tag or saved filter, or run any command |
 | ⌘O | Go to a task: search the tasks that aren't done by title, and open the one you pick |
-| ⌘1 to ⌘7 | All, Inbox, Today, Plan, Activity, Browse, Trash *(Mac)* |
+| ⌘1 to ⌘7 | All, Inbox, Agenda, Plan, Activity, Browse, Trash *(Mac)* |
 | ⌘S | Show or hide the sidebar, which takes the keyboard as it opens *(Mac)* |
 | ⌘D | Show or hide the task pane *(Mac)* |
 | ⌘/ | Keyboard shortcuts |

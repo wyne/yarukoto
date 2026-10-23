@@ -320,7 +320,8 @@ export function savePlanPrefs(prefs: PlanPrefs): void {
 }
 
 /**
- * How many days Today covers, starting with today itself.
+ * How many days the Agenda covers, starting with today itself. Three unless
+ * chosen otherwise: enough to see what is coming without leaving today behind.
  *
  * Device-local like the Plan layout: a desktop with room for the week ahead and
  * a phone that only wants today have no reason to agree.
@@ -330,7 +331,7 @@ export const TODAY_DAYS_OPTIONS: TodayDays[] = [1, 2, 3, 7];
 
 export function loadTodayDays(): TodayDays {
   const stored = Number(read(TODAY_DAYS_KEY));
-  return TODAY_DAYS_OPTIONS.includes(stored as TodayDays) ? (stored as TodayDays) : 1;
+  return TODAY_DAYS_OPTIONS.includes(stored as TodayDays) ? (stored as TodayDays) : 3;
 }
 
 export function saveTodayDays(days: TodayDays): void {

@@ -19,13 +19,16 @@ import AddExistingTaskSheet, { AddExistingTaskButton } from './calendar/AddExist
 import MonthGrid from './calendar/MonthGrid';
 import SchedulePane, { SCHEDULE_PANE_WIDTH } from './calendar/SchedulePane';
 import WeekGrid from './calendar/WeekGrid';
+import QuickAddBar from '../components/QuickAddBar';
 import { useWindowSelector } from '../components/useWindowSelector';
 import AddTaskFab from '../components/AddTaskFab';
 import { closeOpenSwipeRow } from '../components/SwipeableRow';
 import { useSyncRefresh } from '../data/useSyncRefresh';
 import GlassIconButton, { GlassIconButtonGroup, GlassTextButton, GlassTextMenuLabel } from '../components/GlassIconButton';
 import { DESKTOP_UI, FLOATING_TAB_BAR } from '../data/platform';
-import { IconChevronDown, IconChevronLeft, IconChevronRight, IconColumns, IconMenu } from '../icons/Icons';
+import { IconCheckBig, IconChevronDown, IconChevronLeft, IconChevronRight, IconColumns, IconMenu } from '../icons/Icons';
+import Popover, { type PopoverAnchor } from '../components/Popover';
+import { MenuRow } from '../components/menu/MenuItems';
 import { taskIdsFromDrag, useDragActive, useDragPayload } from '../drag/DragContext';
 import { Measurable } from '../drag/useDropTarget';
 import ResizeCursorView from '../../modules/mac-pointer/src/ResizeCursorView';
@@ -71,9 +74,6 @@ type Mode = PlanMode;
  * Wide: a scoped task list beside a calendar, drag a task onto a day to schedule
  * it, with day/multi-day/week views. Narrow: the calendar and daily agenda only —
  * there's no room for the schedule pane or the extra view modes.
- *
- * The desktop leaves out the daily agenda. Today lists the days ahead, so here
- * the day columns are the point: they are where a task is put.
  */
 export default function CalendarScreen() {
   const colors = useColors();
@@ -192,18 +192,9 @@ export default function CalendarScreen() {
   const togglePlan = () => (wide ? updatePrefs({ planPane: !planPane }) : setPlanOpen((open) => !open));
 
   // A phone-width window can't fit the week columns, so narrow offers Daily and
-  // 3-day only: a persisted 'week' falls back without touching the preference,
-  // which comes back whenever the window is wide again. The desktop has no Daily
-  // (see above), so its 'day' — and a narrow window's 'week' — show as days.
-  const effectiveMode: Mode = DESKTOP_UI
-    ? mode === 'day' || (mode === 'week' && !wide)
-      ? 'multi'
-      : mode
-    : wide
-    ? mode
-    : mode === 'week'
-    ? 'day'
-    : mode;
+  // 3-day only: a persisted 'week' falls back to Daily without touching the
+  // preference, which comes back whenever the window is wide again.
+  const effectiveMode: Mode = wide ? mode : mode === 'week' ? 'day' : mode;
 
   const [rangeStart, setRangeStart] = useState(() => (effectiveMode === 'multi' ? today : startOfWeek(today)));
   // Measured, not derived from the window: the plan pane and the task pane both
@@ -315,13 +306,24 @@ export default function CalendarScreen() {
   const handleSortAction = ({ nativeEvent }: NativeActionEvent) => {
     if (nativeEvent.event === 'custom' || nativeEvent.event === 'priority') updatePrefs({ sort: nativeEvent.event });
   };
-  const cycleView = () => {
-    if (effectiveMode === 'day' && !DESKTOP_UI) switchView('multi', 2);
-    else if (effectiveMode === 'multi' && rangeDays === 2) switchView('multi', 3);
-    else if (wide && effectiveMode === 'multi') switchView('week');
-    else switchView(DESKTOP_UI ? 'multi' : 'day', 2);
+  // The desktop draws the same actions as a popover menu: a choice among a few,
+  // where cycling through them to reach one is a detour.
+  const viewBtn = useRef<View>(null);
+  const sortBtn = useRef<View>(null);
+  const [openMenu, setOpenMenu] = useState<{ kind: 'view' | 'sort'; anchor: PopoverAnchor } | null>(null);
+  const showMenu = (kind: 'view' | 'sort') => {
+    (kind === 'view' ? viewBtn : sortBtn).current?.measureInWindow((x, y, width, height) =>
+      setOpenMenu({ kind, anchor: { x, y, width, height } })
+    );
   };
-  const toggleSort = () => updatePrefs({ sort: sort === 'custom' ? 'priority' : 'custom' });
+  const menuActions = openMenu?.kind === 'view' ? viewActions : sortActions;
+  const pickMenuAction = (id: string) => {
+    const kind = openMenu?.kind;
+    setOpenMenu(null);
+    const event = { nativeEvent: { event: id } } as NativeActionEvent;
+    if (kind === 'view') handleViewAction(event);
+    else handleSortAction(event);
+  };
 
   const menuLabel = (label: string) => (
     <View style={styles.menuBtnContent}>
@@ -331,9 +333,11 @@ export default function CalendarScreen() {
   );
 
   const viewMenu = DESKTOP_UI ? (
-    <GlassTextButton onPress={cycleView} label="Calendar view" compact>
-      {menuLabel(viewLabel)}
-    </GlassTextButton>
+    <View ref={viewBtn} collapsable={false}>
+      <GlassTextButton onPress={() => showMenu('view')} label="Calendar view" compact>
+        {menuLabel(viewLabel)}
+      </GlassTextButton>
+    </View>
   ) : (
     <MenuView actions={viewActions} onPressAction={handleViewAction}>
       <GlassTextMenuLabel label="Calendar view" compact>
@@ -343,9 +347,11 @@ export default function CalendarScreen() {
   );
 
   const sortMenu = DESKTOP_UI ? (
-    <GlassTextButton onPress={toggleSort} label="Calendar sort" compact>
-      {menuLabel(`Sort: ${sortLabel}`)}
-    </GlassTextButton>
+    <View ref={sortBtn} collapsable={false}>
+      <GlassTextButton onPress={() => showMenu('sort')} label="Calendar sort" compact>
+        {menuLabel(`Sort: ${sortLabel}`)}
+      </GlassTextButton>
+    </View>
   ) : (
     <MenuView actions={sortActions} onPressAction={handleSortAction}>
       <GlassTextMenuLabel label="Calendar sort" compact>
@@ -504,6 +510,15 @@ export default function CalendarScreen() {
             </View>
             {completedToggle}
 
+            {!wide && DESKTOP_UI && (
+              <View style={styles.quickAdd}>
+                <QuickAddBar
+                  defaults={{ dueDate: toISODate(selectedDate) }}
+                  contextLabel={selectedDateLabel}
+                />
+              </View>
+            )}
+
             <ScrollView
               ref={agendaRef}
               refreshControl={refreshControl}
@@ -534,6 +549,21 @@ export default function CalendarScreen() {
               ))}
             </ScrollView>
           </>
+        )}
+
+        {DESKTOP_UI && (
+          <Popover visible={!!openMenu} onClose={() => setOpenMenu(null)} anchor={openMenu?.anchor ?? null} width={180}>
+            {menuActions
+              .filter((action) => !action.attributes?.hidden)
+              .map((action) => (
+                <MenuRow
+                  key={action.id}
+                  icon={action.state === 'on' ? <IconCheckBig size={14} color={accent} /> : null}
+                  label={action.title}
+                  onPress={() => pickMenuAction(action.id!)}
+                />
+              ))}
+          </Popover>
         )}
 
         {!wide && !DESKTOP_UI && (
@@ -644,6 +674,8 @@ const useStyles = makeStyles((c) => ({
   // day group peeking above the viewport is exactly the "under the calendar"
   // artefact the clip is there to prevent. The flex is what lets it take the
   // height the calendar hands back when the month is collapsed to a week.
+  // Over the agenda below it, which the chips' tooltips hang down into.
+  quickAdd: { paddingHorizontal: 12, paddingTop: 4, zIndex: 1 },
   agendaFrame: { flex: 1, overflow: 'hidden' },
   agenda: {
     /** Reaches the bottom on a light day. See TaskListScreen's `scrollContent`. */

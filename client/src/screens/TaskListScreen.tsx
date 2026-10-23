@@ -20,7 +20,7 @@ import {
   tasksDueWithin,
 } from '../data/selectors';
 import { TODAY_DAYS_OPTIONS, TodayDays, loadTodayDays, saveTodayDays } from '../data/storage';
-import { addDays, isSameDay, toISODate } from '../data/dateUtils';
+import { isSameDay, toISODate } from '../data/dateUtils';
 import { QuickAddDefaults } from '../data/TaskContext';
 import { hapticSelect } from '../data/haptics';
 import { useSyncRefresh } from '../data/useSyncRefresh';
@@ -82,15 +82,16 @@ import Popover, { type PopoverAnchor } from '../components/Popover';
 import Tooltip from '../components/Tooltip';
 import { closeOpenSwipeRow } from '../components/SwipeableRow';
 import { useLazyMount } from '../components/lazyMount';
-import GlassIconButton, { GlassIconMenuLabel, GlassTextButton, GlassTextMenuLabel } from '../components/GlassIconButton';
+import GlassIconButton, { GlassIconMenuLabel, GlassTextButton } from '../components/GlassIconButton';
 import { MenuRow } from '../components/menu/MenuItems';
 import DueDatePickerSheet from '../components/pickers/DueDatePickerSheet';
 import ListPickerSheet from '../components/pickers/ListPickerSheet';
 import TagPickerSheet from '../components/pickers/TagPickerSheet';
 import { IconCheckBig, IconChevronDown, IconDotsHorizontal, IconMenu, IconViewOptions } from '../icons/Icons';
 
-const TITLES = { all: 'All', inbox: 'Inbox', today: 'Today' } as const;
-const TODAY_DAYS_LABEL: Record<TodayDays, string> = { 1: 'Today', 2: '2 days', 3: '3 days', 7: 'Week' };
+const TITLES = { all: 'All', inbox: 'Inbox', today: 'Agenda' } as const;
+/** The Agenda's title is the stretch it covers, so it always says what is on screen. */
+const TODAY_DAYS_LABEL: Record<TodayDays, string> = { 1: 'Today', 2: 'Next 2 days', 3: 'Next 3 days', 7: 'Week' };
 /**
  * Native lists only build the rows near the screen; see `VirtualTaskList`. The
  * web keeps the fully built column, whose drag and hover wiring is DOM-specific.
@@ -1088,25 +1089,28 @@ const TaskListBody = memo(
     []
   );
 
-  // The title stays Today, since that is where the list starts and what its
-  // badge counts; this says how far past it the list runs.
-  const lastDay = addDays(now, days - 1);
-  const rangeLabel =
-    days === 2 ? 'through tomorrow' : `through ${lastDay.toLocaleDateString('en-US', { weekday: 'long' })}`;
+  // The Agenda's title is its range, and choosing another range is done on the
+  // title itself, so the two can never disagree.
   const daysLabel = (
     <View style={styles.daysLabel}>
-      <Text style={styles.daysText}>{TODAY_DAYS_LABEL[todayDays]}</Text>
-      <IconChevronDown size={12} color={colors.textTertiary} />
+      <Text style={styles.title} numberOfLines={1}>
+        {TODAY_DAYS_LABEL[todayDays]}
+      </Text>
+      <IconChevronDown size={14} color={colors.textTertiary} />
     </View>
   );
   // A menu rather than a cycling button: the choice is how far ahead to look,
   // and stepping through every length to get back to one is a detour.
   const daysControl = DESKTOP_UI ? (
-    <View ref={daysBtn} collapsable={false}>
-      <GlassTextButton onPress={openDaysMenu} label="Days shown" compact>
-        {daysLabel}
-      </GlassTextButton>
-    </View>
+    <Pressable
+      ref={daysBtn}
+      onPress={openDaysMenu}
+      accessibilityRole="button"
+      accessibilityLabel="Days shown"
+      style={styles.daysButton}
+    >
+      {daysLabel}
+    </Pressable>
   ) : (
     <MenuView
       actions={TODAY_DAYS_OPTIONS.map((d) => ({
@@ -1116,9 +1120,9 @@ const TaskListBody = memo(
       }))}
       onPressAction={({ nativeEvent }) => setTodayDays(Number(nativeEvent.event) as TodayDays)}
     >
-      <GlassTextMenuLabel label="Days shown" compact>
+      <View accessible accessibilityRole="button" accessibilityLabel="Days shown">
         {daysLabel}
-      </GlassTextMenuLabel>
+      </View>
     </MenuView>
   );
 
@@ -1145,15 +1149,15 @@ const TaskListBody = memo(
             </GlassIconButton>
           )}
           <View style={styles.titleRow}>
-            <Text style={styles.title}>{filter ? filter.label : TITLES[mode]}</Text>
-            <Text style={styles.count}>{active.length}</Text>
-            {byDay && (
-              <Text style={styles.range} numberOfLines={1}>
-                {rangeLabel}
+            {mode === 'today' && !filter ? (
+              daysControl
+            ) : (
+              <Text style={styles.title} numberOfLines={1}>
+                {filter ? filter.label : TITLES[mode]}
               </Text>
             )}
+            <Text style={styles.count}>{active.length}</Text>
           </View>
-          {mode === 'today' && !filter && daysControl}
           {DESKTOP_UI ? (
             <Tooltip label="More">
               <GlassIconButton ref={headerMenuBtn} onPress={openHeaderMenu} label="More actions">
@@ -1472,6 +1476,7 @@ const useStyles = makeStyles((c) => ({
     gap: 8,
   },
   title: {
+    flexShrink: 1,
     fontFamily: fonts.sansBold,
     fontSize: 22,
     color: c.textPrimary,
@@ -1481,22 +1486,13 @@ const useStyles = makeStyles((c) => ({
     fontSize: 13.5,
     color: c.textTertiary,
   },
-  range: {
-    flexShrink: 1,
-    fontFamily: fonts.sansRegular,
-    fontSize: 13.5,
-    color: c.textTertiary,
-  },
   daysLabel: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 5,
+    gap: 6,
   },
-  daysText: {
-    fontFamily: fonts.monoRegular,
-    fontSize: 12,
-    color: c.textSecondary,
+  daysButton: {
+    flexShrink: 1,
   },
   selectHeader: {
     flexDirection: 'row',

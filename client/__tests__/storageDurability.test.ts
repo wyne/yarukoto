@@ -106,10 +106,10 @@ describe('device-local view state', () => {
   });
 
   test('remembers how many days Today covers, and ignores anything else', async () => {
-    expect((await fresh({})).loadTodayDays()).toBe(1);
-    expect((await fresh({ 'yarukoto.todayDays': 5 })).loadTodayDays()).toBe(1);
-    const storage = await fresh({ 'yarukoto.todayDays': 3 });
-    expect(storage.loadTodayDays()).toBe(3);
+    expect((await fresh({})).loadTodayDays()).toBe(3);
+    expect((await fresh({ 'yarukoto.todayDays': 5 })).loadTodayDays()).toBe(3);
+    const storage = await fresh({ 'yarukoto.todayDays': 1 });
+    expect(storage.loadTodayDays()).toBe(1);
     storage.saveTodayDays(7);
     expect(storage.loadTodayDays()).toBe(7);
   });

@@ -66,9 +66,9 @@ lost.
 - If something isn't going to happen today, swipe it to **Tmrw** or **Next week** rather than
   letting it go overdue. An honest Today is a short one.
 - Tasks added while you're on Today are due today, so it doubles as a scratch list for the day.
-- To see what's coming, switch Today from **Today** to **2 days**, **3 days** or **Week** with the
-  button beside its title. Each day gets its own section, empty days included, so a free tomorrow
-  shows as free. The choice is remembered on that device.
+- The **Agenda** tab shows the next three days by default, one section per day, empty days
+  included, so a free tomorrow shows as free. Click its title to switch between **Today**,
+  **Next 2 days**, **Next 3 days** and **Week**; the choice is remembered on that device.
 
 On a Mac, the menu bar icon shows today's count and lets you check tasks off without opening the
 window. Windows has the same in the notification area.

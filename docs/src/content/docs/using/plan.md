@@ -26,11 +26,11 @@ Below the grid, the selected day and the days after it, in one of these views:
 
 | View | Shows |
 |---|---|
-| **Daily** | A scrolling agenda of the next days with tasks, starting from the selected day *(on a phone)* |
+| **Daily** | A scrolling agenda of the next days with tasks, starting from the selected day |
 | **2 days**, **3 days** | Side-by-side columns, one per day |
 | **Week** | Seven columns, Sunday to Saturday *(on a computer or a wide tablet)* |
 
-The view button switches between them. To look over the next few days without planning, Today can
+The view button switches between them. To look over the next few days without planning, Agenda can
 show them too: see [A daily workflow](/using/workflow/). While a column view is showing, the days it
 covers are shaded on the month grid, so you can see where you are.
 
