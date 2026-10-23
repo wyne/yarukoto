@@ -42,6 +42,7 @@ static const NSInteger YKActivationPolicyRegular = 0;   // NSApplicationActivati
 static const NSInteger YKActivationPolicyAccessory = 1; // NSApplicationActivationPolicyAccessory
 static const CGFloat YKVariableStatusItemLength = -1;   // NSVariableStatusItemLength
 static const NSUInteger YKImageLeft = 2;                // NSImageLeft
+static const NSUInteger YKOptionKeyMask = 1 << 19;      // NSEventModifierFlagOption
 
 // Apple event codes (AE/AERegistry.h).
 static const uint32_t YKCoreEventClass = 'aevt';
@@ -121,6 +122,8 @@ static const uint32_t YKLaunchedAsLogInItem = 'lgit';
 - (void)setToolTip:(nullable NSString *)toolTip;
 - (void)setRepresentedObject:(nullable id)object;
 - (nullable id)representedObject;
+- (void)setAlternate:(BOOL)alternate;
+- (void)setKeyEquivalentModifierMask:(NSUInteger)mask;
 @end
 
 @protocol YKAppleEventManagerClass <NSObject>
@@ -364,10 +367,21 @@ static id BuildMenu(void)
       NSString *title = task[@"title"];
       if (![taskId isKindOfClass:NSString.class] || ![title isKindOfClass:NSString.class]) continue;
       BOOL overdue = [task[@"overdue"] boolValue];
-      id<YKMenuItem> item = MenuItem(title.length ? title : @"Untitled", @[ @"complete", taskId ], @"");
+      NSString *shown = title.length ? title : @"Untitled";
+      // Choosing a task opens it. Holding Option turns the row into its
+      // alternate, which marks it done in place: the menu's own way of putting
+      // a second action on a row without a submenu in the way of the first.
+      id<YKMenuItem> item = MenuItem(shown, @[ @"openTask", taskId ], @"");
       [item setImage:Symbol(overdue ? @"exclamationmark.circle" : @"circle", nil)];
-      [item setToolTip:overdue ? @"Overdue. Choose to mark as done." : @"Choose to mark as done."];
+      [item setToolTip:overdue ? @"Overdue. Choose to open, or hold Option to mark as done."
+                               : @"Choose to open, or hold Option to mark as done."];
       [menu addItem:item];
+      id<YKMenuItem> done = MenuItem(shown, @[ @"complete", taskId ], @"");
+      [done setImage:Symbol(@"checkmark.circle", nil)];
+      [done setToolTip:@"Mark as done."];
+      [done setKeyEquivalentModifierMask:YKOptionKeyMask];
+      [done setAlternate:YES];
+      [menu addItem:done];
     }
     if (sMore > 0) {
       [menu addItem:MenuItem([NSString stringWithFormat:@"%ld More in Today…", (long)sMore], @[ @"today" ], @"")];

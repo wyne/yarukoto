@@ -67,8 +67,8 @@ lost.
   letting it go overdue. An honest Today is a short one.
 - Tasks added while you're on Today are due today, so it doubles as a scratch list for the day.
 
-On a Mac, the menu bar icon shows today's count and lets you check tasks off without opening the
-window. Windows has the same in the notification area.
+On a Mac, the menu bar icon shows today's count and lists today's tasks: choose one to open it, or
+hold Option to check it off without opening the window. Windows has the same in the notification area.
 
 ## 4. Plan the days ahead
 

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { statusMenuContents } from '../data/macStatusMenu';
 import { useTasks } from '../data/TaskContext';
 import { onTrayAction, setTaskbarBadge, setTrayTasks } from '../data/windowsTray';
+import { useShowTask } from './showTask';
 import { dispatchCommand } from './MenuCommands';
 
 /** How often Today is worked out again with nothing changed, so midnight moves it on. */
@@ -66,13 +67,17 @@ export default function WindowsTrayMenu() {
     []
   );
 
-  const latest = useRef({ tasks: state.tasks, toggleComplete });
-  latest.current = { tasks: state.tasks, toggleComplete };
+  const showTask = useShowTask();
+  const latest = useRef({ tasks: state.tasks, toggleComplete, showTask });
+  latest.current = { tasks: state.tasks, toggleComplete, showTask };
   useEffect(() => {
     let unlisten: (() => void) | null = null;
     let unmounted = false;
     onTrayAction((event) => {
       switch (event.action) {
+        case 'openTask':
+          latest.current.showTask(event.taskId);
+          break;
         case 'complete': {
           // The menu can be a sync behind; toggling a task already done would undo it.
           const task = latest.current.tasks.find((t) => t.id === event.taskId);

@@ -28,12 +28,14 @@ if SmartScreen appears. Installing the matching package replaces the old version
 your tasks or sign-in.
 On a computer, everything can be done from the keyboard: see [Keyboard shortcuts](/using/keyboard/).
 
-On the Mac, Yarukoto also lives in the menu bar, with today's tasks and their count. You can check
-a task off or start a new one from there. Closing the window leaves it running in the menu bar
+On the Mac, Yarukoto also lives in the menu bar, with today's tasks and their count. Choose a task
+there to open it, or hold **Option** and choose it to mark it done. You can start a new one from
+there too. Closing the window leaves it running in the menu bar
 until you choose **Quit**. Both that and **Open at login** are in **Settings → General**.
 
 On Windows, Yarukoto has an icon in the notification area at the right of the taskbar. Click it to
-open the window, or right-click it for today's tasks and a new one. Closing the window leaves it
+open the window, or right-click it for today's tasks and a new one. Choosing a task opens it, and
+**Mark done** in the same menu checks one off. Closing the window leaves it
 running there until you choose **Exit**, and the taskbar button shows how many tasks are due. Both
 that and **Open at login** are in **Settings → General**. Windows 11 may tuck a new icon behind the
 **^** at first; drag it onto the taskbar to keep it in view.

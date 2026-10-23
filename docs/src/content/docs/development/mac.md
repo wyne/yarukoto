@@ -218,7 +218,8 @@ the keyboard. The full list of keys, as users see it, is on [Keyboard shortcuts]
 
 **The menu bar extra.** Yarukoto also puts an icon in the right side of the menu bar, with the
 number of tasks due by today beside it. Its menu lists Today's tasks, overdue first (choosing one
-marks it done), then New Task…, Open Yarukoto, Settings… and Quit. Settings ▸ General has two Mac
+opens it in the window; holding Option turns each row into its alternate, which marks it done), then
+New Task…, Open Yarukoto, Settings… and Quit. Settings ▸ General has two Mac
 switches: **Show in menu bar**, on by default, and **Open at login**.
 
 While the extra is on, closing the window doesn't close it: the red button and File ▸ Close Window

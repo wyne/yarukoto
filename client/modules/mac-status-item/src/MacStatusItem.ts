@@ -16,7 +16,7 @@ export type LoginItemStatus = 'enabled' | 'disabled' | 'requiresApproval' | 'una
 
 /** A menu choice JS answers. Open and Quit are answered natively. */
 export type MacStatusAction =
-  | { action: 'complete'; taskId: string }
+  | { action: 'openTask' | 'complete'; taskId: string }
   | { action: 'newTask' | 'settings' | 'today'; taskId?: undefined };
 
 type MacStatusItemEvents = {
