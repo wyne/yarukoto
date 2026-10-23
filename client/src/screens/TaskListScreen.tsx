@@ -20,7 +20,7 @@ import {
   tasksDueWithin,
 } from '../data/selectors';
 import { TODAY_DAYS_OPTIONS, TodayDays, loadTodayDays, saveTodayDays } from '../data/storage';
-import { isSameDay, toISODate } from '../data/dateUtils';
+import { addDays, isSameDay, toISODate } from '../data/dateUtils';
 import { QuickAddDefaults } from '../data/TaskContext';
 import { hapticSelect } from '../data/haptics';
 import { useSyncRefresh } from '../data/useSyncRefresh';
@@ -1088,6 +1088,11 @@ const TaskListBody = memo(
     []
   );
 
+  // The title stays Today, since that is where the list starts and what its
+  // badge counts; this says how far past it the list runs.
+  const lastDay = addDays(now, days - 1);
+  const rangeLabel =
+    days === 2 ? 'through tomorrow' : `through ${lastDay.toLocaleDateString('en-US', { weekday: 'long' })}`;
   const daysLabel = (
     <View style={styles.daysLabel}>
       <Text style={styles.daysText}>{TODAY_DAYS_LABEL[todayDays]}</Text>
@@ -1142,6 +1147,11 @@ const TaskListBody = memo(
           <View style={styles.titleRow}>
             <Text style={styles.title}>{filter ? filter.label : TITLES[mode]}</Text>
             <Text style={styles.count}>{active.length}</Text>
+            {byDay && (
+              <Text style={styles.range} numberOfLines={1}>
+                {rangeLabel}
+              </Text>
+            )}
           </View>
           {mode === 'today' && !filter && daysControl}
           {DESKTOP_UI ? (
@@ -1468,6 +1478,12 @@ const useStyles = makeStyles((c) => ({
   },
   count: {
     fontFamily: fonts.monoRegular,
+    fontSize: 13.5,
+    color: c.textTertiary,
+  },
+  range: {
+    flexShrink: 1,
+    fontFamily: fonts.sansRegular,
     fontSize: 13.5,
     color: c.textTertiary,
   },
