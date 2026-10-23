@@ -1,4 +1,4 @@
-import React, { memo, useCallback, useDeferredValue, useMemo, useRef, useState } from 'react';
+import React, { memo, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { LayoutChangeEvent, PanResponder, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSharedValue, withTiming } from 'react-native-reanimated';
@@ -182,6 +182,21 @@ function Layout() {
    * touch-screen browser is a phone's, and keeps the sheet.
    */
   const slideOver = ((!wide && FINE_POINTER) || (wide && overlay)) && !bulk && !!openTaskId;
+  /**
+   * Escape closes the task over a screen that has no list to hand the key to.
+   * Over a list, the list's own Escape (`deselect`) already closes it and keeps
+   * the row marked, so this stands down there. A dialog or popover over the task
+   * keeps its own Escape. The Mac hears the key through PaneEscape.
+   */
+  useEffect(() => {
+    if (Platform.OS !== 'web' || !slideOver || !overlay) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || anyLayerOpen() || document.querySelector('[aria-modal="true"]')) return;
+      closeTask();
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [slideOver, overlay, closeTask]);
 
   const clampDetailColumnWidth = useCallback(
     (width: number) => {

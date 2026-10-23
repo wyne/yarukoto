@@ -1,5 +1,5 @@
-import React, { useCallback, useMemo, useState } from 'react';
-import { ScrollView, Text, TextInput, View } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Platform, ScrollView, Text, TextInput, View } from 'react-native';
 import { makeStyles } from '../../theme/styles';
 import { fonts } from '../../theme/typography';
 import { priorityColor } from '../../theme/colors';
@@ -18,6 +18,8 @@ import { SortBy, sortTasks } from '../../data/viewOptions';
 import { useDraggable } from '../../drag/useDraggable';
 import { useDragActive } from '../../drag/DragContext';
 import { useDragSource } from '../../drag/dragSource';
+import { useDetailActions } from '../../navigation/DetailContext';
+import { useAccent } from '../../theme/ThemeContext';
 import { hapticSelect } from '../../data/haptics';
 import { IconCalendarBox, IconChevronLeft, IconChevronRight } from '../../icons/Icons';
 import Pressable from '../../components/HoverPressable';
@@ -67,6 +69,36 @@ export default function SchedulePane({ width = SCHEDULE_PANE_WIDTH, showRightBor
   const [criteria, setCriteria] = useState<TaskCriteria>(DEFAULT_CRITERIA);
   const [sortBy, setSortBy] = useState<SortBy>(DEFAULT_SORT_BY);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  /**
+   * Picking out several tasks to drag together is a mode, as it is in any list
+   * here: outside it a row is a task like any other, which a click opens and
+   * whose circle completes it. In a browser, Shift- or ⌘-click picks one out
+   * without the mode, as a list does; the Mac and a tablet have no such click,
+   * so the Select button is their way in.
+   */
+  const [selecting, setSelecting] = useState(false);
+  const { openTask } = useDetailActions();
+  const accent = useAccent();
+  /** Whether Shift or ⌘ was down for the press being handled; see TaskListScreen's `shiftHeld`. */
+  const modifierHeld = useRef(false);
+  const paneRef = useRef<View>(null);
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    const onDown = (e: PointerEvent) => {
+      modifierHeld.current = e.shiftKey || e.metaKey || e.ctrlKey;
+    };
+    // A shift-click would otherwise also extend the page's text selection.
+    const onMouseDown = (e: MouseEvent) => {
+      const pane = paneRef.current as unknown as HTMLElement | null;
+      if (e.shiftKey && pane?.contains(e.target as Node)) e.preventDefault();
+    };
+    document.addEventListener('pointerdown', onDown, true);
+    document.addEventListener('mousedown', onMouseDown, true);
+    return () => {
+      document.removeEventListener('pointerdown', onDown, true);
+      document.removeEventListener('mousedown', onMouseDown, true);
+    };
+  }, []);
 
   const tasks = useMemo(
     () =>
@@ -96,12 +128,25 @@ export default function SchedulePane({ width = SCHEDULE_PANE_WIDTH, showRightBor
     );
   }, []);
 
+  const pressTask = (taskId: string) => {
+    if (selecting || modifierHeld.current) return toggleSelected(taskId);
+    if (selectedIds.length > 0) setSelectedIds([]);
+    openTask(taskId);
+  };
+  const toggleSelecting = () => {
+    setSelecting((on) => !on);
+    setSelectedIds([]);
+  };
+
   return (
-    <View style={[styles.pane, showRightBorder && styles.paneBorder, { width }]}>
+    <View ref={paneRef} style={[styles.pane, showRightBorder && styles.paneBorder, { width }]}>
       <View style={styles.header}>
         <IconCalendarBox size={18} color={colors.textSecondary} />
         <Text style={styles.title}>Plan task</Text>
         <Text style={styles.count}>{tasks.length}</Text>
+        <Pressable onPress={toggleSelecting} hitSlop={6} accessibilityRole="button">
+          <Text style={[styles.selectText, { color: accent }]}>{selecting ? 'Done' : 'Select'}</Text>
+        </Pressable>
         {/* On the pane's own edge, as the sidebar's is, so what it closes is plain. */}
         {onHide && (
           <Tooltip label="Hide tasks to plan">
@@ -133,12 +178,20 @@ export default function SchedulePane({ width = SCHEDULE_PANE_WIDTH, showRightBor
       />
       <Text style={styles.hint}>
         {DESKTOP_UI
-          ? 'Drag a task onto the calendar to plan it. Tap tasks first to move several together.'
+          ? selectedIds.length > 0
+            ? `${selectedIds.length} selected. Drag any of them onto a day to move them together.`
+            : selecting
+            ? 'Click tasks to pick several, then drag them onto a day together.'
+            : Platform.OS === 'web'
+            ? 'Drag a task onto a day to plan it. Shift-click to pick several.'
+            : 'Drag a task onto a day to plan it. Choose Select to pick several.'
           : selectedIds.length > 0
           ? `${selectedIds.length} selected. Long press a selected task to place ${
               selectedIds.length === 1 ? 'it' : 'them'
             } on the calendar.`
-          : 'Long press a task to place it on the calendar. Tap tasks to select multiple.'}
+          : selecting
+          ? 'Tap tasks to pick several, then long press one to place them on the calendar.'
+          : 'Long press a task to place it on the calendar. Choose Select to pick several.'}
       </Text>
 
       <ScrollView
@@ -158,7 +211,8 @@ export default function SchedulePane({ width = SCHEDULE_PANE_WIDTH, showRightBor
                   now={now}
                   selectedIds={selectedIds}
                   selected={selectedIdSet.has(task.id)}
-                  onToggleSelected={() => toggleSelected(task.id)}
+                  selecting={selecting}
+                  onPress={() => pressTask(task.id)}
                 />
                 {i < tasks.length - 1 && (
                   <Divider railColor={getListById(state.lists, task.listId)?.color} />
@@ -181,13 +235,15 @@ function DraggableTask({
   now,
   selectedIds,
   selected,
-  onToggleSelected,
+  selecting,
+  onPress,
 }: {
   task: Task;
   now: Date;
   selectedIds: string[];
   selected: boolean;
-  onToggleSelected: () => void;
+  selecting: boolean;
+  onPress: () => void;
 }) {
   const styles = useStyles();
   const colors = useColors();
@@ -206,11 +262,11 @@ function DraggableTask({
         list={getListById(state.lists, task.listId)}
         now={now}
         showContext="tags"
-        selectionMode
+        selectionMode={selecting}
         selected={selected}
         selectionColor={priorityColor(task.priority, colors)}
         dragSource={isSource}
-        onPress={onToggleSelected}
+        onPress={onPress}
         onLongPress={onLongPress}
         onToggleComplete={() => toggleComplete(task.id)}
         onToday={() => scheduleToday(task.id)}
@@ -291,6 +347,10 @@ const useStyles = makeStyles((c) => ({
     borderRadius: 10,
     paddingHorizontal: 11,
     paddingVertical: 9,
+  },
+  selectText: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 13.5,
   },
   hint: {
     marginHorizontal: 16,

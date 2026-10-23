@@ -65,7 +65,10 @@ With room to spare, the view, sort and **Completed** controls sit in the header 
 calendar's name. Clicking a task opens it over the calendar rather than beside it, so the columns
 don't change width; press Escape or click outside it to close it.
 
-Drag a task from the pane onto any day. Click several tasks first to drag them together. The
+Drag a task from the pane onto any day. A task in the pane works like one in any list: click it to
+open it, or click its circle to complete it. To drag several together, pick them out first with
+Shift-click or ⌘-click in a browser, or with **Select** at the top of the pane, then drag any one of
+them. The
 **Week** view is the one to plan in: you can see the whole week's load and drop tasks straight into
 the column for each day.
 
