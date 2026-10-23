@@ -50,7 +50,7 @@ export function focusPane(
 ): boolean {
   const stack = focusers.get(pane);
   const top = stack?.[stack.length - 1];
-  if (mounting || (key !== undefined && top && top.key !== key)) {
+  if (mounting || (key !== undefined && (!top || top.key !== key))) {
     pending = { pane, at: Date.now(), key };
     return true;
   }
