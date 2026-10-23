@@ -47,6 +47,7 @@ const BROWSE_KEY = 'yarukoto.browseCriteria';
 const SCHEME_KEY = 'yarukoto.scheme';
 const FIRST_TAB_VIEW_KEY = 'yarukoto.firstTabViews';
 const SNOOZES_KEY = 'yarukoto.snoozedReminders';
+const SIDEBAR_RAIL_KEY = 'yarukoto.sidebarRail';
 
 const ALL_KEYS = [
   URL_KEY,
@@ -63,6 +64,7 @@ const ALL_KEYS = [
   SCHEME_KEY,
   FIRST_TAB_VIEW_KEY,
   SNOOZES_KEY,
+  SIDEBAR_RAIL_KEY,
 ];
 
 /** Kept in SecureStore rather than AsyncStorage, on platforms that have one. */
@@ -405,6 +407,22 @@ export function loadCollapsedFolders(): string[] {
 export function saveCollapsedFolders(ids: string[]): void {
   if (ids.length === 0) remove(FOLDERS_KEY);
   else writeJson(FOLDERS_KEY, ids);
+}
+
+/**
+ * Whether the pinned sidebar was shrunk to its icon rail.
+ *
+ * Device-local for the same reason as the folder state: it is about how much
+ * room this window gives the nav, and a laptop's choice says nothing about a
+ * wider monitor's.
+ */
+export function loadSidebarRail(): boolean {
+  return read(SIDEBAR_RAIL_KEY) === '1';
+}
+
+export function saveSidebarRail(rail: boolean): void {
+  if (rail) write(SIDEBAR_RAIL_KEY, '1');
+  else remove(SIDEBAR_RAIL_KEY);
 }
 
 /**
