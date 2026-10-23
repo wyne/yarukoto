@@ -22,12 +22,7 @@ import { MAC, MAC_KEYS } from '../data/platform';
 import { rankPaletteItems } from '../data/paletteSearch';
 import { COMMANDS, CommandId, displayShortcut, formatShortcut, paletteTitle } from '../navigation/commands';
 import { dispatchCommand, useAvailableCommands, useCheckedCommands } from '../navigation/MenuCommands';
-import { navigationRef } from '../navigation/DateTimePickerContext';
-import { tabNavigation } from '../navigation/destinations';
-import { useDetailActions } from '../navigation/DetailContext';
-import { useSelectionActions } from '../navigation/SelectionContext';
-import { focusPane } from '../navigation/focusPanes';
-import { afterLayersClose } from './openLayers';
+import { goTo, useShowTask } from '../navigation/showTask';
 
 interface Props {
   visible: boolean;
@@ -85,11 +80,6 @@ const ROW_HEIGHT = 38;
 /** Drawn at most: Go to Task… can match thousands, and nobody scrolls past this many. */
 const MAX_RESULTS = 100;
 
-function goTo(route: string, params?: object) {
-  const [name, next] = tabNavigation(route, params);
-  (navigationRef.navigate as (name: string, params?: object) => void)('Main', { screen: name, params: next });
-}
-
 /**
  * The command menu: ⌘K, then type to go anywhere or do anything.
  *
@@ -106,8 +96,7 @@ export default function CommandPalette({ visible, onClose, picker = null, onLeav
   const styles = useStyles();
   const colors = useColors();
   const { state, supportsFeature, bulkUpdate, updateTask } = useTasks();
-  const { openTask } = useDetailActions();
-  const { setAnchor, clear: clearSelection } = useSelectionActions();
+  const showTask = useShowTask();
   const available = useAvailableCommands();
   const checked = useCheckedCommands();
   const [query, setQuery] = useState('');
@@ -131,19 +120,7 @@ export default function CommandPalette({ visible, onClose, picker = null, onLeav
     if (picker.kind === 'goToTask') {
       return taskPickerItems(state.tasks, state.lists).map((item) => ({
         ...item,
-        run: () => {
-          // Shown in its own list, with the cursor on it and the keyboard on
-          // the list, as if it had been clicked there.
-          const task = state.tasks.find((t) => t.id === item.key);
-          const listId = task?.listId ?? null;
-          if (listId === null) goTo('InboxTab');
-          else if (activeLists(state.lists).some((l) => l.id === listId)) goTo('InboxTab', { listId });
-          else goTo('AllTab');
-          clearSelection();
-          setAnchor(item.key);
-          openTask(item.key);
-          afterLayersClose(() => focusPane('list'));
-        },
+        run: () => showTask(item.key),
       }));
     }
     const ids = picker.taskIds;
@@ -162,7 +139,7 @@ export default function CommandPalette({ visible, onClose, picker = null, onLeav
         setQuery('');
       },
     }));
-  }, [visible, picker, query, state.lists, state.folders, state.tasks, bulkUpdate, updateTask, openTask, setAnchor, clearSelection]);
+  }, [visible, picker, query, state.lists, state.folders, state.tasks, bulkUpdate, updateTask, showTask]);
 
   const entries = useMemo<Entry[]>(() => {
     if (!visible || picker) return [];

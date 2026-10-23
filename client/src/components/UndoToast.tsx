@@ -10,6 +10,8 @@ import { useSidebar } from '../navigation/SidebarContext';
 import { nativeTabBarClearance } from '../navigation/nativeTabBarLayout';
 import { FLOATING_TAB_BAR } from '../data/platform';
 import { useKeyHint } from '../navigation/keyHint';
+import { dismissAddedNotice, useAddedNotice } from '../navigation/addedNotice';
+import { useShowTask } from '../navigation/showTask';
 
 const NATIVE_DRIVER = Platform.OS !== 'web';
 
@@ -21,10 +23,19 @@ export default function UndoToast() {
   const accent = useAccent();
   const { wide } = useSidebar();
 
-  // A key hint takes the same spot, but never over an undo still on offer.
+  // A task added out of sight and a key hint take the same spot, but never
+  // over an undo still on offer.
+  const added = useAddedNotice();
+  const showTask = useShowTask();
   const keyHint = useKeyHint();
   const anim = useRef(new Animated.Value(0)).current;
-  const token = pendingUndo ? `undo-${pendingUndo.token}` : keyHint ? `hint-${keyHint.token}` : null;
+  const token = pendingUndo
+    ? `undo-${pendingUndo.token}`
+    : added
+      ? `added-${added.token}`
+      : keyHint
+        ? `hint-${keyHint.token}`
+        : null;
 
   useEffect(() => {
     anim.setValue(0);
@@ -32,7 +43,13 @@ export default function UndoToast() {
     Animated.timing(anim, { toValue: 1, duration: 180, useNativeDriver: NATIVE_DRIVER }).start();
   }, [token, anim]);
 
-  if (!pendingUndo && !keyHint) return null;
+  if (!pendingUndo && !added && !keyHint) return null;
+
+  const view = () => {
+    if (!added) return;
+    dismissAddedNotice();
+    showTask(added.taskId);
+  };
 
   return (
     <View
@@ -67,6 +84,15 @@ export default function UndoToast() {
             </Text>
             <Pressable onPress={undo} hitSlop={10}>
               <Text style={[styles.undo, { color: accent }]}>Undo</Text>
+            </Pressable>
+          </>
+        ) : added ? (
+          <>
+            <Text style={styles.label} numberOfLines={1}>
+              Added to {added.where}
+            </Text>
+            <Pressable onPress={view} hitSlop={10}>
+              <Text style={[styles.undo, { color: accent }]}>View</Text>
             </Pressable>
           </>
         ) : (

@@ -44,6 +44,8 @@ import { useSelection } from '../navigation/SelectionContext';
 import { showPalettePicker, useCommand } from '../navigation/MenuCommands';
 import { commandDef, formatShortcut } from '../navigation/commands';
 import { showKeyHint } from '../navigation/keyHint';
+import { showAddedNotice } from '../navigation/addedNotice';
+import { taskHome } from '../navigation/showTask';
 import { rangeBetween, stepCursor } from '../data/listCursor';
 import TaskRow from '../components/TaskRow';
 import ListKeys from '../components/ListKeys';
@@ -489,19 +491,32 @@ const TaskListBody = memo(
    * it opens there too, to fill in the rest; a narrow window's pane would cover
    * the field being typed into, so there only the cursor moves.
    *
-   * Taken on the first change of rows after the add, which is the add's own:
-   * a task typed into another list or date never shows here, and is dropped.
+   * Taken once the task is in the store, which is the add's own render. One
+   * that lands in a folded group unfolds it and is taken on the next. One typed
+   * into another list, date or tag never shows here, so a notice says where it
+   * went instead, with a View that follows it there.
    */
   const justAdded = useRef<string | null>(null);
   useEffect(() => {
     const id = justAdded.current;
+    const added = id ? state.tasks.find((t) => t.id === id) : undefined;
+    if (!id || !added) return;
     justAdded.current = null;
-    if (!id || !navIds.includes(id)) return;
+    if (!navIds.includes(id)) {
+      const folded = groups.find((g) => g.tasks.some((t) => t.id === id));
+      if (folded && options.groupBy !== 'none' && sections.isGroupCollapsed(folded.key)) {
+        justAdded.current = id;
+        sections.toggleGroup(folded.key);
+      } else {
+        showAddedNotice(id, taskHome(added, state.lists).name);
+      }
+      return;
+    }
     clearSelection();
     setAnchor(id);
     head.current = id;
     if (DESKTOP_UI && wide) openTask(id);
-  }, [navIds, clearSelection, setAnchor, wide, openTask]);
+  }, [navIds, groups, options.groupBy, sections, state.tasks, state.lists, clearSelection, setAnchor, wide, openTask]);
   const onAdded = (id: string | undefined) => {
     if (id) justAdded.current = id;
   };
