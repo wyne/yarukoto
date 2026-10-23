@@ -17,7 +17,7 @@ import { Task } from '../data/types';
 import AgendaDayGroup from './calendar/AgendaDayGroup';
 import AddExistingTaskSheet, { AddExistingTaskButton } from './calendar/AddExistingTaskSheet';
 import MonthGrid from './calendar/MonthGrid';
-import SchedulePane, { SCHEDULE_PANE_WIDTH } from './calendar/SchedulePane';
+import SchedulePane, { SCHEDULE_PANE_WIDTH, SchedulePaneRail } from './calendar/SchedulePane';
 import WeekGrid from './calendar/WeekGrid';
 import QuickAddBar from '../components/QuickAddBar';
 import { useWindowSelector } from '../components/useWindowSelector';
@@ -26,7 +26,7 @@ import { closeOpenSwipeRow } from '../components/SwipeableRow';
 import { useSyncRefresh } from '../data/useSyncRefresh';
 import GlassIconButton, { GlassIconButtonGroup, GlassTextButton, GlassTextMenuLabel } from '../components/GlassIconButton';
 import { DESKTOP_UI, FLOATING_TAB_BAR } from '../data/platform';
-import { IconCheckBig, IconChevronDown, IconChevronLeft, IconChevronRight, IconColumns, IconMenu } from '../icons/Icons';
+import { IconCheckBig, IconChevronDown, IconChevronLeft, IconChevronRight, IconMenu } from '../icons/Icons';
 import Popover, { type PopoverAnchor } from '../components/Popover';
 import { MenuRow } from '../components/menu/MenuItems';
 import { taskIdsFromDrag, useDragActive, useDragPayload } from '../drag/DragContext';
@@ -188,7 +188,6 @@ export default function CalendarScreen() {
     savePlanPrefs(next);
   };
   const showPlan = wide ? !DESKTOP_UI || planPane : canTogglePlan && planOpen;
-  const planShown = wide ? planPane : planOpen;
   const togglePlan = () => (wide ? updatePrefs({ planPane: !planPane }) : setPlanOpen((open) => !open));
 
   // A phone-width window can't fit the week columns, so narrow offers Daily and
@@ -406,8 +405,10 @@ export default function CalendarScreen() {
           // width it last had may not leave the calendar its share.
           width={DESKTOP_UI ? clampSchedulePaneWidth(schedulePaneWidth) : undefined}
           showRightBorder={!DESKTOP_UI}
+          onHide={canTogglePlan ? togglePlan : undefined}
         />
       )}
+      {canTogglePlan && !showPlan && <SchedulePaneRail onShow={togglePlan} />}
       {showPlan && DESKTOP_UI && (
         <ResizeCursorView
           style={styles.paneResizer}
@@ -441,11 +442,15 @@ export default function CalendarScreen() {
               {completedPill}
             </View>
           )}
-          {canTogglePlan && (
-            <GlassIconButton onPress={togglePlan} label={planShown ? 'Hide tasks to plan' : 'Show tasks to plan'}>
-              <IconColumns color={planShown ? accent : undefined} />
-            </GlassIconButton>
-          )}
+          {/* The title does this too, but nothing about a title says so. */}
+          <Pressable
+            onPress={goToday}
+            accessibilityRole="button"
+            accessibilityLabel="Go to today"
+            style={[styles.todayBtn, { borderColor: colors.border }]}
+          >
+            <Text style={[styles.todayBtnText, { color: colors.textSecondary }]}>Today</Text>
+          </Pressable>
           <GlassIconButtonGroup>
             <GlassIconButton onPress={() => step(-1)} label="Previous">
               <IconChevronLeft size={18} />

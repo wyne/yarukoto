@@ -19,7 +19,9 @@ import { useDraggable } from '../../drag/useDraggable';
 import { useDragActive } from '../../drag/DragContext';
 import { useDragSource } from '../../drag/dragSource';
 import { hapticSelect } from '../../data/haptics';
-import { IconCalendarBox } from '../../icons/Icons';
+import { IconCalendarBox, IconChevronLeft, IconChevronRight } from '../../icons/Icons';
+import Pressable from '../../components/HoverPressable';
+import Tooltip from '../../components/Tooltip';
 import { DESKTOP_UI } from '../../data/platform';
 
 const DEFAULT_CRITERIA: TaskCriteria = { ...EMPTY_CRITERIA, due: ['nodate', 'overdue'] };
@@ -28,10 +30,31 @@ const DEFAULT_SORT_BY: SortBy = 'priority';
 interface Props {
   width?: number;
   showRightBorder?: boolean;
+  /** Puts the pane away; given only where it can be, which is a desktop window. */
+  onHide?: () => void;
+}
+
+/**
+ * What stands in for the pane while it is put away: a strip on the same edge,
+ * with the way back, as the collapsed sidebar is.
+ */
+export function SchedulePaneRail({ onShow }: { onShow: () => void }) {
+  const styles = useStyles();
+  const colors = useColors();
+  return (
+    <View style={styles.rail}>
+      <Tooltip label="Show tasks to plan" align="start">
+        <Pressable onPress={onShow} style={styles.railButton} accessibilityLabel="Show tasks to plan">
+          <IconChevronRight size={18} />
+          <IconCalendarBox size={18} color={colors.textSecondary} />
+        </Pressable>
+      </Tooltip>
+    </View>
+  );
 }
 
 /** Left column of the Plan view: find existing tasks, then drag them onto the calendar. */
-export default function SchedulePane({ width = SCHEDULE_PANE_WIDTH, showRightBorder = true }: Props) {
+export default function SchedulePane({ width = SCHEDULE_PANE_WIDTH, showRightBorder = true, onHide }: Props) {
   const styles = useStyles();
   const colors = useColors();
   const { state } = useTasks();
@@ -79,6 +102,14 @@ export default function SchedulePane({ width = SCHEDULE_PANE_WIDTH, showRightBor
         <IconCalendarBox size={18} color={colors.textSecondary} />
         <Text style={styles.title}>Plan task</Text>
         <Text style={styles.count}>{tasks.length}</Text>
+        {/* On the pane's own edge, as the sidebar's is, so what it closes is plain. */}
+        {onHide && (
+          <Tooltip label="Hide tasks to plan">
+            <Pressable onPress={onHide} hitSlop={8} accessibilityLabel="Hide tasks to plan">
+              <IconChevronLeft size={18} />
+            </Pressable>
+          </Tooltip>
+        )}
       </View>
 
       <TextInput
@@ -208,6 +239,21 @@ const useStyles = makeStyles((c) => ({
     flexGrow: 0,
     flexShrink: 0,
     backgroundColor: c.screenBg,
+  },
+  // Over the calendar beside it, which the tooltip hangs out across.
+  rail: {
+    zIndex: 2,
+    alignItems: 'center',
+    width: 44,
+    paddingTop: 10,
+    borderRightWidth: 1,
+    borderRightColor: c.border,
+  },
+  railButton: {
+    alignItems: 'center',
+    gap: 14,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
   },
   paneBorder: {
     borderRightWidth: 1,

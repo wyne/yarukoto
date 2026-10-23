@@ -18,7 +18,7 @@ important one. Tap a day to select it.
 - Swipe the month sideways to move to the next or previous month, or use the arrows at the top.
 - Drag the month upwards to shrink it to a single week, which leaves more room for the days below.
   Swiping sideways then moves a week at a time. Drag it down again to bring back the month.
-- Tap the month's name at the top to jump back to today.
+- Tap **Today** in the header, or the month's name, to jump back to today.
 - On a computer the calendar starts as a single week, so the day columns get the room. Click the
   small arrow under it to open the whole month, and again to close it.
 
@@ -56,8 +56,9 @@ Changed your mind mid-drag? While you're carrying a task, the **Plan task** butt
 ## Planning on a computer
 
 The planning pane sits on the left, with the same search, filters and starting list as the phone's
-sheet. The columns button in the header (**Show tasks to plan**) shows or hides it; a wide window
-remembers the choice, and a narrower one starts with it hidden. Drag the divider between the pane
+sheet. The arrow in its top corner (**Hide tasks to plan**) folds it into a narrow strip
+on the left, and the arrow on that strip brings it back; a wide window remembers the choice, and a
+narrower one starts with it hidden. Drag the divider between the pane
 and the calendar to make either one wider.
 
 With room to spare, the view, sort and **Completed** controls sit in the header beside the
