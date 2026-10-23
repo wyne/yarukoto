@@ -408,3 +408,34 @@ test('⌘O finds a task that isn\'t done by its title and opens it in its list',
   await page.keyboard.press('Enter');
   await expect.poll(async () => (await focused(page)).value).toBe(wanted);
 });
+
+test('a task added to another list says where it went, and View goes there', async ({ page, request }) => {
+  const stamp = Date.now();
+  const now = new Date().toISOString();
+  const list = { id: `keys-elsewhere-${stamp}`, name: `Elsewhere${stamp}`, color: '#4A7BF7', folderId: null, order: -1, updatedAt: now };
+  const response = await request.post('/api/v1/sync', {
+    headers: { Authorization: `Bearer ${TOKEN}` },
+    data: { lists: [list] },
+  });
+  expect(response.ok()).toBe(true);
+
+  await connect(page);
+  await page.getByLabel('Inbox', { exact: true }).click();
+  await expect.poll(() => page.url()).toContain('inbox');
+  // Loaded afresh, so the view behind it, with its own add field, isn't mounted.
+  await page.goto(page.url());
+  const title = `Sent away ${stamp}`;
+  const quickAdd = page.getByPlaceholder(/Add a task/);
+  await quickAdd.click();
+  await quickAdd.fill(`${title} ~${list.name}`);
+  await quickAdd.press('Enter');
+
+  // The Inbox doesn't show a task with a list, so there is no row to go to.
+  await expect(page.getByText(`Added to ${list.name}`, { exact: true })).toBeVisible();
+  await expect(page.getByText(title, { exact: true })).toHaveCount(0);
+
+  await page.getByText('View', { exact: true }).click();
+  await expect.poll(() => page.url()).toContain(list.id);
+  await expect(page.locator(`input[value="${title}"]`)).toHaveCount(1);
+  await expect(page.getByText(`Added to ${list.name}`, { exact: true })).toBeHidden();
+});
