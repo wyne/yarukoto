@@ -47,8 +47,10 @@ Adding a task while Plan is open makes it due on the selected day.
    different due range, or change the sort. Drag the sheet's handle up to see more at once.
 3. **Long-press a task and drag it.** The sheet moves aside, and the calendar is yours: drop the task
    on a day in the month grid, or on a day in the agenda or columns below.
-4. To move several at once, **tap them first** to select them, then long-press any one of the
-   selected tasks. They travel together and land on the same day.
+4. To move several at once, tap **Select**, tap the tasks you want, then long-press any one of
+   them. They travel together and land on the same day.
+
+Outside **Select**, tapping a task in the sheet opens it, and tapping its circle completes it.
 
 Changed your mind mid-drag? While you're carrying a task, the **Plan task** button turns into
 **Drag here to cancel**. Drop it there and nothing changes.
