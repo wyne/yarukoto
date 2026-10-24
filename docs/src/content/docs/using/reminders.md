@@ -7,7 +7,7 @@ A reminder is a notification on your phone about a task with a due date.
 
 ## Setting one
 
-Give the task a date, then open **Reminders** in the task and pick one:
+Give the task a date, then tap **Remind** (the bell) under the task's fields and pick one:
 
 - **Due date**, at 9:00 AM or, if the task has a time, at that time
 - **1 day**, **2 days** or **1 week before**, at 9:00 AM
@@ -17,8 +17,9 @@ A task can have more than one reminder. Reminders sync with the task, so every p
 the task reminds you. For a task in a [shared list](/using/household/#sharing-a-list), that means
 everyone in the household gets the reminder.
 
-The **Reminders** row only appears once the task has a date. If it doesn't appear at all, your server
-is older than reminders and needs [updating](/getting-started/docker/#updating).
+**Remind** only appears once the task has a date, and once a reminder is set it becomes a
+**Reminders** row you can tap to change. If it doesn't appear at all, your server is older than
+reminders and needs [updating](/getting-started/docker/#updating).
 
 The first time you add one, the app asks for permission to send notifications. If you said no, turn
 notifications on for Yarukoto in your phone's settings.

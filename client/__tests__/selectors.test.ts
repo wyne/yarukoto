@@ -16,6 +16,7 @@ import {
   tagCounts,
   tasksByDate,
   tasksDueByToday,
+  tasksDueWithin,
   tasksUpcomingCount,
   trashedTasks,
   unscheduledTasks,
@@ -108,6 +109,7 @@ describe('task selectors', () => {
     ]);
     expect(inboxCount(tasks)).toBe(1);
     expect(tasksDueByToday(tasks, now).map((item) => item.id)).toEqual(['today', 'overdue']);
+    expect(tasksDueWithin(tasks, now, 2).map((item) => item.id)).toEqual(['today', 'overdue', 'future']);
     expect(tasksUpcomingCount(tasks, now)).toBe(1);
   });
 

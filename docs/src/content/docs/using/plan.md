@@ -18,7 +18,10 @@ important one. Tap a day to select it.
 - Swipe the month sideways to move to the next or previous month, or use the arrows at the top.
 - Drag the month upwards to shrink it to a single week, which leaves more room for the days below.
   Swiping sideways then moves a week at a time. Drag it down again to bring back the month.
-- Tap the month's name at the top to jump back to today.
+- Tap **Today** beside the calendar's name, or the name itself, to jump back to today. The button only shows
+  once you have moved away from today.
+- On a computer the calendar starts as a single week, so the day columns get the room. Click the
+  small arrow under it to open the whole month, and again to close it.
 
 Below the grid, the selected day and the days after it, in one of these views:
 
@@ -28,7 +31,8 @@ Below the grid, the selected day and the days after it, in one of these views:
 | **2 days**, **3 days** | Side-by-side columns, one per day |
 | **Week** | Seven columns, Sunday to Saturday *(on a computer or a wide tablet)* |
 
-The view button in the header switches between them. While a column view is showing, the days it
+The view button switches between them. To look over the next few days without planning, Agenda can
+show them too: see [A daily workflow](/using/workflow/). While a column view is showing, the days it
 covers are shaded on the month grid, so you can see where you are.
 
 The sort button chooses between **Custom**, where you arrange each day's tasks yourself, and
@@ -44,20 +48,30 @@ Adding a task while Plan is open makes it due on the selected day.
    different due range, or change the sort. Drag the sheet's handle up to see more at once.
 3. **Long-press a task and drag it.** The sheet moves aside, and the calendar is yours: drop the task
    on a day in the month grid, or on a day in the agenda or columns below.
-4. To move several at once, **tap them first** to select them, then long-press any one of the
-   selected tasks. They travel together and land on the same day.
+4. To move several at once, tap **Select**, tap the tasks you want, then long-press any one of
+   them. They travel together and land on the same day.
+
+Outside **Select**, tapping a task in the sheet opens it, and tapping its circle completes it.
 
 Changed your mind mid-drag? While you're carrying a task, the **Plan task** button turns into
 **Drag here to cancel**. Drop it there and nothing changes.
 
 ## Planning on a computer
 
-On a wide window the planning pane is always open on the left, with the same search, filters and
-starting list as the phone's sheet. In a narrower window, click the columns button in the header
-(**Show tasks to plan**) to bring it in. Drag the divider between the pane and the calendar to make
-either one wider.
+The planning pane sits on the left, with the same search, filters and starting list as the phone's
+sheet. The arrow in its top corner (**Hide tasks to plan**) folds it into a narrow strip
+on the left, and the arrow on that strip brings it back; a wide window remembers the choice, and a
+narrower one starts with it hidden. Drag the divider between the pane
+and the calendar to make either one wider.
 
-Drag a task from the pane onto any day. Click several tasks first to drag them together. The
+With room to spare, the view, sort and **Completed** controls sit in the header beside the
+calendar's name. Clicking a task opens it over the calendar rather than beside it, so the columns
+don't change width; press Escape or click outside it to close it.
+
+Drag a task from the pane onto any day. A task in the pane works like one in any list: click it to
+open it, or click its circle to complete it. To drag several together, pick them out first with
+Shift-click or ⌘-click in a browser, or with **Select** at the top of the pane, then drag any one of
+them. The
 **Week** view is the one to plan in: you can see the whole week's load and drop tasks straight into
 the column for each day.
 

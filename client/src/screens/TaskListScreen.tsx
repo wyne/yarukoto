@@ -17,8 +17,9 @@ import {
   completedTasksList,
   inboxTasks,
   listsInFolder,
-  tasksDueByToday,
+  tasksDueWithin,
 } from '../data/selectors';
+import { TODAY_DAYS_OPTIONS, TodayDays, loadTodayDays, saveTodayDays } from '../data/storage';
 import { isSameDay, toISODate } from '../data/dateUtils';
 import { QuickAddDefaults } from '../data/TaskContext';
 import { hapticSelect } from '../data/haptics';
@@ -30,6 +31,7 @@ import {
   SortBy,
   TaskGroup,
   ViewOptions,
+  groupByDay,
   groupTasks,
   viewKey,
 } from '../data/viewOptions';
@@ -87,9 +89,11 @@ import { MenuRow } from '../components/menu/MenuItems';
 import DueDatePickerSheet from '../components/pickers/DueDatePickerSheet';
 import ListPickerSheet from '../components/pickers/ListPickerSheet';
 import TagPickerSheet from '../components/pickers/TagPickerSheet';
-import { IconDotsHorizontal, IconMenu, IconViewOptions } from '../icons/Icons';
+import { IconCheckBig, IconChevronDown, IconDotsHorizontal, IconMenu, IconViewOptions } from '../icons/Icons';
 
-const TITLES = { all: 'All', inbox: 'Inbox', today: 'Today' } as const;
+const TITLES = { all: 'All', inbox: 'Inbox', today: 'Agenda' } as const;
+/** The Agenda's title is the stretch it covers, so it always says what is on screen. */
+const TODAY_DAYS_LABEL: Record<TodayDays, string> = { 1: 'Today', 2: 'Next 2 days', 3: 'Next 3 days', 7: 'Week' };
 /**
  * Native lists only build the rows near the screen; see `VirtualTaskList`. The
  * web keeps the fully built column, whose drag and hover wiring is DOM-specific.
@@ -190,6 +194,27 @@ const TaskListBody = memo(
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const sections = useCollapsedSections(key);
+  /**
+   * How far ahead Today looks. Past one day it is sectioned by day, and those
+   * sections stand in for Group by, which is set aside rather than changed so
+   * it comes back with a one-day Today.
+   */
+  const [todayDays, setTodayDaysState] = useState<TodayDays>(loadTodayDays);
+  const setTodayDays = (days: TodayDays) => {
+    setTodayDaysState(days);
+    saveTodayDays(days);
+  };
+  const days = mode === 'today' && !filter ? todayDays : 1;
+  const byDay = days > 1;
+  const [daysMenuOpen, setDaysMenuOpen] = useState(false);
+  const daysBtn = useRef<View>(null);
+  const [daysAnchor, setDaysAnchor] = useState<PopoverAnchor | null>(null);
+  const openDaysMenu = () => {
+    daysBtn.current?.measureInWindow((x, y, width, height) => {
+      setDaysAnchor({ x, y, width, height });
+      setDaysMenuOpen(true);
+    });
+  };
   const [headerMenuOpen, setHeaderMenuOpen] = useState(false);
   const [optionsOpen, setOptionsOpen] = useState(false);
   // Measured on press rather than on layout: the title's count can change width,
@@ -323,7 +348,7 @@ const TaskListBody = memo(
     let a: Task[];
     let c: Task[];
     if (mode === 'today') {
-      a = tasksDueByToday(state.tasks, now);
+      a = tasksDueWithin(state.tasks, now, days);
       c = completedTasksList(state.tasks).filter((t) => t.completedAt && isSameDay(new Date(t.completedAt), now));
     } else if (untriagedOnly) {
       a = inboxTasks(state.tasks);
@@ -342,12 +367,18 @@ const TaskListBody = memo(
       c = c.filter(matchFilter);
     }
     return { active: a, completed: c };
-  }, [state.tasks, mode, filter, untriagedOnly, folderListIds]);
+  }, [state.tasks, mode, filter, untriagedOnly, folderListIds, days]);
 
   const groups = useMemo(
-    () => groupTasks(active, options, { lists: state.lists, folders: state.folders, now }),
-    [active, options, state.lists, state.folders]
+    () =>
+      byDay
+        ? groupByDay(active, options, now, days)
+        : groupTasks(active, options, { lists: state.lists, folders: state.folders, now }),
+    [active, options, state.lists, state.folders, byDay, days]
   );
+  /** The dimension the rows are grouped by, which day sections set aside. */
+  const groupDimension: GroupBy = byDay ? 'none' : options.groupBy;
+  const grouped = byDay || options.groupBy !== 'none';
 
   const {
     selectedIds: webSelection,
@@ -453,11 +484,11 @@ const TaskListBody = memo(
       Array.from(
         new Set(
           groups
-            .filter((g) => !(options.groupBy !== 'none' && sections.isGroupCollapsed(g.key)))
+            .filter((g) => !(grouped && sections.isGroupCollapsed(g.key)))
             .flatMap((g) => g.tasks.map((t) => t.id))
         )
       ),
-    [groups, options.groupBy, sections.isGroupCollapsed]
+    [groups, grouped, sections.isGroupCollapsed]
   );
   const cursor = anchorId && navIds.includes(anchorId) ? anchorId : null;
   // The selection is held above the screen, so only what this view shows of it
@@ -729,13 +760,13 @@ const TaskListBody = memo(
   };
 
   const allSelected = selectedIds.length > 0 && selectedIds.length === active.length;
-  const grouped = options.groupBy !== 'none';
+  const customised = options.groupBy !== 'none' || options.sortBy !== 'manual';
   const headerActions: MenuAction[] = [
     {
       id: 'options',
       title: 'Group & sort',
       image: 'line.3.horizontal.decrease',
-      imageColor: grouped || options.sortBy !== 'manual' ? accent : undefined,
+      imageColor: customised ? accent : undefined,
     },
     { id: 'select', title: 'Select tasks', image: 'checkmark.circle' },
   ];
@@ -769,9 +800,9 @@ const TaskListBody = memo(
 
   const groupHide = (groupKey: string) => ({
     hideListId:
-      options.groupBy === 'list' && groupKey !== INBOX_GROUP_KEY ? groupKey : filterHideListId,
+      groupDimension === 'list' && groupKey !== INBOX_GROUP_KEY ? groupKey : filterHideListId,
     hideTag:
-      options.groupBy === 'tag' && groupKey.startsWith('tag:') ? groupKey.slice(4) : filterHideTag,
+      groupDimension === 'tag' && groupKey.startsWith('tag:') ? groupKey.slice(4) : filterHideTag,
   });
 
   // Every view is draggable. Under a sort the drag wins rather than being undone
@@ -828,6 +859,7 @@ const TaskListBody = memo(
   const moveMounted = useLazyMount(moveOpen);
   const tagMounted = useLazyMount(tagOpen);
   const headerMenuMounted = useLazyMount(headerMenuOpen);
+  const daysMenuMounted = useLazyMount(daysMenuOpen);
 
   const restoreSort = () => clearArrangement(key, options.sortBy);
 
@@ -847,11 +879,12 @@ const TaskListBody = memo(
   };
   const groupBy = (value: GroupBy) => () => changeViewOptions({ ...options, groupBy: value });
   const sortBy = (value: SortBy) => () => changeViewOptions({ ...options, sortBy: value });
-  useCommand('groupByNone', groupBy('none'), true, options.groupBy === 'none');
-  useCommand('groupByList', groupBy('list'), true, options.groupBy === 'list');
-  useCommand('groupByDate', groupBy('date'), true, options.groupBy === 'date');
-  useCommand('groupByTag', groupBy('tag'), true, options.groupBy === 'tag');
-  useCommand('groupByPriority', groupBy('priority'), true, options.groupBy === 'priority');
+  // Day sections are the grouping while Today covers several days.
+  useCommand('groupByNone', groupBy('none'), !byDay, options.groupBy === 'none');
+  useCommand('groupByList', groupBy('list'), !byDay, options.groupBy === 'list');
+  useCommand('groupByDate', groupBy('date'), !byDay, options.groupBy === 'date');
+  useCommand('groupByTag', groupBy('tag'), !byDay, options.groupBy === 'tag');
+  useCommand('groupByPriority', groupBy('priority'), !byDay, options.groupBy === 'priority');
   useCommand('sortByManual', sortBy('manual'), true, options.sortBy === 'manual');
   useCommand('sortByDate', sortBy('date'), true, options.sortBy === 'date');
   useCommand('sortByTitle', sortBy('title'), true, options.sortBy === 'title');
@@ -964,7 +997,7 @@ const TaskListBody = memo(
   // with each render's clock.
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
   const rowNow = useMemo(() => new Date(today), [today]);
-  const groupByDimension = options.groupBy;
+  const groupByDimension = groupDimension;
   const handleGutter = canReorder && FINE_POINTER;
 
   const rowMark = (id: string, groupKey: string | null) => {
@@ -1071,6 +1104,43 @@ const TaskListBody = memo(
     []
   );
 
+  // The Agenda's title is its range, and choosing another range is done on the
+  // title itself, so the two can never disagree.
+  const daysLabel = (
+    <View style={styles.daysLabel}>
+      <Text style={styles.title} numberOfLines={1}>
+        {TODAY_DAYS_LABEL[todayDays]}
+      </Text>
+      <IconChevronDown size={14} color={colors.textTertiary} />
+    </View>
+  );
+  // A menu rather than a cycling button: the choice is how far ahead to look,
+  // and stepping through every length to get back to one is a detour.
+  const daysControl = DESKTOP_UI ? (
+    <Pressable
+      ref={daysBtn}
+      onPress={openDaysMenu}
+      accessibilityRole="button"
+      accessibilityLabel="Days shown"
+      style={styles.daysButton}
+    >
+      {daysLabel}
+    </Pressable>
+  ) : (
+    <MenuView
+      actions={TODAY_DAYS_OPTIONS.map((d) => ({
+        id: String(d),
+        title: TODAY_DAYS_LABEL[d],
+        state: d === todayDays ? 'on' : 'off',
+      }))}
+      onPressAction={({ nativeEvent }) => setTodayDays(Number(nativeEvent.event) as TodayDays)}
+    >
+      <View accessible accessibilityRole="button" accessibilityLabel="Days shown">
+        {daysLabel}
+      </View>
+    </MenuView>
+  );
+
   return (
     <View style={[styles.screen, { paddingTop: insets.top + 6 }]}>
       {selectionMode ? (
@@ -1094,7 +1164,13 @@ const TaskListBody = memo(
             </GlassIconButton>
           )}
           <View style={styles.titleRow}>
-            <Text style={styles.title}>{filter ? filter.label : TITLES[mode]}</Text>
+            {mode === 'today' && !filter ? (
+              daysControl
+            ) : (
+              <Text style={styles.title} numberOfLines={1}>
+                {filter ? filter.label : TITLES[mode]}
+              </Text>
+            )}
             <Text style={styles.count}>{active.length}</Text>
           </View>
           {DESKTOP_UI ? (
@@ -1194,7 +1270,7 @@ const TaskListBody = memo(
                         onToggle={() => sections.toggleGroup(group.key)}
                       />
                     </View>
-                    {!collapsed && (
+                    {!collapsed && group.tasks.length > 0 && (
                       <Animated.View
                         entering={switchingView ? undefined : GROUP_ENTER}
                         layout={switchingView ? undefined : GROUP_LAYOUT}
@@ -1285,7 +1361,7 @@ const TaskListBody = memo(
           width={220}
         >
           <MenuRow
-            icon={<IconViewOptions size={16} color={grouped || options.sortBy !== 'manual' ? accent : undefined} />}
+            icon={<IconViewOptions size={16} color={customised ? accent : undefined} />}
             label="Group & sort"
             onPress={() => {
               setHeaderMenuOpen(false);
@@ -1293,6 +1369,22 @@ const TaskListBody = memo(
             }}
           />
           {/* Selecting on the web is shift-click, so it needs no menu action. */}
+        </Popover>
+      )}
+
+      {DESKTOP_UI && daysMenuMounted && (
+        <Popover visible={daysMenuOpen} onClose={() => setDaysMenuOpen(false)} anchor={daysAnchor} width={160}>
+          {TODAY_DAYS_OPTIONS.map((d) => (
+            <MenuRow
+              key={d}
+              icon={d === todayDays ? <IconCheckBig size={14} color={accent} /> : null}
+              label={TODAY_DAYS_LABEL[d]}
+              onPress={() => {
+                setDaysMenuOpen(false);
+                setTodayDays(d);
+              }}
+            />
+          ))}
         </Popover>
       )}
 
@@ -1304,6 +1396,7 @@ const TaskListBody = memo(
         onChange={changeViewOptions}
         onRestore={restoreSort}
         anchor={optionsAnchor}
+        showGroupBy={!byDay}
       />
       )}
 
@@ -1398,6 +1491,7 @@ const useStyles = makeStyles((c) => ({
     gap: 8,
   },
   title: {
+    flexShrink: 1,
     fontFamily: fonts.sansBold,
     fontSize: 22,
     color: c.textPrimary,
@@ -1406,6 +1500,14 @@ const useStyles = makeStyles((c) => ({
     fontFamily: fonts.monoRegular,
     fontSize: 13.5,
     color: c.textTertiary,
+  },
+  daysLabel: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  daysButton: {
+    flexShrink: 1,
   },
   selectHeader: {
     flexDirection: 'row',

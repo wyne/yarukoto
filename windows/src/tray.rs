@@ -17,7 +17,7 @@ use std::sync::Mutex;
 
 use serde::{Deserialize, Serialize};
 use tauri::image::Image;
-use tauri::menu::{CheckMenuItem, Menu, MenuEvent, MenuItem, PredefinedMenuItem};
+use tauri::menu::{CheckMenuItem, Menu, MenuEvent, MenuItem, PredefinedMenuItem, Submenu};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIcon, TrayIconBuilder, TrayIconEvent};
 use tauri::{AppHandle, Emitter, Manager, Runtime, State};
 use tauri_plugin_autostart::ManagerExt;
@@ -170,22 +170,32 @@ fn build_menu<R: Runtime>(
             )?)?;
         } else {
             menu.append(&MenuItem::new(app, "Today", false, None::<&str>)?)?;
+            // Choosing a task opens it; marking one done is a step further in,
+            // under Mark done, so a stray click never checks a task off.
+            let done = Submenu::new(app, "Mark done", true)?;
             for task in &contents.tasks {
-                // A checkbox, so the row reads as "tick to mark done".
+                let title = menu_text(&task.title);
                 let text = if task.overdue {
-                    format!("{}  (overdue)", menu_text(&task.title))
+                    format!("{title}  (overdue)")
                 } else {
-                    menu_text(&task.title)
+                    title.clone()
                 };
-                let item = CheckMenuItem::with_id(
+                menu.append(&MenuItem::with_id(
                     app,
                     format!("task:{}", task.id),
                     text,
                     true,
+                    None::<&str>,
+                )?)?;
+                // A checkbox, so the row reads as "tick to mark done".
+                done.append(&CheckMenuItem::with_id(
+                    app,
+                    format!("done:{}", task.id),
+                    title,
+                    true,
                     false,
                     None::<&str>,
-                )?;
-                menu.append(&item)?;
+                )?)?;
             }
             if contents.more > 0 {
                 menu.append(&MenuItem::with_id(
@@ -196,6 +206,8 @@ fn build_menu<R: Runtime>(
                     None::<&str>,
                 )?)?;
             }
+            menu.append(&PredefinedMenuItem::separator(app)?)?;
+            menu.append(&done)?;
         }
         menu.append(&PredefinedMenuItem::separator(app)?)?;
     }
@@ -241,13 +253,22 @@ fn on_menu_event<R: Runtime>(app: &AppHandle<R>, event: MenuEvent) {
                 task_id: None,
             }
         }
-        _ => match id.strip_prefix("task:") {
-            Some(task_id) => TrayAction {
-                action: "complete",
-                task_id: Some(task_id.to_owned()),
-            },
-            None => return,
-        },
+        _ => {
+            if let Some(task_id) = id.strip_prefix("task:") {
+                show_main(app);
+                TrayAction {
+                    action: "openTask",
+                    task_id: Some(task_id.to_owned()),
+                }
+            } else if let Some(task_id) = id.strip_prefix("done:") {
+                TrayAction {
+                    action: "complete",
+                    task_id: Some(task_id.to_owned()),
+                }
+            } else {
+                return;
+            }
+        }
     };
     let _ = app.emit_to("main", "tray-action", action);
 }
