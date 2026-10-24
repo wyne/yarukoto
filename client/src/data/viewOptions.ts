@@ -1,6 +1,7 @@
 import { FolderDef, GroupBy, ListDef, Priority, SortBy, Task, ViewPref } from './types';
-import { DueBucket, dueBucket } from '@yarukoto/domain/dates';
+import { DueBucket, addDays, dueBucket, startOfDay, toISODate } from '@yarukoto/domain/dates';
 import { orderedLists } from './selectors';
+import { fromISODate, monthShort, weekdayShort } from './dateUtils';
 
 export type { GroupBy, SortBy };
 
@@ -267,4 +268,48 @@ export function groupTasks(tasks: Task[], options: ViewOptions, ctx: GroupContex
     default:
       return groups;
   }
+}
+
+/**
+ * Today over several days: one group per day, in order, each one there even
+ * when nothing is due on it, so a free tomorrow reads as free rather than as
+ * missing. Overdue tasks join today's group, as they do in a one-day Today.
+ *
+ * Today's group takes the ungrouped key, so an order dragged out in a one-day
+ * Today carries over to it. Later days are keyed by how far ahead they are
+ * rather than by date: the keys stay a handful however long the view is used,
+ * and a day folded shut stays folded as the days move along.
+ */
+export function groupByDay(tasks: Task[], options: ViewOptions, now: Date, days: number): TaskGroup[] {
+  const start = startOfDay(now);
+  const groups: TaskGroup[] = Array.from({ length: days }, (_, offset) => {
+    const date = addDays(start, offset);
+    return {
+      key: dayGroupKey(offset),
+      label:
+        offset === 0
+          ? 'Today'
+          : offset === 1
+          ? 'Tomorrow'
+          : `${weekdayShort(date)} ${monthShort(date)} ${date.getDate()}`,
+      tasks: [],
+    };
+  });
+  const startIso = toISODate(start);
+  for (const t of tasks) {
+    if (!t.dueDate) continue;
+    const offset =
+      t.dueDate <= startIso
+        ? 0
+        : Math.round((fromISODate(t.dueDate).getTime() - start.getTime()) / 86400000);
+    groups[offset]?.tasks.push(t);
+  }
+  groups.forEach((g) => {
+    g.tasks = sortTasks(g.tasks, options, g.key);
+  });
+  return groups;
+}
+
+export function dayGroupKey(offset: number): string {
+  return offset === 0 ? UNGROUPED_KEY : `day:${offset}`;
 }

@@ -13,6 +13,8 @@ import Card from '../../components/Card';
 import { dayTargetId } from '../../drag/hitTest';
 import { taskIdsFromDrag } from '../../drag/DragContext';
 import { useDropTarget } from '../../drag/useDropTarget';
+import { DESKTOP_UI } from '../../data/platform';
+import { IconChevronDown } from '../../icons/Icons';
 
 const WEEKDAY_LETTERS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
@@ -114,6 +116,7 @@ export default function MonthGrid({
   onWeekViewChange,
 }: Props) {
   const styles = useStyles();
+  const colors = useColors();
   /** A page's width in pixels, which is what places them. Zero until first layout. */
   const [width, setWidth] = useState(0);
   /**
@@ -140,7 +143,24 @@ export default function MonthGrid({
    * the month has to be on screen before it can be grown into.
    */
   const [weeks, setWeeks] = useState(weekView);
-  useEffect(() => setWeeks(weekView), [weekView]);
+  /**
+   * A change from outside — the desktop's month button — animates the same
+   * height the drag does. One the drag made has already landed there, so it
+   * finds nothing to do. Closing keeps the month's pages until the height is
+   * down, as the drag does.
+   */
+  useEffect(() => {
+    if (!weekView) setWeeks(false);
+    const target = weekView ? 0 : 1;
+    if (expand.value === target) {
+      setWeeks(weekView);
+      return;
+    }
+    expand.value = withTiming(target, { duration: PAGE_MS, easing: PAGE_EASING }, (done) => {
+      if (done && target === 0) scheduleOnRN(setWeeks, true);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [weekView]);
 
   /** The anchor read as whichever unit the pages are. */
   const pageAnchor = useMemo(
@@ -339,6 +359,19 @@ export default function MonthGrid({
           </Animated.View>
         </Animated.View>
       </GestureDetector>
+      {/* A pointer has no thumb to pull the month down with, so it gets a button. */}
+      {DESKTOP_UI && onWeekViewChange && (
+        <Pressable
+          onPress={() => onWeekViewChange(!weekView)}
+          style={styles.expandBtn}
+          accessibilityRole="button"
+          accessibilityLabel={weekView ? 'Show month' : 'Show week'}
+        >
+          <View style={!weekView && styles.expandIconOpen}>
+            <IconChevronDown size={12} color={colors.textTertiary} />
+          </View>
+        </Pressable>
+      )}
     </Card>
   );
 }
@@ -509,6 +542,14 @@ function DayCell({
 const useStyles = makeStyles((c) => ({
   gridCard: {
     padding: 8,
+  },
+  expandBtn: {
+    alignSelf: 'center',
+    paddingHorizontal: 16,
+    marginBottom: -4,
+  },
+  expandIconOpen: {
+    transform: [{ rotate: '180deg' }],
   },
   weekdayRow: {
     flexDirection: 'row',

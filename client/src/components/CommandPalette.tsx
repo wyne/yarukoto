@@ -54,7 +54,7 @@ interface Entry {
 /** The fixed views, in the nav's order. */
 const VIEWS: { route: string; title: string; keywords?: string }[] = [
   { route: 'InboxTab', title: 'Inbox' },
-  { route: 'TodayTab', title: 'Today' },
+  { route: 'TodayTab', title: 'Agenda', keywords: 'today upcoming' },
   { route: 'AllTab', title: 'All' },
   { route: 'CalendarTab', title: 'Plan', keywords: 'calendar schedule' },
   { route: 'BrowseTab', title: 'Browse', keywords: 'search find' },

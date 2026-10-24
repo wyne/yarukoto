@@ -5,6 +5,7 @@ import { ACCENT_OPTIONS, AccentColor, DEFAULT_ACCENT, SchemePref } from '../them
 import { SnoozedReminder } from './notificationActions';
 import { Household, parseHousehold } from './household';
 import { FolderDef, ListDef, SERVER_FEATURES, SavedFilter, ServerFeature, Task, ViewPref } from './types';
+import { DESKTOP_UI } from './platform';
 import { EMPTY_CRITERIA, TaskCriteria, isEmptyCriteria, normalizeCriteria } from './taskFilter';
 
 /**
@@ -47,6 +48,7 @@ const BROWSE_KEY = 'yarukoto.browseCriteria';
 const SCHEME_KEY = 'yarukoto.scheme';
 const FIRST_TAB_VIEW_KEY = 'yarukoto.firstTabViews';
 const SNOOZES_KEY = 'yarukoto.snoozedReminders';
+const TODAY_DAYS_KEY = 'yarukoto.todayDays';
 
 const ALL_KEYS = [
   URL_KEY,
@@ -63,6 +65,7 @@ const ALL_KEYS = [
   SCHEME_KEY,
   FIRST_TAB_VIEW_KEY,
   SNOOZES_KEY,
+  TODAY_DAYS_KEY,
 ];
 
 /** Kept in SecureStore rather than AsyncStorage, on platforms that have one. */
@@ -279,6 +282,8 @@ export interface PlanPrefs {
   showCompleted: boolean;
   /** The calendar collapsed to the selected day's week rather than the month. */
   weekView: boolean;
+  /** The tasks-to-plan pane beside the calendar, in a window wide enough to keep it. */
+  planPane: boolean;
 }
 
 export const DEFAULT_PLAN_PREFS: PlanPrefs = {
@@ -287,7 +292,11 @@ export const DEFAULT_PLAN_PREFS: PlanPrefs = {
   sort: 'custom',
   calendarOrder: {},
   showCompleted: false,
-  weekView: false,
+  // On the desktop the day columns are where tasks land, so the calendar above
+  // them starts as a single week and gives them the height; the month is one
+  // click away. A phone's Daily view lists the days below, and keeps the month.
+  weekView: DESKTOP_UI,
+  planPane: true,
 };
 
 export function loadPlanPrefs(): PlanPrefs {
@@ -302,11 +311,31 @@ export function loadPlanPrefs(): PlanPrefs {
     calendarOrder: readStringArrayRecord(stored.calendarOrder),
     showCompleted: typeof stored.showCompleted === 'boolean' ? stored.showCompleted : DEFAULT_PLAN_PREFS.showCompleted,
     weekView: typeof stored.weekView === 'boolean' ? stored.weekView : DEFAULT_PLAN_PREFS.weekView,
+    planPane: typeof stored.planPane === 'boolean' ? stored.planPane : DEFAULT_PLAN_PREFS.planPane,
   };
 }
 
 export function savePlanPrefs(prefs: PlanPrefs): void {
   writeJson(PLAN_KEY, prefs);
+}
+
+/**
+ * How many days the Agenda covers, starting with today itself. Three unless
+ * chosen otherwise: enough to see what is coming without leaving today behind.
+ *
+ * Device-local like the Plan layout: a desktop with room for the week ahead and
+ * a phone that only wants today have no reason to agree.
+ */
+export type TodayDays = 1 | 2 | 3 | 7;
+export const TODAY_DAYS_OPTIONS: TodayDays[] = [1, 2, 3, 7];
+
+export function loadTodayDays(): TodayDays {
+  const stored = Number(read(TODAY_DAYS_KEY));
+  return TODAY_DAYS_OPTIONS.includes(stored as TodayDays) ? (stored as TodayDays) : 3;
+}
+
+export function saveTodayDays(days: TodayDays): void {
+  write(TODAY_DAYS_KEY, String(days));
 }
 
 /** Which sections of one view are folded shut. */

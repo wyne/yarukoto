@@ -30,6 +30,7 @@ import { useDraggable } from '../../drag/useDraggable';
 import { useDragActive } from '../../drag/DragContext';
 import { useDragSource } from '../../drag/dragSource';
 import { useDropTarget } from '../../drag/useDropTarget';
+import { useDetail, useDetailActions } from '../../navigation/DetailContext';
 import { hapticSelect } from '../../data/haptics';
 import { IconCalendarBox, IconPlus } from '../../icons/Icons';
 import { Task } from '../../data/types';
@@ -141,6 +142,14 @@ export default function AddExistingTaskSheet({ visible, onClose }: SheetProps) {
   const [criteria, setCriteria] = useState<TaskCriteria>(DEFAULT_CRITERIA);
   const [sortBy, setSortBy] = useState<SortBy>(DEFAULT_SORT_BY);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  /**
+   * Picking out several tasks to place together is a mode, as it is in a list:
+   * outside it a tap opens the task and its circle completes it, the same as a
+   * row anywhere else. A long press carries the task either way.
+   */
+  const [selecting, setSelecting] = useState(false);
+  const { openTask } = useDetailActions();
+  const accent = useAccent();
   const ref = useRef<React.ElementRef<typeof BottomSheetModal>>(null);
   const presented = useRef(false);
   const expanding = useRef(false);
@@ -226,11 +235,20 @@ export default function AddExistingTaskSheet({ visible, onClose }: SheetProps) {
       current.includes(taskId) ? current.filter((id) => id !== taskId) : [...current, taskId]
     );
   }, []);
+  const pressTask = (taskId: string) => {
+    if (selecting) return toggleSelected(taskId);
+    openTask(taskId);
+  };
+  const toggleSelecting = () => {
+    setSelecting((on) => !on);
+    setSelectedIds([]);
+  };
   // The payload has captured the ids by this point. Clearing here means the next
   // time the preserved sheet opens it starts ready for another assignment.
   const finishPickup = useCallback(() => {
     close();
     setSelectedIds([]);
+    setSelecting(false);
   }, [close]);
 
   // The sheet renders a new backdrop *element type* whenever this callback
@@ -350,13 +368,20 @@ export default function AddExistingTaskSheet({ visible, onClose }: SheetProps) {
           // Nothing here is going on the calendar if it is already done.
           showStatus={false}
         />
-        <Text style={styles.hint}>
-          {selectedIds.length > 0
-            ? `${selectedIds.length} selected. Long press a selected task to place ${
-                selectedIds.length === 1 ? 'it' : 'them'
-              } on the calendar.`
-            : 'Long press a task to place it on the calendar. Tap tasks to select multiple.'}
-        </Text>
+        <View style={styles.hintRow}>
+          <Text style={styles.hint}>
+            {selectedIds.length > 0
+              ? `${selectedIds.length} selected. Long press one to place ${
+                  selectedIds.length === 1 ? 'it' : 'them'
+                } on the calendar.`
+              : selecting
+              ? 'Tap tasks to pick several, then long press one to place them together.'
+              : 'Long press a task to place it on the calendar.'}
+          </Text>
+          <Pressable onPress={toggleSelecting} hitSlop={10} accessibilityRole="button">
+            <Text style={[styles.selectText, { color: accent }]}>{selecting ? 'Done' : 'Select'}</Text>
+          </Pressable>
+        </View>
         <BottomSheetScrollView
           style={styles.resultsFrame}
           showsVerticalScrollIndicator
@@ -379,7 +404,8 @@ export default function AddExistingTaskSheet({ visible, onClose }: SheetProps) {
                     now={now}
                     selectedIds={selectedIds}
                     selected={selectedIdSet.has(task.id)}
-                    onToggleSelected={() => toggleSelected(task.id)}
+                    selecting={selecting}
+                    onPress={() => pressTask(task.id)}
                     onPickup={finishPickup}
                   />
                   {i < tasks.length - 1 && (
@@ -400,19 +426,24 @@ function DraggableTask({
   now,
   selectedIds,
   selected,
-  onToggleSelected,
+  selecting,
+  onPress,
   onPickup,
 }: {
   task: Task;
   now: Date;
   selectedIds: string[];
   selected: boolean;
-  onToggleSelected: () => void;
+  selecting: boolean;
+  onPress: () => void;
   onPickup: () => void;
 }) {
   const styles = useStyles();
   const colors = useColors();
   const { state, toggleComplete, scheduleToday, snoozeTask, scheduleNextWeek } = useTasks();
+  // The open task keeps its tint, and only it: without this a row tinted on
+  // press would stay tinted after the next task opened.
+  const { openTaskId } = useDetail();
   const { onLongPress, ...handlers } = useDraggable({
     taskId: task.id,
     taskIds: selected ? selectedIds : [task.id],
@@ -427,11 +458,12 @@ function DraggableTask({
         list={getListById(state.lists, task.listId)}
         now={now}
         showContext="tags"
-        selectionMode
+        selectionMode={selecting}
         selected={selected}
         selectionColor={priorityColor(task.priority, colors)}
         dragSource={isSource}
-        onPress={onToggleSelected}
+        active={openTaskId === task.id}
+        onPress={onPress}
         onLongPress={(event) => {
           onLongPress(event);
           requestAnimationFrame(onPickup);
@@ -557,12 +589,22 @@ const useStyles = makeStyles((c) => ({
     paddingHorizontal: 12,
     paddingBottom: 16,
   },
-  hint: {
+  hintRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
     marginHorizontal: 16,
     marginBottom: 10,
+  },
+  hint: {
+    flex: 1,
     fontFamily: fonts.sansRegular,
     fontSize: 13.5,
     color: c.textTertiary,
+  },
+  selectText: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 14,
   },
   resultsFrame: {
     flex: 1,

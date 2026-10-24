@@ -1,4 +1,4 @@
-import React, { memo, useCallback, useDeferredValue, useMemo, useRef, useState } from 'react';
+import React, { memo, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { LayoutChangeEvent, PanResponder, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSharedValue, withTiming } from 'react-native-reanimated';
@@ -21,7 +21,7 @@ import {
   SidebarProvider,
   useSidebar,
 } from './SidebarContext';
-import { DetailProvider, useDetail } from './DetailContext';
+import { DetailProvider, useDetail, useDetailOverlay } from './DetailContext';
 import { SelectionProvider, useSelectedIds } from './SelectionContext';
 import Sidebar, { SIDEBAR_WIDTH } from '../components/Sidebar';
 import { closeOpenSwipeRow, swipeRowOpen } from '../components/SwipeableRow';
@@ -163,7 +163,14 @@ function Layout() {
   // showing one task's detail beside them would only mislead about what the next
   // click is going to change.
   const bulk = DESKTOP_UI && selectedIds.length > 0;
-  const showPane = wide && (bulk || !!openTaskId);
+  /**
+   * A screen can ask for the task over it even with room for a column: Plan's
+   * day columns are sized to the width they have, and a column opening beside
+   * them would squeeze and reflow every one of them. Desktop only; a tablet's
+   * column is the only pane it has that isn't a sheet.
+   */
+  const overlay = useDetailOverlay() && DESKTOP_UI;
+  const showPane = wide && (bulk || (!!openTaskId && !overlay));
   /**
    * A narrow desktop window has no column for the task, but it is still a
    * desktop window: a sheet pulled up from the bottom edge, with only a grabber
@@ -174,7 +181,22 @@ function Layout() {
    * Decided by the pointer, as popovers are (`useDesktopPresentation`): a
    * touch-screen browser is a phone's, and keeps the sheet.
    */
-  const slideOver = !wide && FINE_POINTER && !bulk && !!openTaskId;
+  const slideOver = ((!wide && FINE_POINTER) || (wide && overlay)) && !bulk && !!openTaskId;
+  /**
+   * Escape closes the task over a screen that has no list to hand the key to.
+   * Over a list, the list's own Escape (`deselect`) already closes it and keeps
+   * the row marked, so this stands down there. A dialog or popover over the task
+   * keeps its own Escape. The Mac hears the key through PaneEscape.
+   */
+  useEffect(() => {
+    if (Platform.OS !== 'web' || !slideOver || !overlay) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || anyLayerOpen() || document.querySelector('[aria-modal="true"]')) return;
+      closeTask();
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [slideOver, overlay, closeTask]);
 
   const clampDetailColumnWidth = useCallback(
     (width: number) => {
@@ -447,7 +469,7 @@ const Tabs = memo(function Tabs() {
     >
       <Tab.Screen name="AllTab" component={AllScreen} options={{ title: 'All' }} />
       <Tab.Screen name="InboxTab" component={InboxScreen} options={{ title: 'Inbox' }} />
-      <Tab.Screen name="TodayTab" component={TodayScreen} options={{ title: 'Today' }} />
+      <Tab.Screen name="TodayTab" component={TodayScreen} options={{ title: 'Agenda' }} />
       <Tab.Screen name="CalendarTab" component={CalendarScreen} options={{ title: 'Plan' }} />
       <Tab.Screen name="ActivityTab" component={ActivityScreen} options={{ title: 'Activity' }} />
       <Tab.Screen name="BrowseTab" component={BrowseScreen} options={{ title: 'Browse' }} />
@@ -517,8 +539,8 @@ function AndroidTabs() {
         name="TodayTab"
         component={TodayScreen}
         options={{
-          title: 'Today',
-          tabBarLabel: 'Today',
+          title: 'Agenda',
+          tabBarLabel: 'Agenda',
           tabBarIcon: ({ color, size }) => <IconClock size={size} color={color} strokeWidth={1.8} />,
         }}
       />
@@ -602,8 +624,8 @@ function NativeTabs() {
         name="TodayTab"
         component={TodayScreen}
         options={{
-          title: 'Today',
-          tabBarLabel: 'Today',
+          title: 'Agenda',
+          tabBarLabel: 'Agenda',
           tabBarIcon: Platform.OS === 'ios'
             ? ({ focused }) => ({ type: 'sfSymbol', name: focused ? 'clock.fill' : 'clock' })
             : undefined,
