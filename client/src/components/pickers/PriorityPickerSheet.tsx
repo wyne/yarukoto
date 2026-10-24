@@ -35,7 +35,9 @@ export default function PriorityPickerSheet({ visible, onClose, anchor, onApply 
   };
 
   return (
-    <Sheet visible={visible} onClose={onClose} title="Priority" anchor={anchor} popoverWidth={240}>
+    // Pushed, like the other pickers: over the task detail sheet, the default
+    // swaps the detail out for this, and the picker closes as soon as it opens.
+    <Sheet visible={visible} onClose={onClose} title="Priority" anchor={anchor} popoverWidth={240} stackBehavior="push">
       {OPTIONS.map((o) => (
         <Pressable key={o.value} style={hoverBg(styles.row)} onPress={() => choose(o.value)}>
           <View
