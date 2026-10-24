@@ -29,6 +29,7 @@ import {
   IconBell,
   IconChevronDown,
   IconClock,
+  IconFlag,
   IconPlus,
   IconRepeat,
   IconTag,
@@ -41,6 +42,8 @@ import RepeatQuickMenu from './pickers/RepeatQuickMenu';
 import { describeRepeat } from '../data/recurrence';
 import ListPickerSheet from './pickers/ListPickerSheet';
 import TagPickerSheet from './pickers/TagPickerSheet';
+import PriorityPickerSheet from './pickers/PriorityPickerSheet';
+import Tooltip from './Tooltip';
 import TaskHistorySheet from './TaskHistorySheet';
 import { measureAnchor, PopoverAnchor } from './Popover';
 import { useNativeDateTimePicker } from '../navigation/DateTimePickerContext';
@@ -70,12 +73,7 @@ interface Props {
   active?: boolean;
 }
 
-const PRIORITIES: { key: Priority; label: string }[] = [
-  { key: 'none', label: 'None' },
-  { key: 'low', label: 'Low' },
-  { key: 'medium', label: 'Med' },
-  { key: 'high', label: 'High' },
-];
+const PRIORITY_LABELS: Record<Priority, string> = { none: 'None', low: 'Low', medium: 'Medium', high: 'High' };
 
 const KEYBOARD_ACCESSORY_ID = 'task-detail-keyboard-accessory';
 
@@ -120,7 +118,7 @@ export default function TaskDetailView({ taskId, onClose, variant, active = true
   const Scroll: React.ComponentType<ScrollViewProps> =
     variant === 'sheet' ? (BottomSheetScrollView as React.ComponentType<ScrollViewProps>) : ScrollView;
 
-  const [picker, setPicker] = useState<'list' | 'tags' | null>(null);
+  const [picker, setPicker] = useState<'list' | 'tags' | 'priority' | null>(null);
   const [pickerAnchor, setPickerAnchor] = useState<PopoverAnchor | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyAnchor, setHistoryAnchor] = useState<PopoverAnchor | null>(null);
@@ -132,7 +130,7 @@ export default function TaskDetailView({ taskId, onClose, variant, active = true
 
   // Pushed, not switched: these sit over the detail sheet rather than replacing it.
   // Measured from the pressed row so the desktop can tether the picker to it.
-  const openPicker = (which: 'list' | 'tags') => (e: { currentTarget: unknown }) => {
+  const openPicker = (which: 'list' | 'tags' | 'priority') => (e: { currentTarget: unknown }) => {
     Keyboard.dismiss();
     measureAnchor(e, (at) => {
       setPickerAnchor(at);
@@ -385,6 +383,268 @@ export default function TaskDetailView({ taskId, onClose, variant, active = true
   const registerInputWithSheet = variant === 'sheet' && Platform.OS !== 'ios';
   const showFloatingKeyboardDismiss = variant === 'sheet' && Platform.OS !== 'ios' && (keyboardUp || keyboardInputFocused);
 
+  /**
+   * The task's fields, split by whether they hold anything.
+   *
+   * A field with a value gets a labeled row, since the value is worth reading. An
+   * empty one folds into the tray below as an icon, so a bare task doesn't spend
+   * a row on each thing it doesn't have. The tray uses the composer's icons in the
+   * composer's order. Reminder and Repeat keep a word beside theirs: the composer
+   * never shows them, so nothing else teaches what the icons mean. Time, reminders
+   * and repeat all count from the date, so they only appear once there is one.
+   */
+  const dated = !!task.dueDate;
+  const offerReminders = dated && remindersSupported;
+  const offerRepeat = dated && repeatSupported && !task.completed;
+  const priorityTint = task.priority === 'none' ? colors.textTertiary : priorityColor(task.priority, colors);
+
+  const fieldRows: { key: string; node: React.ReactNode }[] = [];
+  const trayItems: { key: string; label: string; node: React.ReactNode }[] = [];
+  /** A tray icon's face. Inside a menu, the menu is the button, so the face only names itself natively. */
+  const trayFace = (
+    Icon: React.ComponentType<{ size?: number; color?: string }>,
+    label: string,
+    word?: string
+  ) => (
+    <View
+      style={styles.trayItem}
+      accessibilityRole={Platform.OS === 'web' ? undefined : 'button'}
+      accessibilityLabel={Platform.OS === 'web' ? undefined : `Add ${label.toLowerCase()}`}
+    >
+      <Icon size={17} color={colors.textTertiary} />
+      {!!word && <Text style={styles.trayWord}>{word}</Text>}
+    </View>
+  );
+
+  const dateMenu = (trigger: React.ReactNode, style?: object) => (
+    <DueDateQuickMenu
+      date={task.dueDate}
+      time={task.dueTime}
+      style={style}
+      onChange={(dueDate, dueTime) => updateTask(task.id, { dueDate, dueTime })}
+      onCustomDate={openDatePicker}
+      clearLabel={clearDateLabel(task)}
+    >
+      {trigger}
+    </DueDateQuickMenu>
+  );
+  if (dated) {
+    fieldRows.push({
+      key: 'date',
+      node: (
+        <View ref={dateRowRef} collapsable={false} style={styles.metaRow}>
+          <IconCalendarBox size={18} color={colors.textSecondary} />
+          <Text style={styles.metaLabelFixed}>Date</Text>
+          {dateMenu(
+            <View style={[styles.metaValueButton, styles.menuValueButton]}>
+              <Text numberOfLines={1} ellipsizeMode="tail" style={[styles.metaValue, styles.dueValue, { color: accent }]}>
+                {formatDueFull(task.dueDate)}
+              </Text>
+              <IconChevronDown size={12} color={accent} strokeWidth={1.8} />
+            </View>,
+            styles.metaValueMenu
+          )}
+        </View>
+      ),
+    });
+  } else {
+    trayItems.push({
+      key: 'date',
+      label: 'Date',
+      node: (
+        <View ref={dateRowRef} collapsable={false}>
+          {dateMenu(trayFace(IconCalendarBox, 'Date'))}
+        </View>
+      ),
+    });
+  }
+
+  if (dated) {
+    const timeMenu = (trigger: React.ReactNode, style?: object) => (
+      <DueTimeQuickMenu
+        time={task.dueTime}
+        style={style}
+        onChange={(dueTime) => updateTask(task.id, { dueTime })}
+        onPickTime={openTimePicker}
+      >
+        {trigger}
+      </DueTimeQuickMenu>
+    );
+    if (task.dueTime) {
+      fieldRows.push({
+        key: 'time',
+        node: (
+          <View ref={timeRowRef} collapsable={false} style={styles.metaRow}>
+            <IconClock size={18} color={colors.textSecondary} />
+            <Text style={styles.metaLabelFixed}>Time</Text>
+            {timeMenu(
+              <View
+                accessibilityRole={Platform.OS === 'web' ? undefined : 'button'}
+                accessibilityLabel={Platform.OS === 'web' ? undefined : `Time, ${formatTime24to12(task.dueTime)}`}
+                style={[styles.metaValueButton, styles.menuValueButton]}
+              >
+                <Text style={[styles.metaValue, { color: accent }]}>{formatTime24to12(task.dueTime)}</Text>
+                <IconChevronDown size={12} color={accent} strokeWidth={1.8} />
+              </View>,
+              styles.metaValueMenu
+            )}
+          </View>
+        ),
+      });
+    } else {
+      trayItems.push({
+        key: 'time',
+        label: 'Time',
+        node: (
+          <View ref={timeRowRef} collapsable={false}>
+            {timeMenu(trayFace(IconClock, 'Time'))}
+          </View>
+        ),
+      });
+    }
+  }
+
+  if (offerReminders) {
+    const reminderMenu = (trigger: React.ReactNode, style?: object) => (
+      <ReminderQuickMenu
+        reminders={reminders}
+        dueTime={task.dueTime}
+        style={style}
+        onChange={(next) => updateTask(task.id, taskPatchForReminders(task, next))}
+      >
+        {trigger}
+      </ReminderQuickMenu>
+    );
+    if (reminders.length > 0) {
+      fieldRows.push({
+        key: 'reminders',
+        node: (
+          <View style={styles.metaRow}>
+            <IconBell size={18} color={colors.textSecondary} />
+            <Text style={styles.metaLabelFixed}>Reminders</Text>
+            {reminderMenu(
+              <View style={[styles.metaValueButton, styles.menuValueButton]}>
+                {reminders.length === 1 ? (
+                  <View style={styles.reminderValue}>
+                    <Text
+                      numberOfLines={1}
+                      ellipsizeMode="tail"
+                      style={[styles.metaValue, styles.reminderMainValue, { color: accent }]}
+                    >
+                      {reminderOffsetLabel(reminders[0].offsetDays)}
+                    </Text>
+                    <Text numberOfLines={1} style={styles.reminderTimeValue}>
+                      ({formatTime24to12(reminders[0].time)})
+                    </Text>
+                  </View>
+                ) : (
+                  <Text numberOfLines={1} ellipsizeMode="tail" style={[styles.metaValue, styles.dueValue, { color: accent }]}>
+                    {reminderLabel}
+                  </Text>
+                )}
+                <IconChevronDown size={12} color={accent} strokeWidth={1.8} />
+              </View>,
+              styles.metaValueMenu
+            )}
+          </View>
+        ),
+      });
+    } else {
+      trayItems.push({ key: 'reminders', label: 'Reminders', node: <View>{reminderMenu(trayFace(IconBell, 'Reminder', 'Remind'))}</View> });
+    }
+  }
+
+  if (offerRepeat) {
+    const repeatMenu = (trigger: React.ReactNode, style?: object) => (
+      <RepeatQuickMenu
+        dueDate={task.dueDate!}
+        repeat={task.repeat}
+        style={style}
+        onChange={(repeat) => updateTask(task.id, { repeat })}
+        onSkip={() => skipOccurrence(task.id)}
+      >
+        {trigger}
+      </RepeatQuickMenu>
+    );
+    if (task.repeat) {
+      fieldRows.push({
+        key: 'repeat',
+        node: (
+          <View style={styles.metaRow}>
+            <IconRepeat size={18} color={colors.textSecondary} />
+            <Text style={styles.metaLabelFixed}>Repeat</Text>
+            {repeatMenu(
+              <View style={[styles.metaValueButton, styles.menuValueButton]}>
+                <Text numberOfLines={1} ellipsizeMode="tail" style={[styles.metaValue, styles.dueValue, { color: accent }]}>
+                  {describeRepeat(task.repeat, task.dueDate!)}
+                </Text>
+                <IconChevronDown size={12} color={accent} strokeWidth={1.8} />
+              </View>,
+              styles.metaValueMenu
+            )}
+          </View>
+        ),
+      });
+    } else {
+      trayItems.push({ key: 'repeat', label: 'Repeat', node: <View>{repeatMenu(trayFace(IconRepeat, 'Repeat', 'Repeat'))}</View> });
+    }
+  }
+
+  if (task.priority !== 'none') {
+    fieldRows.push({
+      key: 'priority',
+      node: (
+        <Pressable style={hoverBg(styles.metaRow)} onPress={openPicker('priority')}>
+          <IconFlag size={18} color={priorityTint} filled />
+          <Text style={styles.metaLabelFixed}>Priority</Text>
+          <View style={[styles.metaValueButton, styles.metaValueMenu]}>
+            <Text style={[styles.metaValue, { color: priorityTint }]}>{PRIORITY_LABELS[task.priority]}</Text>
+            <IconChevronDown size={12} color={priorityTint} strokeWidth={1.8} />
+          </View>
+        </Pressable>
+      ),
+    });
+  } else {
+    trayItems.push({
+      key: 'priority',
+      label: 'Priority',
+      node: (
+        <Pressable style={hoverBg(styles.trayItem)} onPress={openPicker('priority')} accessibilityLabel="Add priority">
+          <IconFlag size={17} color={colors.textTertiary} />
+        </Pressable>
+      ),
+    });
+  }
+
+  if (task.tags.length > 0) {
+    fieldRows.push({
+      key: 'tags',
+      node: (
+        <Pressable style={hoverBg(styles.metaRow)} onPress={openPicker('tags')}>
+          <IconTag size={18} color={colors.textSecondary} />
+          <Text style={styles.metaLabelFixed}>Tags</Text>
+          <View style={styles.tagsWrap}>
+            {task.tags.map((t) => (
+              <View key={t} style={styles.tagChip}>
+                <Text style={styles.tagChipText}>#{t}</Text>
+              </View>
+            ))}
+          </View>
+        </Pressable>
+      ),
+    });
+  } else {
+    trayItems.push({
+      key: 'tags',
+      label: 'Tags',
+      node: (
+        <Pressable style={hoverBg(styles.trayItem)} onPress={openPicker('tags')} accessibilityLabel="Add tags">
+          <IconTag size={17} color={colors.textTertiary} />
+        </Pressable>
+      ),
+    });
+  }
+
   const content = (
     <View style={[styles.screen, { paddingTop: topPad }]}>
       <View style={styles.header}>
@@ -467,180 +727,24 @@ export default function TaskDetailView({ taskId, onClose, variant, active = true
         </Card>
 
         <Card style={{ marginTop: 12 }}>
-          <View ref={dateRowRef} collapsable={false} style={styles.metaRow}>
-            <IconCalendarBox size={18} color={colors.textSecondary} />
-            <Text style={styles.metaLabelFixed}>Date</Text>
-            <DueDateQuickMenu
-              date={task.dueDate}
-              time={task.dueTime}
-              style={styles.metaValueMenu}
-              onChange={(dueDate, dueTime) => updateTask(task.id, { dueDate, dueTime })}
-              onCustomDate={openDatePicker}
-              clearLabel={clearDateLabel(task)}
-            >
-              <View style={[styles.metaValueButton, styles.menuValueButton]}>
-                <Text
-                  numberOfLines={1}
-                  ellipsizeMode="tail"
-                  style={[styles.metaValue, styles.dueValue, task.dueDate && { color: accent }]}
-                >
-                  {formatDueFull(task.dueDate)}
-                </Text>
-                <IconChevronDown size={12} color={task.dueDate ? accent : colors.textTertiary} strokeWidth={1.8} />
-              </View>
-            </DueDateQuickMenu>
-          </View>
-          {!!task.dueDate && (
+          {fieldRows.map((row, i) => (
+            <React.Fragment key={row.key}>
+              {i > 0 && <Divider indent={44} />}
+              {row.node}
+            </React.Fragment>
+          ))}
+          {trayItems.length > 0 && (
             <>
-              <Divider indent={44} />
-              <View ref={timeRowRef} collapsable={false} style={styles.metaRow}>
-                <IconClock size={18} color={colors.textSecondary} />
-                <Text style={styles.metaLabelFixed}>Time</Text>
-                <DueTimeQuickMenu
-                  time={task.dueTime}
-                  style={styles.metaValueMenu}
-                  onChange={(dueTime) => updateTask(task.id, { dueTime })}
-                  onPickTime={openTimePicker}
-                >
-                  <View
-                    accessibilityRole={Platform.OS === 'web' ? undefined : 'button'}
-                    accessibilityLabel={
-                      Platform.OS === 'web'
-                        ? undefined
-                        : task.dueTime
-                          ? `Time, ${formatTime24to12(task.dueTime)}`
-                          : 'Time, none'
-                    }
-                    style={[styles.metaValueButton, styles.menuValueButton]}
-                  >
-                    <Text style={[styles.metaValue, task.dueTime && { color: accent }]}>
-                      {task.dueTime ? formatTime24to12(task.dueTime) : 'None'}
-                    </Text>
-                    <IconChevronDown
-                      size={12}
-                      color={task.dueTime ? accent : colors.textTertiary}
-                      strokeWidth={1.8}
-                    />
-                  </View>
-                </DueTimeQuickMenu>
+              {fieldRows.length > 0 && <Divider indent={0} />}
+              <View style={styles.tray}>
+                {trayItems.map((item) => (
+                  <Tooltip key={item.key} label={item.label} align="center">
+                    {item.node}
+                  </Tooltip>
+                ))}
               </View>
             </>
           )}
-          {!!task.dueDate && remindersSupported && (
-            <>
-              <Divider indent={44} />
-              <View style={styles.metaRow}>
-                <IconBell size={18} color={colors.textSecondary} />
-                <Text style={styles.metaLabelFixed}>Reminders</Text>
-                <ReminderQuickMenu
-                  reminders={reminders}
-                  dueTime={task.dueTime}
-                  style={styles.metaValueMenu}
-                  onChange={(next) => updateTask(task.id, taskPatchForReminders(task, next))}
-                >
-                  <View style={[styles.metaValueButton, styles.menuValueButton]}>
-                    {reminders.length === 1 ? (
-                      <View style={styles.reminderValue}>
-                        <Text
-                          numberOfLines={1}
-                          ellipsizeMode="tail"
-                          style={[styles.metaValue, styles.reminderMainValue, { color: accent }]}
-                        >
-                          {reminderOffsetLabel(reminders[0].offsetDays)}
-                        </Text>
-                        <Text numberOfLines={1} style={styles.reminderTimeValue}>
-                          ({formatTime24to12(reminders[0].time)})
-                        </Text>
-                      </View>
-                    ) : (
-                      <Text
-                        numberOfLines={1}
-                        ellipsizeMode="tail"
-                        style={[styles.metaValue, styles.dueValue, reminders.length > 0 && { color: accent }]}
-                      >
-                        {reminderLabel}
-                      </Text>
-                    )}
-                    <IconChevronDown size={12} color={reminders.length > 0 ? accent : colors.textTertiary} strokeWidth={1.8} />
-                  </View>
-                </ReminderQuickMenu>
-              </View>
-            </>
-          )}
-          {!!task.dueDate && repeatSupported && !task.completed && (
-            <>
-              <Divider indent={44} />
-              <View style={styles.metaRow}>
-                <IconRepeat size={18} color={colors.textSecondary} />
-                <Text style={styles.metaLabelFixed}>Repeat</Text>
-                <RepeatQuickMenu
-                  dueDate={task.dueDate}
-                  repeat={task.repeat}
-                  style={styles.metaValueMenu}
-                  onChange={(repeat) => updateTask(task.id, { repeat })}
-                  onSkip={() => skipOccurrence(task.id)}
-                >
-                  <View style={[styles.metaValueButton, styles.menuValueButton]}>
-                    <Text
-                      numberOfLines={1}
-                      ellipsizeMode="tail"
-                      style={[styles.metaValue, styles.dueValue, !!task.repeat && { color: accent }]}
-                    >
-                      {describeRepeat(task.repeat, task.dueDate)}
-                    </Text>
-                    <IconChevronDown size={12} color={task.repeat ? accent : colors.textTertiary} strokeWidth={1.8} />
-                  </View>
-                </RepeatQuickMenu>
-              </View>
-            </>
-          )}
-          <Divider indent={44} />
-          <Pressable style={hoverBg(styles.metaRow)} onPress={openPicker('tags')}>
-            <IconTag size={18} color={colors.textSecondary} />
-            <Text style={styles.metaLabelFixed}>Tags</Text>
-            <View style={styles.tagsWrap}>
-              {task.tags.length === 0 && <Text style={styles.metaValue}>Add tags</Text>}
-              {task.tags.map((t) => (
-                <View key={t} style={styles.tagChip}>
-                  <Text style={styles.tagChipText}>#{t}</Text>
-                </View>
-              ))}
-            </View>
-          </Pressable>
-          <Divider indent={44} />
-          <View style={styles.metaRow}>
-            <Text style={styles.metaLabelFixed}>Priority</Text>
-            <View style={styles.priorityRow}>
-              {PRIORITIES.map((p) => {
-                const active = task.priority === p.key;
-                const pColor = p.key === 'none' ? colors.textTertiary : priorityColor(p.key, colors);
-                return (
-                  <Pressable
-                    key={p.key}
-                    style={hoverBg(
-                      [
-                        styles.priorityPill,
-                        active && p.key === 'high' && { backgroundColor: colors.priorityHighBg, borderColor: colors.priorityHigh },
-                        active && p.key !== 'high' && { borderColor: pColor },
-                      ],
-                      active
-                    )}
-                    onPress={() => updateTask(task.id, { priority: p.key })}
-                  >
-                    <Text
-                      style={[
-                        styles.priorityText,
-                        { color: pColor },
-                        active && { fontFamily: fonts.sansSemiBold },
-                      ]}
-                    >
-                      {p.label}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-          </View>
         </Card>
 
         <Card style={[styles.pad14, { marginTop: 12 }]}>
@@ -830,6 +934,12 @@ export default function TaskDetailView({ taskId, onClose, variant, active = true
         initialTags={task.tags}
         onApply={(tags) => updateTask(task.id, { tags })}
       />
+      <PriorityPickerSheet
+        visible={picker === 'priority'}
+        onClose={closePicker}
+        anchor={pickerAnchor}
+        onApply={(priority) => updateTask(task.id, { priority })}
+      />
       {historySupported && (
         <TaskHistorySheet
           visible={historyOpen}
@@ -949,22 +1059,31 @@ const useStyles = makeStyles((c) => ({
     textDecorationLine: 'line-through',
     color: c.textSecondary,
   },
-  priorityRow: {
-    flex: 1,
+  tray: {
     flexDirection: 'row',
-    gap: 6,
-  },
-  priorityPill: {
-    flex: 1,
+    flexWrap: 'wrap',
     alignItems: 'center',
-    paddingVertical: 5,
-    borderRadius: 7,
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  trayItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    minWidth: 34,
+    height: 32,
+    paddingHorizontal: 8,
+    borderRadius: 8,
     borderWidth: 1,
+    borderStyle: 'dashed',
     borderColor: c.border,
   },
-  priorityText: {
-    fontFamily: fonts.sansMedium,
+  trayWord: {
+    fontFamily: fonts.sansRegular,
     fontSize: 13,
+    color: c.textTertiary,
   },
   metaRow: {
     flexDirection: 'row',
