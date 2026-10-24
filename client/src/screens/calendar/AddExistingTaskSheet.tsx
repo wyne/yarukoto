@@ -30,7 +30,7 @@ import { useDraggable } from '../../drag/useDraggable';
 import { useDragActive } from '../../drag/DragContext';
 import { useDragSource } from '../../drag/dragSource';
 import { useDropTarget } from '../../drag/useDropTarget';
-import { useDetail, useDetailActions } from '../../navigation/DetailContext';
+import { useDetail } from '../../navigation/DetailContext';
 import { hapticSelect } from '../../data/haptics';
 import { IconCalendarBox, IconPlus } from '../../icons/Icons';
 import { Task } from '../../data/types';
@@ -148,7 +148,11 @@ export default function AddExistingTaskSheet({ visible, onClose }: SheetProps) {
    * row anywhere else. A long press carries the task either way.
    */
   const [selecting, setSelecting] = useState(false);
-  const { openTask } = useDetailActions();
+  /**
+   * Read here, not in the rows: the sheet's contents render through a portal at
+   * the app's root, outside the provider these come from.
+   */
+  const { openTaskId, openTask } = useDetail();
   const accent = useAccent();
   const ref = useRef<React.ElementRef<typeof BottomSheetModal>>(null);
   const presented = useRef(false);
@@ -405,6 +409,7 @@ export default function AddExistingTaskSheet({ visible, onClose }: SheetProps) {
                     selectedIds={selectedIds}
                     selected={selectedIdSet.has(task.id)}
                     selecting={selecting}
+                    open={openTaskId === task.id}
                     onPress={() => pressTask(task.id)}
                     onPickup={finishPickup}
                   />
@@ -427,6 +432,7 @@ function DraggableTask({
   selectedIds,
   selected,
   selecting,
+  open,
   onPress,
   onPickup,
 }: {
@@ -435,15 +441,14 @@ function DraggableTask({
   selectedIds: string[];
   selected: boolean;
   selecting: boolean;
+  /** The open task keeps its tint, and only it; see TaskRow's `active`. */
+  open: boolean;
   onPress: () => void;
   onPickup: () => void;
 }) {
   const styles = useStyles();
   const colors = useColors();
   const { state, toggleComplete, scheduleToday, snoozeTask, scheduleNextWeek } = useTasks();
-  // The open task keeps its tint, and only it: without this a row tinted on
-  // press would stay tinted after the next task opened.
-  const { openTaskId } = useDetail();
   const { onLongPress, ...handlers } = useDraggable({
     taskId: task.id,
     taskIds: selected ? selectedIds : [task.id],
@@ -462,7 +467,7 @@ function DraggableTask({
         selected={selected}
         selectionColor={priorityColor(task.priority, colors)}
         dragSource={isSource}
-        active={openTaskId === task.id}
+        active={open}
         onPress={onPress}
         onLongPress={(event) => {
           onLongPress(event);
