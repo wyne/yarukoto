@@ -10,6 +10,7 @@ import { useTasks } from '../data/TaskContext';
 import { BrowseParams } from '../navigation/types';
 import { loadBrowseCriteria, saveBrowseCriteria } from '../data/storage';
 import BrowseView from '../components/browse/BrowseView';
+import { FINE_POINTER } from '../data/platform';
 import GlassIconButton from '../components/GlassIconButton';
 import { IconMenu } from '../icons/Icons';
 
@@ -130,8 +131,8 @@ const useStyles = makeStyles((c) => ({
   },
   title: {
     flex: 1,
-    fontFamily: fonts.sansBold,
-    fontSize: 22,
+    fontFamily: FINE_POINTER ? fonts.sansSemiBold : fonts.sansBold,
+    fontSize: FINE_POINTER ? 16 : 22,
     color: c.textPrimary,
   },
 }));
