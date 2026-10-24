@@ -13,7 +13,8 @@ import { NATIVE_TAB_CONTENT_PADDING } from '../navigation/nativeTabBarLayout';
 import { FLOATING_TAB_BAR } from '../data/platform';
 import { createApi } from '../data/api';
 import { useSyncStatus, useTasks } from '../data/TaskContext';
-import { Task } from '../data/types';
+import { getListById } from '../data/selectors';
+import { ListDef, Task } from '../data/types';
 import {
   ACTIVITY_FILTERS,
   ActivityFilter,
@@ -314,9 +315,12 @@ export default function ActivityScreen() {
                           <Text style={[styles.rowTitle, { color: eventColor(item.kind, colors) }]} numberOfLines={1}>
                             {item.title}
                           </Text>
-                          <Text style={styles.rowTask} numberOfLines={1}>
-                            {item.taskTitle}
-                          </Text>
+                          <View style={styles.taskLine}>
+                            <Text style={styles.rowTask} numberOfLines={1}>
+                              {item.taskTitle}
+                            </Text>
+                            <ListCrumb lists={state.lists} listId={item.listId} />
+                          </View>
                           {!!item.detail && (
                             <Text style={styles.rowMeta} numberOfLines={1}>
                               {item.detail}
@@ -342,6 +346,25 @@ export default function ActivityScreen() {
           ))
         )}
       </ScrollView>
+    </View>
+  );
+}
+
+/**
+ * Where the task lives, so a feed that mixes every list can be read without
+ * opening each entry. Drawn like the list crumb in task detail. A list that has
+ * since been deleted is left out rather than named from memory.
+ */
+function ListCrumb({ lists, listId }: { lists: ListDef[]; listId: string | null }) {
+  const styles = useStyles();
+  const list = getListById(lists, listId);
+  if (listId && !list) return null;
+  return (
+    <View style={styles.crumb}>
+      {!!list && <View style={[styles.crumbDot, { backgroundColor: list.color }]} />}
+      <Text style={styles.crumbText} numberOfLines={1}>
+        {list ? list.name : 'Inbox'}
+      </Text>
     </View>
   );
 }
@@ -440,11 +463,35 @@ const useStyles = makeStyles((c) => ({
     fontSize: 15,
     color: c.textPrimary,
   },
-  rowTask: {
+  taskLine: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
     marginTop: 2,
+  },
+  rowTask: {
+    flexShrink: 1,
     fontFamily: fonts.sansRegular,
     fontSize: 14,
     color: c.textSecondary,
+  },
+  crumb: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    flexShrink: 0,
+    maxWidth: '45%',
+  },
+  crumbDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 2,
+  },
+  crumbText: {
+    flexShrink: 1,
+    fontFamily: fonts.monoRegular,
+    fontSize: 12,
+    color: c.textTertiary,
   },
   rowMeta: {
     marginTop: 2,

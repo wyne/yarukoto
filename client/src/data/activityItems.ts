@@ -46,6 +46,8 @@ export interface ActivityItem {
   changes?: ActivityChange[];
   taskId: string;
   taskTitle: string;
+  /** The list the task was in as of this revision; null is the Inbox. */
+  listId: string | null;
   recordedAt: string;
 }
 
@@ -192,13 +194,18 @@ function editTitle(changes: ActivityChange[]): string {
 }
 
 export function summarize(revision: ActivityRevision, now: Date, lists: ListDef[]): ActivityItem[] {
+  const listId = revision.task.listId ?? null;
+  return summarizeRevision(revision, now, lists).map((item) => ({ ...item, listId }));
+}
+
+function summarizeRevision(revision: ActivityRevision, now: Date, lists: ListDef[]): Omit<ActivityItem, 'listId'>[] {
   const { task, previousTask, op } = revision;
   const taskTitle = task.title.trim() || previousTask?.title.trim() || 'Untitled task';
   const changes = changesFor(task, previousTask, lists);
   const due = formatDueShort(now, task.dueDate, task.dueTime);
 
   if (op === 'create') {
-    const items: ActivityItem[] = [];
+    const items: Omit<ActivityItem, 'listId'>[] = [];
     // Older servers recorded only the final snapshot when a task was created
     // and changed again before its first sync. Expand those combined revisions
     // so existing history is useful too; newer servers emit separate rows.
@@ -226,7 +233,7 @@ export function summarize(revision: ActivityRevision, now: Date, lists: ListDef[
     return [{ id: String(revision.id), kind: 'restore', title: 'Restored task', taskId: task.id, taskTitle, recordedAt: revision.recordedAt }];
   }
 
-  const items: ActivityItem[] = [];
+  const items: Omit<ActivityItem, 'listId'>[] = [];
   if (previousTask && !previousTask.completed && task.completed) {
     items.push({ id: `${revision.id}-completed`, kind: 'complete', title: 'Completed task', taskId: task.id, taskTitle, recordedAt: revision.recordedAt });
   }
