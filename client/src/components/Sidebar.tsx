@@ -1398,8 +1398,8 @@ const useStyles = makeStyles((c) => ({
     borderRadius: 4,
   },
   letterBadge: {
-    width: 24,
-    height: 24,
+    minWidth: 24,
+    minHeight: 24,
     borderRadius: 6,
     alignItems: 'center',
     justifyContent: 'center',

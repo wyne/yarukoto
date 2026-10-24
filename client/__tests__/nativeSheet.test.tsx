@@ -28,6 +28,7 @@ jest.mock('../src/components/useSheetInsets', () => ({
 jest.mock('../src/theme/ThemeContext', () => ({
   useColors: () => ({ scrimOpacity: 0.5 }),
   useScheme: () => 'light',
+  useTextScale: () => 1,
 }));
 
 function renderSheet(snapPoints?: string[]) {

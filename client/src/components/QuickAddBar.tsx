@@ -407,7 +407,7 @@ const useStyles = makeStyles((c) => ({
     alignItems: 'center',
     gap: 4,
     minWidth: 26,
-    height: 26,
+    minHeight: 26,
     paddingHorizontal: 5,
     borderRadius: 6,
     justifyContent: 'center',

@@ -15,6 +15,7 @@ import { TaskGroup } from '../data/viewOptions';
 import SectionHeader from './SectionHeader';
 import { IconGrip } from '../icons/Icons';
 import { useWindowResizing } from './useWindowSelector';
+import { useFontScale } from '../theme/textScale';
 
 /**
  * The task list as one virtualized, reorderable list.
@@ -135,6 +136,7 @@ const VirtualTaskList = forwardRef<FlatList<Item>, Props>(function VirtualTaskLi
 ) {
   const active = groups.reduce((n, g) => n + g.tasks.length, 0);
   const resizing = useWindowResizing();
+  const fontScale = useFontScale();
 
   // The list's own pan otherwise activates after 10pt of movement in any
   // direction, which takes the touch from a row's swipe (15pt) and the
@@ -309,6 +311,10 @@ const VirtualTaskList = forwardRef<FlatList<Item>, Props>(function VirtualTaskLi
 
   return (
     <ReorderableList
+      // Rebuilt when the system text size changes. React Native re-measures the
+      // text itself, but rows already laid out keep their old heights and spacing
+      // until something rebuilds them, which until now was a relaunch.
+      key={fontScale}
       ref={setRefs}
       data={items}
       keyExtractor={keyExtractor}

@@ -19,6 +19,7 @@ jest.mock('../modules/mac-pointer/src/KeyCommandsView', () => 'KeyCommandsView')
 jest.mock('../src/theme/styles', () => ({ makeStyles: () => () => ({}) }));
 jest.mock('../src/theme/ThemeContext', () => ({
   useColors: () => ({ textFaint: '#999' }),
+  useTextScale: () => 1,
 }));
 jest.mock('../src/theme/focus', () => ({
   useFieldFocus: () => ({ focusProps: {}, focusStyle: null }),

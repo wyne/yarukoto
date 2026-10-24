@@ -1,6 +1,7 @@
 import { StyleSheet } from 'react-native';
 import { Palette, palettes } from './colors';
-import { useScheme } from './ThemeContext';
+import { useScheme, useTextScale } from './ThemeContext';
+import { scaleTextStyles } from './textScale';
 
 type NamedStyles<T> = StyleSheet.NamedStyles<T>;
 
@@ -24,8 +25,12 @@ type NamedStyles<T> = StyleSheet.NamedStyles<T>;
  * shared palette and remounting the tree, would have thrown away exactly the
  * no-flash property the accent system was built to keep.
  *
- * Only for colour. A style that varies on anything else — a measured width, an
- * inset — still belongs in the render body.
+ * The desktop's text size (View › Bigger / Smaller) is the one other thing a
+ * sheet answers to: a sheet at another size is built the first time that size is
+ * asked for, then kept, so stepping back and forth is a lookup too.
+ *
+ * Only for colour and text size. A style that varies on anything else — a
+ * measured width, an inset — still belongs in the render body.
  */
 // Deliberately the same shape as `StyleSheet.create`'s own signature, `any` and
 // all: a tighter constraint rejects the web-only properties the codebase passes
@@ -40,7 +45,17 @@ export function makeStyles<T extends NamedStyles<T> | NamedStyles<any>>(
     light: StyleSheet.create(build(palettes.light)),
     dark: StyleSheet.create(build(palettes.dark)),
   };
+  const scaled = new Map<string, T>();
   return function useThemedStyles(): T {
-    return sheets[useScheme()] as T;
+    const scheme = useScheme();
+    const textScale = useTextScale();
+    if (textScale === 1) return sheets[scheme] as T;
+    const key = `${scheme}@${textScale}`;
+    let sheet = scaled.get(key);
+    if (!sheet) {
+      sheet = StyleSheet.create(scaleTextStyles(build(palettes[scheme]), textScale)) as T;
+      scaled.set(key, sheet);
+    }
+    return sheet;
   };
 }

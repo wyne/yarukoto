@@ -5,6 +5,7 @@ import { parseQuickAdd, QuickAddRange, quickAddSpans, QuickAddTokenKind } from '
 import { Priority } from '../data/types';
 import { Palette, priorityColor } from '../theme/colors';
 import { useAccent, useColors } from '../theme/ThemeContext';
+import { useFontScale } from '../theme/textScale';
 
 type Props = React.ComponentProps<typeof NativeOwnedTextInput> & {
   style?: StyleProp<TextStyle>;
@@ -38,10 +39,14 @@ const QuickAddInput = forwardRef<TextInput, Props>(function QuickAddInput({ valu
   // The one priority token takes the colour of the priority it sets.
   const priority = useMemo(() => parseQuickAdd(value, new Date(), literal).priority, [value, literal]);
   const paint = (kind: QuickAddTokenKind) => tokenColors(kind, priority, colors, accent);
+  const fontScale = useFontScale();
 
   if (Platform.OS !== 'web') {
     return (
-      <NativeOwnedTextInput ref={ref} value={value} style={style} {...props}>
+      // Keyed on the system text size: a native field sets its font once, when its
+      // props arrive, so a size changed in Settings would otherwise wait for the
+      // next relaunch. The text is in `value`, so nothing typed is lost.
+      <NativeOwnedTextInput key={fontScale} ref={ref} value={value} style={style} {...props}>
         {/* One <Text> around the runs: iOS hands a field's children straight to
             native, where a bare string is an error. */}
         <Text>

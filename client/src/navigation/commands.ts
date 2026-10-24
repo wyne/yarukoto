@@ -52,6 +52,9 @@ export type CommandId =
   | 'focusSidebar'
   | 'toggleSidebar'
   | 'toggleTaskPane'
+  | 'textBigger'
+  | 'textSmaller'
+  | 'textActualSize'
   | 'groupByNone'
   | 'groupByList'
   | 'groupByDate'
@@ -163,6 +166,13 @@ export const COMMANDS: readonly CommandDef[] = [
   // ⌘S and ⌘D for saving and bookmarking.
   { id: 'toggleSidebar', title: 'Toggle Sidebar', menu: 'view', group: 'panes', shortcut: cmd('s'), keywords: 'show hide collapse' },
   { id: 'toggleTaskPane', title: 'Toggle Task Pane', menu: 'view', group: 'panes', shortcut: cmd('d'), list: true, keywords: 'show hide inspector detail' },
+  // The desktop's text size. Phones follow the system's; the Mac app takes none
+  // from the system, and the Windows app's engine has its own zoom turned off.
+  // Marked `web` for the Windows app, but only the apps answer: a browser keeps
+  // these keys for its own zoom, which already does the job there.
+  { id: 'textBigger', title: 'Bigger Text', menu: 'view', group: 'textSize', shortcut: cmd('='), web: true, keywords: 'zoom in larger font size increase' },
+  { id: 'textSmaller', title: 'Smaller Text', menu: 'view', group: 'textSize', shortcut: cmd('-'), web: true, keywords: 'zoom out font size decrease' },
+  { id: 'textActualSize', title: 'Actual Size', menu: 'view', group: 'textSize', shortcut: cmd('0'), web: true, keywords: 'zoom reset text font size default' },
   // The task list's Group & sort, as View menus in Finder and Mail have it. The
   // option in use is checked, and left out of the command menu.
   { id: 'groupByNone', title: 'None', menu: 'view', group: 'arrange', submenu: 'Group By', keywords: 'ungroup arrange' },

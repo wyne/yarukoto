@@ -1,6 +1,8 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { Appearance, Platform, useColorScheme } from 'react-native';
-import { loadAccent, loadScheme, saveAccent, saveScheme } from '../data/storage';
+import { DESKTOP_UI } from '../data/platform';
+import { loadAccent, loadScheme, loadTextScale, saveAccent, saveScheme, saveTextScale } from '../data/storage';
+import { clampTextScale } from './textScale';
 import {
   ACCENT_DARK,
   AccentColor,
@@ -34,6 +36,9 @@ interface ThemeContextValue {
   /** The choice resolved against the device. What everything else reads. */
   scheme: Scheme;
   colors: Palette;
+  /** The desktop's text size (View › Bigger / Smaller). Always 1 on a phone. */
+  textScale: number;
+  setTextScale: (scale: number) => void;
 }
 
 const ThemeContext = createContext<ThemeContextValue>({
@@ -43,6 +48,8 @@ const ThemeContext = createContext<ThemeContextValue>({
   setSchemePref: () => {},
   scheme: 'light',
   colors: palettes.light,
+  textScale: 1,
+  setTextScale: () => {},
 });
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
@@ -50,6 +57,9 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   // already the chosen accent rather than flashing the default and correcting.
   const [accent, setAccentState] = useState<AccentColor>(loadAccent);
   const [schemePref, setSchemePrefState] = useState<SchemePref>(loadScheme);
+  // A phone follows the system text size instead, so a scale stored there (by an
+  // iPad with a keyboard, say) is never applied on top of it.
+  const [textScale, setTextScaleState] = useState(() => (DESKTOP_UI ? clampTextScale(loadTextScale()) : 1));
   const device = useColorScheme();
 
   const setAccent = useCallback((next: AccentColor) => {
@@ -60,6 +70,12 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const setSchemePref = useCallback((next: SchemePref) => {
     setSchemePrefState(next);
     saveScheme(next);
+  }, []);
+
+  const setTextScale = useCallback((next: number) => {
+    const scale = clampTextScale(next);
+    setTextScaleState(scale);
+    saveTextScale(scale);
   }, []);
 
   const scheme: Scheme = !DARK_MODE_READY
@@ -97,8 +113,10 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       setSchemePref,
       scheme,
       colors: palettes[scheme],
+      textScale,
+      setTextScale,
     }),
-    [accent, setAccent, schemePref, setSchemePref, scheme]
+    [accent, setAccent, schemePref, setSchemePref, scheme, textScale, setTextScale]
   );
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }
@@ -116,6 +134,11 @@ export function useAccent(): string {
 
 export function useScheme(): Scheme {
   return useContext(ThemeContext).scheme;
+}
+
+/** The desktop's text size, for sizes decided at render time rather than in a stylesheet. */
+export function useTextScale(): number {
+  return useContext(ThemeContext).textScale;
 }
 
 /** The palette, for colours decided at render time rather than in a stylesheet. */

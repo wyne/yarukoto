@@ -5,7 +5,7 @@ import Dialog from './Dialog';
 import KeyCommandsView from '../../modules/mac-pointer/src/KeyCommandsView';
 import { makeStyles } from '../theme/styles';
 import { fonts } from '../theme/typography';
-import { useColors } from '../theme/ThemeContext';
+import { useColors, useTextScale } from '../theme/ThemeContext';
 import { useFieldFocus } from '../theme/focus';
 import { useTasks } from '../data/TaskContext';
 import { activeFolders, activeLists, tagCounts } from '../data/selectors';
@@ -76,6 +76,7 @@ const PICKER_PLACEHOLDER: Record<PalettePicker['kind'], string> = {
 
 /** Seen in this many rows at once; the rest scroll. */
 const MAX_ROWS = 9;
+/** At the default text size; it grows with View › Bigger Text. */
 const ROW_HEIGHT = 38;
 /** Drawn at most: Go to Task… can match thousands, and nobody scrolls past this many. */
 const MAX_RESULTS = 100;
@@ -237,12 +238,13 @@ export default function CommandPalette({ visible, onClose, picker = null, onLeav
    * sight, and pulling the list to it would fight the wheel that brought it.
    */
   const scrollY = useRef(0);
+  const rowHeight = Math.round(ROW_HEIGHT * useTextScale());
   const reveal = (i: number) => {
-    const top = i * ROW_HEIGHT;
-    const viewport = ROW_HEIGHT * MAX_ROWS;
+    const top = i * rowHeight;
+    const viewport = rowHeight * MAX_ROWS;
     let y = scrollY.current;
     if (top < y) y = top;
-    else if (top + ROW_HEIGHT > y + viewport) y = top + ROW_HEIGHT - viewport;
+    else if (top + rowHeight > y + viewport) y = top + rowHeight - viewport;
     else return;
     scrollY.current = y;
     listRef.current?.scrollTo({ y, animated: false });
@@ -329,7 +331,7 @@ export default function CommandPalette({ visible, onClose, picker = null, onLeav
       )}
       <ScrollView
         ref={listRef}
-        style={{ maxHeight: ROW_HEIGHT * MAX_ROWS }}
+        style={{ maxHeight: rowHeight * MAX_ROWS }}
         onScroll={(e) => {
           scrollY.current = e.nativeEvent.contentOffset.y;
         }}
@@ -348,7 +350,7 @@ export default function CommandPalette({ visible, onClose, picker = null, onLeav
             // The web reports hover as hover; the Mac as a pointer entering.
             onHoverIn={() => setIndex(i)}
             onPointerEnter={() => setIndex(i)}
-            style={[styles.row, i === selected && styles.rowSelected]}
+            style={[styles.row, { height: rowHeight }, i === selected && styles.rowSelected]}
           >
             {picker && picker.kind !== 'goToTask' && <Text style={styles.check}>{entry.checked ? '✓' : ''}</Text>}
             <Text style={styles.title} numberOfLines={1}>
@@ -377,7 +379,6 @@ const useStyles = makeStyles((c) => ({
     borderBottomColor: c.divider,
   },
   row: {
-    height: ROW_HEIGHT,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
