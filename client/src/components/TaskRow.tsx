@@ -310,11 +310,7 @@ const noTextSelect = { userSelect: 'none' } as const;
 type PressState = PressableStateCallbackType & { hovered?: boolean };
 
 const useStyles = makeStyles((c) => ({
-  /**
-   * Tighter with a pointer, which needs no 44pt touch target, so a desktop window
-   * shows more of the list. The title drops to Regular with it: at this spacing
-   * Medium reads heavier than the row around it.
-   */
+  /** Tighter with a pointer, which needs no 44pt touch target, so a desktop window shows more of the list. */
   row: {
     position: 'relative',
     flexDirection: 'row',
@@ -363,7 +359,9 @@ const useStyles = makeStyles((c) => ({
   },
   title: {
     flexShrink: 1,
-    fontFamily: FINE_POINTER ? fonts.sansRegular : fonts.sansMedium,
+    // Regular rather than Medium: a list is many titles at once, and at Medium
+    // they read heavier than the rows around them.
+    fontFamily: fonts.sansRegular,
     fontSize: FINE_POINTER ? 15 : 16,
     color: c.textPrimary,
   },
