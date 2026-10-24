@@ -384,6 +384,7 @@ const TaskListBody = memo(
     selectedIds: webSelection,
     anchorId,
     setAnchor,
+    replaceAnchor,
     select,
     clear: clearSelection,
   } = selection;
@@ -632,12 +633,17 @@ const TaskListBody = memo(
    * Tab or Escape in the task pane. The cursor comes too: onto the task open
    * beside the list if there is one, else the first row, so ↑ and ↓ have
    * somewhere to start.
+   *
+   * That default is only for a list with no cursor, and this can run before
+   * the list has drawn the one it was just given: Go to Task… sets the cursor,
+   * changes list and asks for the keyboard in one go. So it replaces only the
+   * anchor this render saw, never one set since.
    */
   const focusList = () => {
     if (!cursor) {
       const start = openTaskId && navIds.includes(openTaskId) ? openTaskId : navIds[0];
       if (start) {
-        setAnchor(start);
+        replaceAnchor(anchorId, start);
         head.current = start;
       }
     }

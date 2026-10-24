@@ -15,6 +15,12 @@ interface AnchorValue {
    */
   anchorId: string | null;
   setAnchor: (taskId: string) => void;
+  /**
+   * Moves the anchor to `taskId` only if it is still `from`. For a default
+   * cursor picked from what a render saw: anything that set the anchor since,
+   * and hasn't drawn yet, is newer and keeps it.
+   */
+  replaceAnchor: (from: string | null, taskId: string) => void;
 }
 
 type SelectionValue = SelectedValue & AnchorValue;
@@ -46,6 +52,10 @@ export function SelectionProvider({ children }: { children: React.ReactNode }) {
   const [anchorId, setAnchorId] = useState<string | null>(null);
 
   const setAnchor = useCallback((taskId: string) => setAnchorId(taskId), []);
+  const replaceAnchor = useCallback(
+    (from: string | null, taskId: string) => setAnchorId((current) => (current === from ? taskId : current)),
+    []
+  );
   const select = useCallback((taskIds: string[]) => setSelectedIds(taskIds), []);
   // Clearing nothing keeps the array it had: moving the cursor clears on every
   // key press, and a new empty array each time is a change to everyone reading it.
@@ -55,7 +65,10 @@ export function SelectionProvider({ children }: { children: React.ReactNode }) {
     () => ({ selectedIds, select, clear }),
     [selectedIds, select, clear]
   );
-  const anchor = useMemo<AnchorValue>(() => ({ anchorId, setAnchor }), [anchorId, setAnchor]);
+  const anchor = useMemo<AnchorValue>(
+    () => ({ anchorId, setAnchor, replaceAnchor }),
+    [anchorId, setAnchor, replaceAnchor]
+  );
   const actions = useMemo<SelectionActions>(() => ({ setAnchor, clear }), [setAnchor, clear]);
 
   return (
