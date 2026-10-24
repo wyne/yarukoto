@@ -175,9 +175,12 @@ export default function ReminderQuickMenu({ reminders: rawReminders, dueTime, on
     setCustomOpen(false);
   };
 
+  // The menu's own title is the one heading. Its sections are untitled, so
+  // they read as groups under it rather than as headings stacked beneath it.
   const actions: MenuAction[] = [
     {
-      title: 'Presets',
+      id: 'presets',
+      title: '',
       displayInline: true,
       subactions: presets.map((preset) => ({
         id: presetToggleId(preset),
@@ -188,7 +191,8 @@ export default function ReminderQuickMenu({ reminders: rawReminders, dueTime, on
     ...(customReminders.length > 0
       ? [
           {
-            title: 'Custom',
+            id: 'set',
+            title: '',
             displayInline: true,
             subactions: customReminders.map((reminder) => ({
               id: `remove:${reminder.id}`,

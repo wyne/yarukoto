@@ -142,9 +142,10 @@ export default function RepeatQuickMenu({ dueDate, repeat: rawRepeat, onChange, 
     setCustomOpen(true);
   };
 
+  // Untitled: the menu's own "Repeat" title already heads it.
   const actions: MenuAction[] = [
     {
-      title: 'Repeat',
+      title: '',
       displayInline: true,
       subactions: [
         { id: 'none', title: 'None', state: repeat ? ('off' as const) : ('on' as const) },
