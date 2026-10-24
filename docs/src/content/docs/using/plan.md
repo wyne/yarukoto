@@ -18,7 +18,8 @@ important one. Tap a day to select it.
 - Swipe the month sideways to move to the next or previous month, or use the arrows at the top.
 - Drag the month upwards to shrink it to a single week, which leaves more room for the days below.
   Swiping sideways then moves a week at a time. Drag it down again to bring back the month.
-- Tap **Today** in the header, or the month's name, to jump back to today.
+- Tap **Today** beside the calendar's name, or the name itself, to jump back to today. The button only shows
+  once you have moved away from today.
 - On a computer the calendar starts as a single week, so the day columns get the room. Click the
   small arrow under it to open the whole month, and again to close it.
 

@@ -18,7 +18,7 @@ import { SortBy, sortTasks } from '../../data/viewOptions';
 import { useDraggable } from '../../drag/useDraggable';
 import { useDragActive } from '../../drag/DragContext';
 import { useDragSource } from '../../drag/dragSource';
-import { useDetailActions } from '../../navigation/DetailContext';
+import { useDetail, useDetailActions } from '../../navigation/DetailContext';
 import { useAccent } from '../../theme/ThemeContext';
 import { hapticSelect } from '../../data/haptics';
 import { IconCalendarBox, IconChevronLeft, IconChevronRight } from '../../icons/Icons';
@@ -248,6 +248,9 @@ function DraggableTask({
   const styles = useStyles();
   const colors = useColors();
   const { state, toggleComplete, scheduleToday, snoozeTask, scheduleNextWeek } = useTasks();
+  // The open task keeps its tint, and only it: without this a row tinted on
+  // press would stay tinted after the next task opened.
+  const { openTaskId } = useDetail();
   const { onLongPress, ...handlers } = useDraggable({
     taskId: task.id,
     taskIds: selected ? selectedIds : [task.id],
@@ -266,6 +269,7 @@ function DraggableTask({
         selected={selected}
         selectionColor={priorityColor(task.priority, colors)}
         dragSource={isSource}
+        active={openTaskId === task.id}
         onPress={onPress}
         onLongPress={onLongPress}
         onToggleComplete={() => toggleComplete(task.id)}

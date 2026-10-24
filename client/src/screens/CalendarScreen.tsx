@@ -12,7 +12,7 @@ import { useDetailActions, useOverlayDetailWhileFocused } from '../navigation/De
 import { useTasks } from '../data/TaskContext';
 import { PlanMode, PlanSort, loadPlanPrefs, savePlanPrefs } from '../data/storage';
 import { tasksByDate } from '../data/selectors';
-import { addDays, addMonths, addWeeks, dayRangeLabel, monthShort, startOfWeek, toISODate } from '../data/dateUtils';
+import { addDays, addMonths, addWeeks, dayRangeLabel, isSameDay, monthShort, startOfWeek, toISODate } from '../data/dateUtils';
 import { Task } from '../data/types';
 import AgendaDayGroup from './calendar/AgendaDayGroup';
 import AddExistingTaskSheet, { AddExistingTaskButton } from './calendar/AddExistingTaskSheet';
@@ -393,6 +393,13 @@ export default function CalendarScreen() {
   // Names the calendar, not the range below it — the arrows move the calendar, so
   // the title is what they move. The day views say where they are with the band.
   const weekStart = startOfWeek(anchor);
+  /** Whether Today would change nothing: the selection, the calendar and the days below all on it. */
+  const onToday =
+    isSameDay(selectedDate, today) &&
+    (weekView
+      ? isSameDay(weekStart, startOfWeek(today))
+      : anchor.getMonth() === today.getMonth() && anchor.getFullYear() === today.getFullYear()) &&
+    (effectiveMode === 'day' || isSameDay(rangeStart, effectiveMode === 'multi' ? today : startOfWeek(today)));
   const calendarLabel = weekView
     ? dayRangeLabel(weekStart, addDays(weekStart, 6))
     : `${anchor.toLocaleDateString('en-US', { month: 'long' })} ${anchor.getFullYear()}`;
@@ -434,6 +441,19 @@ export default function CalendarScreen() {
             <Pressable onPress={goToday} style={styles.titleBtn}>
               <Text style={styles.title}>{calendarLabel}</Text>
             </Pressable>
+            {/* The title does this too, but nothing about a title says so. Beside
+                it because it is about what the title names, and gone when there
+                is nowhere for it to go. */}
+            {!onToday && (
+              <Pressable
+                onPress={goToday}
+                accessibilityRole="button"
+                accessibilityLabel="Go to today"
+                style={[styles.todayBtn, { borderColor: colors.border }]}
+              >
+                <Text style={[styles.todayBtnText, { color: colors.textSecondary }]}>Today</Text>
+              </Pressable>
+            )}
           </View>
           {controlsInHeader && (
             <View style={styles.headerControls}>
@@ -442,15 +462,6 @@ export default function CalendarScreen() {
               {completedPill}
             </View>
           )}
-          {/* The title does this too, but nothing about a title says so. */}
-          <Pressable
-            onPress={goToday}
-            accessibilityRole="button"
-            accessibilityLabel="Go to today"
-            style={[styles.todayBtn, { borderColor: colors.border }]}
-          >
-            <Text style={[styles.todayBtnText, { color: colors.textSecondary }]}>Today</Text>
-          </Pressable>
           <GlassIconButtonGroup>
             <GlassIconButton onPress={() => step(-1)} label="Previous">
               <IconChevronLeft size={18} />
@@ -617,6 +628,7 @@ const useStyles = makeStyles((c) => ({
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 10,
   },
   titleBtn: {
     minHeight: 36,
