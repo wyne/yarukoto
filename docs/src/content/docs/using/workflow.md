@@ -70,8 +70,8 @@ lost.
   included, so a free tomorrow shows as free. Click its title to switch between **Today**,
   **Next 2 days**, **Next 3 days** and **Week**; the choice is remembered on that device.
 
-On a Mac, the menu bar icon shows today's count and lets you check tasks off without opening the
-window. Windows has the same in the notification area.
+On a Mac, the menu bar icon shows today's count and lists today's tasks: choose one to open it, or
+hold Option to check it off without opening the window. Windows has the same in the notification area.
 
 ## 4. Plan the days ahead
 

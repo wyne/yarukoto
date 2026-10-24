@@ -17,7 +17,7 @@ export interface TraySettings {
 
 /** A menu choice JS answers. Open and Exit are answered natively. */
 export type TrayAction =
-  | { action: 'complete'; taskId: string }
+  | { action: 'openTask' | 'complete'; taskId: string }
   | { action: 'newTask' | 'settings' | 'today'; taskId?: undefined };
 
 export function traySettings(): Promise<TraySettings> {

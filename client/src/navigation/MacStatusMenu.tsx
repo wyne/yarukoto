@@ -3,6 +3,7 @@ import MacStatusItem from '../../modules/mac-status-item/src/MacStatusItem';
 import { statusMenuContents } from '../data/macStatusMenu';
 import { MAC } from '../data/platform';
 import { useTasks } from '../data/TaskContext';
+import { useShowTask } from './showTask';
 import { dispatchCommand, useCommand } from './MenuCommands';
 
 const closeWindow = () => {
@@ -55,12 +56,16 @@ export default function MacStatusMenu() {
     };
   }, []);
 
-  const latest = useRef({ tasks: state.tasks, toggleComplete });
-  latest.current = { tasks: state.tasks, toggleComplete };
+  const showTask = useShowTask();
+  const latest = useRef({ tasks: state.tasks, toggleComplete, showTask });
+  latest.current = { tasks: state.tasks, toggleComplete, showTask };
   useEffect(() => {
     if (!MAC || !MacStatusItem) return;
     const subscription = MacStatusItem.addListener('onAction', (event) => {
       switch (event.action) {
+        case 'openTask':
+          latest.current.showTask(event.taskId);
+          break;
         case 'complete': {
           // The menu can be a sync behind; toggling a task already done would undo it.
           const task = latest.current.tasks.find((t) => t.id === event.taskId);
