@@ -23,6 +23,13 @@ test('an edit names the fields it changed', () => {
   expect(item.changes).toEqual([{ label: 'Priority', before: 'None', after: 'High' }]);
 });
 
+test('each entry carries the list the task was in at that revision', () => {
+  // Moved out of Home and completed in one push: both entries name where it ended up.
+  const task = { ...base, listId: 'errands', completed: true };
+  const items = summarize({ id: 3, taskId: 't1', task, previousTask: { ...base, listId: 'home' }, op: 'update', recordedAt: T0 }, new Date(T0), []);
+  expect(items.map((item) => item.listId)).toEqual(['errands', 'errands']);
+});
+
 test('a revision with nothing before it reads as an edit, not a creation', () => {
   // The oldest revision a task keeps once older ones are pruned.
   const items = summarize({ id: 9, taskId: 't1', task: base, previousTask: null, op: 'update', recordedAt: T0 }, new Date(T0), []);
