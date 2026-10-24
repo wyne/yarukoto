@@ -1,5 +1,30 @@
 # Changelog
 
+## [1.4.0](https://github.com/wyne/yarukoto/compare/v1.3.0...v1.4.0) (2026-10-24)
+
+
+### Features
+
+* fold a task's empty fields into an icon tray ([#270](https://github.com/wyne/yarukoto/issues/270)) ([cc4cb01](https://github.com/wyne/yarukoto/commit/cc4cb01549e7a99e22fc150a3ad351822934b46b))
+* offer View when a new task lands outside the current view ([#267](https://github.com/wyne/yarukoto/issues/267)) ([b3c61fd](https://github.com/wyne/yarukoto/commit/b3c61fde6253d76ebf5e2eb2857b5d98b2fa66a2))
+* open today's tasks from the menu bar and tray, mark done as the secondary action ([#269](https://github.com/wyne/yarukoto/issues/269)) ([1723b2a](https://github.com/wyne/yarukoto/commit/1723b2a429ec74506edc1ecac18618c91d9aafe4))
+* quick-add tools can clear or replace a typed token, and come to the desktop bar ([#262](https://github.com/wyne/yarukoto/issues/262)) ([157291f](https://github.com/wyne/yarukoto/commit/157291f4ad71d97651cdd81fa0fff47f16f17369))
+* show each subtask change in task history ([#265](https://github.com/wyne/yarukoto/issues/265)) ([647ddf5](https://github.com/wyne/yarukoto/commit/647ddf5d4f142766bb379669c68efc04999a6f74))
+* show each task's list in Activity ([#272](https://github.com/wyne/yarukoto/issues/272)) ([35eb1f6](https://github.com/wyne/yarukoto/commit/35eb1f6fe0cebeed2ccdb26a9814514a986baf90))
+* Today becomes Agenda and shows the days ahead; Plan gives its calendar more room ([#266](https://github.com/wyne/yarukoto/issues/266)) ([f56cce4](https://github.com/wyne/yarukoto/commit/f56cce48a488858b1c1c62b1951d567dcb3f1e80))
+
+
+### Bug Fixes
+
+* coalesce local snapshot writes instead of one per edit ([#221](https://github.com/wyne/yarukoto/issues/221)) ([17c09ce](https://github.com/wyne/yarukoto/commit/17c09ceb31cd7f339fa7b2b01dd690e2d8e97833))
+* drop the second heading from the Reminders and Repeat menus ([#273](https://github.com/wyne/yarukoto/issues/273)) ([92b205f](https://github.com/wyne/yarukoto/commit/92b205fd042fc0134721ad9034783970705afd1a))
+* hide the custom order banner ([#260](https://github.com/wyne/yarukoto/issues/260)) ([ed8da39](https://github.com/wyne/yarukoto/commit/ed8da390e0f1b0da8a6646e3f796670840f66f9e))
+* keep Go to Task's cursor when the list takes the keyboard before redrawing ([#264](https://github.com/wyne/yarukoto/issues/264)) ([1ee5805](https://github.com/wyne/yarukoto/commit/1ee580517996ecae7026acf340c6a9c8417bdc68))
+* keep search dialogs anchored while filtering ([#259](https://github.com/wyne/yarukoto/issues/259)) ([f2981f0](https://github.com/wyne/yarukoto/commit/f2981f0860fdd9bebc94040fc1bdae1cb7448607))
+* open and close the command and shortcut search without a fade ([#257](https://github.com/wyne/yarukoto/issues/257)) ([e5dbf06](https://github.com/wyne/yarukoto/commit/e5dbf06753f2ff2e2f1a819d4925baf669a303b9))
+* opening Plan task on a phone no longer crashes ([#271](https://github.com/wyne/yarukoto/issues/271)) ([da4dc4e](https://github.com/wyne/yarukoto/commit/da4dc4e9ae425ff63ea3f5f7e26c2d794c0beeef))
+* remember the collapsed sidebar across reloads ([#268](https://github.com/wyne/yarukoto/issues/268)) ([1e73196](https://github.com/wyne/yarukoto/commit/1e73196628c0b6a91774c79a37ba26e02b198d9f))
+
 ## [1.3.0](https://github.com/wyne/yarukoto/compare/v1.2.0...v1.3.0) (2026-10-20)
 
 
