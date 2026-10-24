@@ -1482,9 +1482,9 @@ const useStyles = makeStyles((c) => ({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    paddingHorizontal: 16,
-    paddingBottom: 10,
+    gap: FINE_POINTER ? 10 : 12,
+    paddingHorizontal: FINE_POINTER ? 12 : 16,
+    paddingBottom: FINE_POINTER ? 6 : 10,
     // Lifts the whole bar over the quick-add field below it. A tooltip hangs
     // under its button and so leaves the header's bounds; without this the
     // field, being a later sibling, paints straight over it.
@@ -1499,7 +1499,7 @@ const useStyles = makeStyles((c) => ({
   title: {
     flexShrink: 1,
     fontFamily: fonts.sansBold,
-    fontSize: 22,
+    fontSize: FINE_POINTER ? 19 : 22,
     color: c.textPrimary,
   },
   count: {

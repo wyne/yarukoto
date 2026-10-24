@@ -24,7 +24,7 @@
         "title": "Yarukoto",
         "width": 1200,
         "height": 800,
-        "minWidth": 420,
+        "minWidth": 320,
         "minHeight": 520,
         "center": true,
         "dragDropEnabled": false

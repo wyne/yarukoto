@@ -4,6 +4,7 @@ import Animated, { useAnimatedStyle, withTiming } from 'react-native-reanimated'
 import { makeStyles } from '../theme/styles';
 import { fonts } from '../theme/typography';
 import { IconChevronDown } from '../icons/Icons';
+import { FINE_POINTER } from '../data/platform';
 
 interface Props {
   label: string;
@@ -47,7 +48,7 @@ const useStyles = makeStyles((c) => ({
     alignItems: 'center',
     gap: 8,
     paddingHorizontal: 6,
-    paddingVertical: 8,
+    paddingVertical: FINE_POINTER ? 5 : 8,
   },
   label: {
     fontFamily: fonts.monoRegular,

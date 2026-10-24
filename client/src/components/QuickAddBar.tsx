@@ -15,7 +15,7 @@ import { useCommand } from '../navigation/MenuCommands';
 import { focusNextPane, focusPane, usePaneFocus } from '../navigation/focusPanes';
 import { useNativeDateTimePicker } from '../navigation/DateTimePickerContext';
 import KeyCommandsView from '../../modules/mac-pointer/src/KeyCommandsView';
-import { MAC } from '../data/platform';
+import { FINE_POINTER, MAC } from '../data/platform';
 import ShortcutHint from './ShortcutHint';
 import QuickAddInput from './QuickAddInput';
 import { addFieldKey } from '../data/addFieldKeys';
@@ -337,14 +337,14 @@ export default function QuickAddBar({ defaults, contextLabel, onAdded }: Props) 
 
 const useStyles = makeStyles((c) => ({
   wrap: {
-    marginHorizontal: 12,
-    marginBottom: 10,
+    marginHorizontal: FINE_POINTER ? 8 : 12,
+    marginBottom: FINE_POINTER ? 6 : 10,
     backgroundColor: c.surface,
     borderWidth: 1,
     borderColor: c.border,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    borderRadius: FINE_POINTER ? 8 : 10,
+    paddingHorizontal: FINE_POINTER ? 10 : 12,
+    paddingVertical: FINE_POINTER ? 6 : 10,
   },
   row: {
     flexDirection: 'row',

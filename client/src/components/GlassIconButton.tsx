@@ -3,13 +3,16 @@ import { StyleSheet, View } from 'react-native';
 import Pressable from './HoverPressable';
 import { GlassContainer } from 'expo-glass-effect';
 import ThemedGlassView from './ThemedGlassView';
-import { LIQUID_GLASS } from '../data/platform';
+import { FINE_POINTER, LIQUID_GLASS } from '../data/platform';
 import { useHoverBg } from '../theme/hover';
 import ShortcutHint from './ShortcutHint';
 import type { CommandId } from '../navigation/commands';
 
-/** Diameter of the glass capsule and the standard iOS touch target. */
-const SIZE = 44;
+/**
+ * Diameter of the glass capsule: the standard iOS touch target, or less with a
+ * pointer, where a 44pt circle makes the header the heaviest thing in a small window.
+ */
+const SIZE = FINE_POINTER ? 34 : 44;
 
 /**
  * Height of the compact text capsule. Secondary controls that sit in a filter
