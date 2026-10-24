@@ -89,7 +89,10 @@ const LIFT_THRESHOLD = 8;
  */
 const FOLD_MS = 180;
 
-export const SIDEBAR_WIDTH = 300;
+/** Narrower on the desktop, where the rows are denser and a window has less to give. */
+export const SIDEBAR_WIDTH = FINE_POINTER ? 280 : 300;
+/** Nav icons, matched to the desktop's smaller labels. */
+const ICON_SIZE = FINE_POINTER ? 18 : 20;
 /** Icon-only rail when the pinned sidebar is collapsed. */
 export const SIDEBAR_COLLAPSED_WIDTH = 64;
 
@@ -728,7 +731,7 @@ const Sidebar = React.memo(function Sidebar({ state, navigation, onNavigate }: P
                 onPress={() => go(route)}
                 accessibilityLabel={label}
               >
-                <Icon size={20} color={active ? accent : colors.textTertiary} />
+                <Icon size={ICON_SIZE} color={active ? accent : colors.textTertiary} />
                 {!collapsed && (
                   <>
                     <Text style={[styles.rowLabel, active && { color: accent, fontFamily: fonts.sansSemiBold }]}>
@@ -859,7 +862,7 @@ const Sidebar = React.memo(function Sidebar({ state, navigation, onNavigate }: P
                     onPress={() => openSavedFilter(filter.id)}
                     accessibilityLabel={`Saved filter ${filter.name}`}
                   >
-                    <IconFilter size={18} color={active ? accent : colors.textTertiary} />
+                    <IconFilter size={ICON_SIZE - 2} color={active ? accent : colors.textTertiary} />
                     <Text
                       style={[styles.rowLabel, active && { color: accent, fontFamily: fonts.sansSemiBold }]}
                       numberOfLines={1}
@@ -885,7 +888,7 @@ const Sidebar = React.memo(function Sidebar({ state, navigation, onNavigate }: P
                     style={hoverBg([styles.row, active && { backgroundColor: colors.selectedRowBg }], active)}
                     onPress={() => openTag(tag)}
                   >
-                    <IconTag size={18} color={active ? accent : colors.textTertiary} />
+                    <IconTag size={ICON_SIZE - 2} color={active ? accent : colors.textTertiary} />
                     <Text
                       style={[styles.rowLabel, styles.tagLabel, active && { color: accent }]}
                       numberOfLines={1}
@@ -1103,7 +1106,7 @@ const FolderRow = React.memo(function FolderRow({
       accessibilityState={{ selected: active }}
     >
       <View style={styles.rowIcon}>
-        <IconFolder size={19} color={active ? accent : colors.textTertiary} />
+        <IconFolder size={ICON_SIZE - 1} color={active ? accent : colors.textTertiary} />
       </View>
       <Text
         style={[styles.rowLabel, active && { color: accent, fontFamily: fonts.sansSemiBold }]}
@@ -1274,7 +1277,7 @@ const useStyles = makeStyles((c) => ({
   },
   brand: {
     fontFamily: fonts.sansBold,
-    fontSize: 19,
+    fontSize: FINE_POINTER ? 17 : 19,
     flex: 1,
     color: c.textPrimary,
     paddingHorizontal: 18,
@@ -1299,10 +1302,10 @@ const useStyles = makeStyles((c) => ({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: FINE_POINTER ? 10 : 12,
     paddingHorizontal: 12,
     borderRadius: 8,
-    minHeight: 44,
+    minHeight: FINE_POINTER ? 34 : 44,
   },
   keyRing: {
     position: 'absolute',
@@ -1313,19 +1316,20 @@ const useStyles = makeStyles((c) => ({
     borderRadius: 8,
     borderWidth: 1.5,
   },
+  /** Regular on the desktop, the same weight and size as the task titles beside it. */
   rowLabel: {
     flex: 1,
-    fontFamily: fonts.sansMedium,
-    fontSize: 16.5,
+    fontFamily: FINE_POINTER ? fonts.sansRegular : fonts.sansMedium,
+    fontSize: FINE_POINTER ? 15 : 16.5,
     color: c.textPrimary,
   },
   tagLabel: {
     fontFamily: fonts.monoRegular,
-    fontSize: 15,
+    fontSize: FINE_POINTER ? 13.5 : 15,
   },
   rowCount: {
     fontFamily: fonts.monoRegular,
-    fontSize: 14,
+    fontSize: FINE_POINTER ? 12.5 : 14,
     color: c.textFaint,
   },
   /** The Tags caption. Folders used to share this and are now rows instead. */
@@ -1336,8 +1340,8 @@ const useStyles = makeStyles((c) => ({
     textTransform: 'uppercase',
     color: c.textFaint,
     paddingHorizontal: 12,
-    paddingTop: 20,
-    paddingBottom: 8,
+    paddingTop: FINE_POINTER ? 14 : 20,
+    paddingBottom: FINE_POINTER ? 6 : 8,
   },
   treeSeparator: {
     height: 1,
@@ -1360,12 +1364,12 @@ const useStyles = makeStyles((c) => ({
     gap: 9,
     paddingHorizontal: 12,
     borderRadius: 8,
-    minHeight: 44,
+    minHeight: FINE_POINTER ? 34 : 44,
   },
   /** Matches TaskDetailView's "Add subtask" — the app's other subordinate add row. */
   newLabel: {
     fontFamily: fonts.sansRegular,
-    fontSize: 16.5,
+    fontSize: FINE_POINTER ? 15 : 16.5,
     color: c.textTertiary,
   },
   /** Reserves the chevron's column so every row's icon and label line up. */
