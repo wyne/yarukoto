@@ -1,6 +1,7 @@
 import React from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import EscapeToClose from './EscapeToClose';
+import { useWindowSizeWhile } from './useWindowSelector';
 import { makeStyles } from '../theme/styles';
 import { useColors } from '../theme/ThemeContext';
 
@@ -57,7 +58,7 @@ export default function Dialog({
 }: Props) {
   const styles = useStyles();
   const colors = useColors();
-  const window = useWindowDimensions();
+  const window = useWindowSizeWhile(visible);
   // A window narrower than the dialog gets the room it has, not an overflowing card.
   const width = Math.min(preferred, window.width - EDGE * 2);
   const maxHeight = Math.max(200, window.height - MARGIN_Y * 2);

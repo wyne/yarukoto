@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { Modal, Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { Modal, Pressable, StyleSheet, View } from 'react-native';
 import ThemedGlassView from './ThemedGlassView';
 import EscapeToClose from './EscapeToClose';
+import { useWindowSizeWhile } from './useWindowSelector';
 import { LIQUID_GLASS } from '../data/platform';
 import { makeStyles } from '../theme/styles';
 import { placePopover, POPOVER_EDGE as EDGE, type PopoverAnchor } from './popoverPlacement';
@@ -80,7 +81,7 @@ export default function Popover({
   children,
 }: Props) {
   const styles = useStyles();
-  const window = useWindowDimensions();
+  const window = useWindowSizeWhile(visible && !bounds);
   const { width: winWidth, height: winHeight } = bounds ?? window;
   // Narrow windows get whatever is available rather than an overflowing card.
   const width = Math.min(preferred, winWidth - EDGE * 2);
