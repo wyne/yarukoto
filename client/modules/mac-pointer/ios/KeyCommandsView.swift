@@ -4,7 +4,8 @@ import UIKit
 /**
  * A container that reports plain keys — arrows, Tab, Return, Escape, Delete, Space,
  * Home, End, Page Up and Page Down — on the Mac, while it or something inside it
- * has focus.
+ * has focus. Letters and other typed characters, alone or with ⌃ or ⇧, it reports
+ * only while it has focus itself: a field inside keeps every key it types.
  *
  * UIKit only offers a key to the responder chain, starting at whatever has
  * focus, so a key handler has to be a view in that chain. Two uses:
@@ -55,14 +56,18 @@ public final class KeyCommandsView: ExpoView {
 
   public override var keyCommands: [UIKeyCommand]? {
     guard Self.isMac || anyDevice, active else { return nil }
-    return keys.compactMap { name in
-      guard let (input, flags) = Self.parse(name) else { return nil }
-      let command = UIKeyCommand(input: input, modifierFlags: flags, action: #selector(fire(_:)))
-      // A focused field inside, or a scroll view, would otherwise act first —
-      // which for Tab means a text view typing a tab character, or UIKit's own
-      // focus system moving to whichever view happens to be next.
-      command.wantsPriorityOverSystemBehavior = true
-      return command
+    var seen = Set<String>()
+    return keys.flatMap { name -> [UIKeyCommand] in
+      guard let key = Self.parse(name), !key.typed || isFirstResponder else { return [] }
+      return key.variants.compactMap { input, flags in
+        guard seen.insert("\(flags.rawValue) \(input)").inserted else { return nil }
+        let command = UIKeyCommand(input: input, modifierFlags: flags, action: #selector(fire(_:)))
+        // A focused field inside, or a scroll view, would otherwise act first —
+        // which for Tab means a text view typing a tab character, or UIKit's own
+        // focus system moving to whichever view happens to be next.
+        command.wantsPriorityOverSystemBehavior = true
+        return command
+      }
     }
   }
 
@@ -80,8 +85,7 @@ public final class KeyCommandsView: ExpoView {
 
   @objc private func fire(_ command: UIKeyCommand) {
     guard let name = keys.first(where: { name in
-      guard let (input, flags) = Self.parse(name) else { return false }
-      return input == command.input && flags == command.modifierFlags
+      Self.parse(name)?.variants.contains { $0.0 == command.input && $0.1 == command.modifierFlags } ?? false
     }) else { return }
     onKeyCommand(["key": name])
   }
@@ -100,7 +104,13 @@ public final class KeyCommandsView: ExpoView {
     }
   }
 
-  private static func parse(_ name: String) -> (String, UIKeyModifierFlags)? {
+  /// The inputs one key name is matched on, and whether it types a character.
+  private struct Key {
+    var variants: [(String, UIKeyModifierFlags)]
+    var typed: Bool
+  }
+
+  private static func parse(_ name: String) -> Key? {
     var parts = name.split(separator: "+").map(String.init)
     guard let key = parts.popLast() else { return nil }
     var flags: UIKeyModifierFlags = []
@@ -128,8 +138,20 @@ public final class KeyCommandsView: ExpoView {
     case "end": input = UIKeyCommand.inputEnd
     case "pageup": input = UIKeyCommand.inputPageUp
     case "pagedown": input = UIKeyCommand.inputPageDown
+    case _ where key.count == 1:
+      // A typed character. A letter with ⇧ is matched both as the key and as
+      // what it types, `g` and `G`, since which of the two UIKit reports can
+      // vary. A symbol is the character with or without ⇧, as `matchesShortcut`
+      // has it: `}` is ⇧] on one layout and a key of its own on another.
+      var variants = [(key, flags)]
+      if key.uppercased() != key.lowercased() {
+        if flags.contains(.shift) { variants.append((key.uppercased(), flags)) }
+      } else if !key.allSatisfy(\.isNumber) {
+        variants.append((key, flags.symmetricDifference(.shift)))
+      }
+      return Key(variants: variants, typed: !flags.contains(.command))
     default: return nil
     }
-    return (input, flags)
+    return Key(variants: [(input, flags)], typed: false)
   }
 }

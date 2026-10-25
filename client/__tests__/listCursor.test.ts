@@ -1,4 +1,4 @@
-import { rangeBetween, stepCursor } from '../src/data/listCursor';
+import { groupStop, listStops, rangeBetween, stepCursor, stepStop } from '../src/data/listCursor';
 
 const ids = ['a', 'b', 'c', 'd'];
 
@@ -31,5 +31,47 @@ describe('rangeBetween', () => {
 
   test('is empty when an end is missing', () => {
     expect(rangeBetween(ids, 'a', 'gone')).toEqual([]);
+  });
+});
+
+describe('listStops', () => {
+  const groups = [
+    { key: 'A', tasks: [{ id: 'a1' }, { id: 'a2' }] },
+    { key: 'B', tasks: [{ id: 'b1' }] },
+    { key: 'E', tasks: [] },
+    { key: 'C', tasks: [{ id: 'c1' }, { id: 'a1' }] },
+  ];
+
+  test('stands a folded group in for its tasks, and skips empty ones and repeats', () => {
+    expect(listStops(groups, (k) => k === 'B')).toEqual([
+      { taskId: 'a1', groupKey: 'A' },
+      { taskId: 'a2', groupKey: 'A' },
+      { taskId: null, groupKey: 'B' },
+      { taskId: 'c1', groupKey: 'C' },
+    ]);
+  });
+
+  test('steps like the cursor', () => {
+    const stops = listStops(groups, () => false);
+    expect(stepStop(stops, 1, 1)).toBe(2);
+    expect(stepStop(stops, 3, 5)).toBe(3);
+    expect(stepStop(stops, -1, 1)).toBe(0);
+    expect(stepStop(stops, -1, -1)).toBe(3);
+    expect(stepStop([], 0, 1)).toBe(-1);
+  });
+
+  test('moves between groups as vim does between paragraphs', () => {
+    // a1 a2 | b1 | c1
+    const stops = listStops(groups, () => false);
+    expect(groupStop(stops, 0, 1)).toBe(2);
+    expect(groupStop(stops, 2, 1)).toBe(3);
+    // From the last group, to the very end.
+    expect(groupStop(stops, 3, 1)).toBe(3);
+    // Back to the start of this group, then to the one before.
+    expect(groupStop(stops, 1, -1)).toBe(0);
+    expect(groupStop(stops, 2, -1)).toBe(0);
+    expect(groupStop(stops, 0, -1)).toBe(0);
+    expect(groupStop(stops, -1, 1)).toBe(0);
+    expect(groupStop(stops, -1, -1)).toBe(3);
   });
 });

@@ -8,6 +8,8 @@ export interface CollapsedController {
   toggleCompleted: () => void;
   /** Grouping changed, so the old group keys no longer mean anything. */
   expandAllGroups: () => void;
+  /** Folds or unfolds these groups together, as one saved change. */
+  setGroupsCollapsed: (groupKeys: string[], collapsed: boolean) => void;
 }
 
 /**
@@ -52,6 +54,12 @@ export function useCollapsedSections(viewKey: string): CollapsedController {
     toggleCompleted: () => update({ ...value, completed: !value.completed }),
     expandAllGroups: () => {
       if (value.groups.length > 0) update({ ...value, groups: [] });
+    },
+    setGroupsCollapsed: (groupKeys, collapsed) => {
+      const next = collapsed
+        ? [...value.groups, ...groupKeys.filter((k) => !value.groups.includes(k))]
+        : value.groups.filter((k) => !groupKeys.includes(k));
+      if (next.length !== value.groups.length) update({ ...value, groups: next });
     },
   };
 }

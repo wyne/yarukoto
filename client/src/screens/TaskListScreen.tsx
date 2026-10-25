@@ -48,7 +48,7 @@ import { commandDef, formatShortcut } from '../navigation/commands';
 import { showKeyHint } from '../navigation/keyHint';
 import { showAddedNotice } from '../navigation/addedNotice';
 import { taskHome } from '../navigation/showTask';
-import { rangeBetween, stepCursor } from '../data/listCursor';
+import { type ListStop, groupStop, listStops, rangeBetween, stepCursor, stepStop } from '../data/listCursor';
 import TaskRow from '../components/TaskRow';
 import ListKeys from '../components/ListKeys';
 import {
@@ -71,6 +71,7 @@ import VirtualTaskList, {
   ROW_MUTED,
   ROW_SELECTED,
   type RowRenderInfo,
+  type VirtualTaskListHandle,
   type VirtualTaskListRef,
 } from '../components/VirtualTaskList';
 import SectionHeader from '../components/SectionHeader';
@@ -179,6 +180,7 @@ const TaskListBody = memo(
   // Hosts every group's DragList; passed down so dragging auto-scrolls the page.
   const scrollRef = useAnimatedRef<Animated.ScrollView>();
   const listRef = useRef<VirtualTaskListRef>(null);
+  const listHandle = useRef<VirtualTaskListHandle>(null);
 
   const key = viewKey(mode, filter);
   // getViewOptions normalises a stored preference into a new object. Keep that
@@ -194,6 +196,12 @@ const TaskListBody = memo(
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const sections = useCollapsedSections(key);
+  /**
+   * The folded group whose header the keyboard's cursor is on, in place of a
+   * task. Set only by the keys; anything that puts the cursor on a task again
+   * clears it.
+   */
+  const [foldStop, setFoldStop] = useState<string | null>(null);
   /**
    * How far ahead Today looks. Past one day it is sectioned by day, and those
    * sections stand in for Group by, which is set aside rather than changed so
@@ -292,6 +300,7 @@ const TaskListBody = memo(
     setMenuAt(null);
     setPickerTask(null);
     setPickerAt(null);
+    setFoldStop(null);
   }, [key, scrollRef]);
 
   /**
@@ -379,6 +388,12 @@ const TaskListBody = memo(
   /** The dimension the rows are grouped by, which day sections set aside. */
   const groupDimension: GroupBy = byDay ? 'none' : options.groupBy;
   const grouped = byDay || options.groupBy !== 'none';
+  /** Whether the cursor is on a folded group's header, which is still there and still folded. */
+  const onFoldStop =
+    foldStop !== null &&
+    grouped &&
+    sections.isGroupCollapsed(foldStop) &&
+    groups.some((g) => g.key === foldStop && g.tasks.length > 0);
 
   const {
     selectedIds: webSelection,
@@ -433,7 +448,7 @@ const TaskListBody = memo(
     isSelected(id) ||
     contextTaskId === id ||
     openTaskId === id ||
-    (anchorId === id && (DESKTOP_UI || !selectionMode));
+    (anchorId === id && !onFoldStop && (DESKTOP_UI || !selectionMode));
 
   /** Every visible task in display order — the sequence a shift range spans. */
   const flatIds = useMemo(() => groups.flatMap((g) => g.tasks.map((t) => t.id)), [groups]);
@@ -446,6 +461,7 @@ const TaskListBody = memo(
   const pressRow = (id: string) => {
     closeOpenSwipeRow();
     claimKeyboard();
+    setFoldStop(null);
     if (!DESKTOP_UI) {
       if (selectionMode) return toggleSelected(id);
       setAnchor(id);
@@ -491,7 +507,19 @@ const TaskListBody = memo(
       ),
     [groups, grouped, sections.isGroupCollapsed]
   );
-  const cursor = anchorId && navIds.includes(anchorId) ? anchorId : null;
+  const cursor = !onFoldStop && anchorId && navIds.includes(anchorId) ? anchorId : null;
+  // The cursor leaves a header when it lands on a task by any other route.
+  useEffect(() => setFoldStop(null), [anchorId]);
+  /** The cursor's places, with folded groups' headers among the tasks; see ListStop. */
+  const stops = useMemo(
+    () => listStops(groups, (k) => grouped && sections.isGroupCollapsed(k)),
+    [groups, grouped, sections.isGroupCollapsed]
+  );
+  const stopAt = onFoldStop
+    ? stops.findIndex((s) => s.taskId === null && s.groupKey === foldStop)
+    : cursor
+      ? stops.findIndex((s) => s.taskId === cursor)
+      : -1;
   // The selection is held above the screen, so only what this view shows of it
   // counts: a key must never act on a task you can't see.
   const visibleSelection = webSelection.filter((id) => navIds.includes(id));
@@ -512,7 +540,91 @@ const TaskListBody = memo(
     head.current = id;
     if (taskPane && openTaskId && openTaskId !== id) openTask(id);
   };
-  const stepTo = (delta: 1 | -1) => moveCursor(stepCursor(navIds, cursor, delta));
+  /** Puts the cursor on a stop: a task as `moveCursor` does, or a folded group's header. */
+  const moveToStop = (stop: ListStop | undefined) => {
+    if (!stop) return;
+    if (stop.taskId) {
+      setFoldStop(null);
+      moveCursor(stop.taskId);
+      return;
+    }
+    clearSelection();
+    setFoldStop(stop.groupKey);
+  };
+  const stepStopBy = (delta: number) => moveToStop(stops[stepStop(stops, stopAt, delta)]);
+  const stepTo = (delta: 1 | -1) => stepStopBy(delta);
+  /**
+   * Folds or unfolds the cursor's group, as vim's `zc` and `zo`. Folding puts the
+   * cursor on the group's header, so the same keys can open it again; opening
+   * one from its header puts the cursor on its first task.
+   */
+  const fold = (collapsed: boolean | 'toggle') => {
+    const stop = stops[stopAt];
+    if (!grouped || !stop) return;
+    const folded = sections.isGroupCollapsed(stop.groupKey);
+    const next = collapsed === 'toggle' ? !folded : collapsed;
+    if (next === folded) return;
+    sections.setGroupsCollapsed([stop.groupKey], next);
+    if (next) {
+      clearSelection();
+      setFoldStop(stop.groupKey);
+    } else {
+      const first = groups.find((g) => g.key === stop.groupKey)?.tasks[0];
+      if (first) {
+        setFoldStop(null);
+        moveCursor(first.id);
+      }
+    }
+  };
+  /** `zM` and `zR`: every group, with the cursor kept on whatever group it was in. */
+  const foldAll = (collapsed: boolean) => {
+    if (!grouped) return;
+    const stop = stops[stopAt];
+    sections.setGroupsCollapsed(
+      groups.map((g) => g.key),
+      collapsed
+    );
+    if (!stop) return;
+    if (collapsed) {
+      clearSelection();
+      setFoldStop(stop.groupKey);
+    } else if (!stop.taskId) {
+      const first = groups.find((g) => g.key === stop.groupKey)?.tasks[0];
+      if (first) {
+        setFoldStop(null);
+        moveCursor(first.id);
+      }
+    }
+  };
+  /**
+   * vim's ⌃E and ⌃Y: the list moves a row, the cursor doesn't — until it would
+   * go off screen, when it comes along at the edge it went past.
+   */
+  const scrollLines = (lines: number) => {
+    if (VIRTUALIZED) return listHandle.current?.scrollLines(lines);
+    const scroller = scrollRef.current as unknown as HTMLElement | null;
+    const rows = Array.from(scroller?.querySelectorAll?.<HTMLElement>('[data-task-row], [data-fold-header]') ?? []);
+    if (!scroller || rows.length === 0) return;
+    scroller.scrollTop += lines * rows[0].getBoundingClientRect().height;
+    const view = scroller.getBoundingClientRect();
+    const inView = (el: Element) => {
+      const { top, bottom } = el.getBoundingClientRect();
+      return top >= view.top && bottom <= view.bottom;
+    };
+    const current = onFoldStop
+      ? scroller.querySelector(`[data-fold-header="${CSS.escape(foldStop!)}"]`)
+      : cursor
+        ? scroller.querySelector(`[data-task-row="${CSS.escape(cursor)}"]`)
+        : null;
+    if (!current || inView(current)) return;
+    const visible = rows.filter(inView);
+    const edge = lines > 0 ? visible[0] : visible[visible.length - 1];
+    if (!edge) return;
+    const taskId = edge.dataset.taskRow;
+    moveToStop(
+      taskId ? stops.find((s) => s.taskId === taskId) : stops.find((s) => s.taskId === null && s.groupKey === edge.dataset.foldHeader)
+    );
+  };
   /**
    * A task just added from this view, until the list has drawn it.
    *
@@ -564,13 +676,20 @@ const TaskListBody = memo(
    * and brought back into view whenever it or the column moves. A row already
    * in place never moves, so scrolling away from it isn't fought.
    */
+  const revealSelector = Platform.OS !== 'web'
+    ? null
+    : onFoldStop
+    ? `[data-fold-header="${CSS.escape(foldStop!)}"]`
+    : cursor
+      ? `[data-task-row="${CSS.escape(cursor)}"]`
+      : null;
   useEffect(() => {
-    if (Platform.OS !== 'web' || !cursor) return;
+    if (Platform.OS !== 'web' || !revealSelector) return;
     const scroller = scrollRef.current as unknown as HTMLElement | null;
     let frame = 0;
     let placed: string | null = null;
     const reveal = (framesLeft: number) => {
-      const row = scroller?.querySelector?.(`[data-task-row="${CSS.escape(cursor)}"]`);
+      const row = scroller?.querySelector?.(revealSelector);
       if (!scroller || !row) return;
       const view = scroller.getBoundingClientRect();
       const { top, bottom } = row.getBoundingClientRect();
@@ -588,7 +707,7 @@ const TaskListBody = memo(
     };
     reveal(REVEAL_SETTLE_FRAMES);
     return () => cancelAnimationFrame(frame);
-  }, [cursor, scrollRef]);
+  }, [revealSelector, scrollRef]);
   const extendTo = (delta: 1 | -1) => {
     if (!cursor) return stepTo(delta);
     // With nothing selected the range starts here, wherever the cursor came from.
@@ -655,7 +774,7 @@ const TaskListBody = memo(
   useCommand('nextPane', () => focusNextPane('list', 1), keyboardList);
   useCommand('previousPane', () => focusNextPane('list', -1), keyboardList);
 
-  const hasRows = keyboardList && navIds.length > 0;
+  const hasRows = keyboardList && stops.length > 0;
   const hasTargets = keyboardList && commandTargets.length > 0;
   useCommand('nextTask', () => stepTo(1), hasRows);
   useCommand('previousTask', () => stepTo(-1), hasRows);
@@ -689,10 +808,21 @@ const TaskListBody = memo(
     if (!focusPane('sidebar')) focusPane('sidebar', { mounting: true });
   };
   useCommand('focusSidebar', focusSidebar, keyboardList);
-  useCommand('firstTask', () => moveCursor(stepCursor(navIds, cursor, -navIds.length)), hasRows);
-  useCommand('lastTask', () => moveCursor(stepCursor(navIds, cursor, navIds.length)), hasRows);
-  useCommand('pageDown', () => moveCursor(stepCursor(navIds, cursor, PAGE_ROWS)), hasRows);
-  useCommand('pageUp', () => moveCursor(stepCursor(navIds, cursor, -PAGE_ROWS)), hasRows);
+  const hasStops = keyboardList && stops.length > 0;
+  useCommand('firstTask', () => stepStopBy(-stops.length), hasStops);
+  useCommand('lastTask', () => stepStopBy(stops.length), hasStops);
+  useCommand('pageDown', () => stepStopBy(PAGE_ROWS), hasStops);
+  useCommand('pageUp', () => stepStopBy(-PAGE_ROWS), hasStops);
+  useCommand('nextGroup', () => moveToStop(stops[groupStop(stops, stopAt, 1)]), hasStops);
+  useCommand('previousGroup', () => moveToStop(stops[groupStop(stops, stopAt, -1)]), hasStops);
+  useCommand('scrollLineDown', () => scrollLines(1), hasStops);
+  useCommand('scrollLineUp', () => scrollLines(-1), hasStops);
+  const canFold = hasStops && grouped && stopAt !== -1;
+  useCommand('toggleFold', () => fold('toggle'), canFold);
+  useCommand('openFold', () => fold(false), canFold);
+  useCommand('closeFold', () => fold(true), canFold);
+  useCommand('openAllFolds', () => foldAll(false), hasStops && grouped);
+  useCommand('closeAllFolds', () => foldAll(true), hasStops && grouped);
   /** View ▸ Toggle Task Pane: closes the task beside the list, or opens the cursor's. */
   useCommand(
     'toggleTaskPane',
@@ -1234,6 +1364,10 @@ const TaskListBody = memo(
           refreshControl={refreshControl}
           onScrollBeginDrag={closeOpenSwipeRow}
           revealTaskId={cursor}
+          cursorGroup={onFoldStop ? foldStop : null}
+          cursorMuted={!listHasKeyboard}
+          handleRef={listHandle}
+          onCursorScrolledOff={moveToStop}
           contentContainerStyle={[
             styles.listContent,
             !DESKTOP_UI && styles.scrollContentFab,
@@ -1267,13 +1401,19 @@ const TaskListBody = memo(
                     layout={switchingView ? undefined : GROUP_LAYOUT}
                     style={styles.group}
                   >
-                    <View style={{ marginHorizontal: 6 }}>
+                    <View
+                      style={{ marginHorizontal: 6 }}
+                      // How a folded header holding the cursor is found to bring it into view.
+                      {...({ dataSet: collapsed ? { foldHeader: group.key } : undefined } as object)}
+                    >
                       <SectionHeader
                         label={group.label}
                         count={group.tasks.length}
                         color={group.color}
                         collapsed={collapsed}
                         onToggle={() => sections.toggleGroup(group.key)}
+                        current={onFoldStop && foldStop === group.key}
+                        muted={!listHasKeyboard}
                       />
                     </View>
                     {!collapsed && group.tasks.length > 0 && (

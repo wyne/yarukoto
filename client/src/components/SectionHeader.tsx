@@ -14,9 +14,15 @@ interface Props {
   color?: string;
   collapsed?: boolean;
   onToggle?: () => void;
+  /**
+   * The keyboard's cursor is on this header, as it can be on a folded group's.
+   * Tinted as a task row is, in gray while the list doesn't have the keyboard.
+   */
+  current?: boolean;
+  muted?: boolean;
 }
 
-export default function SectionHeader({ label, count, color, collapsed, onToggle }: Props) {
+export default function SectionHeader({ label, count, color, collapsed, onToggle, current, muted }: Props) {
   const styles = useStyles();
   const chevronStyle = useAnimatedStyle(
     () => ({
@@ -26,7 +32,7 @@ export default function SectionHeader({ label, count, color, collapsed, onToggle
   );
 
   const content = (
-    <View style={styles.row}>
+    <View style={[styles.row, current && (muted ? styles.rowCurrentMuted : styles.rowCurrent)]}>
       {color && <View style={[styles.dot, { backgroundColor: color }]} />}
       <Text style={styles.label}>{label}</Text>
       <View style={styles.line} />
@@ -49,6 +55,14 @@ const useStyles = makeStyles((c) => ({
     gap: 8,
     paddingHorizontal: 6,
     paddingVertical: FINE_POINTER ? 5 : 8,
+  },
+  rowCurrent: {
+    backgroundColor: c.selectedRowBg,
+    borderRadius: 6,
+  },
+  rowCurrentMuted: {
+    backgroundColor: c.unfocusedRowBg,
+    borderRadius: 6,
   },
   label: {
     fontFamily: fonts.monoRegular,

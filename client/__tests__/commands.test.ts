@@ -2,6 +2,8 @@ import {
   COMMANDS,
   KeyEventLike,
   LIST_KEYS,
+  LIST_KEY_NAMES,
+  createKeySequenceReader,
   displayShortcut,
   domKeyName,
   formatShortcut,
@@ -188,4 +190,77 @@ test('Group By and Sort By are named with their submenu in the command menu', ()
   expect(titles).toContain('Sort By: Custom');
   // One for every option the Group & sort sheet offers.
   expect(titles).toHaveLength(10);
+});
+
+describe('vim keys', () => {
+  test('are list keys', () => {
+    expect(LIST_KEYS.get('j')).toBe('nextTask');
+    expect(LIST_KEYS.get('k')).toBe('previousTask');
+    expect(LIST_KEYS.get('g g')).toBe('firstTask');
+    expect(LIST_KEYS.get('shift+g')).toBe('lastTask');
+    expect(LIST_KEYS.get('}')).toBe('nextGroup');
+    expect(LIST_KEYS.get('{')).toBe('previousGroup');
+    expect(LIST_KEYS.get('control+e')).toBe('scrollLineDown');
+    expect(LIST_KEYS.get('control+y')).toBe('scrollLineUp');
+    expect(LIST_KEYS.get('z a')).toBe('toggleFold');
+    expect(LIST_KEYS.get('z shift+m')).toBe('closeAllFolds');
+  });
+
+  test('a list hears each half of a two-key one, and no prefix is a key of its own', () => {
+    expect(LIST_KEY_NAMES).toEqual(expect.arrayContaining(['g', 'z', 'a', 'shift+r']));
+    expect(LIST_KEY_NAMES).not.toContain('g g');
+    expect(LIST_KEYS.has('g')).toBe(false);
+    expect(LIST_KEYS.has('z')).toBe(false);
+  });
+
+  test('are drawn as vim writes them', () => {
+    const def = (id: string) => COMMANDS.find((c) => c.id === id)!;
+    expect(def('lastTask').listKeys!.map((k) => formatShortcut(k, true))).toEqual(['⌘↓', '↘', 'G']);
+    expect(formatShortcut(def('firstTask').listKeys![2], false)).toBe('gg');
+    expect(formatShortcut(def('nextTask').listKeys![1], true)).toBe('j');
+    expect(formatShortcut(def('nextGroup').listKeys![0], true)).toBe('}');
+    expect(formatShortcut(def('openAllFolds').listKeys![0], true)).toBe('zR');
+    expect(formatShortcut(def('scrollLineDown').listKeys![0], true)).toBe('⌃E');
+    expect(formatShortcut(def('scrollLineDown').listKeys![0], false)).toBe('Ctrl+E');
+  });
+
+  test('match the keys a browser reports', () => {
+    expect(webCommandFor(key('j', 'KeyJ'))?.def.id).toBe('nextTask');
+    expect(webCommandFor(key('G', 'KeyG', { shiftKey: true }))?.def.id).toBe('lastTask');
+    expect(webCommandFor(key('g', 'KeyG'))).toBeUndefined();
+    expect(webCommandFor(key('}', 'BracketRight', { shiftKey: true }))?.def.id).toBe('nextGroup');
+    // Typed without ⇧ on another layout, it is still }.
+    expect(webCommandFor(key('}', 'Digit0'))?.def.id).toBe('nextGroup');
+    expect(webCommandFor(key('e', 'KeyE', { ctrlKey: true }))?.def.id).toBe('scrollLineDown');
+    // ⌘E on a Mac is not ⌃E.
+    expect(webCommandFor(key('e', 'KeyE', { metaKey: true }))).toBeUndefined();
+  });
+});
+
+describe('createKeySequenceReader', () => {
+  test('reads two keys as one', () => {
+    const read = createKeySequenceReader();
+    expect(read('g', 0)).toBe('pending');
+    expect(read('g', 100)).toBe('firstTask');
+    expect(read('z', 200)).toBe('pending');
+    expect(read('shift+r', 300)).toBe('openAllFolds');
+  });
+
+  test('takes a key that finishes nothing on its own', () => {
+    const read = createKeySequenceReader();
+    expect(read('g', 0)).toBe('pending');
+    expect(read('j', 100)).toBeUndefined();
+    // The g was spent: one more doesn't make gg.
+    expect(read('g', 200)).toBe('pending');
+    expect(read('z', 300)).toBe('pending');
+    expect(read('a', 400)).toBe('toggleFold');
+    expect(read('j', 500)).toBeUndefined();
+  });
+
+  test('lets the first key go after a pause', () => {
+    const read = createKeySequenceReader(1000);
+    expect(read('g', 0)).toBe('pending');
+    expect(read('g', 1500)).toBe('pending');
+    expect(read('g', 1600)).toBe('firstTask');
+  });
 });

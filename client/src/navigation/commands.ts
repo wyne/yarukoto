@@ -22,6 +22,11 @@ export type KeyInput = string;
 export interface Shortcut {
   input: KeyInput;
   modifiers: Modifier[];
+  /**
+   * A plain key pressed just before this one, for a two-key list key: `gg`, `za`.
+   * Only ever a list key, since nothing else can wait for a second key.
+   */
+  prefix?: KeyInput;
 }
 
 /** Which menu a command sits in on the Mac. `app` is the menu named Yarukoto. */
@@ -48,6 +53,15 @@ export type CommandId =
   | 'lastTask'
   | 'pageDown'
   | 'pageUp'
+  | 'nextGroup'
+  | 'previousGroup'
+  | 'scrollLineDown'
+  | 'scrollLineUp'
+  | 'toggleFold'
+  | 'openFold'
+  | 'closeFold'
+  | 'openAllFolds'
+  | 'closeAllFolds'
   | 'focusTaskPane'
   | 'focusSidebar'
   | 'toggleSidebar'
@@ -139,6 +153,7 @@ export interface CommandDef {
 
 const cmd = (input: KeyInput, ...extra: Modifier[]): Shortcut => ({ input, modifiers: ['command', ...extra] });
 const plain = (input: KeyInput, ...modifiers: Modifier[]): Shortcut => ({ input, modifiers });
+const after = (prefix: KeyInput, input: KeyInput, ...modifiers: Modifier[]): Shortcut => ({ prefix, input, modifiers });
 
 /** In menu order: menus as listed, groups as first met. */
 export const COMMANDS: readonly CommandDef[] = [
@@ -199,13 +214,29 @@ export const COMMANDS: readonly CommandDef[] = [
   // as Quick Look does; Return opens it to edit, with the caret in its title.
   { id: 'openTask', title: 'Open Task', menu: 'task', group: 'open', listKeys: [plain('space')], list: true },
   { id: 'editTask', title: 'Edit Task', group: 'open', listKeys: [plain('return')], list: true, hiddenFromPalette: true },
-  { id: 'nextTask', title: 'Next Task', group: 'move', listKeys: [plain('down')], list: true, hiddenFromPalette: true },
-  { id: 'previousTask', title: 'Previous Task', group: 'move', listKeys: [plain('up')], list: true, hiddenFromPalette: true },
+  // The letters are vim's: j and k, gg and G, { and } between groups, ⌃E and ⌃Y to
+  // scroll. A letter is a list key like any other, so it only reaches the list
+  // while no field has the keyboard — typing a j in the add field types a j.
+  { id: 'nextTask', title: 'Next Task', group: 'move', listKeys: [plain('down'), plain('j')], list: true, hiddenFromPalette: true },
+  { id: 'previousTask', title: 'Previous Task', group: 'move', listKeys: [plain('up'), plain('k')], list: true, hiddenFromPalette: true },
   // ⌘↑ is "start of text" in a field, so it is a list key, not a menu one.
-  { id: 'firstTask', title: 'First Task', group: 'move', listKeys: [plain('up', 'command'), plain('home')], list: true, hiddenFromPalette: true },
-  { id: 'lastTask', title: 'Last Task', group: 'move', listKeys: [plain('down', 'command'), plain('end')], list: true, hiddenFromPalette: true },
+  { id: 'firstTask', title: 'First Task', group: 'move', listKeys: [plain('up', 'command'), plain('home'), after('g', 'g')], list: true, hiddenFromPalette: true },
+  { id: 'lastTask', title: 'Last Task', group: 'move', listKeys: [plain('down', 'command'), plain('end'), plain('g', 'shift')], list: true, hiddenFromPalette: true },
   { id: 'pageDown', title: 'Page Down', group: 'move', listKeys: [plain('pagedown')], list: true, hiddenFromPalette: true },
   { id: 'pageUp', title: 'Page Up', group: 'move', listKeys: [plain('pageup')], list: true, hiddenFromPalette: true },
+  // Into the next group, or back to the start of this one and then the one before.
+  { id: 'nextGroup', title: 'Next Group', group: 'move', listKeys: [plain('}')], list: true, hiddenFromPalette: true },
+  { id: 'previousGroup', title: 'Previous Group', group: 'move', listKeys: [plain('{')], list: true, hiddenFromPalette: true },
+  // A row's worth of scrolling, leaving the cursor where it is until it would go off screen.
+  { id: 'scrollLineDown', title: 'Scroll Down', group: 'move', listKeys: [plain('e', 'control')], list: true, hiddenFromPalette: true },
+  { id: 'scrollLineUp', title: 'Scroll Up', group: 'move', listKeys: [plain('y', 'control')], list: true, hiddenFromPalette: true },
+  // The cursor's group. A folded group is a stop of its own for the keys above,
+  // so the keyboard can reach it to unfold it again.
+  { id: 'toggleFold', title: 'Fold or Unfold Group', group: 'fold', listKeys: [after('z', 'a')], list: true, keywords: 'collapse expand section toggle' },
+  { id: 'openFold', title: 'Unfold Group', group: 'fold', listKeys: [after('z', 'o')], list: true, keywords: 'expand open section' },
+  { id: 'closeFold', title: 'Fold Group', group: 'fold', listKeys: [after('z', 'c')], list: true, keywords: 'collapse close section' },
+  { id: 'openAllFolds', title: 'Unfold All Groups', group: 'fold', listKeys: [after('z', 'r', 'shift')], list: true, keywords: 'expand open sections' },
+  { id: 'closeAllFolds', title: 'Fold All Groups', group: 'fold', listKeys: [after('z', 'm', 'shift')], list: true, keywords: 'collapse close sections' },
   { id: 'focusTaskPane', title: 'Into the Task Pane', group: 'move', listKeys: [plain('right')], list: true, hiddenFromPalette: true },
   { id: 'focusSidebar', title: 'To the Sidebar', group: 'move', listKeys: [plain('left')], list: true, hiddenFromPalette: true },
   { id: 'selectNext', title: 'Add Next to Selection', group: 'move', listKeys: [plain('down', 'shift')], list: true, hiddenFromPalette: true },
@@ -303,10 +334,23 @@ const PC_KEY: Record<string, string> = {
 };
 
 /**
+ * A key that types a character, pressed with nothing but Shift: drawn as the
+ * character it types — `j`, `G`, `}` — the way vim's keys are written.
+ */
+function typedGlyph(shortcut: Shortcut): string | undefined {
+  const { input, modifiers } = shortcut;
+  if (input.length !== 1 || modifiers.some((m) => m !== 'shift')) return undefined;
+  return modifiers.includes('shift') ? input.toUpperCase() : input;
+}
+
+/**
  * A shortcut as a menu draws it: `⌥⌘1`, or `Ctrl+Alt+1` away from a Mac, where
  * the command key is Control.
  */
 export function formatShortcut(shortcut: Shortcut, mac: boolean): string {
+  const prefix = shortcut.prefix ?? '';
+  const typed = typedGlyph(shortcut);
+  if (typed) return prefix + typed;
   const order = mac ? MODIFIER_ORDER : PC_MODIFIER_ORDER;
   const mods = order.filter((m) => shortcut.modifiers.includes(m));
   if (mac) {
@@ -346,6 +390,11 @@ const DOM_KEYS: Record<string, KeyInput> = {
 
 /** The key a DOM event names, in this file's terms. */
 export function keyInputOf(event: KeyEventLike): KeyInput {
+  // A typed key is the character it types, as vim reads it: j is j on any
+  // layout, and } is } whichever keys make it.
+  if (!event.metaKey && !event.ctrlKey && !event.altKey && event.key.length === 1 && event.key !== ' ') {
+    return event.key.toLowerCase();
+  }
   // The physical key for letters and digits: with ⌥ held a Mac reports the
   // character it would type (⌥1 is ¡), not the key that was pressed.
   const code = event.code ?? '';
@@ -360,12 +409,18 @@ export function keyInputOf(event: KeyEventLike): KeyInput {
  * Control standing in for `control` itself, which no web shortcut uses.
  */
 export function matchesShortcut(shortcut: Shortcut, event: KeyEventLike): boolean {
-  if (keyInputOf(event) !== shortcut.input) return false;
+  // One event is one key; a two-key one is read by `createKeySequenceReader`.
+  if (shortcut.prefix !== undefined || keyInputOf(event) !== shortcut.input) return false;
   const wants = (m: Modifier) => shortcut.modifiers.includes(m);
   const command = event.metaKey !== event.ctrlKey && (event.metaKey || event.ctrlKey);
   const none = !event.metaKey && !event.ctrlKey;
-  if (wants('command') ? !command : !none) return false;
-  return wants('option') === event.altKey && wants('shift') === event.shiftKey;
+  // Control itself, for vim's ⌃E and ⌃Y: on Windows that is also ⌘, but no
+  // command uses ⌘ with the same letter.
+  if (wants('control') ? !event.ctrlKey || event.metaKey : wants('command') ? !command : !none) return false;
+  // A symbol is the character, whichever keys a layout types it with: `}` is
+  // ⇧] on one keyboard and a key of its own on another.
+  const symbol = shortcut.input.length === 1 && !/[a-z0-9]/.test(shortcut.input);
+  return wants('option') === event.altKey && (symbol || wants('shift') === event.shiftKey);
 }
 
 /**
@@ -381,9 +436,10 @@ export function webCommandFor(event: KeyEventLike): { def: CommandDef; listKey: 
   return undefined;
 }
 
-/** A list key as KeyCommandsView names it: `shift+down`, `return`. */
+/** A list key as KeyCommandsView names it: `shift+down`, `return`, and `z shift+r` for two keys. */
 export function keyName(shortcut: Shortcut): string {
-  return [...MODIFIER_ORDER.filter((m) => shortcut.modifiers.includes(m)), shortcut.input].join('+');
+  const name = [...MODIFIER_ORDER.filter((m) => shortcut.modifiers.includes(m)), shortcut.input].join('+');
+  return shortcut.prefix !== undefined ? `${shortcut.prefix} ${name}` : name;
 }
 
 /**
@@ -405,6 +461,44 @@ export function domKeyName(event: KeyEventLike): string {
 export const LIST_KEYS: ReadonlyMap<string, CommandId> = new Map(
   COMMANDS.flatMap((def) => (def.listKeys ?? []).map((k) => [keyName(k), def.id] as const))
 );
+
+/** The keys that start a two-key list key, and do nothing of their own: `g`, `z`. */
+const SEQUENCE_PREFIXES: ReadonlySet<string> = new Set(
+  COMMANDS.flatMap((def) => (def.listKeys ?? []).flatMap((k) => (k.prefix !== undefined ? [k.prefix] : [])))
+);
+
+/** Every single key a list has to hear, each half of a two-key one included. */
+export const LIST_KEY_NAMES: readonly string[] = [...new Set([...LIST_KEYS.keys()].flatMap((name) => name.split(' ')))];
+
+/** How long the first of two keys waits for the second, as vim's own `timeoutlen`. */
+export const SEQUENCE_MS = 1000;
+
+/**
+ * Reads two-key list keys out of the keys as they come, by `keyName`.
+ *
+ * A prefix answers `pending` and waits. The next key either finishes a pair,
+ * answering its command, or is taken on its own — `undefined`, for the caller
+ * to look up as a single key — so `g` then `j` still moves down. A key that
+ * isn't part of any pair answers `undefined` straight away.
+ */
+export function createKeySequenceReader(timeoutMs = SEQUENCE_MS) {
+  let prefix: string | null = null;
+  let at = 0;
+  return (name: string, now: number = Date.now()): CommandId | 'pending' | undefined => {
+    const held = prefix !== null && now - at <= timeoutMs ? prefix : null;
+    prefix = null;
+    if (held !== null) {
+      const id = LIST_KEYS.get(`${held} ${name}`);
+      if (id) return id;
+    }
+    if (SEQUENCE_PREFIXES.has(name)) {
+      prefix = name;
+      at = now;
+      return 'pending';
+    }
+    return undefined;
+  };
+}
 
 /** The key the command menu shows for a command: its menu shortcut, else its list key. */
 export function displayShortcut(def: CommandDef, web: boolean): Shortcut | undefined {

@@ -57,9 +57,14 @@ While the sidebar has the keyboard, the row you're on is outlined in your accent
 
 | Key | What it does |
 |---|---|
-| ↑ ↓ | Move between tasks |
-| ⌘↑ ⌘↓, or Home and End | First and last task |
+| ↑ ↓, or j k | Move between tasks |
+| ⌘↑ ⌘↓, Home and End, or gg G | First and last task |
 | Page Up, Page Down | Move ten tasks at a time |
+| } { | Next group, or back to the start of this group and then the one before |
+| ⌃E ⌃Y | Scroll a row down or up. The current row stays put until it would leave the screen |
+| za | Fold or unfold the current group |
+| zc zo | Fold, or unfold, the current group |
+| zM zR | Fold, or unfold, every group |
 | ⇧↑ ⇧↓ | Select several tasks |
 | ↩ Return | Open the task and start editing its title |
 | Space | Open the task beside the list, keeping the keyboard on the list |
@@ -76,6 +81,14 @@ While the sidebar has the keyboard, the row you're on is outlined in your accent
 | ⌘Z | Undo the last complete or delete, while its notice is showing *(Mac)* |
 
 With several tasks selected, the task keys act on all of them.
+
+The letter keys follow vim, and like every task list key they only reach the list while it has the
+keyboard: typing **j** in the add field or a task's title types a j. For **gg** and the **z** keys,
+press the second key within a second of the first. ⌃E and ⌃Y are **Ctrl+E** and **Ctrl+Y** on
+Windows and in a browser too.
+
+A folded group is a stop of its own as you move through the list: its header takes the tint, so
+**za** or **zo** opens it again. Unfolding a group from its header puts you on its first task.
 
 Press **⌘/** to open the complete keyboard shortcut reference. Search it by action, area, or key —
 for example, **due**, **task**, **cmd t**, or **option command t**.

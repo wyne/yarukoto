@@ -3,7 +3,7 @@ import { Platform, StyleSheet } from 'react-native';
 import { useIsFocused } from '@react-navigation/native';
 import KeyCommandsView from '../../modules/mac-pointer/src/KeyCommandsView';
 import { DESKTOP_UI, MAC } from '../data/platform';
-import { LIST_KEYS } from '../navigation/commands';
+import { LIST_KEYS, LIST_KEY_NAMES, createKeySequenceReader } from '../navigation/commands';
 import { dispatchCommand } from '../navigation/MenuCommands';
 import {
   setListHasKeyboard,
@@ -13,7 +13,9 @@ import {
 } from '../navigation/focusPanes';
 import { useAllLayersClosed } from './openLayers';
 
-const KEY_NAMES = [...LIST_KEYS.keys()];
+const KEY_NAMES = [...LIST_KEY_NAMES];
+/** One for the app: there is only ever one list with the keyboard. */
+const readSequence = createKeySequenceReader();
 
 interface Props {
   /** Bumped by the screen when a click lands in the list, so the list takes the keyboard. */
@@ -22,8 +24,9 @@ interface Props {
 }
 
 /**
- * The task list's plain keys on the Mac — ↑, ↓, ⇧↑, ⇧↓, Return, Escape, Delete — by
- * the command each runs (`listKeys` in commands.ts).
+ * The task list's plain keys on the Mac — ↑, ↓, ⇧↑, ⇧↓, Return, Escape, Delete, and
+ * vim's letters, two-key ones like `gg` included — by the command each runs
+ * (`listKeys` in commands.ts).
  *
  * The list takes the keyboard when it appears, when its screen comes to the
  * front, when a click lands in it, and when the last dialog or popover closes.
@@ -56,7 +59,9 @@ export default function ListKeys({ focusKey, children }: Props) {
       focusKey={focusKey + reclaim}
       onFocusChange={({ nativeEvent }) => setListHasKeyboard(nativeEvent.focused)}
       onKeyCommand={({ nativeEvent }) => {
-        const id = LIST_KEYS.get(nativeEvent.key);
+        const sequence = readSequence(nativeEvent.key);
+        if (sequence === 'pending') return;
+        const id = sequence ?? LIST_KEYS.get(nativeEvent.key);
         if (id) dispatchCommand(id);
       }}
     >
