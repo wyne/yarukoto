@@ -7,6 +7,14 @@ The desktop apps and the web app can be used entirely from the keyboard. On Wind
 browser, read ⌘ as **Ctrl**, ⌥ as **Alt** and ⇧ as **Shift**. Every command and its key is also in
 the command menu: press **⌘K** and start typing.
 
+The task list also takes vim's movement keys: **j** and **k**, **gg** and **G**, **{** and **}**
+between groups, **⌃E** and **⌃Y** to scroll, the **z** keys to fold groups, **i** or **o** for a new
+task, **/** to find and **\\** for the sidebar. They're always on, and only reach the list while it
+has the keyboard, so they never get in the way of typing. See [The task list](#the-task-list).
+
+**⌘K**, **⌘O** (Go to Task) and **⌘/** (Keyboard Shortcuts) open the same menu in different modes,
+so pressing one while another is open switches straight to it.
+
 Hold **⌘** on its own for a moment and the window labels what it can reach: ⌘1 beside All, ⌘S
 on the sidebar button, ⌘, on the gear, and so on. Let go, press a key or click, and the labels go
 away.

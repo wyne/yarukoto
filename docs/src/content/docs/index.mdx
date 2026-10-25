@@ -36,10 +36,17 @@ shows how the Inbox, Today and Plan tabs fit together. Questions go to
 ## Features
 
 - **Lists and folders** — group tasks into lists, lists into folders.
-- **Smart views** — All, Today, Upcoming, Inbox, plus per-list and per-tag filtering.
+- **Smart views** — All, Inbox, Agenda, Plan and Activity, plus per-list and per-tag filtering.
+  Agenda shows today, or the next few days with a section for each, empty days included.
 - **Plan by dragging** — the Plan tab puts undated and overdue tasks beside a month grid and
   day, 2-day, 3-day or week columns. Drag tasks onto a day to schedule them, on a phone as well as a
   computer. See [Planning with the Plan tab](/using/plan/).
+- **Keyboard first on a computer, vim keys included** — Tab between the sidebar, add field, list
+  and task; ⌘K to go anywhere or run any command, ⌘O to find a task, ⌘/ for every shortcut. In the
+  task list, j/k, gg/G, { and } between groups, za/zM/zR to fold groups, o for a new task and / to
+  find, with nothing to turn on. See [Keyboard shortcuts](/using/keyboard/).
+- **Made for a pointer on the desktop** — a denser task list than on a phone, text that grows and
+  shrinks with ⌘= and ⌘- from 85% to 175%, and a window that narrows to about 320 points.
 - **Quick add with natural syntax** — `pay rent fri 6pm #home !high ~admin` parses the due date
   and time, the `#tag`, the `!priority`, and the `~list`. Anything unrecognized stays as the title.
 - **Subtasks, Markdown notes, tags, priorities, due dates and times.** Notes have a formatting
@@ -52,9 +59,9 @@ shows how the Inbox, Today and Plan tabs fit together. Questions go to
 - **Trash** — deleting is a soft delete. Restore from Trash, or delete forever. The server hard-deletes
   anything left there past its retention window.
 - **Task history** — every change writes a full snapshot server-side, capped per task.
-  The Activity tab shows recent changes as they sync, filters them by what happened, and opens or
-  restores the task behind each one. **Show history** at the bottom of a task lists that task's own
-  changes.
+  The Activity tab shows recent changes as they sync, with the list each task is in, filters them by
+  what happened, and opens or restores the task behind each one. **Show history** at the bottom of a
+  task lists that task's own changes.
 - **Offline-tolerant sync** — the UI never waits on the network. Local changes queue in an outbox and
   push on the next cycle, so the app stays responsive when the server is unreachable. A dot at the
   bottom of the sidebar reports the real state: synced, syncing, changes pending, offline, or a
