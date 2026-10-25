@@ -174,6 +174,16 @@ const Sidebar = React.memo(function Sidebar({ state, navigation, onNavigate }: P
    * it agrees. See `settled` below.
    */
   const [pending, setPending] = useState<PendingRow | null>(null);
+  // A navigation waiting for the highlight to paint first; see `go`.
+  const navFrame = useRef(0);
+  const navTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  useEffect(
+    () => () => {
+      cancelAnimationFrame(navFrame.current);
+      clearTimeout(navTimer.current);
+    },
+    []
+  );
   const [menuTarget, setMenuTarget] = useState<NavMenuTarget | null>(null);
   const [menuAt, setMenuAt] = useState<PopoverAnchor | null>(null);
   /**
@@ -485,7 +495,19 @@ const Sidebar = React.memo(function Sidebar({ state, navigation, onNavigate }: P
       // A key moving through the drawer shows each destination behind it, as the
       // pinned sidebar does; only a click hands the drawer its cue to close.
       if (onNavigate && !fromKeys.current) onNavigate(navigate);
-      else navigate();
+      // After the highlight above has painted, rather than in the same event.
+      // Navigation state updates synchronously, so the two shared one render and
+      // the row moved only once the whole screen behind it had been drawn —
+      // which, holding ↓, was every row in turn. Deferred, the highlight moves
+      // on this frame, and a newer press cancels a destination not yet begun,
+      // so passing through a row on the way to another costs nothing.
+      else {
+        cancelAnimationFrame(navFrame.current);
+        clearTimeout(navTimer.current);
+        navFrame.current = requestAnimationFrame(() => {
+          navTimer.current = setTimeout(navigate, 0);
+        });
+      }
     },
     [navigation, onNavigate]
   );
