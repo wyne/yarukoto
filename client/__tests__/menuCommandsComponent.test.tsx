@@ -80,7 +80,6 @@ function renderMenu() {
 beforeEach(() => {
   jest.clearAllMocks();
   mockPaletteProps = {};
-  mockShortcutProps = {};
   mockSidebar = { wide: true, railOnly: false };
   mockCollapsed = false;
   mockDrawerOpen = false;
