@@ -8,7 +8,6 @@ import { checkForAppUpdatesInteractively } from '../data/appUpdates';
 import { PendingUndo, usePendingUndo, useTasks } from '../data/TaskContext';
 import { afterLayersClose, anyLayerOpen } from '../components/openLayers';
 import CommandPalette from '../components/CommandPalette';
-import KeyboardShortcuts from '../components/KeyboardShortcuts';
 import { COMMANDS, CommandId, commandDef, createKeySequenceReader, domKeyName, webCommandFor } from './commands';
 import { navigationRef } from './DateTimePickerContext';
 import { tabNavigation } from './destinations';
@@ -252,24 +251,25 @@ export default function MenuCommands() {
   const pendingUndo = usePendingUndo();
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [picker, setPicker] = useState<{ picker: PalettePicker; fromSearch: boolean } | null>(null);
-  const paletteOpenNow = useRef(paletteOpen);
-  paletteOpenNow.current = paletteOpen;
+  const searchingNow = useRef(false);
+  searchingNow.current = paletteOpen && !picker;
+  // Escape from a picker reached through the search goes back to the search;
+  // from one that replaced another picker, it closes, as that one's would have.
+  const openPicker = useCallback((next: PalettePicker) => {
+    setPicker({ picker: next, fromSearch: searchingNow.current });
+    setPaletteOpen(true);
+  }, []);
   useEffect(() => {
     if (!DESKTOP_UI) return;
-    pickerListener = (next) => {
-      // Escape from a picker reached through the search goes back to the search.
-      setPicker({ picker: next, fromSearch: paletteOpenNow.current });
-      setPaletteOpen(true);
-    };
+    pickerListener = openPicker;
     return () => {
       pickerListener = null;
     };
-  }, []);
+  }, [openPicker]);
   const closePalette = useCallback(() => {
     setPaletteOpen(false);
     setPicker(null);
   }, []);
-  const [shortcutsOpen, setShortcutsOpen] = useState(false);
 
   useCommandHandler('settings', openServer, DESKTOP_UI);
   useCommandHandler('checkForUpdates', () => void checkForAppUpdatesInteractively(), DESKTOP_APP);
@@ -281,16 +281,15 @@ export default function MenuCommands() {
     }, []),
     DESKTOP_UI
   );
-  // The command menu again, searching tasks: a picker with nothing to act on.
+  // The command menu again, searching tasks or the keys: pickers with nothing to
+  // act on. One dialog shows all three, so pressing one key while another's menu
+  // is up swaps what it shows rather than stacking a second dialog on the first.
+  useCommandHandler('goToTask', useCallback(() => openPicker({ kind: 'goToTask' }), [openPicker]), DESKTOP_UI);
   useCommandHandler(
-    'goToTask',
-    useCallback(() => {
-      setPicker({ picker: { kind: 'goToTask' }, fromSearch: paletteOpenNow.current });
-      setPaletteOpen(true);
-    }, []),
+    'keyboardShortcuts',
+    useCallback(() => openPicker({ kind: 'keyboardShortcuts' }), [openPicker]),
     DESKTOP_UI
   );
-  useCommandHandler('keyboardShortcuts', useCallback(() => setShortcutsOpen(true), []), DESKTOP_UI);
   // A narrow window has no pinned sidebar to shrink, and a rail-only one no room
   // to grow it; the key shows and hides the drawer instead.
   //
@@ -413,14 +412,11 @@ export default function MenuCommands() {
 
   if (!DESKTOP_UI) return null;
   return (
-    <>
-      <CommandPalette
-        visible={paletteOpen}
-        onClose={closePalette}
-        picker={picker?.picker ?? null}
-        onLeavePicker={picker?.fromSearch ? () => setPicker(null) : closePalette}
-      />
-      <KeyboardShortcuts visible={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
-    </>
+    <CommandPalette
+      visible={paletteOpen}
+      onClose={closePalette}
+      picker={picker?.picker ?? null}
+      onLeavePicker={picker?.fromSearch ? () => setPicker(null) : closePalette}
+    />
   );
 }

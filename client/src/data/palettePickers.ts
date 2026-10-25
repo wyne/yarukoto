@@ -4,14 +4,18 @@ import { activeFolders, activeLists, activeTasks, orderedLists, tagCounts } from
 /**
  * What the command menu's pickers offer — Task ▸ Move to List… and Edit Tags…,
  * for the tasks the list's commands act on, and File ▸ Go to Task… — and what
- * choosing does.
+ * choosing does. Help ▸ Keyboard Shortcuts takes the menu's place the same way,
+ * though what it lists is a reference to read rather than a choice.
  *
  * Pure, so the rules for several tasks at once are tested apart from the menu:
  * a list is checked only when every task is in it, and a tag only when every
  * task has it, which is also what decides whether choosing it adds or removes.
  */
 
-export type PalettePicker = { kind: 'moveToList' | 'editTags'; taskIds: string[] } | { kind: 'goToTask' };
+export type PalettePicker =
+  | { kind: 'moveToList' | 'editTags'; taskIds: string[] }
+  | { kind: 'goToTask' }
+  | { kind: 'keyboardShortcuts' };
 
 export interface PickerItem {
   key: string;
@@ -26,6 +30,7 @@ export const PICKER_TITLE: Record<PalettePicker['kind'], string> = {
   moveToList: 'Move to List',
   editTags: 'Edit Tags',
   goToTask: 'Go to Task',
+  keyboardShortcuts: 'Keyboard Shortcuts',
 };
 
 const INBOX_KEY = 'inbox';
