@@ -34,12 +34,15 @@ const INPUT_TERMS: Record<string, string> = {
   pagedown: 'page down',
   '/': 'slash',
   ',': 'comma',
+  '{': 'brace curly vim',
+  '}': 'brace curly vim',
 };
 
 /** Words people use to describe a shortcut, independent of how this platform draws it. */
 export function shortcutSearchTerms(shortcuts: readonly Shortcut[]): string {
   return shortcuts
     .flatMap((shortcut) => [
+      ...(shortcut.prefix !== undefined ? [`${shortcut.prefix}${shortcut.input} vim`] : []),
       ...shortcut.modifiers.map((modifier) => MODIFIER_TERMS[modifier]),
       INPUT_TERMS[shortcut.input] ?? shortcut.input,
     ])

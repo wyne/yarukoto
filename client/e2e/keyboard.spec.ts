@@ -264,6 +264,21 @@ test('the list keeps the cursor row in view', async ({ page, request }) => {
   // And ↑ brings the top back.
   for (let i = 0; i < titles.length; i++) await page.keyboard.press('ArrowUp');
   await expect(page.getByText(titles[29], { exact: true })).toBeInViewport();
+
+  // ⌃E scrolls a row at a time, and the cursor comes along once it would leave
+  // the screen; ⌃Y scrolls back.
+  const top = page.getByText(titles[29], { exact: true });
+  for (let i = 0; i < 15; i++) await page.keyboard.press('Control+e');
+  await expect(top).not.toBeInViewport();
+  await page.keyboard.press('Enter');
+  await expect.poll(async () => (await focused(page)).tag).toBe('INPUT');
+  const cursor = (await focused(page)).value;
+  expect(cursor).not.toBe(titles[29]);
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('Escape');
+  await expect(page.getByText(cursor!, { exact: true }).first()).toBeInViewport();
+  for (let i = 0; i < 15; i++) await page.keyboard.press('Control+y');
+  await expect(top).toBeInViewport();
 });
 
 test('a task added off screen is scrolled to, becomes the cursor and opens beside the list', async ({ page, request }) => {
@@ -440,4 +455,114 @@ test('a task added to another list says where it went, and View goes there', asy
   await expect.poll(() => page.url()).toContain(list.id);
   await expect(page.locator(`input[value="${title}"]`)).toHaveCount(1);
   await expect(page.getByText(`Added to ${list.name}`, { exact: true })).toBeHidden();
+});
+
+test('vim keys move through the list and its groups, and fold them', async ({ page, request }) => {
+  const stamp = Date.now();
+  const now = new Date().toISOString();
+  const list = { id: `keys-vim-${stamp}`, name: `Keys vim ${stamp}`, color: '#4A7BF7', folderId: null, order: -1, updatedAt: now };
+  const response = await request.post('/api/v1/sync', {
+    headers: { Authorization: `Bearer ${TOKEN}` },
+    data: { lists: [list] },
+  });
+  expect(response.ok()).toBe(true);
+
+  await connect(page);
+  await page.getByLabel(list.name, { exact: true }).click();
+  await expect.poll(() => page.url()).toContain(list.id);
+  await page.goto(page.url());
+
+  const today = [`Vim a ${stamp}`, `Vim b ${stamp}`];
+  const tomorrow = `Vim c ${stamp}`;
+  const quickAdd = page.getByPlaceholder(`Add a task to ${list.name}`);
+  await quickAdd.click();
+  for (const entry of [`${today[0]} today`, `${today[1]} today`, `${tomorrow} tomorrow`]) {
+    await quickAdd.fill(entry);
+    await quickAdd.press('Enter');
+  }
+  await expect(page.getByText(tomorrow, { exact: true })).toBeVisible();
+
+  // A j typed in the add field is a j.
+  await quickAdd.fill('');
+  await quickAdd.press('j');
+  await expect(quickAdd).toHaveValue('j');
+  await quickAdd.fill('');
+
+  await page.keyboard.press('ControlOrMeta+k');
+  const search = page.getByPlaceholder('Go to or do…');
+  await search.fill('Group By: Date');
+  await page.keyboard.press('Enter');
+  await expect(search).toBeHidden();
+  await quickAdd.click();
+  await page.keyboard.press('Escape');
+  await expect.poll(async () => typingIn(await focused(page))).toBe(false);
+
+  /** The cursor's task, read from its title in the pane: Return, then Escape back to the list. */
+  const cursorTitle = async () => {
+    await page.keyboard.press('Enter');
+    await expect.poll(async () => (await focused(page)).tag).toBe('INPUT');
+    const title = (await focused(page)).value;
+    await page.keyboard.press('Escape');
+    await expect.poll(async () => typingIn(await focused(page))).toBe(false);
+    return title;
+  };
+
+  await page.keyboard.press('g');
+  await page.keyboard.press('g');
+  const first = await cursorTitle();
+  expect(today).toContain(first);
+  await page.keyboard.press('j');
+  expect(await cursorTitle()).toBe(today.find((t) => t !== first));
+  await page.keyboard.press('k');
+  expect(await cursorTitle()).toBe(first);
+
+  // } into the next group; { from a group's start back to the one before.
+  await page.keyboard.press('}');
+  expect(await cursorTitle()).toBe(tomorrow);
+  await page.keyboard.press('{');
+  expect(await cursorTitle()).toBe(first);
+  await page.keyboard.press('Shift+G');
+  expect(await cursorTitle()).toBe(tomorrow);
+
+  // zc folds the cursor's group, and zo opens it again from its header.
+  await page.keyboard.press('z');
+  await page.keyboard.press('c');
+  await expect(page.getByText(tomorrow, { exact: true })).toBeHidden();
+  await page.keyboard.press('z');
+  await page.keyboard.press('o');
+  await expect(page.getByText(tomorrow, { exact: true })).toBeVisible();
+  expect(await cursorTitle()).toBe(tomorrow);
+
+  // Return on a folded header opens it too.
+  await page.keyboard.press('z');
+  await page.keyboard.press('c');
+  await expect(page.getByText(tomorrow, { exact: true })).toBeHidden();
+  await page.keyboard.press('Enter');
+  await expect(page.getByText(tomorrow, { exact: true })).toBeVisible();
+  expect(typingIn(await focused(page))).toBe(false);
+
+  // zM folds every group, j and k move between their headers, and zR opens them all.
+  await page.keyboard.press('z');
+  await page.keyboard.press('Shift+M');
+  await expect(page.getByText(today[0], { exact: true })).toBeHidden();
+  await expect(page.getByText(tomorrow, { exact: true })).toBeHidden();
+  await page.keyboard.press('k');
+  await page.keyboard.press('z');
+  await page.keyboard.press('a');
+  await expect(page.getByText(today[0], { exact: true })).toBeVisible();
+  await expect(page.getByText(tomorrow, { exact: true })).toBeHidden();
+  await page.keyboard.press('z');
+  await page.keyboard.press('Shift+R');
+  await expect(page.getByText(tomorrow, { exact: true })).toBeVisible();
+
+  // \ hides and shows the sidebar, and i goes to the add field, typing nothing.
+  await page.keyboard.press('\\');
+  await expect(page.getByLabel('Expand sidebar')).toBeVisible();
+  await page.keyboard.press('\\');
+  await expect(page.getByLabel('Collapse sidebar')).toBeVisible();
+  await quickAdd.click();
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('i');
+  await expect(quickAdd).toBeFocused();
+  await expect(quickAdd).toHaveValue('');
 });

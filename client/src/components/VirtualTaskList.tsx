@@ -1,4 +1,4 @@
-import React, { forwardRef, memo, useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import React, { forwardRef, memo, useCallback, useEffect, useImperativeHandle, useMemo, useReducer, useRef, useState } from 'react';
 import { type FlatList, type ListRenderItemInfo, Pressable, type RefreshControlProps, type StyleProp, Text, View, type ViewStyle, type ViewToken } from 'react-native';
 import { Gesture } from 'react-native-gesture-handler';
 import { LinearTransition } from 'react-native-reanimated';
@@ -12,6 +12,7 @@ import { fonts } from '../theme/typography';
 import { FINE_POINTER } from '../data/platform';
 import { Task } from '../data/types';
 import { TaskGroup } from '../data/viewOptions';
+import type { ListStop } from '../data/listCursor';
 import SectionHeader from './SectionHeader';
 import { IconGrip } from '../icons/Icons';
 import { useWindowResizing } from './useWindowSelector';
@@ -103,6 +104,22 @@ interface Props {
    * isn't, and left alone when it is — a click never scrolls.
    */
   revealTaskId?: string | null;
+  /** A folded group whose header has the cursor instead; revealed the same way. */
+  cursorGroup?: string | null;
+  /** The cursor is drawn in gray, the list not having the keyboard. */
+  cursorMuted?: boolean;
+  /** For `scrollLines`, which the screen calls for vim's ⌃E and ⌃Y. */
+  handleRef?: React.Ref<VirtualTaskListHandle>;
+  /**
+   * After `scrollLines` takes the cursor's row off screen: the stop it should
+   * move to, at the edge it went past, so it stays in sight as vim's does.
+   */
+  onCursorScrolledOff?: (stop: ListStop) => void;
+}
+
+export interface VirtualTaskListHandle {
+  /** Scrolls by whole rows, down for a positive count, leaving the cursor be. */
+  scrollLines: (lines: number) => void;
 }
 
 const LAYOUT = LinearTransition.duration(180);
@@ -131,6 +148,10 @@ const VirtualTaskList = forwardRef<FlatList<Item>, Props>(function VirtualTaskLi
     refreshControl,
     onScrollBeginDrag,
     revealTaskId,
+    cursorGroup,
+    cursorMuted,
+    handleRef,
+    onCursorScrolledOff,
   },
   ref
 ) {
@@ -246,19 +267,59 @@ const VirtualTaskList = forwardRef<FlatList<Item>, Props>(function VirtualTaskLi
   );
   /** Keys of the cells wholly on screen, as the list last reported them. */
   const onScreen = useRef<Set<string>>(new Set());
+  /** Which edge `scrollLines` last scrolled past, until the list reports what's on screen after it. */
+  const scrolledToward = useRef<1 | -1 | null>(null);
+  /** The item the cursor is on, as its index into `items`. */
+  const cursorIndex = (list: Item[]) =>
+    cursorGroup
+      ? list.findIndex((item) => item.kind === 'header' && item.group.key === cursorGroup)
+      : revealTaskId
+        ? list.findIndex((item) => item.kind === 'task' && item.groupKey !== null && item.task.id === revealTaskId)
+        : -1;
+  const latest = useRef({ items, cursorIndex, onCursorScrolledOff });
+  latest.current = { items, cursorIndex, onCursorScrolledOff };
   const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: ViewToken<Item>[] }) => {
     onScreen.current = new Set(viewableItems.map((v) => v.key));
+    const toward = scrolledToward.current;
+    scrolledToward.current = null;
+    const { items, cursorIndex, onCursorScrolledOff } = latest.current;
+    const at = cursorIndex(items);
+    if (!toward || !onCursorScrolledOff || at === -1 || onScreen.current.has(items[at].key)) return;
+    // Scrolling down takes the cursor off the top, so it comes to the first
+    // stop on screen; scrolling up, to the last.
+    const visible = items.filter((item) => onScreen.current.has(item.key));
+    const stops = toward > 0 ? visible : visible.reverse();
+    for (const item of stops) {
+      if (item.kind === 'task' && item.groupKey !== null) return onCursorScrolledOff({ taskId: item.task.id, groupKey: item.groupKey });
+      if (item.kind === 'header' && item.collapsed) return onCursorScrolledOff({ taskId: null, groupKey: item.group.key });
+    }
   }).current;
 
+  useImperativeHandle(
+    handleRef,
+    () => ({
+      scrollLines: (lines: number) => {
+        const first = items.findIndex((item) => onScreen.current.has(item.key));
+        if (first === -1 || lines === 0) return;
+        // Past the end there is nothing to bring up.
+        if (lines > 0 && onScreen.current.has(items[items.length - 1].key)) return;
+        const index = Math.max(0, Math.min(items.length - 1, first + lines));
+        if (index === first) return;
+        scrolledToward.current = lines > 0 ? 1 : -1;
+        listRef.current?.scrollToIndex({ index, viewPosition: 0, animated: false });
+      },
+    }),
+    [items]
+  );
+
   useEffect(() => {
-    if (!revealTaskId) return;
-    const index = items.findIndex((item) => item.kind === 'task' && item.groupKey !== null && item.task.id === revealTaskId);
+    const index = cursorIndex(items);
     if (index === -1 || onScreen.current.has(items[index].key)) return;
     // Above what's on screen comes in at the top; below, at the bottom — the
     // least scrolling that shows it, as a Mac list scrolls.
     const firstOnScreen = items.findIndex((item) => onScreen.current.has(item.key));
     listRef.current?.scrollToIndex({ index, viewPosition: index < firstOnScreen ? 0 : 1, animated: false });
-  }, [revealTaskId, items]);
+  }, [revealTaskId, cursorGroup, items]);
 
   // Read only once a row is lifted, so the cells get one function for good
   // rather than a new one — and a re-render — each time the selection moves.
@@ -283,6 +344,8 @@ const VirtualTaskList = forwardRef<FlatList<Item>, Props>(function VirtualTaskLi
             color={item.group.color}
             collapsed={item.collapsed}
             onToggle={() => toggleGroup(item.group.key)}
+            current={item.group.key === cursorGroup}
+            muted={cursorMuted}
           />
         );
       case 'completedHeader':
@@ -364,6 +427,8 @@ const HeaderCell = memo(function HeaderCell({
   color,
   collapsed,
   onToggle,
+  current,
+  muted,
 }: {
   first: boolean;
   label: string;
@@ -371,11 +436,21 @@ const HeaderCell = memo(function HeaderCell({
   color?: string;
   collapsed: boolean;
   onToggle: () => void;
+  current?: boolean;
+  muted?: boolean;
 }) {
   const styles = useStyles();
   return (
     <View style={[styles.header, first && styles.headerFirst]}>
-      <SectionHeader label={label} count={count} color={color} collapsed={collapsed} onToggle={onToggle} />
+      <SectionHeader
+        label={label}
+        count={count}
+        color={color}
+        collapsed={collapsed}
+        onToggle={onToggle}
+        current={current}
+        muted={muted}
+      />
     </View>
   );
 });
