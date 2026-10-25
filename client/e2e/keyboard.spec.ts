@@ -141,8 +141,10 @@ test('a narrowed window keeps the sidebar as a rail, and expanding it hands it t
     await expect(search).toBeHidden();
   };
 
-  // Too narrow for the full sidebar, wide enough for the rail: no menu button.
-  await page.setViewportSize({ width: 760, height: 900 });
+  // Too narrow for the full sidebar: the rail stays, however narrow the window.
+  await page.setViewportSize({ width: 600, height: 900 });
+  await expect(page.getByLabel('Expand sidebar')).toBeVisible();
+  await page.setViewportSize({ width: 320, height: 900 });
   await expect(page.getByLabel('Expand sidebar')).toBeVisible();
 
   // Back to full width, collapsed by hand, then expanded from the command menu.
