@@ -366,6 +366,40 @@ test('New Task from the command menu puts the keyboard in the add field', async 
   await expect(page.getByPlaceholder(/Add a task/)).toBeFocused();
 });
 
+test('⌘O, ⌘K and ⌘/ cycle through one menu, over and over, and leave the window working', async ({ page }) => {
+  await connect(page);
+  const menus = [
+    { key: 'ControlOrMeta+o', title: 'Go to Task', placeholder: 'Find a task by name…' },
+    { key: 'ControlOrMeta+k', title: 'Command Menu', placeholder: 'Go to or do…' },
+    { key: 'ControlOrMeta+/', title: 'Keyboard Shortcuts', placeholder: 'Search shortcuts…' },
+  ];
+  const dialogs = page.locator('[aria-modal="true"]');
+  for (let round = 0; round < 3; round++) {
+    for (const menu of menus) {
+      await page.keyboard.press(menu.key);
+      await expect(page.getByRole('heading', { name: menu.title, exact: true })).toBeVisible();
+      await expect(page.getByPlaceholder(menu.placeholder)).toBeFocused();
+      // Typed into straight away, as each one is for.
+      await page.keyboard.type('a');
+      await expect(page.getByPlaceholder(menu.placeholder)).toHaveValue('a');
+      await expect(dialogs).toHaveCount(1);
+    }
+  }
+  // Each key still answers once the menu has closed, and the window under it does too.
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('Escape');
+  await expect(dialogs).toHaveCount(0);
+  for (const menu of menus) {
+    await page.keyboard.press(menu.key);
+    await expect(page.getByPlaceholder(menu.placeholder)).toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(dialogs).toHaveCount(0);
+  }
+  const add = page.getByPlaceholder(/Add a task/);
+  await add.click();
+  await expect(add).toBeFocused();
+});
+
 test('⌘O finds a task that isn\'t done by its title and opens it in its list', async ({ page, request }) => {
   const stamp = Date.now();
   const auth = { Authorization: `Bearer ${TOKEN}` };

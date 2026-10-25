@@ -247,7 +247,7 @@ export const COMMANDS: readonly CommandDef[] = [
 
   // In place of the system's "Yarukoto Help", which only says help isn't
   // available. Each opens a page in the browser (src/data/links.ts).
-  { id: 'keyboardShortcuts', title: 'Keyboard Shortcuts', menu: 'help', group: 'docs', shortcut: cmd('/'), web: true, keywords: 'keys hotkeys help' },
+  { id: 'keyboardShortcuts', title: 'Keyboard Shortcuts', menu: 'help', group: 'docs', shortcut: cmd('/'), web: true, picker: true, keywords: 'keys hotkeys help' },
   { id: 'help', title: 'Yarukoto Help', menu: 'help', group: 'docs', keywords: 'docs documentation guide setup server' },
   { id: 'support', title: 'Contact Support', menu: 'help', group: 'support', keywords: 'help bug issue feedback email' },
   { id: 'privacy', title: 'Privacy Policy', menu: 'help', group: 'support', keywords: 'data' },

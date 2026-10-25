@@ -5,7 +5,7 @@ import Dialog from './Dialog';
 import KeyCommandsView from '../../modules/mac-pointer/src/KeyCommandsView';
 import { makeStyles } from '../theme/styles';
 import { fonts } from '../theme/typography';
-import { useColors, useTextScale } from '../theme/ThemeContext';
+import { useAccent, useColors, useTextScale } from '../theme/ThemeContext';
 import { useFieldFocus } from '../theme/focus';
 import { useTasks } from '../data/TaskContext';
 import { activeFolders, activeLists, tagCounts } from '../data/selectors';
@@ -19,6 +19,9 @@ import {
   toggleTag,
 } from '../data/palettePickers';
 import { MAC, MAC_KEYS } from '../data/platform';
+import { LINKS, openLink } from '../data/links';
+import { filterShortcutSections } from '../data/shortcutSearch';
+import { shortcutSections } from '../data/shortcutReference';
 import { rankPaletteItems } from '../data/paletteSearch';
 import { COMMANDS, CommandId, displayShortcut, formatShortcut, paletteTitle } from '../navigation/commands';
 import { dispatchCommand, useAvailableCommands, useCheckedCommands } from '../navigation/MenuCommands';
@@ -27,7 +30,10 @@ import { goTo, useShowTask } from '../navigation/showTask';
 interface Props {
   visible: boolean;
   onClose: () => void;
-  /** A picker in place of the search: Move to List… and Edit Tags… for these tasks, or Go to Task…. */
+  /**
+   * A picker in place of the search: Move to List… and Edit Tags… for these
+   * tasks, Go to Task…, or the Keyboard Shortcuts reference.
+   */
   picker?: PalettePicker | null;
   /** Escape from a picker: back to the search it came from, or closed if it came by its key. */
   onLeavePicker?: () => void;
@@ -72,7 +78,11 @@ const PICKER_PLACEHOLDER: Record<PalettePicker['kind'], string> = {
   moveToList: 'Move to…',
   editTags: 'Add or remove a tag…',
   goToTask: 'Find a task by name…',
+  keyboardShortcuts: 'Search shortcuts…',
 };
+
+/** Named like the others, so each of ⌘K, ⌘O and ⌘/ says which one is up. */
+const SEARCH_TITLE = 'Command Menu';
 
 /** Seen in this many rows at once; the rest scroll. */
 const MAX_ROWS = 9;
@@ -92,10 +102,17 @@ const MAX_RESULTS = 100;
  * The commands come from the same list the menu bar is built from
  * (`commands.ts`), and only the ones with a handler registered are listed, so
  * nothing here is greyed out or does nothing when chosen.
+ *
+ * Every picker shows in this one dialog, the keyboard reference among them, so
+ * any of their keys pressed while another is up replaces what it shows. Two
+ * dialogs stacked over the window would each claim the keyboard, and the one
+ * underneath could be left holding it after the other closed.
  */
 export default function CommandPalette({ visible, onClose, picker = null, onLeavePicker = onClose }: Props) {
   const styles = useStyles();
   const colors = useColors();
+  const accent = useAccent();
+  const reference = picker?.kind === 'keyboardShortcuts';
   const { state, supportsFeature, bulkUpdate, updateTask } = useTasks();
   const showTask = useShowTask();
   const available = useAvailableCommands();
@@ -118,6 +135,8 @@ export default function CommandPalette({ visible, onClose, picker = null, onLeav
 
   const pickerEntries = useMemo<Entry[] | null>(() => {
     if (!visible || !picker) return null;
+    // Read, not chosen from: drawn in its sections below.
+    if (picker.kind === 'keyboardShortcuts') return [];
     if (picker.kind === 'goToTask') {
       return taskPickerItems(state.tasks, state.lists).map((item) => ({
         ...item,
@@ -230,6 +249,10 @@ export default function CommandPalette({ visible, onClose, picker = null, onLeav
     [pickerEntries, entries, query]
   );
   const selected = Math.min(index, Math.max(0, results.length - 1));
+  const shortcuts = useMemo(
+    () => (visible && reference ? filterShortcutSections(shortcutSections(), query) : []),
+    [visible, reference, query]
+  );
 
   /**
    * Where the list is scrolled to, as it last reported. Tracked rather than
@@ -284,6 +307,7 @@ export default function CommandPalette({ visible, onClose, picker = null, onLeav
         reveal(0);
       }}
       placeholder={picker ? PICKER_PLACEHOLDER[picker.kind] : 'Go to or do…'}
+      accessibilityLabel={reference ? 'Search keyboard shortcuts' : undefined}
       placeholderTextColor={colors.textFaint}
       style={[styles.input, focusStyle && { borderBottomColor: focusStyle.borderColor }]}
       {...focusProps}
@@ -304,6 +328,9 @@ export default function CommandPalette({ visible, onClose, picker = null, onLeav
     />
   );
 
+  const title = picker ? PICKER_TITLE[picker.kind] : SEARCH_TITLE;
+  const count = picker && 'taskIds' in picker && picker.taskIds.length > 1 ? ` · ${picker.taskIds.length} tasks` : '';
+
   return (
     <Dialog
       visible={visible}
@@ -312,62 +339,98 @@ export default function CommandPalette({ visible, onClose, picker = null, onLeav
       fade={false}
       width={520}
       topAligned
-    >
-      {picker && (
-        <Text style={styles.crumb}>
-          {PICKER_TITLE[picker.kind]}
-          {'taskIds' in picker && picker.taskIds.length > 1 ? ` · ${picker.taskIds.length} tasks` : ''}
-        </Text>
-      )}
-      {MAC ? (
-        <KeyCommandsView
-          keys={['up', 'down']}
-          onKeyCommand={({ nativeEvent }) => move(nativeEvent.key === 'down' ? 1 : -1)}
-        >
-          {field}
-        </KeyCommandsView>
-      ) : (
-        field
-      )}
-      <ScrollView
-        ref={listRef}
-        style={{ maxHeight: rowHeight * MAX_ROWS }}
-        onScroll={(e) => {
-          scrollY.current = e.nativeEvent.contentOffset.y;
-        }}
-        scrollEventThrottle={16}
-        keyboardShouldPersistTaps="always"
-      >
-        {results.length === 0 && (
-          <Text style={styles.empty}>
-            {picker?.kind === 'editTags' && !query.trim() ? 'Type a name to make a tag.' : 'Nothing matches.'}
+      header={(
+        <View style={styles.header}>
+          <Text style={styles.heading} accessibilityRole="header">
+            {title}
+            {count}
           </Text>
-        )}
-        {results.map((entry, i) => (
-          <Pressable
-            key={entry.key}
-            onPress={() => choose(entry)}
-            // The web reports hover as hover; the Mac as a pointer entering.
-            onHoverIn={() => setIndex(i)}
-            onPointerEnter={() => setIndex(i)}
-            style={[styles.row, { height: rowHeight }, i === selected && styles.rowSelected]}
-          >
-            {picker && picker.kind !== 'goToTask' && <Text style={styles.check}>{entry.checked ? '✓' : ''}</Text>}
-            <Text style={styles.title} numberOfLines={1}>
-              {!!entry.prefix && <Text style={styles.prefix}>{entry.prefix} </Text>}
-              {entry.title}
-            </Text>
-            {!!entry.detail && (
-              <Text style={entry.detailIsShortcut ? styles.shortcut : styles.kind}>{entry.detail}</Text>
-            )}
+          {MAC ? (
+            <KeyCommandsView
+              keys={['up', 'down']}
+              onKeyCommand={({ nativeEvent }) => move(nativeEvent.key === 'down' ? 1 : -1)}
+            >
+              {field}
+            </KeyCommandsView>
+          ) : (
+            field
+          )}
+        </View>
+      )}
+    >
+      {reference ? (
+        <>
+          {shortcuts.map((section) => (
+            <View key={section.title} style={styles.section}>
+              <Text style={styles.sectionTitle}>{section.title}</Text>
+              {section.rows.map((row) => (
+                <View key={row.title} style={[styles.row, { height: rowHeight }]}>
+                  <Text style={styles.title} numberOfLines={1}>
+                    {row.title}
+                  </Text>
+                  <Text style={styles.shortcut}>{row.keys}</Text>
+                </View>
+              ))}
+            </View>
+          ))}
+          {shortcuts.length === 0 && <Text style={styles.empty}>No shortcuts match.</Text>}
+          <Pressable onPress={() => openLink(LINKS.keyboard)} style={styles.more} accessibilityRole="link">
+            <Text style={[styles.moreText, { color: accent }]}>All shortcuts, explained</Text>
           </Pressable>
-        ))}
-      </ScrollView>
+        </>
+      ) : (
+        <ScrollView
+          ref={listRef}
+          style={{ maxHeight: rowHeight * MAX_ROWS }}
+          onScroll={(e) => {
+            scrollY.current = e.nativeEvent.contentOffset.y;
+          }}
+          scrollEventThrottle={16}
+          keyboardShouldPersistTaps="always"
+        >
+          {results.length === 0 && (
+            <Text style={styles.empty}>
+              {picker?.kind === 'editTags' && !query.trim() ? 'Type a name to make a tag.' : 'Nothing matches.'}
+            </Text>
+          )}
+          {results.map((entry, i) => (
+            <Pressable
+              key={entry.key}
+              onPress={() => choose(entry)}
+              // The web reports hover as hover; the Mac as a pointer entering.
+              onHoverIn={() => setIndex(i)}
+              onPointerEnter={() => setIndex(i)}
+              style={[styles.row, { height: rowHeight }, i === selected && styles.rowSelected]}
+            >
+              {picker && picker.kind !== 'goToTask' && <Text style={styles.check}>{entry.checked ? '✓' : ''}</Text>}
+              <Text style={styles.title} numberOfLines={1}>
+                {!!entry.prefix && <Text style={styles.prefix}>{entry.prefix} </Text>}
+                {entry.title}
+              </Text>
+              {!!entry.detail && (
+                <Text style={entry.detailIsShortcut ? styles.shortcut : styles.kind}>{entry.detail}</Text>
+              )}
+            </Pressable>
+          ))}
+        </ScrollView>
+      )}
     </Dialog>
   );
 }
 
 const useStyles = makeStyles((c) => ({
+  header: {
+    paddingHorizontal: 16,
+  },
+  heading: {
+    fontFamily: fonts.monoRegular,
+    fontSize: 11,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+    color: c.textTertiary,
+    paddingHorizontal: 4,
+    marginBottom: 2,
+  },
   input: {
     fontFamily: fonts.sansRegular,
     fontSize: 17,
@@ -385,14 +448,26 @@ const useStyles = makeStyles((c) => ({
     paddingHorizontal: 8,
     borderRadius: 7,
   },
-  crumb: {
+  section: {
+    marginTop: 6,
+  },
+  sectionTitle: {
     fontFamily: fonts.monoRegular,
     fontSize: 11,
     letterSpacing: 1,
     textTransform: 'uppercase',
     color: c.textTertiary,
-    paddingHorizontal: 4,
-    marginBottom: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  more: {
+    marginTop: 12,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+  },
+  moreText: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 14,
   },
   check: {
     width: 14,

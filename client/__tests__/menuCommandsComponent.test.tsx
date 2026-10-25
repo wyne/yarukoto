@@ -13,7 +13,6 @@ const mockCheckForUpdates = jest.fn();
 const mockFocusPane = jest.fn();
 const mockUseCommandKeyHints = jest.fn();
 let mockPaletteProps: Record<string, any> = {};
-let mockShortcutProps: Record<string, any> = {};
 let mockSidebar = { wide: true, railOnly: false };
 let mockCollapsed = false;
 let mockDrawerOpen = false;
@@ -29,10 +28,6 @@ jest.mock('../src/data/TaskContext', () => ({
 }));
 jest.mock('../src/components/CommandPalette', () => (props: Record<string, any>) => {
   mockPaletteProps = props;
-  return null;
-});
-jest.mock('../src/components/KeyboardShortcuts', () => (props: Record<string, any>) => {
-  mockShortcutProps = props;
   return null;
 });
 jest.mock('../src/components/openLayers', () => ({
@@ -117,9 +112,10 @@ test('routes global commands to their app-level behavior', () => {
   expect(mockPaletteProps.visible).toBe(false);
 
   act(() => expect(dispatchCommand('keyboardShortcuts')).toBe(true));
-  expect(mockShortcutProps.visible).toBe(true);
-  act(() => mockShortcutProps.onClose());
-  expect(mockShortcutProps.visible).toBe(false);
+  expect(mockPaletteProps.visible).toBe(true);
+  expect(mockPaletteProps.picker).toEqual({ kind: 'keyboardShortcuts' });
+  act(() => mockPaletteProps.onLeavePicker());
+  expect(mockPaletteProps.visible).toBe(false);
 
   expect(dispatchCommand('goInbox')).toBe(true);
   expect(mockNavigate).toHaveBeenCalled();
@@ -142,6 +138,36 @@ test('a picker opened from search returns to search on Escape', () => {
   act(() => mockPaletteProps.onLeavePicker());
   expect(mockPaletteProps.visible).toBe(true);
   expect(mockPaletteProps.picker).toBeNull();
+  act(() => root.unmount());
+});
+
+test('⌘O, ⌘K and ⌘/ swap what the one menu shows, whichever is up', () => {
+  const root = renderMenu();
+  for (let round = 0; round < 2; round++) {
+    act(() => expect(dispatchCommand('goToTask')).toBe(true));
+    expect(mockPaletteProps.visible).toBe(true);
+    expect(mockPaletteProps.picker).toEqual({ kind: 'goToTask' });
+    act(() => expect(dispatchCommand('commandMenu')).toBe(true));
+    expect(mockPaletteProps.visible).toBe(true);
+    expect(mockPaletteProps.picker).toBeNull();
+    act(() => expect(dispatchCommand('keyboardShortcuts')).toBe(true));
+    expect(mockPaletteProps.visible).toBe(true);
+    expect(mockPaletteProps.picker).toEqual({ kind: 'keyboardShortcuts' });
+  }
+  // Reached from the search, so Escape goes back to it.
+  act(() => mockPaletteProps.onLeavePicker());
+  expect(mockPaletteProps.visible).toBe(true);
+  expect(mockPaletteProps.picker).toBeNull();
+
+  // Reached from another picker, so Escape closes, as that one's would have.
+  act(() => {
+    dispatchCommand('goToTask');
+  });
+  act(() => {
+    dispatchCommand('keyboardShortcuts');
+  });
+  act(() => mockPaletteProps.onLeavePicker());
+  expect(mockPaletteProps.visible).toBe(false);
   act(() => root.unmount());
 });
 

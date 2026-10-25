@@ -12,7 +12,6 @@ jest.mock('../src/data/platform', () => ({
 }));
 jest.mock('../src/data/TaskContext', () => ({}));
 jest.mock('../src/components/CommandPalette', () => () => null);
-jest.mock('../src/components/KeyboardShortcuts', () => () => null);
 jest.mock('../src/components/openLayers', () => ({
   afterLayersClose: (run: () => void) => run(),
   anyLayerOpen: () => mockAnyLayerOpen(),

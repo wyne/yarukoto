@@ -10,21 +10,32 @@ const mockOpenTask = jest.fn();
 const mockSetAnchor = jest.fn();
 const mockClearSelection = jest.fn();
 const mockFocusPane = jest.fn();
+const mockOpenLink = jest.fn();
 let mockAvailable = new Set<string>();
 let mockChecked = new Set<string>();
 
-jest.mock('../src/components/Dialog', () => 'Dialog');
+// Drawn as the real one is: the header, then the body.
+jest.mock('../src/components/Dialog', () => {
+  const { createElement } = jest.requireActual('react');
+  return ({ header, children }: { header?: unknown; children?: unknown }) =>
+    createElement('Dialog', null, header, children);
+});
 jest.mock('../src/components/HoverPressable', () => 'Pressable');
 jest.mock('../modules/mac-pointer/src/KeyCommandsView', () => 'KeyCommandsView');
 jest.mock('../src/theme/styles', () => ({ makeStyles: () => () => ({}) }));
 jest.mock('../src/theme/ThemeContext', () => ({
   useColors: () => ({ textFaint: '#999' }),
+  useAccent: () => '#4A7BF7',
   useTextScale: () => 1,
 }));
 jest.mock('../src/theme/focus', () => ({
   useFieldFocus: () => ({ focusProps: {}, focusStyle: null }),
 }));
 jest.mock('../src/data/platform', () => ({ MAC: false, MAC_KEYS: false }));
+jest.mock('../src/data/links', () => ({
+  LINKS: { keyboard: 'keyboard' },
+  openLink: (...args: unknown[]) => mockOpenLink(...args),
+}));
 jest.mock('../src/data/TaskContext', () => ({
   useTasks: () => mockUseTasks(),
 }));
@@ -215,5 +226,43 @@ test('shows the tag creation hint before a tag name is entered', () => {
   });
   const root = renderPalette({ kind: 'editTags', taskIds: ['t-inbox'] });
   expect(root.root.findAllByType(Text).some((node) => textOf(node).includes('Type a name to make a tag.'))).toBe(true);
+  act(() => root.unmount());
+});
+
+test('each of the search and its pickers is titled the same way', () => {
+  const heading = (root: ReactTestRenderer) =>
+    textOf(root.root.find((node) => node.props.accessibilityRole === 'header'));
+  const cases: [PalettePicker | null, string][] = [
+    [null, 'Command Menu'],
+    [{ kind: 'goToTask' }, 'Go to Task'],
+    [{ kind: 'keyboardShortcuts' }, 'Keyboard Shortcuts'],
+    [{ kind: 'moveToList', taskIds: ['t-inbox', 't-list'] }, 'Move to List · 2 tasks'],
+  ];
+  for (const [picker, title] of cases) {
+    const root = renderPalette(picker);
+    expect(heading(root)).toBe(title);
+    act(() => root.unmount());
+  }
+});
+
+test('the keyboard reference searches its sections in the same menu', () => {
+  const root = renderPalette({ kind: 'keyboardShortcuts' });
+  const texts = () => root.root.findAllByType(Text).map((node) => textOf(node));
+  expect(input(root).props.placeholder).toBe('Search shortcuts…');
+  expect(texts()).toEqual(expect.arrayContaining(['Window', 'Task list', 'Go to Task']));
+
+  act(() => input(root).props.onChangeText('tab'));
+  expect(texts()).toContain('Next pane or field');
+  expect(texts()).not.toContain('Go to Task');
+
+  act(() => input(root).props.onChangeText('no-such-shortcut'));
+  expect(texts()).toContain('No shortcuts match.');
+  // Nothing in it is a choice: Return leaves the reference as it is.
+  act(() => input(root).props.onSubmitEditing());
+  expect(onClose).not.toHaveBeenCalled();
+  expect(mockDispatchCommand).not.toHaveBeenCalled();
+
+  act(() => root.root.find((node) => node.props.accessibilityRole === 'link').props.onPress());
+  expect(mockOpenLink).toHaveBeenCalledWith('keyboard');
   act(() => root.unmount());
 });
