@@ -13,6 +13,7 @@ import { fonts } from '../theme/typography';
 import { useAccent, useColors } from '../theme/ThemeContext';
 import { selectionCheckColor } from '../theme/colors';
 import { Task, ListDef } from '../data/types';
+import { FINE_POINTER } from '../data/platform';
 import { formatDueShort, isOverdue, startOfDay } from '../data/dateUtils';
 import TaskCheckbox from './TaskCheckbox';
 import SwipeableRow from './SwipeableRow';
@@ -309,14 +310,15 @@ const noTextSelect = { userSelect: 'none' } as const;
 type PressState = PressableStateCallbackType & { hovered?: boolean };
 
 const useStyles = makeStyles((c) => ({
+  /** Tighter with a pointer, which needs no 44pt touch target, so a desktop window shows more of the list. */
   row: {
     position: 'relative',
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 11,
-    minHeight: 44,
+    gap: FINE_POINTER ? 10 : 12,
+    paddingHorizontal: FINE_POINTER ? 12 : 14,
+    paddingVertical: FINE_POINTER ? 7 : 11,
+    minHeight: FINE_POINTER ? 32 : 44,
     backgroundColor: c.surface,
     ...(noTextSelect as object),
   },
@@ -357,8 +359,10 @@ const useStyles = makeStyles((c) => ({
   },
   title: {
     flexShrink: 1,
-    fontFamily: fonts.sansMedium,
-    fontSize: 16,
+    // Regular rather than Medium: a list is many titles at once, and at Medium
+    // they read heavier than the rows around them.
+    fontFamily: fonts.sansRegular,
+    fontSize: FINE_POINTER ? 15 : 16,
     color: c.textPrimary,
   },
   titleCompleted: {

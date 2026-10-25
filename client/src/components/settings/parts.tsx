@@ -254,7 +254,7 @@ const useStyles = makeStyles((c) => ({
   },
   segmentOption: {
     flex: 1,
-    height: 30,
+    minHeight: 30,
     paddingHorizontal: 8,
     alignItems: 'center',
     justifyContent: 'center',

@@ -50,6 +50,7 @@ const FIRST_TAB_VIEW_KEY = 'yarukoto.firstTabViews';
 const SNOOZES_KEY = 'yarukoto.snoozedReminders';
 const SIDEBAR_RAIL_KEY = 'yarukoto.sidebarRail';
 const TODAY_DAYS_KEY = 'yarukoto.todayDays';
+const TEXT_SCALE_KEY = 'yarukoto.textScale';
 
 const ALL_KEYS = [
   URL_KEY,
@@ -68,6 +69,7 @@ const ALL_KEYS = [
   SNOOZES_KEY,
   SIDEBAR_RAIL_KEY,
   TODAY_DAYS_KEY,
+  TEXT_SCALE_KEY,
 ];
 
 /** Kept in SecureStore rather than AsyncStorage, on platforms that have one. */
@@ -255,6 +257,23 @@ export function loadScheme(): SchemePref {
 
 export function saveScheme(pref: SchemePref): void {
   write(SCHEME_KEY, pref);
+}
+
+/**
+ * The desktop's text size, as a multiple of the size the app was drawn at.
+ *
+ * Device-local like the scheme: it answers to the screen and the eyes in front of
+ * it, and a laptop's choice says nothing about a monitor across the room. Anything
+ * unreadable comes back as 1.
+ */
+export function loadTextScale(): number {
+  const stored = Number(read(TEXT_SCALE_KEY));
+  return Number.isFinite(stored) && stored > 0 ? stored : 1;
+}
+
+export function saveTextScale(scale: number): void {
+  if (scale === 1) remove(TEXT_SCALE_KEY);
+  else write(TEXT_SCALE_KEY, String(scale));
 }
 
 /** Which calendar layout the Plan screen is in. 'multi' is the few-day column view. */

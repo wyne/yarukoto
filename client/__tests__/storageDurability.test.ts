@@ -114,6 +114,19 @@ describe('device-local view state', () => {
     expect(storage.loadTodayDays()).toBe(7);
   });
 
+  test('remembers the desktop text size, and reads anything unusable as the default', async () => {
+    expect((await fresh({})).loadTextScale()).toBe(1);
+    expect((await fresh({ 'yarukoto.textScale': 'big' })).loadTextScale()).toBe(1);
+    expect((await fresh({ 'yarukoto.textScale': '-2' })).loadTextScale()).toBe(1);
+    const storage = await fresh({ 'yarukoto.textScale': '1.3' });
+    expect(storage.loadTextScale()).toBe(1.3);
+    storage.saveTextScale(1.5);
+    expect(storage.loadTextScale()).toBe(1.5);
+    expect(mockAsyncData['yarukoto.textScale']).toBe('1.5');
+    storage.saveTextScale(1);
+    expect(storage.loadTextScale()).toBe(1);
+  });
+
   test('validates collapsed groups and removes default entries', async () => {
     const storage = await fresh({
       'yarukoto.collapsedSections': {

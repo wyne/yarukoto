@@ -6,7 +6,7 @@ import { fonts } from '../theme/typography';
 import { useAccent } from '../theme/ThemeContext';
 import { PANE_MAX_WIDTH, useSidebar } from '../navigation/SidebarContext';
 import { NATIVE_TAB_CONTENT_PADDING } from '../navigation/nativeTabBarLayout';
-import { FLOATING_TAB_BAR } from '../data/platform';
+import { FINE_POINTER, FLOATING_TAB_BAR } from '../data/platform';
 import { useTasks } from '../data/TaskContext';
 import { getListById, trashedTasks } from '../data/selectors';
 import { formatDueShort } from '../data/dateUtils';
@@ -120,8 +120,8 @@ const useStyles = makeStyles((c) => ({
     paddingBottom: 10,
   },
   title: {
-    fontFamily: fonts.sansBold,
-    fontSize: 22,
+    fontFamily: FINE_POINTER ? fonts.sansSemiBold : fonts.sansBold,
+    fontSize: FINE_POINTER ? 16 : 22,
     color: c.textPrimary,
   },
   count: {

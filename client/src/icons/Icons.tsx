@@ -2,6 +2,7 @@
 import React from 'react';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { useAccent, useColors } from '../theme/ThemeContext';
+import { FINE_POINTER } from '../data/platform';
 
 export interface IconProps {
   size?: number;
@@ -9,7 +10,7 @@ export interface IconProps {
   strokeWidth?: number;
 }
 
-export function IconMenu({ size = 22, color: colorProp, strokeWidth = 1.8 }: IconProps) {
+export function IconMenu({ size = FINE_POINTER ? 17 : 22, color: colorProp, strokeWidth = 1.8 }: IconProps) {
   const c = useColors();
   const color = colorProp ?? c.textPrimary;
   return (

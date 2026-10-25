@@ -6,22 +6,28 @@ import { useWindowSelector } from '../components/useWindowSelector';
 import { FINE_POINTER } from '../data/platform';
 import { loadSidebarRail, saveSidebarRail } from '../data/storage';
 
-/** Above this width the sidebar is pinned open and the bottom tab bar goes away. */
-export const WIDE_BREAKPOINT = 900;
+/** Narrower on the desktop, where the rows are denser and a window has less to give. */
+export const SIDEBAR_WIDTH = FINE_POINTER ? 280 : 300;
+/** Icon-only rail when the pinned sidebar is collapsed. */
+export const SIDEBAR_COLLAPSED_WIDTH = 64;
 
 /**
- * Down to this width a desktop window keeps the sidebar pinned, as its icon rail.
+ * The narrowest list a desktop window keeps beside the pinned sidebar.
  *
- * Below the wide breakpoint the full sidebar no longer fits beside the list, but
- * a rail does: 664 is where the list beside a 64pt rail is as wide as it is
- * beside the full 300pt sidebar at 900, so nothing on screen gets less room than
- * the wide layout already gives it. Throwing the nav away the moment the full
- * one stops fitting was hiding it for a lack of room the rail never needed.
- *
- * Only with a mouse: a phone turned on its side is this wide too, and keeps
- * its tab bar.
+ * The desktop list is dense enough to read comfortably at this width, so the
+ * sidebar stays pinned until the list would get narrower than this, rather than
+ * at a fixed window width chosen for touch-sized rows.
  */
-export const RAIL_BREAKPOINT = 664;
+const DESKTOP_LIST_MIN_WIDTH = 440;
+
+/**
+ * Above this width the sidebar is pinned open and the bottom tab bar goes away.
+ *
+ * A touch layout keeps 900, where its larger rows still have room beside the
+ * full sidebar.
+ */
+export const WIDE_BREAKPOINT = FINE_POINTER ? SIDEBAR_WIDTH + DESKTOP_LIST_MIN_WIDTH : 900;
+
 
 /**
  * The drawer's motion, up here because two places drive it.
@@ -69,7 +75,7 @@ interface SidebarValue {
   /** The sidebar is pinned beside the content, in full or as a rail. */
   wide: boolean;
   /**
-   * Pinned, but only as a rail: the window is between `RAIL_BREAKPOINT` and
+   * Pinned, but only as a rail: a desktop window narrower than
    * `WIDE_BREAKPOINT`. Expanding it opens the full sidebar as the drawer, over
    * the content, since there is no room to push the content aside for it.
    */
@@ -128,8 +134,12 @@ const DrawerStateContext = createContext<DrawerStateValue | null>(null);
 const CollapsedContext = createContext(false);
 
 export function SidebarProvider({ children }: { children: React.ReactNode }) {
+  // Below the wide breakpoint a desktop window keeps the sidebar as its icon
+  // rail however narrow it gets: with a mouse the nav is one click away there,
+  // where a drawer would hide it behind a menu button. Only touch layouts trade
+  // it for the tab bar, since a phone turned on its side is just as wide.
   const layout = useWindowSelector((window) =>
-    window.width >= WIDE_BREAKPOINT ? 'full' : FINE_POINTER && window.width >= RAIL_BREAKPOINT ? 'rail' : 'narrow'
+    window.width >= WIDE_BREAKPOINT ? 'full' : FINE_POINTER ? 'rail' : 'narrow'
   );
   const wide = layout !== 'narrow';
   const railOnly = layout === 'rail';

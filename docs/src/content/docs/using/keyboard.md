@@ -15,6 +15,8 @@ Keys marked *(Mac)* are only in the Mac app. The Windows app and the web app run
 engine, which keeps those keys for itself (⌘N opens a window, ⌘T a tab, ⌘1 switches tabs), so use
 ⌘K for those commands there.
 
+In a browser, the text size keys are the browser's own zoom, which does the same job there.
+
 ## Moving around the window
 
 The window has four places your keys can go: the **sidebar**, the **add field** at the top of a
@@ -35,6 +37,8 @@ does.
 | ⌘S | Show or hide the sidebar, which takes the keyboard as it opens *(Mac)* |
 | ⌘D | Show or hide the task pane *(Mac)* |
 | ⌘/ | Keyboard shortcuts |
+| ⌘= ⌘- | Bigger and smaller text, in steps from 85% to 175% *(Mac and Windows apps)* |
+| ⌘0 | Text back to its usual size *(Mac and Windows apps)* |
 | ⌘, | Settings *(Mac)* |
 | ⌘W | Close the window; with the menu bar icon on, Yarukoto keeps running there *(Mac)* |
 

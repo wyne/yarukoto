@@ -3,20 +3,29 @@ import { StyleSheet, View } from 'react-native';
 import Pressable from './HoverPressable';
 import { GlassContainer } from 'expo-glass-effect';
 import ThemedGlassView from './ThemedGlassView';
-import { LIQUID_GLASS } from '../data/platform';
+import { FINE_POINTER, LIQUID_GLASS } from '../data/platform';
 import { useHoverBg } from '../theme/hover';
 import ShortcutHint from './ShortcutHint';
 import type { CommandId } from '../navigation/commands';
 
-/** Diameter of the glass capsule and the standard iOS touch target. */
-const SIZE = 44;
+/** The standard iOS touch target, which a finger needs and a pointer doesn't. */
+const TOUCH_TARGET = 44;
+
+/**
+ * Diameter of the glass capsule: the touch target, or much less with a pointer,
+ * where a 44pt circle makes the header the heaviest thing in a small window.
+ */
+const SIZE = FINE_POINTER ? 26 : TOUCH_TARGET;
+
+/** Height of a text capsule, which needs a little more room than an icon. */
+const TEXT_SIZE = FINE_POINTER ? 28 : TOUCH_TARGET;
 
 /**
  * Height of the compact text capsule. Secondary controls that sit in a filter
  * row above the content they filter, rather than in a header, where a full 44pt
  * capsule reads as a header bar of its own and eats the day view below it.
  */
-const COMPACT_SIZE = 32;
+const COMPACT_SIZE = FINE_POINTER ? 24 : 32;
 
 /**
  * Gap between capsules in a group, and the distance at which the glass in a
@@ -27,7 +36,7 @@ const GROUP_GAP = 6;
 const GROUP_SPACING = 10;
 const JoinedGlassGroupContext = createContext(false);
 
-const COMPACT_SLOP = { top: (SIZE - COMPACT_SIZE) / 2, bottom: (SIZE - COMPACT_SIZE) / 2 };
+const COMPACT_SLOP = { top: (TOUCH_TARGET - COMPACT_SIZE) / 2, bottom: (TOUCH_TARGET - COMPACT_SIZE) / 2 };
 
 interface Props {
   onPress: () => void;
@@ -304,9 +313,9 @@ const styles = StyleSheet.create({
   },
   glassTextButton: {
     minWidth: 68,
-    height: SIZE,
+    height: TEXT_SIZE,
     paddingHorizontal: 12,
-    borderRadius: SIZE / 2,
+    borderRadius: TEXT_SIZE / 2,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -316,7 +325,7 @@ const styles = StyleSheet.create({
   },
   flatTextMenuLabel: {
     minWidth: 68,
-    minHeight: SIZE,
+    minHeight: TEXT_SIZE,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 12,

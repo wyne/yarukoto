@@ -1182,7 +1182,7 @@ const TaskListBody = memo(
           {DESKTOP_UI ? (
             <Tooltip label="More">
               <GlassIconButton ref={headerMenuBtn} onPress={openHeaderMenu} label="More actions">
-                <IconDotsHorizontal size={22} />
+                <IconDotsHorizontal size={FINE_POINTER ? 17 : 22} />
               </GlassIconButton>
             </Tooltip>
           ) : (
@@ -1194,7 +1194,7 @@ const TaskListBody = memo(
               }}
             >
               <GlassIconMenuLabel label="More actions">
-                <IconDotsHorizontal size={22} />
+                <IconDotsHorizontal size={FINE_POINTER ? 17 : 22} />
               </GlassIconMenuLabel>
             </MenuView>
           )}
@@ -1482,9 +1482,9 @@ const useStyles = makeStyles((c) => ({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    paddingHorizontal: 16,
-    paddingBottom: 10,
+    gap: FINE_POINTER ? 10 : 12,
+    paddingHorizontal: FINE_POINTER ? 12 : 16,
+    paddingBottom: FINE_POINTER ? 6 : 10,
     // Lifts the whole bar over the quick-add field below it. A tooltip hangs
     // under its button and so leaves the header's bounds; without this the
     // field, being a later sibling, paints straight over it.
@@ -1498,13 +1498,13 @@ const useStyles = makeStyles((c) => ({
   },
   title: {
     flexShrink: 1,
-    fontFamily: fonts.sansBold,
-    fontSize: 22,
+    fontFamily: FINE_POINTER ? fonts.sansSemiBold : fonts.sansBold,
+    fontSize: FINE_POINTER ? 16 : 22,
     color: c.textPrimary,
   },
   count: {
     fontFamily: fonts.monoRegular,
-    fontSize: 13.5,
+    fontSize: FINE_POINTER ? 12 : 13.5,
     color: c.textTertiary,
   },
   daysLabel: {

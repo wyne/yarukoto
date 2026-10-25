@@ -15,6 +15,7 @@ import { TaskGroup } from '../data/viewOptions';
 import SectionHeader from './SectionHeader';
 import { IconGrip } from '../icons/Icons';
 import { useWindowResizing } from './useWindowSelector';
+import { useFontScale } from '../theme/textScale';
 
 /**
  * The task list as one virtualized, reorderable list.
@@ -135,6 +136,7 @@ const VirtualTaskList = forwardRef<FlatList<Item>, Props>(function VirtualTaskLi
 ) {
   const active = groups.reduce((n, g) => n + g.tasks.length, 0);
   const resizing = useWindowResizing();
+  const fontScale = useFontScale();
 
   // The list's own pan otherwise activates after 10pt of movement in any
   // direction, which takes the touch from a row's swipe (15pt) and the
@@ -309,6 +311,10 @@ const VirtualTaskList = forwardRef<FlatList<Item>, Props>(function VirtualTaskLi
 
   return (
     <ReorderableList
+      // Rebuilt when the system text size changes. React Native re-measures the
+      // text itself, but rows already laid out keep their old heights and spacing
+      // until something rebuilds them, which until now was a relaunch.
+      key={fontScale}
       ref={setRefs}
       data={items}
       keyExtractor={keyExtractor}
@@ -452,8 +458,8 @@ const useStyles = makeStyles((c) => ({
   /** The gap between groups, then the gap between a header and its card. */
   header: {
     marginHorizontal: 6,
-    paddingTop: 12,
-    paddingBottom: 2,
+    paddingTop: FINE_POINTER ? 8 : 12,
+    paddingBottom: FINE_POINTER ? 0 : 2,
   },
   headerFirst: {
     paddingTop: 0,
@@ -465,7 +471,7 @@ const useStyles = makeStyles((c) => ({
    */
   cell: {
     position: 'relative',
-    marginHorizontal: 12,
+    marginHorizontal: FINE_POINTER ? 8 : 12,
     backgroundColor: c.surface,
     borderLeftWidth: 1,
     borderRightWidth: 1,
@@ -474,13 +480,13 @@ const useStyles = makeStyles((c) => ({
   },
   cellFirst: {
     borderTopWidth: 1,
-    borderTopLeftRadius: 12,
-    borderTopRightRadius: 12,
+    borderTopLeftRadius: FINE_POINTER ? 10 : 12,
+    borderTopRightRadius: FINE_POINTER ? 10 : 12,
   },
   cellLast: {
     borderBottomWidth: 1,
-    borderBottomLeftRadius: 12,
-    borderBottomRightRadius: 12,
+    borderBottomLeftRadius: FINE_POINTER ? 10 : 12,
+    borderBottomRightRadius: FINE_POINTER ? 10 : 12,
   },
   handleSlot: {
     position: 'absolute',

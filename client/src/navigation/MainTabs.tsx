@@ -1,4 +1,4 @@
-import React, { memo, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
+import React, { memo, useCallback, useDeferredValue, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { LayoutChangeEvent, PanResponder, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSharedValue, withTiming } from 'react-native-reanimated';
@@ -30,7 +30,7 @@ import SidebarDrawer from '../components/SidebarDrawer';
 import TaskDetailView from '../components/TaskDetailView';
 import TaskDetailSheet from '../components/TaskDetailSheet';
 import BulkActions from '../components/BulkActions';
-import { DESKTOP_UI, FINE_POINTER, MAC, WINDOWS_APP } from '../data/platform';
+import { DESKTOP_APP, DESKTOP_UI, FINE_POINTER, MAC, WINDOWS_APP } from '../data/platform';
 import UndoToast from '../components/UndoToast';
 import DragOverlay from '../drag/DragOverlay';
 import { useDragActive } from '../drag/DragContext';
@@ -40,6 +40,7 @@ import JoinLinkHandler from './JoinLinkHandler';
 import NavSheets from '../components/sidebar/NavSheets';
 import TaskReminderNotifications from './TaskReminderNotifications';
 import MenuCommands, { dispatchCommand } from './MenuCommands';
+import TextSizeCommands from './TextSizeCommands';
 import MacStatusMenu from './MacStatusMenu';
 import WindowsTrayMenu from './WindowsTrayMenu';
 import KeyCommandsView from '../../modules/mac-pointer/src/KeyCommandsView';
@@ -154,7 +155,13 @@ function Layout() {
    * pane lands on wherever it stops.
    */
   const paneTaskId = useDeferredValue(openTaskId);
-  const [rowWidth, setRowWidth] = useState(0);
+  // The row's width, read by the detail column's clamp. A ref: it changes on every
+  // frame of a window resize, and as state it re-rendered this whole layout, and
+  // every sheet mounted in it, each time.
+  const rowWidth = useRef(0);
+  // The slide-over is the one thing drawn from it, so only an open one redraws.
+  const [, redrawSlideOver] = useReducer((n: number) => n + 1, 0);
+  const slideOverOpen = useRef(false);
   const [detailColumnWidth, setDetailColumnWidth] = useState(DETAIL_COLUMN_WIDTH);
   const detailColumnWidthRef = useRef(detailColumnWidth);
   const resizeStartWidth = useRef(detailColumnWidth);
@@ -182,6 +189,7 @@ function Layout() {
    * touch-screen browser is a phone's, and keeps the sheet.
    */
   const slideOver = ((!wide && FINE_POINTER) || (wide && overlay)) && !bulk && !!openTaskId;
+  slideOverOpen.current = slideOver;
   /**
    * Escape closes the task over a screen that has no list to hand the key to.
    * Over a list, the list's own Escape (`deselect`) already closes it and keeps
@@ -200,12 +208,12 @@ function Layout() {
 
   const clampDetailColumnWidth = useCallback(
     (width: number) => {
-      const max = rowWidth
-        ? Math.max(DETAIL_COLUMN_MIN_WIDTH, rowWidth - MAIN_CONTENT_MIN_WIDTH - DETAIL_RESIZER_WIDTH)
+      const max = rowWidth.current
+        ? Math.max(DETAIL_COLUMN_MIN_WIDTH, rowWidth.current - MAIN_CONTENT_MIN_WIDTH - DETAIL_RESIZER_WIDTH)
         : DETAIL_COLUMN_WIDTH;
       return Math.min(Math.max(width, DETAIL_COLUMN_MIN_WIDTH), max);
     },
-    [rowWidth]
+    []
   );
   const setClampedDetailColumnWidth = useCallback(
     (width: number) => {
@@ -231,7 +239,8 @@ function Layout() {
   );
   const handleRowLayout = useCallback((event: LayoutChangeEvent) => {
     const nextWidth = event.nativeEvent.layout.width;
-    setRowWidth(nextWidth);
+    rowWidth.current = nextWidth;
+    if (slideOverOpen.current) redrawSlideOver();
     if (!DESKTOP_UI) return;
     const max = Math.max(DETAIL_COLUMN_MIN_WIDTH, nextWidth - MAIN_CONTENT_MIN_WIDTH - DETAIL_RESIZER_WIDTH);
     if (detailColumnWidthRef.current > max) {
@@ -295,7 +304,10 @@ function Layout() {
           <View
             style={[
               styles.slideOverPanel,
-              { width: rowWidth && rowWidth < SLIDE_OVER_FULL_BELOW ? rowWidth : SLIDE_OVER_WIDTH },
+              {
+                width:
+                  rowWidth.current && rowWidth.current < SLIDE_OVER_FULL_BELOW ? rowWidth.current : SLIDE_OVER_WIDTH,
+              },
             ]}
           >
             <PaneEscape onClose={closeTask}>
@@ -317,6 +329,7 @@ function Layout() {
       <DragOverlay />
       <TaskReminderNotifications />
       <MenuCommands />
+      {DESKTOP_APP && <TextSizeCommands />}
       {MAC && <MacStatusMenu />}
       {WINDOWS_APP && <WindowsTrayMenu />}
     </View>

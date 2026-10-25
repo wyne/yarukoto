@@ -1,4 +1,4 @@
-import { useEffect, useState, useSyncExternalStore } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { Dimensions, ScaledSize } from 'react-native';
 
 const subscribe = (onChange: () => void) => {
@@ -45,4 +45,26 @@ export function useWindowResizing(): boolean {
     };
   }, []);
   return resizing;
+}
+
+/**
+ * The window's size, followed only while `active`, and held at its last value
+ * while not.
+ *
+ * For a layer that sizes itself to the window — a dialog, a popover — but is
+ * closed nearly all the time. Every screen keeps a few of them mounted, and with
+ * `useWindowDimensions` each one re-rendered on every frame of a resize to
+ * measure a card nobody could see.
+ */
+export function useWindowSizeWhile(active: boolean): { width: number; height: number } {
+  const last = useRef<{ width: number; height: number } | null>(null);
+  return useSyncExternalStore(subscribe, () => {
+    if (active || !last.current) {
+      const { width, height } = Dimensions.get('window');
+      if (!last.current || last.current.width !== width || last.current.height !== height) {
+        last.current = { width, height };
+      }
+    }
+    return last.current;
+  });
 }

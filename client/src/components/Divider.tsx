@@ -1,9 +1,13 @@
 import React from 'react';
 import { View } from 'react-native';
 import { useColors } from '../theme/ThemeContext';
+import { FINE_POINTER } from '../data/platform';
 
 interface Props {
-  /** Left inset. Zero squares off the edge of a tinted row above or below it. */
+  /**
+   * Left inset. Zero squares off the edge of a tinted row above or below it. The
+   * default lines up with a task row's title: its padding, checkbox and gap.
+   */
   indent?: number;
   /** Overrides the line's colour, to carry a tint across it. */
   color?: string;
@@ -11,7 +15,7 @@ interface Props {
   railColor?: string;
 }
 
-export default function Divider({ indent = 46, color, railColor }: Props) {
+export default function Divider({ indent = FINE_POINTER ? 40 : 46, color, railColor }: Props) {
   const colors = useColors();
   return (
     <View style={{ height: 1 }}>

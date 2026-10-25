@@ -1073,7 +1073,7 @@ const useStyles = makeStyles((c) => ({
     justifyContent: 'center',
     gap: 6,
     minWidth: 34,
-    height: 32,
+    minHeight: 32,
     paddingHorizontal: 8,
     borderRadius: 8,
     borderWidth: 1,

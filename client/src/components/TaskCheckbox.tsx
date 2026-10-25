@@ -5,6 +5,7 @@ import { useColors } from '../theme/ThemeContext';
 import { Priority } from '../data/types';
 import { hapticAction } from '../data/haptics';
 import { IconCheckBig } from '../icons/Icons';
+import { FINE_POINTER } from '../data/platform';
 
 interface Props {
   completed: boolean;
@@ -13,7 +14,7 @@ interface Props {
   size?: number;
 }
 
-export default function TaskCheckbox({ completed, priority, onPress, size = 20 }: Props) {
+export default function TaskCheckbox({ completed, priority, onPress, size = FINE_POINTER ? 18 : 20 }: Props) {
   const colors = useColors();
   const scale = useRef(new Animated.Value(1)).current;
 

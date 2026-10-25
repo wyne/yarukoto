@@ -25,7 +25,7 @@ import AddTaskFab from '../components/AddTaskFab';
 import { closeOpenSwipeRow } from '../components/SwipeableRow';
 import { useSyncRefresh } from '../data/useSyncRefresh';
 import GlassIconButton, { GlassIconButtonGroup, GlassTextButton, GlassTextMenuLabel } from '../components/GlassIconButton';
-import { DESKTOP_UI, FLOATING_TAB_BAR } from '../data/platform';
+import { DESKTOP_UI, FINE_POINTER, FLOATING_TAB_BAR } from '../data/platform';
 import { IconCheckBig, IconChevronDown, IconChevronLeft, IconChevronRight, IconMenu } from '../icons/Icons';
 import Popover, { type PopoverAnchor } from '../components/Popover';
 import { MenuRow } from '../components/menu/MenuItems';
@@ -631,13 +631,13 @@ const useStyles = makeStyles((c) => ({
     gap: 10,
   },
   titleBtn: {
-    minHeight: 36,
+    minHeight: FINE_POINTER ? 28 : 36,
     justifyContent: 'center',
   },
   title: {
     flexShrink: 1,
-    fontFamily: fonts.sansBold,
-    fontSize: 20,
+    fontFamily: FINE_POINTER ? fonts.sansSemiBold : fonts.sansBold,
+    fontSize: FINE_POINTER ? 16 : 20,
     color: c.textPrimary,
   },
   todayBtn: {

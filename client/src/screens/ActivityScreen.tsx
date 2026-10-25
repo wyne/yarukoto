@@ -10,7 +10,7 @@ import { useHoverBg } from '../theme/hover';
 import { PANE_MAX_WIDTH, useSidebar } from '../navigation/SidebarContext';
 import { useDetailActions } from '../navigation/DetailContext';
 import { NATIVE_TAB_CONTENT_PADDING } from '../navigation/nativeTabBarLayout';
-import { FLOATING_TAB_BAR } from '../data/platform';
+import { FINE_POINTER, FLOATING_TAB_BAR } from '../data/platform';
 import { createApi } from '../data/api';
 import { useSyncStatus, useTasks } from '../data/TaskContext';
 import { getListById } from '../data/selectors';
@@ -381,8 +381,8 @@ const useStyles = makeStyles((c) => ({
   },
   title: {
     flex: 1,
-    fontFamily: fonts.sansBold,
-    fontSize: 22,
+    fontFamily: FINE_POINTER ? fonts.sansSemiBold : fonts.sansBold,
+    fontSize: FINE_POINTER ? 16 : 22,
     color: c.textPrimary,
   },
   filterBar: {

@@ -138,7 +138,11 @@ export default function DragList<T>({
   // The library sizes rows from their own content once it switches the column to
   // absolute layout (see applyControlledContainerDimensions in MeasurementsProvider),
   // so rows must carry an explicit width. Measure the column and pass it down.
-  const [containerWidth, setContainerWidth] = useState<number | null>(null);
+  //
+  // A shared value, not state: the width changes on every frame of a window
+  // resize, and as state it re-rendered the whole list, and every row in it,
+  // each time. Applied as an animated style, it costs no React render at all.
+  const containerWidth = useSharedValue<number | null>(null);
 
   // The library reports React's own child keys, and React rewrites the ones it
   // is given: a keyed array child becomes `.$<key>` with `=` and `:` escaped to
@@ -161,7 +165,11 @@ export default function DragList<T>({
   }, [items, keyExtractor]);
 
   return (
-    <View onLayout={(e) => setContainerWidth(e.nativeEvent.layout.width)}>
+    <View
+      onLayout={(e) => {
+        containerWidth.value = e.nativeEvent.layout.width;
+      }}
+    >
       <Sortable.Flex
         key={resetKey}
         flexDirection="column"
@@ -287,7 +295,7 @@ function GlassRow({
   lift,
 }: {
   children: React.ReactNode;
-  width: number | null;
+  width: SharedValue<number | null>;
   /** See DragList's `liftAfter`: gates the veil so it fades in with the lift. */
   lift: SharedValue<number>;
   /** Render the drag handle, revealed while a pointer is over the row. */
@@ -317,6 +325,7 @@ function GlassRow({
     };
   }, [handle]);
 
+  const sized = useAnimatedStyle(() => (width.value === null ? {} : { width: width.value }));
   const veil = useAnimatedStyle(() => ({
     opacity: activationAnimationProgress.value * lift.value,
   }));
@@ -326,34 +335,36 @@ function GlassRow({
   const nativeHover = handle && Platform.OS !== 'web';
 
   return (
-    <View
-      ref={ref}
-      style={[styles.glass, width !== null && { width }]}
-      onPointerEnter={nativeHover ? () => setHovered(true) : undefined}
-      onPointerLeave={nativeHover ? () => setHovered(false) : undefined}
-    >
-      {children}
-      {/*
-        Outside the row's Pressable on purpose. Nested inside it, a press on the
-        handle reaches the row and opens the task — and inside SwipeableRow it
-        would be competing with that gesture for the same touch.
-      */}
-      {handle && hovered && (
-        <View style={styles.handleSlot}>
-          <Sortable.Handle>
-            <View style={styles.handle} accessibilityLabel="Drag to reorder">
-              <IconGrip />
-            </View>
-          </Sortable.Handle>
-        </View>
-      )}
-      {count > 1 && (
-        <View pointerEvents="none" style={styles.count}>
-          <Text style={styles.countText}>{count}</Text>
-        </View>
-      )}
-      <Animated.View pointerEvents="none" style={[styles.veil, veil]} />
-    </View>
+    <Animated.View style={sized}>
+      <View
+        ref={ref}
+        style={styles.glass}
+        onPointerEnter={nativeHover ? () => setHovered(true) : undefined}
+        onPointerLeave={nativeHover ? () => setHovered(false) : undefined}
+      >
+        {children}
+        {/*
+          Outside the row's Pressable on purpose. Nested inside it, a press on the
+          handle reaches the row and opens the task — and inside SwipeableRow it
+          would be competing with that gesture for the same touch.
+        */}
+        {handle && hovered && (
+          <View style={styles.handleSlot}>
+            <Sortable.Handle>
+              <View style={styles.handle} accessibilityLabel="Drag to reorder">
+                <IconGrip />
+              </View>
+            </Sortable.Handle>
+          </View>
+        )}
+        {count > 1 && (
+          <View pointerEvents="none" style={styles.count}>
+            <Text style={styles.countText}>{count}</Text>
+          </View>
+        )}
+        <Animated.View pointerEvents="none" style={[styles.veil, veil]} />
+      </View>
+    </Animated.View>
   );
 }
 
