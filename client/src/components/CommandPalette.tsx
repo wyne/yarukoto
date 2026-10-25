@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Platform, ScrollView, Text, TextInput, View } from 'react-native';
+import { Platform, PointerEvent, ScrollView, Text, TextInput, View } from 'react-native';
 import Pressable from './HoverPressable';
 import Dialog from './Dialog';
 import KeyCommandsView from '../../modules/mac-pointer/src/KeyCommandsView';
@@ -130,6 +130,7 @@ export default function CommandPalette({ visible, onClose, picker = null, onLeav
     setQuery('');
     setIndex(0);
     scrollY.current = 0;
+    pointerAt.current = null;
     listRef.current?.scrollTo({ y: 0, animated: false });
   }, [visible, picker]);
 
@@ -290,6 +291,21 @@ export default function CommandPalette({ visible, onClose, picker = null, onLeav
     setTimeout(entry.run, Platform.OS === 'web' ? 0 : 250);
   };
 
+  /**
+   * Where the pointer was when a row last heard it. A row only takes the
+   * selection from a pointer that has moved since: one resting where the menu
+   * happens to open is not a choice. The Mac reports a pointer event when ⌘ is
+   * let go, and the web when rows move under a still pointer, and either would
+   * otherwise pull the selection off the first row the moment the menu opens.
+   */
+  const pointerAt = useRef<{ x: number; y: number } | null>(null);
+  const pointTo = (i: number, e: PointerEvent) => {
+    const { clientX: x, clientY: y } = e.nativeEvent;
+    const last = pointerAt.current;
+    pointerAt.current = { x, y };
+    if (last && (last.x !== x || last.y !== y)) setIndex(i);
+  };
+
   const move = (delta: number) => {
     if (results.length === 0) return;
     const next = (selected + delta + results.length) % results.length;
@@ -397,9 +413,8 @@ export default function CommandPalette({ visible, onClose, picker = null, onLeav
             <Pressable
               key={entry.key}
               onPress={() => choose(entry)}
-              // The web reports hover as hover; the Mac as a pointer entering.
-              onHoverIn={() => setIndex(i)}
-              onPointerEnter={() => setIndex(i)}
+              onPointerEnter={(e) => pointTo(i, e)}
+              onPointerMove={(e) => pointTo(i, e)}
               style={[styles.row, { height: rowHeight }, i === selected && styles.rowSelected]}
             >
               {picker && picker.kind !== 'goToTask' && <Text style={styles.check}>{entry.checked ? '✓' : ''}</Text>}

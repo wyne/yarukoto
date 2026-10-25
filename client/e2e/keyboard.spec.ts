@@ -415,6 +415,33 @@ test('⌘O, ⌘K and ⌘/ cycle through one menu, over and over, and leave the w
   await expect(add).toBeFocused();
 });
 
+test('a pointer resting where the menu opens leaves the first row selected', async ({ page }) => {
+  await connect(page);
+  const rows = page.locator('[aria-modal="true"] [tabindex="0"]').filter({ hasText: /\w/ });
+  const selected = () =>
+    rows.evaluateAll((els) => els.findIndex((el) => getComputedStyle(el).backgroundColor !== 'rgba(0, 0, 0, 0)'));
+  await page.keyboard.press('ControlOrMeta+k');
+  const second = (await rows.nth(1).boundingBox())!;
+  await page.keyboard.press('Escape');
+
+  // The pointer waits over where the second row will be, then the key is
+  // pressed, held and let go.
+  const x = second.x + 40;
+  const y = second.y + second.height / 2;
+  await page.mouse.move(x, y);
+  await page.keyboard.down('ControlOrMeta');
+  await page.keyboard.press('k');
+  await expect(page.getByPlaceholder('Go to or do…')).toBeFocused();
+  await page.waitForTimeout(400);
+  await page.keyboard.up('ControlOrMeta');
+  await page.waitForTimeout(200);
+  expect(await selected()).toBe(0);
+
+  // Moving it is a choice.
+  await page.mouse.move(x + 10, y + 2);
+  await expect.poll(selected).toBe(1);
+});
+
 test('⌘O finds a task that isn\'t done by its title and opens it in its list', async ({ page, request }) => {
   const stamp = Date.now();
   const auth = { Authorization: `Bearer ${TOKEN}` };
