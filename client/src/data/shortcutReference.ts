@@ -38,6 +38,8 @@ export function shortcutSections(): ShortcutSearchSection[] {
   const list: ShortcutSearchRow[] = [];
   const editing: ShortcutSearchRow[] = [
     { title: 'Title to notes', keys: fmt('return'), searchTerms: terms('return') },
+    // completeTask's key, answered by the subtask field that has the caret.
+    { title: 'Check off subtask', keys: fmt('return', 'command'), searchTerms: `complete done finish ${terms('return', 'command')}` },
   ];
   if (MAC) {
     const viewShortcuts = Array.from({ length: 7 }, (_, i): Shortcut => ({

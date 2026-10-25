@@ -131,6 +131,7 @@ So a quick capture is **⌘N**, type, **Return**, and **↓** or **Escape** to g
 | ⇥ Tab | Next field: title, notes, each subtask, then the add-subtask field |
 | ⇧⇥ Shift-Tab | Previous field |
 | ↩ Return in the title | Jump to the notes |
+| ⌘↩ in a subtask | Check off that subtask, or uncheck it if it's done. The task itself stays open |
 | ⌘B, ⌘I | Bold and italic, in the notes |
 | ⎋ Escape | Back to the list, with the task still open |
 
