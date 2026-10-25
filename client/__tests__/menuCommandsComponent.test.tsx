@@ -16,6 +16,7 @@ let mockPaletteProps: Record<string, any> = {};
 let mockSidebar = { wide: true, railOnly: false };
 let mockCollapsed = false;
 let mockDrawerOpen = false;
+let mockSidebarHolds = false;
 
 jest.mock('../src/data/platform', () => ({
   DESKTOP_APP: true,
@@ -56,6 +57,7 @@ jest.mock('../src/navigation/SidebarContext', () => ({
 }));
 jest.mock('../src/navigation/focusPanes', () => ({
   focusPane: (...args: unknown[]) => mockFocusPane(...args),
+  sidebarHoldsKeyboard: () => mockSidebarHolds,
 }));
 jest.mock('../src/navigation/shortcutHints', () => ({
   useCommandKeyHints: () => mockUseCommandKeyHints(),
@@ -65,6 +67,7 @@ jest.mock('../modules/mac-menu/src/MacMenu', () => null);
 import MenuCommands, {
   dispatchCommand,
   showPalettePicker,
+  useCommand,
 } from '../src/navigation/MenuCommands';
 
 const originalPlatformOs = Object.getOwnPropertyDescriptor(Platform, 'OS');
@@ -83,6 +86,7 @@ beforeEach(() => {
   mockSidebar = { wide: true, railOnly: false };
   mockCollapsed = false;
   mockDrawerOpen = false;
+  mockSidebarHolds = false;
   Object.defineProperty(Platform, 'OS', { configurable: true, value: 'ios' });
 });
 
@@ -236,5 +240,71 @@ test('web shortcuts prevent the browser action only when a command answers', () 
   act(() => root.unmount());
   expect(remove).toHaveBeenCalledWith('keydown', capture, true);
   expect(remove).toHaveBeenCalledWith('keydown', bubble);
+  Object.defineProperty(global, 'document', { configurable: true, value: undefined });
+});
+
+test('the web reads vim keys for the list, but not from a field or past the sidebar', () => {
+  Object.defineProperty(Platform, 'OS', { configurable: true, value: 'web' });
+  const add = jest.fn();
+  Object.defineProperty(global, 'document', {
+    configurable: true,
+    value: { addEventListener: add, removeEventListener: jest.fn() },
+  });
+  const next = jest.fn();
+  const first = jest.fn();
+  function List() {
+    useCommand('nextTask', next);
+    useCommand('firstTask', first);
+    return null;
+  }
+  let root!: ReactTestRenderer;
+  act(() => {
+    root = create(
+      <>
+        <MenuCommands />
+        <List />
+      </>
+    );
+  });
+  const bubble = add.mock.calls.find(([event, _listener, options]) => event === 'keydown' && options !== true)?.[1] as EventListener;
+  const press = (key: string, extra: Record<string, unknown> = {}) => {
+    const event = {
+      key,
+      code: `Key${key.toUpperCase()}`,
+      metaKey: false,
+      ctrlKey: false,
+      altKey: false,
+      shiftKey: false,
+      repeat: false,
+      defaultPrevented: false,
+      target: { tagName: 'DIV' },
+      preventDefault: jest.fn(),
+      getModifierState: () => false,
+      ...extra,
+    } as unknown as KeyboardEvent;
+    act(() => bubble(event));
+    return event;
+  };
+
+  expect(press('j').preventDefault).toHaveBeenCalled();
+  // Held, j keeps moving, as an arrow does.
+  press('j', { repeat: true });
+  expect(next).toHaveBeenCalledTimes(2);
+  // Typed in a field, it's the field's.
+  press('j', { target: { tagName: 'INPUT' } });
+  expect(next).toHaveBeenCalledTimes(2);
+
+  // gg, with Shift alone in between ignored as no key at all.
+  expect(press('g').preventDefault).toHaveBeenCalled();
+  press('Shift', { code: 'ShiftLeft', shiftKey: true });
+  press('g');
+  expect(first).toHaveBeenCalledTimes(1);
+
+  // A letter doesn't get past the sidebar to the list behind it.
+  mockSidebarHolds = true;
+  press('j');
+  expect(next).toHaveBeenCalledTimes(2);
+
+  act(() => root.unmount());
   Object.defineProperty(global, 'document', { configurable: true, value: undefined });
 });

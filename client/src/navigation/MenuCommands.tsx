@@ -8,11 +8,11 @@ import { checkForAppUpdatesInteractively } from '../data/appUpdates';
 import { PendingUndo, usePendingUndo, useTasks } from '../data/TaskContext';
 import { afterLayersClose, anyLayerOpen } from '../components/openLayers';
 import CommandPalette from '../components/CommandPalette';
-import { COMMANDS, CommandId, commandDef, webCommandFor } from './commands';
+import { COMMANDS, CommandId, commandDef, createKeySequenceReader, domKeyName, webCommandFor } from './commands';
 import { navigationRef } from './DateTimePickerContext';
 import { tabNavigation } from './destinations';
 import { useDrawerState, useSidebar, useSidebarCollapsed } from './SidebarContext';
-import { focusPane } from './focusPanes';
+import { focusPane, sidebarHoldsKeyboard } from './focusPanes';
 import { useCommandKeyHints } from './shortcutHints';
 import type { PalettePicker } from '../data/palettePickers';
 
@@ -201,6 +201,17 @@ function typingIn(target: EventTarget | null): boolean {
   return el.isContentEditable || el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT';
 }
 
+const MODIFIER_KEYS = new Set(['Shift', 'Control', 'Alt', 'Meta', 'CapsLock']);
+const REPEATING_KEYS = new Set(['j', 'k', 'e', 'y']);
+
+/** A key that types a character, alone or with ⇧ or ⌃: one of vim's list keys. */
+function typesCharacter(e: KeyboardEvent): boolean {
+  return e.key.length === 1 && e.key !== ' ' && !e.metaKey && !e.altKey;
+}
+
+/** The web's reader of two-key list keys (`gg`, `za`); the Mac's is in ListKeys. */
+const readSequence = createKeySequenceReader();
+
 /** Asked of the command menu by a picker command; see `showPalettePicker`. */
 let pickerListener: ((picker: PalettePicker) => void) | null = null;
 
@@ -352,15 +363,25 @@ export default function MenuCommands() {
   useEffect(() => {
     if (Platform.OS !== 'web' || !DESKTOP_UI) return;
     const onKey = (e: KeyboardEvent) => {
-      // Held arrows repeat, as they do in any list; nothing else should.
-      if (e.defaultPrevented || (e.repeat && !e.key.startsWith('Arrow'))) return;
+      // Held arrows repeat, as they do in any list, and vim's j, k, ⌃E and ⌃Y
+      // with them; nothing else should.
+      if (e.defaultPrevented || (e.repeat && !e.key.startsWith('Arrow') && !REPEATING_KEYS.has(e.key))) return;
       const match = webCommandFor(e);
-      if (!match) return;
+      if (match && !match.listKey) {
+        if (dispatchCommand(match.def.id)) e.preventDefault();
+        return;
+      }
       // A plain list key belongs to the field being typed in; a shortcut with
       // ⌘ is a command whatever has focus, as it is in the Mac's menu bar.
-      if (match.listKey && typingIn(e.target)) return;
-      const { def } = match;
-      if (dispatchCommand(def.id)) e.preventDefault();
+      // Shift on its own, on the way to a G, is no key at all.
+      if (typingIn(e.target) || MODIFIER_KEYS.has(e.key)) return;
+      // The sidebar answers its own arrows, but a letter would get past it to
+      // the list behind; on the Mac the list only hears one while it has focus.
+      if (sidebarHoldsKeyboard() && typesCharacter(e)) return;
+      const sequence = readSequence(domKeyName(e));
+      if (sequence === 'pending') return e.preventDefault();
+      const id = sequence ?? match?.def.id;
+      if (id && dispatchCommand(id)) e.preventDefault();
     };
     // react-native-web's TextInput stops every keydown from bubbling, so from a
     // text field nothing reaches the listener below: ⌘K in the add field did
