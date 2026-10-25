@@ -65,6 +65,9 @@ While the sidebar has the keyboard, the row you're on is outlined in your accent
 | za | Fold or unfold the current group |
 | zc zo | Fold, or unfold, the current group |
 | zM zR | Fold, or unfold, every group |
+| i or o | Put the cursor in the add field: the web's New Task, where the browser keeps ⌘N |
+| / | Search, in Browse: the web's Find, where the browser keeps ⌘F |
+| `\` | Show or hide the sidebar: the web's ⌘S, which the browser keeps |
 | ⇧↑ ⇧↓ | Select several tasks |
 | ↩ Return | Open the task and start editing its title |
 | Space | Open the task beside the list, keeping the keyboard on the list |

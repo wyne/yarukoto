@@ -43,10 +43,12 @@ describe('the command list', () => {
     }
   });
 
-  test('every list key acts on the list, and is answered by it', () => {
+  test('every list key is answered by the list, and acts on it unless it is a way out of it', () => {
+    // Letters that leave the list for the add field, Browse or the sidebar.
+    const waysOut = new Set(['newTask', 'find', 'toggleSidebar']);
     for (const c of COMMANDS) {
       for (const k of c.listKeys ?? []) {
-        expect(c.list).toBe(true);
+        expect(c.list || waysOut.has(c.id)).toBe(true);
         expect(LIST_KEYS.get(keyName(k))).toBe(c.id);
       }
     }
@@ -204,6 +206,10 @@ describe('vim keys', () => {
     expect(LIST_KEYS.get('control+y')).toBe('scrollLineUp');
     expect(LIST_KEYS.get('z a')).toBe('toggleFold');
     expect(LIST_KEYS.get('z shift+m')).toBe('closeAllFolds');
+    expect(LIST_KEYS.get('i')).toBe('newTask');
+    expect(LIST_KEYS.get('o')).toBe('newTask');
+    expect(LIST_KEYS.get('/')).toBe('find');
+    expect(LIST_KEYS.get('\\')).toBe('toggleSidebar');
   });
 
   test('a list hears each half of a two-key one, and no prefix is a key of its own', () => {

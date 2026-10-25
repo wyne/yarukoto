@@ -554,4 +554,15 @@ test('vim keys move through the list and its groups, and fold them', async ({ pa
   await page.keyboard.press('z');
   await page.keyboard.press('Shift+R');
   await expect(page.getByText(tomorrow, { exact: true })).toBeVisible();
+
+  // \ hides and shows the sidebar, and i goes to the add field, typing nothing.
+  await page.keyboard.press('\\');
+  await expect(page.getByLabel('Expand sidebar')).toBeVisible();
+  await page.keyboard.press('\\');
+  await expect(page.getByLabel('Collapse sidebar')).toBeVisible();
+  await quickAdd.click();
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('i');
+  await expect(quickAdd).toBeFocused();
+  await expect(quickAdd).toHaveValue('');
 });

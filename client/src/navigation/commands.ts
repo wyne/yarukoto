@@ -160,14 +160,17 @@ export const COMMANDS: readonly CommandDef[] = [
   { id: 'checkForUpdates', title: 'Check for Updates…', menu: 'app', group: 'updates', keywords: 'version upgrade download' },
   { id: 'settings', title: 'Settings…', menu: 'app', group: 'settings', shortcut: cmd(','), keywords: 'preferences server theme' },
 
-  { id: 'newTask', title: 'New Task', menu: 'file', group: 'new', shortcut: cmd('n'), keywords: 'add create' },
+  // i and o as well, vim's insert and open-a-line: the web's way in, since a
+  // browser keeps ⌘N. Only heard from the list, like every list key.
+  { id: 'newTask', title: 'New Task', menu: 'file', group: 'new', shortcut: cmd('n'), listKeys: [plain('i'), plain('o')], keywords: 'add create' },
   // File ▸ Open…'s key, for the thing this app opens: a search of the open
   // tasks by title, in the command menu.
   { id: 'goToTask', title: 'Go to Task…', menu: 'file', group: 'new', shortcut: cmd('o'), web: true, picker: true, keywords: 'open find search jump' },
   // In place of the system's Close, which Catalyst leaves dimmed. Mac only (MacStatusMenu).
   { id: 'closeWindow', title: 'Close Window', menu: 'file', group: 'close', shortcut: cmd('w'), hiddenFromPalette: true },
 
-  { id: 'find', title: 'Find…', menu: 'edit', group: 'find', shortcut: cmd('f'), keywords: 'search browse' },
+  // / as vim searches, for the web, where the browser keeps ⌘F.
+  { id: 'find', title: 'Find…', menu: 'edit', group: 'find', shortcut: cmd('f'), listKeys: [plain('/')], keywords: 'search browse' },
   // Answered by the notes editor while it has focus. The system's Format menu,
   // where these keys would otherwise live, is removed (MacMenuBar.swift).
   { id: 'bold', title: 'Bold', menu: 'edit', group: 'format', shortcut: cmd('b'), web: true, hiddenFromPalette: true },
@@ -179,7 +182,8 @@ export const COMMANDS: readonly CommandDef[] = [
   // inserted View section over one clashing key), and not ⌘B or ⌘I, which are
   // Bold and Italic in the notes. Neither is on the web, where the browser keeps
   // ⌘S and ⌘D for saving and bookmarking.
-  { id: 'toggleSidebar', title: 'Toggle Sidebar', menu: 'view', group: 'panes', shortcut: cmd('s'), keywords: 'show hide collapse' },
+  // \ from the list for the web, where the browser keeps ⌘S.
+  { id: 'toggleSidebar', title: 'Toggle Sidebar', menu: 'view', group: 'panes', shortcut: cmd('s'), listKeys: [plain('\\')], keywords: 'show hide collapse' },
   { id: 'toggleTaskPane', title: 'Toggle Task Pane', menu: 'view', group: 'panes', shortcut: cmd('d'), list: true, keywords: 'show hide inspector detail' },
   // The desktop's text size. Phones follow the system's; the Mac app takes none
   // from the system, and the Windows app's engine has its own zoom turned off.
