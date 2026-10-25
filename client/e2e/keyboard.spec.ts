@@ -533,6 +533,14 @@ test('vim keys move through the list and its groups, and fold them', async ({ pa
   await expect(page.getByText(tomorrow, { exact: true })).toBeVisible();
   expect(await cursorTitle()).toBe(tomorrow);
 
+  // Return on a folded header opens it too.
+  await page.keyboard.press('z');
+  await page.keyboard.press('c');
+  await expect(page.getByText(tomorrow, { exact: true })).toBeHidden();
+  await page.keyboard.press('Enter');
+  await expect(page.getByText(tomorrow, { exact: true })).toBeVisible();
+  expect(typingIn(await focused(page))).toBe(false);
+
   // zM folds every group, j and k move between their headers, and zR opens them all.
   await page.keyboard.press('z');
   await page.keyboard.press('Shift+M');

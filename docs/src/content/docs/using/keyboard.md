@@ -88,7 +88,7 @@ press the second key within a second of the first. ⌃E and ⌃Y are **Ctrl+E** 
 Windows and in a browser too.
 
 A folded group is a stop of its own as you move through the list: its header takes the tint, so
-**za** or **zo** opens it again. Unfolding a group from its header puts you on its first task.
+**za**, **zo**, **Space** or **Return** opens it again. Unfolding a group from its header puts you on its first task.
 
 Press **⌘/** to open the complete keyboard shortcut reference. Search it by action, area, or key —
 for example, **due**, **task**, **cmd t**, or **option command t**.

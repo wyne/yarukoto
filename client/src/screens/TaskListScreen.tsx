@@ -780,7 +780,8 @@ const TaskListBody = memo(
   useCommand('previousTask', () => stepTo(-1), hasRows);
   useCommand('selectNext', () => extendTo(1), hasRows);
   useCommand('selectPrevious', () => extendTo(-1), hasRows);
-  useCommand('openTask', () => cursor && openTask(cursor), keyboardList && !!cursor);
+  // On a folded group's header, Space and Return open the group, as zo does.
+  useCommand('openTask', () => (onFoldStop ? fold(false) : cursor && openTask(cursor)), keyboardList && (!!cursor || onFoldStop));
   /**
    * Return opens the task to edit it: the pane opens, or follows, and the
    * caret goes into its title, so editing is Return, type, Escape. A pane
@@ -798,7 +799,7 @@ const TaskListBody = memo(
     openTask(cursor);
     if (taskPane) focusPane('pane', { mounting: true });
   };
-  useCommand('editTask', editCursor, keyboardList && !!cursor);
+  useCommand('editTask', () => (onFoldStop ? fold(false) : editCursor()), keyboardList && (!!cursor || onFoldStop));
   useCommand('focusTaskPane', editCursor, keyboardList && !!cursor);
   // A narrow window keeps its sidebar in the drawer: the key opens it and the
   // keyboard follows once it has mounted.
