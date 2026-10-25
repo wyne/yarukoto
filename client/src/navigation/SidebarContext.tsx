@@ -28,18 +28,6 @@ const DESKTOP_LIST_MIN_WIDTH = 440;
  */
 export const WIDE_BREAKPOINT = FINE_POINTER ? SIDEBAR_WIDTH + DESKTOP_LIST_MIN_WIDTH : 900;
 
-/**
- * Down to this width a desktop window keeps the sidebar pinned, as its icon rail.
- *
- * Below the wide breakpoint the full sidebar no longer fits beside the list, but
- * a rail does, and the list beside it keeps the same minimum. Throwing the nav
- * away the moment the full one stops fitting was hiding it for a lack of room
- * the rail never needed.
- *
- * Only with a mouse: a phone turned on its side is this wide too, and keeps
- * its tab bar.
- */
-export const RAIL_BREAKPOINT = SIDEBAR_COLLAPSED_WIDTH + DESKTOP_LIST_MIN_WIDTH;
 
 /**
  * The drawer's motion, up here because two places drive it.
@@ -87,7 +75,7 @@ interface SidebarValue {
   /** The sidebar is pinned beside the content, in full or as a rail. */
   wide: boolean;
   /**
-   * Pinned, but only as a rail: the window is between `RAIL_BREAKPOINT` and
+   * Pinned, but only as a rail: a desktop window narrower than
    * `WIDE_BREAKPOINT`. Expanding it opens the full sidebar as the drawer, over
    * the content, since there is no room to push the content aside for it.
    */
@@ -146,8 +134,12 @@ const DrawerStateContext = createContext<DrawerStateValue | null>(null);
 const CollapsedContext = createContext(false);
 
 export function SidebarProvider({ children }: { children: React.ReactNode }) {
+  // Below the wide breakpoint a desktop window keeps the sidebar as its icon
+  // rail however narrow it gets: with a mouse the nav is one click away there,
+  // where a drawer would hide it behind a menu button. Only touch layouts trade
+  // it for the tab bar, since a phone turned on its side is just as wide.
   const layout = useWindowSelector((window) =>
-    window.width >= WIDE_BREAKPOINT ? 'full' : FINE_POINTER && window.width >= RAIL_BREAKPOINT ? 'rail' : 'narrow'
+    window.width >= WIDE_BREAKPOINT ? 'full' : FINE_POINTER ? 'rail' : 'narrow'
   );
   const wide = layout !== 'narrow';
   const railOnly = layout === 'rail';
