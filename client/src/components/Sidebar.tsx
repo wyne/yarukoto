@@ -31,7 +31,13 @@ import {
 import { BrowseParams, InboxParams, NativeTaskViewParams } from '../navigation/types';
 import { NATIVE_LIST_DESTINATIONS, tabNavigation } from '../navigation/destinations';
 import { filterTasks } from '../data/taskFilter';
-import { useDrawerState, useSidebar, useSidebarCollapsed } from '../navigation/SidebarContext';
+import {
+  SIDEBAR_COLLAPSED_WIDTH,
+  SIDEBAR_WIDTH,
+  useDrawerState,
+  useSidebar,
+  useSidebarCollapsed,
+} from '../navigation/SidebarContext';
 import NavContextMenu, { NavMenuTarget } from './NavContextMenu';
 import ContextMenuTarget from './ContextMenuTarget';
 import type { PopoverAnchor } from './Popover';
@@ -89,12 +95,10 @@ const LIFT_THRESHOLD = 8;
  */
 const FOLD_MS = 180;
 
-/** Narrower on the desktop, where the rows are denser and a window has less to give. */
-export const SIDEBAR_WIDTH = FINE_POINTER ? 280 : 300;
 /** Nav icons, matched to the desktop's smaller labels. */
 const ICON_SIZE = FINE_POINTER ? 18 : 20;
-/** Icon-only rail when the pinned sidebar is collapsed. */
-export const SIDEBAR_COLLAPSED_WIDTH = 64;
+
+export { SIDEBAR_COLLAPSED_WIDTH, SIDEBAR_WIDTH };
 
 /** Fixed at module scope: the set never varies, and a fresh array per render
  *  would rebuild seven rows for nothing. */

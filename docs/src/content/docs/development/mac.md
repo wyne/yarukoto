@@ -6,7 +6,7 @@ description: Mac Catalyst builds, signed releases and desktop input.
 Expo has no macOS target, but it doesn't need one: the iOS project builds for **Mac Catalyst**,
 which compiles the same app into a real macOS `.app` (arm64 and x86_64) with resizable windows and
 a menu bar. The wide layout — pinned sidebar, list, and task pane side by side — is the same
-`width >= 900` check the web build uses, so a Mac window gets it with no Mac-specific screens.
+runtime width check (`WIDE_BREAKPOINT`) the web build uses, so a Mac window gets it with no Mac-specific screens.
 
 ```bash
 cd client
