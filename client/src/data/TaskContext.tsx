@@ -786,6 +786,8 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
   const [trashRetentionDays, setTrashRetentionDays] = useState<number>(
     () => (loadMode() === 'server' ? loadServerSnapshot()?.trashRetentionDays : undefined) ?? DEFAULT_TRASH_RETENTION_DAYS
   );
+  const trashRetentionDaysRef = useRef(trashRetentionDays);
+  trashRetentionDaysRef.current = trashRetentionDays;
   const [household, setHousehold] = useState<Household | null>(() =>
     loadMode() === 'server' ? (loadServerSnapshot()?.household ?? null) : null
   );
@@ -1421,7 +1423,9 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
           }
           if (info) {
             const next = info.features;
-            setTrashRetentionDays(info.trashRetentionDays ?? DEFAULT_TRASH_RETENTION_DAYS);
+            // Through the ref as well, for the expiry after this cycle's pull.
+            trashRetentionDaysRef.current = info.trashRetentionDays ?? DEFAULT_TRASH_RETENTION_DAYS;
+            setTrashRetentionDays(trashRetentionDaysRef.current);
             featuresProbedAtRef.current = Date.now();
             features = next;
             // Written straight through, not just queued: the push below reads the
@@ -1474,6 +1478,13 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
           savedFilters: pulled.savedFilters,
           removed: pulled.removed,
           full: pulled.full,
+        });
+        // A pull can bring in rows already past the window (another device's
+        // trash, or a full hydrate), and the hourly check may be most of an hour off.
+        dispatch({
+          type: 'EXPIRE_TRASH',
+          before: trashCutoff(new Date(), trashRetentionDaysRef.current),
+          keep: outboxRef.current.snapshot(),
         });
 
         // The state effect below persists the merged collections and this cursor
