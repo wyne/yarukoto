@@ -358,13 +358,13 @@ const TaskListBody = memo(
     let c: Task[];
     if (mode === 'today') {
       a = tasksDueWithin(state.tasks, now, days);
-      c = completedTasksList(state.tasks).filter((t) => t.completedAt && isSameDay(new Date(t.completedAt), now));
+      c = completedTasksList(state.tasks, now).filter((t) => t.completedAt && isSameDay(new Date(t.completedAt), now));
     } else if (untriagedOnly) {
       a = inboxTasks(state.tasks);
-      c = completedInboxTasks(state.tasks);
+      c = completedInboxTasks(state.tasks, now);
     } else {
       a = activeTasks(state.tasks);
-      c = completedTasksList(state.tasks);
+      c = completedTasksList(state.tasks, now);
     }
     if (filter) {
       const matchFilter = (t: (typeof a)[number]) => {

@@ -2,6 +2,7 @@ import {
   activeFolders,
   activeLists,
   activeTasks,
+  archivedTasks,
   completedInboxTasks,
   completedTasksList,
   folderTotal,
@@ -91,14 +92,28 @@ describe('task selectors', () => {
       'overdue',
       'future',
     ]);
-    expect(completedTasksList(tasks).map((item) => item.id)).toEqual([
+    expect(completedTasksList(tasks, now).map((item) => item.id)).toEqual([
       'completed-inbox',
       'completed-list',
     ]);
     expect(inboxTasks(tasks).map((item) => item.id)).toEqual(['inbox']);
-    expect(completedInboxTasks(tasks).map((item) => item.id)).toEqual(['completed-inbox']);
+    expect(completedInboxTasks(tasks, now).map((item) => item.id)).toEqual(['completed-inbox']);
     expect(unscheduledTasks(tasks).map((item) => item.id)).toEqual(['inbox']);
     expect(trashedTasks(tasks).map((item) => item.id)).toEqual(['trashed-new', 'trashed-old']);
+  });
+
+  test('moves tasks completed more than 30 days ago from Completed to the Archive', () => {
+    const done = [
+      task('recent', { completed: true, completedAt: '2026-09-20T00:00:00Z' }),
+      task('march', { completed: true, completedAt: '2026-03-01T00:00:00Z' }),
+      task('august', { completed: true, completedAt: '2026-08-01T00:00:00Z' }),
+      // Completed before completedAt was recorded: its last edit stands in.
+      task('undated', { completed: true, updatedAt: '2026-01-01T00:00:00Z' }),
+      task('trashed', { completed: true, completedAt: '2026-03-01T00:00:00Z', deletedAt: '2026-09-01T00:00:00Z' }),
+      task('open', { completedAt: undefined }),
+    ];
+    expect(completedTasksList(done, now).map((item) => item.id)).toEqual(['recent']);
+    expect(archivedTasks(done, now).map((item) => item.id)).toEqual(['august', 'march', 'undated']);
   });
 
   test('counts only active tasks and includes overdue work in Today', () => {

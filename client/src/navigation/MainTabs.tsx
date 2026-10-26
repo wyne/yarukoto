@@ -53,6 +53,7 @@ import CalendarScreen from '../screens/CalendarScreen';
 import ActivityScreen from '../screens/ActivityScreen';
 import BrowseScreen from '../screens/BrowseScreen';
 import TrashScreen from '../screens/TrashScreen';
+import ArchiveScreen from '../screens/ArchiveScreen';
 import NativeListNavigator, { NativeListStackParamList } from './NativeListNavigator';
 import { IconCalendar, IconClock, IconInboxTray, IconSearch, IconStack } from '../icons/Icons';
 import { ANDROID_TAB_BAR_HEIGHT } from './nativeTabBarLayout';
@@ -487,6 +488,7 @@ const Tabs = memo(function Tabs() {
       <Tab.Screen name="ActivityTab" component={ActivityScreen} options={{ title: 'Activity' }} />
       <Tab.Screen name="BrowseTab" component={BrowseScreen} options={{ title: 'Browse' }} />
       <Tab.Screen name="TrashTab" component={TrashScreen} options={{ title: 'Trash' }} />
+      <Tab.Screen name="ArchiveTab" component={ArchiveScreen} options={{ title: 'Archive' }} />
     </Tab.Navigator>
   );
 });

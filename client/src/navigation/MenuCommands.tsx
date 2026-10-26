@@ -28,7 +28,7 @@ import type { PalettePicker } from '../data/palettePickers';
  * task list's cursor — are answered by the screen in front through
  * `useCommand`. New Task and Find also work from a screen without one: they go
  * to a screen that has it and wait there for it to register. Settings, the
- * command menu, the views (⌘1–⌘7), the Help links and Undo belong to the whole app and are
+ * command menu, the views (⌘1–⌘8), the Help links and Undo belong to the whole app and are
  * answered here.
  *
  * Desktop only: a phone has no keyboard to send these.
@@ -226,7 +226,7 @@ const UNDO_ACTION_NAME: Record<PendingUndo['kind'], string> = {
   delete: 'Move to Trash',
 };
 
-/** The sidebar's views, as View ▸ ⌘1–⌘7 reach them. */
+/** The sidebar's views, as View ▸ ⌘1–⌘8 reach them. */
 function goTo(route: string) {
   const [name, params] = tabNavigation(route);
   (navigationRef.navigate as (name: string, params?: object) => void)('Main', { screen: name, params });
@@ -238,6 +238,7 @@ const goCalendar = () => goTo('CalendarTab');
 const goActivity = () => goTo('ActivityTab');
 const goBrowse = () => goTo('BrowseTab');
 const goTrash = () => goTo('TrashTab');
+const goArchive = () => goTo('ArchiveTab');
 
 const openSetupGuide = () => openLink(LINKS.setupGuide);
 const openSupport = () => openLink(LINKS.support);
@@ -316,6 +317,7 @@ export default function MenuCommands() {
   useCommandHandler('goActivity', goActivity, DESKTOP_UI);
   useCommandHandler('goBrowse', goBrowse, DESKTOP_UI);
   useCommandHandler('goTrash', goTrash, DESKTOP_UI);
+  useCommandHandler('goArchive', goArchive, DESKTOP_UI);
   useCommandHandler('help', openSetupGuide, DESKTOP_UI);
   useCommandHandler('support', openSupport, DESKTOP_UI);
   useCommandHandler('privacy', openPrivacy, DESKTOP_UI);

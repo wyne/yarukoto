@@ -504,7 +504,8 @@ export type SavedFirstTabView =
   | { kind: 'folder'; id: string }
   | { kind: 'tag'; value: string }
   | { kind: 'activity' }
-  | { kind: 'trash' };
+  | { kind: 'trash' }
+  | { kind: 'archive' };
 
 interface SavedFirstTabViews {
   schemaVersion: typeof FIRST_TAB_VIEW_SCHEMA;
@@ -527,7 +528,8 @@ function parseFirstTabView(value: unknown): SavedFirstTabView | null {
     candidate.kind === 'all' ||
     candidate.kind === 'today' ||
     candidate.kind === 'activity' ||
-    candidate.kind === 'trash'
+    candidate.kind === 'trash' ||
+    candidate.kind === 'archive'
   ) {
     return { kind: candidate.kind };
   }

@@ -1,12 +1,15 @@
 import React, { useMemo, useRef } from 'react';
-import { useColors } from '../../theme/ThemeContext';
+import { useAccent, useColors } from '../../theme/ThemeContext';
 import { useFieldFocus } from '../../theme/focus';
 import { ScrollView, Text, TextInput, View } from 'react-native';
+import Pressable from '../HoverPressable';
 import { makeStyles } from '../../theme/styles';
 import { fonts } from '../../theme/typography';
 import { useTasks } from '../../data/TaskContext';
 import { useSyncRefresh } from '../../data/useSyncRefresh';
 import { TaskCriteria, filterTasks } from '../../data/taskFilter';
+import { isArchived } from '../../data/retention';
+import type { Task } from '../../data/types';
 import { PANE_MAX_WIDTH, useSidebar } from '../../navigation/SidebarContext';
 import { NATIVE_TAB_CONTENT_PADDING } from '../../navigation/nativeTabBarLayout';
 import { FLOATING_TAB_BAR } from '../../data/platform';
@@ -41,6 +44,7 @@ interface Props {
  */
 export default function BrowseView({ criteria, onCriteriaChange }: Props) {
   const colors = useColors();
+  const accent = useAccent();
   const styles = useStyles();
   const { wide } = useSidebar();
   const refreshControl = useSyncRefresh();
@@ -61,6 +65,28 @@ export default function BrowseView({ criteria, onCriteriaChange }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [state.tasks, state.lists, criteria]
   );
+
+  /**
+   * Completed matches a search of open tasks left out, so a query for something
+   * long finished says where it is instead of answering "No matches".
+   */
+  const completedMatches = useMemo(
+    () =>
+      criteria.status === 'active' && criteria.query.trim()
+        ? filterTasks(state.tasks, { ...criteria, status: 'completed' }, { lists: state.lists, now }).length
+        : 0,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [state.tasks, state.lists, criteria]
+  );
+
+  // Archived tasks come last, under their own heading: a search that reaches
+  // back years should still lead with what is current.
+  const { current, archived } = useMemo(() => {
+    const out: { current: Task[]; archived: Task[] } = { current: [], archived: [] };
+    for (const task of tasks) (isArchived(task, now) ? out.archived : out.current).push(task);
+    return out;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tasks]);
 
   const listsById = useMemo(
     () => new Map(state.lists.map((list) => [list.id, list])),
@@ -106,32 +132,52 @@ export default function BrowseView({ criteria, onCriteriaChange }: Props) {
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
       >
-        {tasks.length === 0 ? (
+        {tasks.length === 0 && completedMatches === 0 && (
           <Text style={styles.empty}>
             {criteria.query.trim() ? 'No matches.' : 'Nothing to show.'}
           </Text>
-        ) : (
-          <Card style={styles.card}>
-            {tasks.map((task, i) => (
-              <View key={task.id}>
-                <TaskRow
-                  task={task}
-                  list={task.listId ? listsById.get(task.listId) : undefined}
-                  now={now}
-                  showContext={rowContext}
-                  active={openTaskId === task.id}
-                  onPress={() => openTask(task.id)}
-                  onToggleComplete={() => toggleComplete(task.id)}
-                  onToday={() => scheduleToday(task.id)}
-                  onLater={() => snoozeTask(task.id)}
-                  onNextWeek={() => scheduleNextWeek(task.id)}
-                />
-                {i < tasks.length - 1 && (
-                  <Divider railColor={task.listId ? listsById.get(task.listId)?.color : undefined} />
-                )}
-              </View>
-            ))}
-          </Card>
+        )}
+        {[current, archived].map((rows, section) =>
+          rows.length === 0 ? null : (
+            <View key={section}>
+              {section === 1 && <Text style={styles.sectionLabel}>Archived</Text>}
+              <Card style={styles.card}>
+                {rows.map((task, i) => (
+                  <View key={task.id}>
+                    <TaskRow
+                      task={task}
+                      list={task.listId ? listsById.get(task.listId) : undefined}
+                      now={now}
+                      showContext={rowContext}
+                      active={openTaskId === task.id}
+                      onPress={() => openTask(task.id)}
+                      onToggleComplete={() => toggleComplete(task.id)}
+                      onToday={() => scheduleToday(task.id)}
+                      onLater={() => snoozeTask(task.id)}
+                      onNextWeek={() => scheduleNextWeek(task.id)}
+                    />
+                    {i < rows.length - 1 && (
+                      <Divider railColor={task.listId ? listsById.get(task.listId)?.color : undefined} />
+                    )}
+                  </View>
+                ))}
+              </Card>
+            </View>
+          )
+        )}
+        {completedMatches > 0 && (
+          <Pressable
+            onPress={() => onCriteriaChange({ ...criteria, status: 'any' })}
+            style={styles.moreRow}
+            accessibilityRole="button"
+          >
+            <Text style={styles.moreText}>
+              {tasks.length === 0 ? 'No open tasks match. ' : ''}
+              {completedMatches} completed {completedMatches === 1 ? 'task matches' : 'tasks match'}
+              {' · '}
+              <Text style={[styles.moreText, { color: accent }]}>Show</Text>
+            </Text>
+          </Pressable>
         )}
       </ScrollView>
     </View>
@@ -174,6 +220,25 @@ const useStyles = makeStyles((c) => ({
   },
   card: {
     marginHorizontal: 12,
+  },
+  sectionLabel: {
+    marginHorizontal: 16,
+    marginTop: 16,
+    marginBottom: 6,
+    fontFamily: fonts.sansSemiBold,
+    fontSize: 13,
+    color: c.textSecondary,
+  },
+  moreRow: {
+    marginHorizontal: 16,
+    marginTop: 14,
+    paddingVertical: 6,
+  },
+  moreText: {
+    textAlign: 'center',
+    fontFamily: fonts.sansRegular,
+    fontSize: 14,
+    color: c.textTertiary,
   },
   empty: {
     textAlign: 'center',

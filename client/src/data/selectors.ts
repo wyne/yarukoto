@@ -1,5 +1,6 @@
 import { FolderDef, ListDef, Task } from './types';
 import { addDays, fromISODate, isOverdue, startOfDay } from './dateUtils';
+import { completedOn, isArchived } from './retention';
 
 /**
  * Lists and folders are soft-deleted like tasks — the row stays so the deletion
@@ -114,8 +115,19 @@ export function activeTasks(tasks: Task[]): Task[] {
   return tasks.filter((t) => !t.completed && !isTrashed(t)).sort((a, b) => a.order - b.order);
 }
 
-export function completedTasksList(tasks: Task[]): Task[] {
-  return tasks.filter((t) => t.completed && !isTrashed(t)).sort((a, b) => a.order - b.order);
+/**
+ * Recently completed tasks, as a list's Completed section shows them. Those done
+ * longer ago than the archive window have moved to the Archive.
+ */
+export function completedTasksList(tasks: Task[], now: Date): Task[] {
+  return tasks.filter((t) => t.completed && !isTrashed(t) && !isArchived(t, now)).sort((a, b) => a.order - b.order);
+}
+
+/** Most recently finished first, the order you'd want when looking back. */
+export function archivedTasks(tasks: Task[], now: Date): Task[] {
+  return tasks
+    .filter((t) => !isTrashed(t) && isArchived(t, now))
+    .sort((a, b) => (completedOn(b) ?? '').localeCompare(completedOn(a) ?? ''));
 }
 
 /** Newest deletion first — the order you'd want when hunting for something. */
@@ -134,8 +146,8 @@ export function inboxTasks(tasks: Task[]): Task[] {
   return activeTasks(tasks).filter(isUnfiled);
 }
 
-export function completedInboxTasks(tasks: Task[]): Task[] {
-  return completedTasksList(tasks).filter(isUnfiled);
+export function completedInboxTasks(tasks: Task[], now: Date): Task[] {
+  return completedTasksList(tasks, now).filter(isUnfiled);
 }
 
 /** Everything still needing a date — the default slice to plan from. */

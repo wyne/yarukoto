@@ -353,6 +353,23 @@ export function IconTrash({ size = 18, color: colorProp, strokeWidth = 1.6 }: Ic
   );
 }
 
+/** A box with its lid: where finished tasks are kept. */
+export function IconArchive({ size = 18, color: colorProp, strokeWidth = 1.6 }: IconProps) {
+  const c = useColors();
+  const color = colorProp ?? c.textSecondary;
+  return (
+    <Svg width={size} height={size} viewBox="0 0 18 18" fill="none">
+      <Path
+        d="M3 4h12v3H3zM4.25 7v7h9.5V7M7.25 9.75h3.5"
+        stroke={color}
+        strokeWidth={strokeWidth}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
 export function IconServer({ size = 16, color: colorProp, strokeWidth = 1.5 }: IconProps) {
   const c = useColors();
   const color = colorProp ?? c.textTertiary;

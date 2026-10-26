@@ -181,7 +181,7 @@ stay web-only.
 | Edit | Find… — Browse's search | ⌘F |
 | View | Command Menu… | ⌘K |
 | View | Toggle Sidebar / Toggle Task Pane | ⌘S / ⌘D |
-| View | All, Inbox, Today, Plan, Activity, Browse, Trash — the sidebar's views, in its order | ⌘1 to ⌘7 |
+| View | All, Inbox, Today, Plan, Activity, Browse, Trash, Archive — the sidebar's views, in its order | ⌘1 to ⌘8 |
 | Task | Open Task — beside the list, keeping the keyboard there | ⌘O, or Space in the list |
 | Task | Mark as Done | ⌘↩ |
 | Task | Due Today / Due Tomorrow / Remove Due Date | ⌘T / ⌥⌘T / — |
