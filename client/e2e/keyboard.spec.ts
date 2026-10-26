@@ -148,7 +148,12 @@ test('a narrowed window keeps the sidebar as a rail, and expanding it hands it t
   await expect(page.getByLabel('Expand sidebar')).toBeVisible();
 
   // Back to full width, collapsed by hand, then expanded from the command menu.
+  // The app hears about a resize a frame or more after `setViewportSize`
+  // returns, and until it does the rail's "Expand sidebar" is still on screen
+  // and the toggle still opens the drawer. Wait for the full sidebar, which
+  // comes back expanded because the rail never touched the preference.
   await page.setViewportSize({ width: 1400, height: 900 });
+  await expect(page.getByLabel('Collapse sidebar')).toBeVisible();
   await palette('Toggle Sidebar');
   await expect(page.getByLabel('Expand sidebar')).toBeVisible();
   await page.getByPlaceholder(/Add a task/).click();
