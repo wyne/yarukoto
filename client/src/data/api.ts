@@ -72,6 +72,8 @@ export interface ServerInfo {
   builtAt: string | null;
   /** Optional backend capabilities. Missing means no optional features. */
   features: ServerFeature[];
+  /** Days a deleted row stays restorable there. Null for a server that predates the field. */
+  trashRetentionDays: number | null;
 }
 
 /** Who this token signs in as. `member` is null for a household integration. */
@@ -196,6 +198,8 @@ export function createApi(serverUrl: string, token: string): Api {
                 SERVER_FEATURES.includes(feature as ServerFeature)
               )
             : [],
+          trashRetentionDays:
+            typeof body.trashRetentionDays === 'number' && body.trashRetentionDays > 0 ? body.trashRetentionDays : null,
         };
       } catch {
         return null;

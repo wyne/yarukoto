@@ -13,7 +13,8 @@ task, **/** to find and **\\** for the sidebar. They're always on, and only reac
 has the keyboard, so they never get in the way of typing. See [The task list](#the-task-list).
 
 **⌘K**, **⌘O** (Go to Task) and **⌘/** (Keyboard Shortcuts) open the same menu in different modes,
-so pressing one while another is open switches straight to it.
+so pressing one while another is open switches straight to it, and pressing the same key
+again closes it.
 
 Hold **⌘** on its own for a moment and the window labels what it can reach: ⌘1 beside All, ⌘S
 on the sidebar button, ⌘, on the gear, and so on. Let go, press a key or click, and the labels go
@@ -41,7 +42,7 @@ does.
 | ⌘F | Search, in Browse *(Mac)* |
 | ⌘K | Command menu: go to any view, list, folder, tag or saved filter, or run any command |
 | ⌘O | Go to a task: search the tasks that aren't done by title, and open the one you pick |
-| ⌘1 to ⌘7 | All, Inbox, Agenda, Plan, Activity, Browse, Trash *(Mac)* |
+| ⌘1 to ⌘8 | All, Inbox, Agenda, Plan, Activity, Browse, Trash, Archive *(Mac)* |
 | ⌘S | Show or hide the sidebar, which takes the keyboard as it opens *(Mac)* |
 | ⌘D | Show or hide the task pane *(Mac)* |
 | ⌘/ | Keyboard shortcuts |
@@ -139,6 +140,7 @@ So a quick capture is **⌘N**, type, **Return**, and **↓** or **Escape** to g
 | ⇥ Tab | Next field: title, notes, each subtask, then the add-subtask field |
 | ⇧⇥ Shift-Tab | Previous field |
 | ↩ Return in the title | Jump to the notes |
+| ⌘↩ in a subtask | Check off that subtask, or uncheck it if it's done. The task itself stays open |
 | ⌘B, ⌘I | Bold and italic, in the notes |
 | ⎋ Escape | Back to the list, with the task still open |
 

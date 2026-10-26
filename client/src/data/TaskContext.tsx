@@ -53,8 +53,9 @@ import { Household, householdFrom, ownsList } from './household';
 export { ownsList } from './household';
 export type { Household } from './household';
 import { setNativeCredentials } from '../../modules/notification-actions/src/NotificationActionsModule';
-import { Outbox, SyncStatus, dropRemoved, hasServerFeature, mergeBatch, pullSince, pushDirty } from './sync';
+import { Outbox, SyncStatus, dropRemoved, hasServerFeature, keepOnlyBatch, mergeBatch, pullSince, pushDirty } from './sync';
 import { activeFolders, activeLists } from './selectors';
+import { DEFAULT_TRASH_RETENTION_DAYS, trashCutoff } from './retention';
 import { Ordered, applyOrders, changedOrders, computeOrders, reorderRows } from './ordering';
 export { ApiError } from './api';
 export type { SyncState, SyncStatus } from './sync';
@@ -84,6 +85,7 @@ type Action =
   | { type: 'DELETE_TASKS'; ids: string[] }
   | { type: 'RESTORE_TASKS'; ids: string[] }
   | { type: 'PURGE_TASKS'; ids: string[] }
+  | { type: 'EXPIRE_TRASH'; before: string; keep: ReadonlySet<string> }
   | { type: 'BULK_UPDATE'; ids: string[]; patch: Partial<Task> }
   | { type: 'ADD_SUBTASK'; taskId: string; title: string }
   | { type: 'TOGGLE_SUBTASK'; taskId: string; subtaskId: string }
@@ -108,7 +110,13 @@ type Action =
   | { type: 'USE_SAMPLE_DATA'; data: ReturnType<typeof buildSampleData> }
   | { type: 'DISCONNECT' }
   | ({ type: 'HYDRATE' } & Collections)
-  | ({ type: 'MERGE'; dirtyIds: ReadonlySet<string>; removed?: { tasks: string[]; lists: string[] } } & Collections);
+  | ({
+      type: 'MERGE';
+      dirtyIds: ReadonlySet<string>;
+      removed?: { tasks: string[]; lists: string[] };
+      /** The batch is everything the server holds for this person, not a window of changes. */
+      full?: boolean;
+    } & Collections);
 
 interface Collections {
   tasks: Task[];
@@ -283,6 +291,31 @@ function applyAction(state: State, action: Action): State {
       };
     case 'PURGE_TASKS':
       return { ...state, tasks: state.tasks.filter((t) => !action.ids.includes(t.id)) };
+    case 'EXPIRE_TRASH': {
+      // The server hard-deletes these on the same schedule, and a hard delete
+      // leaves nothing for a pull to return, so each device drops its own copy.
+      // A row still waiting to push is kept: its deletion hasn't reached the
+      // server yet, and dropping it would leave the task live there for good.
+      const expired = (r: { id: string; deletedAt?: string }) =>
+        !!r.deletedAt && r.deletedAt < action.before && !action.keep.has(r.id);
+      const drop = <T extends { id: string; deletedAt?: string }>(rows: T[]): T[] =>
+        rows.some(expired) ? rows.filter((r) => !expired(r)) : rows;
+      const tasks = drop(state.tasks);
+      const lists = drop(state.lists);
+      const folders = drop(state.folders);
+      const viewPrefs = drop(state.viewPrefs);
+      const savedFilters = drop(state.savedFilters);
+      if (
+        tasks === state.tasks &&
+        lists === state.lists &&
+        folders === state.folders &&
+        viewPrefs === state.viewPrefs &&
+        savedFilters === state.savedFilters
+      ) {
+        return state;
+      }
+      return { ...state, tasks, lists, folders, viewPrefs, savedFilters };
+    }
     case 'BULK_UPDATE':
       return {
         ...state,
@@ -482,11 +515,18 @@ function applyAction(state: State, action: Action): State {
         savedFilters: action.savedFilters,
       };
     case 'MERGE': {
-      const tasks = dropRemoved(mergeBatch(state.tasks, action.tasks, action.dirtyIds), action.removed?.tasks ?? []);
-      const lists = dropRemoved(mergeBatch(state.lists, action.lists, action.dirtyIds), action.removed?.lists ?? []);
-      const folders = mergeBatch(state.folders, action.folders, action.dirtyIds);
-      const viewPrefs = mergeBatch(state.viewPrefs, action.viewPrefs, action.dirtyIds);
-      const savedFilters = mergeBatch(state.savedFilters, action.savedFilters, action.dirtyIds);
+      // A full batch also says what the server no longer has: anything purged
+      // while this device was away. Merging it would keep those rows here, live,
+      // and the next edit to one would push it back into existence.
+      const apply = <T extends { id: string }>(local: T[], incoming: T[]): T[] =>
+        action.full
+          ? keepOnlyBatch(mergeBatch(local, incoming, action.dirtyIds), incoming, action.dirtyIds)
+          : mergeBatch(local, incoming, action.dirtyIds);
+      const tasks = dropRemoved(apply(state.tasks, action.tasks), action.removed?.tasks ?? []);
+      const lists = dropRemoved(apply(state.lists, action.lists), action.removed?.lists ?? []);
+      const folders = apply(state.folders, action.folders);
+      const viewPrefs = apply(state.viewPrefs, action.viewPrefs);
+      const savedFilters = apply(state.savedFilters, action.savedFilters);
       // Most pulls come back empty. Handing back the same state lets React bail
       // out, instead of re-rendering every consumer on each idle sync tick.
       if (
@@ -610,11 +650,15 @@ export const IDLE_SYNC_MS = 60000;
  * and the sync loop itself runs every few seconds.
  */
 export const FEATURE_PROBE_MS = 300000;
+/** How often trash past the server's window is dropped from this device. */
+export const TRASH_EXPIRY_CHECK_MS = 3600000;
 
 interface TaskContextValue {
   state: State;
   /** True when the current local mode/server supports an optional feature. */
   supportsFeature: (feature: ServerFeature) => boolean;
+  /** Days a deleted task stays in Trash before it is gone for good. */
+  trashRetentionDays: number;
   /** The signed-in person and their household, when the server has households. */
   household: Household | null;
   /** Re-reads the household now — after inviting or removing someone. */
@@ -736,6 +780,14 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     const mode = loadMode();
     return mode === 'server' ? (loadServerSnapshot()?.serverFeatures ?? null) : [...SERVER_FEATURES];
   });
+  // Server mode takes the server's word, cached so a cold start doesn't briefly
+  // show (or drop) trash on the wrong schedule. Anywhere else nothing purges,
+  // so the default stands.
+  const [trashRetentionDays, setTrashRetentionDays] = useState<number>(
+    () => (loadMode() === 'server' ? loadServerSnapshot()?.trashRetentionDays : undefined) ?? DEFAULT_TRASH_RETENTION_DAYS
+  );
+  const trashRetentionDaysRef = useRef(trashRetentionDays);
+  trashRetentionDaysRef.current = trashRetentionDays;
   const [household, setHousehold] = useState<Household | null>(() =>
     loadMode() === 'server' ? (loadServerSnapshot()?.household ?? null) : null
   );
@@ -1253,6 +1305,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     clearDirtyIds();
     featuresProbedAtRef.current = info ? Date.now() : 0;
     setServerFeatures(info?.features ?? null);
+    setTrashRetentionDays(info?.trashRetentionDays ?? DEFAULT_TRASH_RETENTION_DAYS);
     setHousehold(who ? householdFrom(who) : null);
 
     setSignedOut(null);
@@ -1274,6 +1327,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     clearDirtyIds();
     saveMode('sample');
     setServerFeatures([...SERVER_FEATURES]);
+    setTrashRetentionDays(DEFAULT_TRASH_RETENTION_DAYS);
     setHousehold(null);
     setSignedOut(null);
     dispatch({ type: 'USE_SAMPLE_DATA', data: buildSampleData(new Date()) });
@@ -1286,6 +1340,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     clearDirtyIds();
     saveMode('none');
     setServerFeatures([...SERVER_FEATURES]);
+    setTrashRetentionDays(DEFAULT_TRASH_RETENTION_DAYS);
     setHousehold(null);
     setSignedOut(null);
     dispatch({ type: 'DISCONNECT' });
@@ -1368,6 +1423,9 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
           }
           if (info) {
             const next = info.features;
+            // Through the ref as well, for the expiry after this cycle's pull.
+            trashRetentionDaysRef.current = info.trashRetentionDays ?? DEFAULT_TRASH_RETENTION_DAYS;
+            setTrashRetentionDays(trashRetentionDaysRef.current);
             featuresProbedAtRef.current = Date.now();
             features = next;
             // Written straight through, not just queued: the push below reads the
@@ -1419,6 +1477,14 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
           viewPrefs: pulled.viewPrefs,
           savedFilters: pulled.savedFilters,
           removed: pulled.removed,
+          full: pulled.full,
+        });
+        // A pull can bring in rows already past the window (another device's
+        // trash, or a full hydrate), and the hourly check may be most of an hour off.
+        dispatch({
+          type: 'EXPIRE_TRASH',
+          before: trashCutoff(new Date(), trashRetentionDaysRef.current),
+          keep: outboxRef.current.snapshot(),
         });
 
         // The state effect below persists the merged collections and this cursor
@@ -1521,6 +1587,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       viewPrefs: state.viewPrefs,
       savedFilters: state.savedFilters,
       serverFeatures: serverFeatures ?? undefined,
+      trashRetentionDays,
       household: household ?? undefined,
       cursor: cursorRef.current,
     });
@@ -1532,6 +1599,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     state.viewPrefs,
     state.savedFilters,
     serverFeatures,
+    trashRetentionDays,
     household,
   ]);
 
@@ -1570,10 +1638,25 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     [state.mode, serverFeatures]
   );
 
+  // Trash expires by the day, so an hourly look is plenty, and the first one runs
+  // as soon as the app opens. Nothing is pushed: the server purges on its own.
+  useEffect(() => {
+    const expire = () =>
+      dispatch({
+        type: 'EXPIRE_TRASH',
+        before: trashCutoff(new Date(), trashRetentionDays),
+        keep: outboxRef.current.snapshot(),
+      });
+    expire();
+    const timer = setInterval(expire, TRASH_EXPIRY_CHECK_MS);
+    return () => clearInterval(timer);
+  }, [trashRetentionDays]);
+
   const value = useMemo<TaskContextValue>(
     () => ({
       state,
       supportsFeature,
+      trashRetentionDays,
       household: visibleHousehold,
       refreshHousehold,
       setListShared,
@@ -1623,6 +1706,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     [
       state,
       supportsFeature,
+      trashRetentionDays,
       visibleHousehold,
       refreshHousehold,
       setListShared,

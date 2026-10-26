@@ -2,8 +2,8 @@ import { MAC, MAC_KEYS } from './platform';
 import { ShortcutSearchRow, ShortcutSearchSection, shortcutSearchTerms } from './shortcutSearch';
 import { COMMANDS, CommandDef, CommandId, Shortcut, formatShortcut, paletteTitle } from '../navigation/commands';
 
-/** The views, which are seven commands but one row: ⌘1 to ⌘7. */
-const VIEW_IDS = new Set<CommandId>(['goAll', 'goInbox', 'goToday', 'goCalendar', 'goActivity', 'goBrowse', 'goTrash']);
+/** The views, which are eight commands but one row: ⌘1 to ⌘8. */
+const VIEW_IDS = new Set<CommandId>(['goAll', 'goInbox', 'goToday', 'goCalendar', 'goActivity', 'goBrowse', 'goTrash', 'goArchive']);
 /** Answered by the notes editor, not the list or the window. */
 const EDITING_IDS = new Set<CommandId>(['bold', 'italic']);
 
@@ -38,15 +38,17 @@ export function shortcutSections(): ShortcutSearchSection[] {
   const list: ShortcutSearchRow[] = [];
   const editing: ShortcutSearchRow[] = [
     { title: 'Title to notes', keys: fmt('return'), searchTerms: terms('return') },
+    // completeTask's key, answered by the subtask field that has the caret.
+    { title: 'Check off subtask', keys: fmt('return', 'command'), searchTerms: `complete done finish ${terms('return', 'command')}` },
   ];
   if (MAC) {
-    const viewShortcuts = Array.from({ length: 7 }, (_, i): Shortcut => ({
+    const viewShortcuts = Array.from({ length: 8 }, (_, i): Shortcut => ({
       input: String(i + 1),
       modifiers: ['command'],
     }));
     window.push({
-      title: 'All, Inbox, Today, Plan, Activity, Browse, Trash',
-      keys: `${fmt('1', 'command')} – ${fmt('7', 'command')}`,
+      title: 'All, Inbox, Today, Plan, Activity, Browse, Trash, Archive',
+      keys: `${fmt('1', 'command')} – ${fmt('8', 'command')}`,
       searchTerms: shortcutSearchTerms(viewShortcuts),
     });
   }

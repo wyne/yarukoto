@@ -18,12 +18,14 @@ import {
   DRAWER_CLOSE_MS,
   DRAWER_OPEN_EASING,
   DRAWER_OPEN_MS,
+  DESKTOP_LIST_MIN_WIDTH,
   SidebarProvider,
   useSidebar,
+  useSidebarCollapsed,
 } from './SidebarContext';
 import { DetailProvider, useDetail, useDetailOverlay } from './DetailContext';
 import { SelectionProvider, useSelectedIds } from './SelectionContext';
-import Sidebar, { SIDEBAR_WIDTH } from '../components/Sidebar';
+import Sidebar, { SIDEBAR_COLLAPSED_WIDTH, SIDEBAR_WIDTH } from '../components/Sidebar';
 import { closeOpenSwipeRow, swipeRowOpen } from '../components/SwipeableRow';
 import { drawerSwipeClaimed } from './drawerSwipe';
 import SidebarDrawer from '../components/SidebarDrawer';
@@ -53,6 +55,7 @@ import CalendarScreen from '../screens/CalendarScreen';
 import ActivityScreen from '../screens/ActivityScreen';
 import BrowseScreen from '../screens/BrowseScreen';
 import TrashScreen from '../screens/TrashScreen';
+import ArchiveScreen from '../screens/ArchiveScreen';
 import NativeListNavigator, { NativeListStackParamList } from './NativeListNavigator';
 import { IconCalendar, IconClock, IconInboxTray, IconSearch, IconStack } from '../icons/Icons';
 import { ANDROID_TAB_BAR_HEIGHT } from './nativeTabBarLayout';
@@ -115,7 +118,6 @@ const SWIPE_FLING = 350;
  */
 const SWIPE_TO_OPEN = Platform.OS === 'ios' && !MAC;
 const DETAIL_COLUMN_MIN_WIDTH = 320;
-const MAIN_CONTENT_MIN_WIDTH = 520;
 const DETAIL_RESIZER_WIDTH = 11;
 /** Width of the task panel that slides over a narrow desktop window's list. */
 const SLIDE_OVER_WIDTH = 420;
@@ -142,6 +144,7 @@ export default function MainTabs() {
 function Layout() {
   const styles = useStyles();
   const { wide, openDrawer, drawerProgress, serverOpen, serverPairCode, closeServer } = useSidebar();
+  const collapsed = useSidebarCollapsed();
   const { openTaskId, closeTask } = useDetail();
   const { selectedIds } = useSelectedIds();
   /**
@@ -162,6 +165,19 @@ function Layout() {
   // The slide-over is the one thing drawn from it, so only an open one redraws.
   const [, redrawSlideOver] = useReducer((n: number) => n + 1, 0);
   const slideOverOpen = useRef(false);
+  /**
+   * The width the pinned sidebar takes from the row, which the list and a task
+   * column then share. A ref as well, for the clamp and the layout handler.
+   */
+  const sidebarWidth = wide ? (collapsed ? SIDEBAR_COLLAPSED_WIDTH : SIDEBAR_WIDTH) : 0;
+  const sidebarWidthRef = useRef(sidebarWidth);
+  sidebarWidthRef.current = sidebarWidth;
+  /**
+   * The widest sidebar the row last had room for beside a readable list and the
+   * narrowest task column. Kept to the two widths a sidebar can be, so a window
+   * resize only re-renders the layout when it crosses one of them.
+   */
+  const [sidebarRoom, setSidebarRoom] = useState(Infinity);
   const [detailColumnWidth, setDetailColumnWidth] = useState(DETAIL_COLUMN_WIDTH);
   const detailColumnWidthRef = useRef(detailColumnWidth);
   const resizeStartWidth = useRef(detailColumnWidth);
@@ -177,18 +193,26 @@ function Layout() {
    * column is the only pane it has that isn't a sheet.
    */
   const overlay = useDetailOverlay() && DESKTOP_UI;
-  const showPane = wide && (bulk || (!!openTaskId && !overlay));
   /**
-   * A narrow desktop window has no column for the task, but it is still a
-   * desktop window: a sheet pulled up from the bottom edge, with only a grabber
-   * to put it away, is a phone's shape. So the pane comes over the list from the
-   * right instead, as the very same view — its Close button, and Tab and Escape,
-   * come with it — and a click on the dimmed list beside it closes it.
+   * A desktop window keeps its sidebar pinned however narrow it gets, at least
+   * as a rail, so being `wide` does not mean there is room for a column too.
+   * When the list beside one would drop below the width it reads at, the task
+   * comes over the list instead, as it does over Plan, and the list keeps its
+   * width.
+   */
+  const cramped = wide && FINE_POINTER && sidebarWidth > sidebarRoom;
+  const showPane = wide && !cramped && (bulk || (!!openTaskId && !overlay));
+  /**
+   * A desktop window without room for the column still has a pointer: a sheet
+   * pulled up from the bottom edge, with only a grabber to put it away, is a
+   * phone's shape. So the pane comes over the list from the right instead, as
+   * the very same view — its Close button, and Tab and Escape, come with it —
+   * and a click on the dimmed list beside it closes it.
    *
    * Decided by the pointer, as popovers are (`useDesktopPresentation`): a
    * touch-screen browser is a phone's, and keeps the sheet.
    */
-  const slideOver = ((!wide && FINE_POINTER) || (wide && overlay)) && !bulk && !!openTaskId;
+  const slideOver = ((!wide && FINE_POINTER) || (wide && (overlay || cramped))) && !bulk && !!openTaskId;
   slideOverOpen.current = slideOver;
   /**
    * Escape closes the task over a screen that has no list to hand the key to.
@@ -209,7 +233,10 @@ function Layout() {
   const clampDetailColumnWidth = useCallback(
     (width: number) => {
       const max = rowWidth.current
-        ? Math.max(DETAIL_COLUMN_MIN_WIDTH, rowWidth.current - MAIN_CONTENT_MIN_WIDTH - DETAIL_RESIZER_WIDTH)
+        ? Math.max(
+            DETAIL_COLUMN_MIN_WIDTH,
+            rowWidth.current - sidebarWidthRef.current - DESKTOP_LIST_MIN_WIDTH - DETAIL_RESIZER_WIDTH
+          )
         : DETAIL_COLUMN_WIDTH;
       return Math.min(Math.max(width, DETAIL_COLUMN_MIN_WIDTH), max);
     },
@@ -242,7 +269,14 @@ function Layout() {
     rowWidth.current = nextWidth;
     if (slideOverOpen.current) redrawSlideOver();
     if (!DESKTOP_UI) return;
-    const max = Math.max(DETAIL_COLUMN_MIN_WIDTH, nextWidth - MAIN_CONTENT_MIN_WIDTH - DETAIL_RESIZER_WIDTH);
+    const room = nextWidth - DESKTOP_LIST_MIN_WIDTH - DETAIL_RESIZER_WIDTH - DETAIL_COLUMN_MIN_WIDTH;
+    setSidebarRoom(
+      room >= SIDEBAR_WIDTH ? SIDEBAR_WIDTH : room >= SIDEBAR_COLLAPSED_WIDTH ? SIDEBAR_COLLAPSED_WIDTH : -1
+    );
+    const max = Math.max(
+      DETAIL_COLUMN_MIN_WIDTH,
+      nextWidth - sidebarWidthRef.current - DESKTOP_LIST_MIN_WIDTH - DETAIL_RESIZER_WIDTH
+    );
     if (detailColumnWidthRef.current > max) {
       detailColumnWidthRef.current = max;
       setDetailColumnWidth(max);
@@ -256,7 +290,7 @@ function Layout() {
           <Tabs />
           <UndoToast />
           {/* No column to give them, so the actions float over the list instead. */}
-          {bulk && !wide && <BulkActions variant="bar" />}
+          {bulk && (!wide || cramped) && <BulkActions variant="bar" />}
         </View>
       </DrawerSwipeArea>
       {showPane && (
@@ -275,7 +309,9 @@ function Layout() {
             style={[
               styles.detailColumn,
               !DESKTOP_UI && styles.detailColumnBorder,
-              DESKTOP_UI && { width: detailColumnWidth },
+              // Clamped here as well as on resize: the sidebar widening takes from
+              // the same row without the row's own width changing.
+              DESKTOP_UI && { width: clampDetailColumnWidth(detailColumnWidth) },
             ]}
           >
             <PaneEscape onClose={closeTask}>
@@ -487,6 +523,7 @@ const Tabs = memo(function Tabs() {
       <Tab.Screen name="ActivityTab" component={ActivityScreen} options={{ title: 'Activity' }} />
       <Tab.Screen name="BrowseTab" component={BrowseScreen} options={{ title: 'Browse' }} />
       <Tab.Screen name="TrashTab" component={TrashScreen} options={{ title: 'Trash' }} />
+      <Tab.Screen name="ArchiveTab" component={ArchiveScreen} options={{ title: 'Archive' }} />
     </Tab.Navigator>
   );
 });

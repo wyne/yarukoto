@@ -18,7 +18,7 @@ export const SIDEBAR_COLLAPSED_WIDTH = 64;
  * sidebar stays pinned until the list would get narrower than this, rather than
  * at a fixed window width chosen for touch-sized rows.
  */
-const DESKTOP_LIST_MIN_WIDTH = 440;
+export const DESKTOP_LIST_MIN_WIDTH = 440;
 
 /**
  * Above this width the sidebar is pinned open and the bottom tab bar goes away.

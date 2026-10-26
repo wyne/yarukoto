@@ -250,6 +250,21 @@ export default function TaskDetailView({ taskId, onClose, variant, active = true
     });
   };
   useCommand('showHistory', () => openHistory(), variant === 'pane' && active && !!task && historySupported);
+  // ⌘↩ from a subtask's field checks off that subtask, not the task it belongs
+  // to: the caret says which one the hand means. Registered on focus, over the
+  // list's answer, and withdrawn on blur, so from anywhere else ⌘↩ is the
+  // list's again. A toggle, since a subtask has no undo toast to take it back.
+  useCommand(
+    'completeTask',
+    () => {
+      if (!task || !focusedSubtaskId) return;
+      // The title typed so far first, so the toggle lands on it rather than
+      // being written over when the field later blurs and commits.
+      commitSubtaskTitle(focusedSubtaskId);
+      toggleSubtask(task.id, focusedSubtaskId);
+    },
+    variant === 'pane' && active && !!task && !!focusedSubtaskId
+  );
 
   if (!task) {
     return (

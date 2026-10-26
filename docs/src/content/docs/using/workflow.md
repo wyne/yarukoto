@@ -112,3 +112,9 @@ Some other habits that help:
   routines never need triage.
 - **Save a filter for recurring reviews.** In Browse, a filter like "#work, due this week" can be
   saved and reopened from the sidebar.
+- **Let finished work age out.** A list's **Completed** section keeps the last 30 days. Older
+  completed tasks move to the **Archive**, which has its own search, and reopening one puts it back
+  in its list. Searching Browse for open tasks also tells you when completed ones match, so nothing
+  old is out of reach.
+- **Trash empties itself.** A deleted task can be restored for 30 days, or whatever your server's
+  `TRASH_RETENTION_DAYS` says, and each one in Trash shows how long it has left.

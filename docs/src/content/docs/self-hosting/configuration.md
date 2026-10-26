@@ -11,7 +11,7 @@ Set these in `docker-compose.yml` or your `.env`.
 | `YARUKOTO_TOKEN_FILE` | | Read the token from this file instead, for Docker/Compose secrets (`/run/secrets/…`). Set this or `YARUKOTO_TOKEN`, not both. |
 | `PORT` | `8080` | Port the server listens on. |
 | `DATABASE_PATH` | `/data/yarukoto.db` | SQLite file location. |
-| `TRASH_RETENTION_DAYS` | `30` | How long soft-deleted tasks stay restorable before being hard-deleted. |
+| `TRASH_RETENTION_DAYS` | `30` | How long soft-deleted tasks stay restorable before being hard-deleted. The apps read it from `/api/v1/health` and clear their Trash on the same schedule. |
 | `HISTORY_REVISIONS_PER_TASK` | `50` | Snapshots kept per task. `0` disables history entirely. |
 | `YARUKOTO_TZ` | `TZ`, else the container's zone | IANA zone (`America/New_York`) the task API and AI tools use for "today", weekdays and times. Containers usually run in UTC, so set this. |
 | `BACKUP_INTERVAL_HOURS` | `24` | How often the server snapshots the database. `0` turns automatic backups off. See [Backups](/self-hosting/backups/). |

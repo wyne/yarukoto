@@ -148,7 +148,12 @@ test('a narrowed window keeps the sidebar as a rail, and expanding it hands it t
   await expect(page.getByLabel('Expand sidebar')).toBeVisible();
 
   // Back to full width, collapsed by hand, then expanded from the command menu.
+  // The app hears about a resize a frame or more after `setViewportSize`
+  // returns, and until it does the rail's "Expand sidebar" is still on screen
+  // and the toggle still opens the drawer. Wait for the full sidebar, which
+  // comes back expanded because the rail never touched the preference.
   await page.setViewportSize({ width: 1400, height: 900 });
+  await expect(page.getByLabel('Collapse sidebar')).toBeVisible();
   await palette('Toggle Sidebar');
   await expect(page.getByLabel('Expand sidebar')).toBeVisible();
   await page.getByPlaceholder(/Add a task/).click();
@@ -410,6 +415,13 @@ test('⌘O, ⌘K and ⌘/ cycle through one menu, over and over, and leave the w
     await page.keyboard.press('Escape');
     await expect(dialogs).toHaveCount(0);
   }
+  // Each key, pressed again, closes its own menu.
+  for (const menu of menus) {
+    await page.keyboard.press(menu.key);
+    await expect(page.getByPlaceholder(menu.placeholder)).toBeFocused();
+    await page.keyboard.press(menu.key);
+    await expect(dialogs).toHaveCount(0);
+  }
   const add = page.getByPlaceholder(/Add a task/);
   await add.click();
   await expect(add).toBeFocused();
@@ -626,4 +638,72 @@ test('vim keys move through the list and its groups, and fold them', async ({ pa
   await page.keyboard.press('i');
   await expect(quickAdd).toBeFocused();
   await expect(quickAdd).toHaveValue('');
+});
+
+test('⌘↩ in a subtask checks off that subtask, not the task', async ({ page, request }) => {
+  const stamp = Date.now();
+  const now = new Date().toISOString();
+  const list = { id: `keys-subtask-list-${stamp}`, name: `Subtask keys ${stamp}`, color: '#4A7BF7', folderId: null, order: -1, updatedAt: now };
+  const task = {
+    id: `keys-subtask-${stamp}`,
+    title: `Pack and ship ${stamp}`,
+    notes: '',
+    priority: 'none',
+    reminders: [],
+    listId: list.id,
+    tags: [],
+    subtasks: [
+      { id: `st-a-${stamp}`, title: 'Pack', done: false },
+      { id: `st-b-${stamp}`, title: 'Ship', done: false },
+    ],
+    completed: false,
+    createdAt: now,
+    updatedAt: now,
+    order: -1e15,
+  };
+  const response = await request.post('/api/v1/sync', {
+    headers: { Authorization: `Bearer ${TOKEN}` },
+    data: { lists: [list], tasks: [task] },
+  });
+  expect(response.ok()).toBe(true);
+
+  await connect(page);
+  await page.getByLabel(list.name, { exact: true }).click();
+  await expect.poll(() => page.url()).toContain(list.id);
+  await page.getByPlaceholder(`Add a task to ${list.name}`).click();
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('ArrowDown');
+  await page.keyboard.press('Enter');
+  await expect(page.locator(`input[value="${task.title}"]`)).toBeVisible();
+  // The pane's count, beside its Subtasks heading; the row in the list shows one too.
+  const counter = page.getByText('Subtasks', { exact: true }).locator('..').getByText(/^\d+\/2$/);
+  await expect(counter).toHaveText('0/2');
+
+  // The caret in the second subtask, with a title change half-typed.
+  const ship = page.locator('textarea').filter({ hasText: 'Ship' });
+  await ship.click();
+  await page.keyboard.press('End');
+  await page.keyboard.type(' it');
+  await page.keyboard.press('ControlOrMeta+Enter');
+
+  // That subtask is done, keeping what was typed, and the caret stays put.
+  await expect(counter).toHaveText('1/2');
+  await expect(ship).toBeFocused();
+  await expect(ship).toHaveValue('Ship it');
+  // The task is still open and not done.
+  await expect(page.locator(`input[value="${task.title}"]`)).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByText(task.title, { exact: true }).first()).toBeVisible();
+
+  // Pressed again, it unchecks.
+  await ship.click();
+  await page.keyboard.press('ControlOrMeta+Enter');
+  await expect(counter).toHaveText('0/2');
+
+  // Once the keyboard leaves the subtask, ⌘↩ is the list's again: it completes the task.
+  await page.keyboard.press('Escape');
+  await expect.poll(async () => typingIn(await focused(page))).toBe(false);
+  await page.keyboard.press('ControlOrMeta+Enter');
+  await expect(page.getByText('Undo', { exact: true })).toBeVisible();
+  await expect(counter).toHaveText('0/2');
 });

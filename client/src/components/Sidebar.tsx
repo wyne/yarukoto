@@ -73,6 +73,7 @@ import {
   IconStack,
   IconTag,
   IconTrash,
+  IconArchive,
 } from '../icons/Icons';
 
 /** One nesting step: how far a list inside a folder is inset, and how far the
@@ -101,8 +102,8 @@ const ICON_SIZE = FINE_POINTER ? 18 : 20;
 export { SIDEBAR_COLLAPSED_WIDTH, SIDEBAR_WIDTH };
 
 /** Fixed at module scope: the set never varies, and a fresh array per render
- *  would rebuild seven rows for nothing. */
-/** With the command that reaches each, View ▸ ⌘1–⌘7, for its hint. */
+ *  would rebuild eight rows for nothing. */
+/** With the command that reaches each, View ▸ ⌘1–⌘8, for its hint. */
 const VIEWS = [
   { route: 'AllTab', label: 'All', Icon: IconStack, command: 'goAll' },
   { route: 'InboxTab', label: 'Inbox', Icon: IconInboxTray, command: 'goInbox' },
@@ -111,6 +112,7 @@ const VIEWS = [
   { route: 'ActivityTab', label: 'Activity', Icon: IconBell, command: 'goActivity' },
   { route: 'BrowseTab', label: 'Browse', Icon: IconFolder, command: 'goBrowse' },
   { route: 'TrashTab', label: 'Trash', Icon: IconTrash, command: 'goTrash' },
+  { route: 'ArchiveTab', label: 'Archive', Icon: IconArchive, command: 'goArchive' },
 ] as const;
 
 export type SidebarNavigationProps =

@@ -28,7 +28,7 @@ import type { PalettePicker } from '../data/palettePickers';
  * task list's cursor — are answered by the screen in front through
  * `useCommand`. New Task and Find also work from a screen without one: they go
  * to a screen that has it and wait there for it to register. Settings, the
- * command menu, the views (⌘1–⌘7), the Help links and Undo belong to the whole app and are
+ * command menu, the views (⌘1–⌘8), the Help links and Undo belong to the whole app and are
  * answered here.
  *
  * Desktop only: a phone has no keyboard to send these.
@@ -226,7 +226,7 @@ const UNDO_ACTION_NAME: Record<PendingUndo['kind'], string> = {
   delete: 'Move to Trash',
 };
 
-/** The sidebar's views, as View ▸ ⌘1–⌘7 reach them. */
+/** The sidebar's views, as View ▸ ⌘1–⌘8 reach them. */
 function goTo(route: string) {
   const [name, params] = tabNavigation(route);
   (navigationRef.navigate as (name: string, params?: object) => void)('Main', { screen: name, params });
@@ -238,6 +238,7 @@ const goCalendar = () => goTo('CalendarTab');
 const goActivity = () => goTo('ActivityTab');
 const goBrowse = () => goTo('BrowseTab');
 const goTrash = () => goTo('TrashTab');
+const goArchive = () => goTo('ArchiveTab');
 
 const openSetupGuide = () => openLink(LINKS.setupGuide);
 const openSupport = () => openLink(LINKS.support);
@@ -253,6 +254,9 @@ export default function MenuCommands() {
   const [picker, setPicker] = useState<{ picker: PalettePicker; fromSearch: boolean } | null>(null);
   const searchingNow = useRef(false);
   searchingNow.current = paletteOpen && !picker;
+  /** What the menu shows, if it is up: the search, or a picker by kind. */
+  const showingNow = useRef<PalettePicker['kind'] | 'search' | null>(null);
+  showingNow.current = paletteOpen ? picker?.picker.kind ?? 'search' : null;
   // Escape from a picker reached through the search goes back to the search;
   // from one that replaced another picker, it closes, as that one's would have.
   const openPicker = useCallback((next: PalettePicker) => {
@@ -273,21 +277,27 @@ export default function MenuCommands() {
 
   useCommandHandler('settings', openServer, DESKTOP_UI);
   useCommandHandler('checkForUpdates', () => void checkForAppUpdatesInteractively(), DESKTOP_APP);
+  // A menu's own key, pressed again while it is up, puts it away.
   useCommandHandler(
     'commandMenu',
     useCallback(() => {
+      if (showingNow.current === 'search') return closePalette();
       setPicker(null);
       setPaletteOpen(true);
-    }, []),
+    }, [closePalette]),
     DESKTOP_UI
   );
   // The command menu again, searching tasks or the keys: pickers with nothing to
   // act on. One dialog shows all three, so pressing one key while another's menu
   // is up swaps what it shows rather than stacking a second dialog on the first.
-  useCommandHandler('goToTask', useCallback(() => openPicker({ kind: 'goToTask' }), [openPicker]), DESKTOP_UI);
+  const togglePicker = useCallback(
+    (next: PalettePicker) => (showingNow.current === next.kind ? closePalette() : openPicker(next)),
+    [closePalette, openPicker]
+  );
+  useCommandHandler('goToTask', useCallback(() => togglePicker({ kind: 'goToTask' }), [togglePicker]), DESKTOP_UI);
   useCommandHandler(
     'keyboardShortcuts',
-    useCallback(() => openPicker({ kind: 'keyboardShortcuts' }), [openPicker]),
+    useCallback(() => togglePicker({ kind: 'keyboardShortcuts' }), [togglePicker]),
     DESKTOP_UI
   );
   // A narrow window has no pinned sidebar to shrink, and a rail-only one no room
@@ -316,6 +326,7 @@ export default function MenuCommands() {
   useCommandHandler('goActivity', goActivity, DESKTOP_UI);
   useCommandHandler('goBrowse', goBrowse, DESKTOP_UI);
   useCommandHandler('goTrash', goTrash, DESKTOP_UI);
+  useCommandHandler('goArchive', goArchive, DESKTOP_UI);
   useCommandHandler('help', openSetupGuide, DESKTOP_UI);
   useCommandHandler('support', openSupport, DESKTOP_UI);
   useCommandHandler('privacy', openPrivacy, DESKTOP_UI);
