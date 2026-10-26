@@ -17,6 +17,10 @@
       "types": "./dist/recurrence.d.ts",
       "default": "./dist/recurrence.js"
     },
+    "./retention": {
+      "types": "./dist/retention.d.ts",
+      "default": "./dist/retention.js"
+    },
     "./taskFilter": {
       "types": "./dist/taskFilter.d.ts",
       "default": "./dist/taskFilter.js"

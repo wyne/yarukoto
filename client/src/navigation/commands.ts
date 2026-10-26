@@ -47,6 +47,7 @@ export type CommandId =
   | 'goActivity'
   | 'goBrowse'
   | 'goTrash'
+  | 'goArchive'
   | 'openTask'
   | 'editTask'
   | 'firstTask'
@@ -213,6 +214,7 @@ export const COMMANDS: readonly CommandDef[] = [
   { id: 'goActivity', title: 'Activity', menu: 'view', group: 'go', shortcut: cmd('5'), hiddenFromPalette: true },
   { id: 'goBrowse', title: 'Browse', menu: 'view', group: 'go', shortcut: cmd('6'), hiddenFromPalette: true },
   { id: 'goTrash', title: 'Trash', menu: 'view', group: 'go', shortcut: cmd('7'), hiddenFromPalette: true },
+  { id: 'goArchive', title: 'Archive', menu: 'view', group: 'go', shortcut: cmd('8'), hiddenFromPalette: true },
 
   // Space opens the task beside the list and leaves the keyboard on the list,
   // as Quick Look does; Return opens it to edit, with the caret in its title.

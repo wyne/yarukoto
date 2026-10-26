@@ -504,7 +504,8 @@ export type SavedFirstTabView =
   | { kind: 'folder'; id: string }
   | { kind: 'tag'; value: string }
   | { kind: 'activity' }
-  | { kind: 'trash' };
+  | { kind: 'trash' }
+  | { kind: 'archive' };
 
 interface SavedFirstTabViews {
   schemaVersion: typeof FIRST_TAB_VIEW_SCHEMA;
@@ -527,7 +528,8 @@ function parseFirstTabView(value: unknown): SavedFirstTabView | null {
     candidate.kind === 'all' ||
     candidate.kind === 'today' ||
     candidate.kind === 'activity' ||
-    candidate.kind === 'trash'
+    candidate.kind === 'trash' ||
+    candidate.kind === 'archive'
   ) {
     return { kind: candidate.kind };
   }
@@ -586,6 +588,8 @@ export interface ServerSnapshot {
   savedFilters: SavedFilter[];
   /** What the connected server last advertised. Absent means never probed. */
   serverFeatures?: ServerFeature[];
+  /** How long the server keeps trash, as it last said. Absent means it never said. */
+  trashRetentionDays?: number;
   /** Who was signed in, so a cold start knows whose reminders are whose. */
   household?: Household;
   cursor?: string;
@@ -638,6 +642,8 @@ export function loadServerSnapshot(): ServerSnapshot | null {
     // filters existed is still a good snapshot, just one without any.
     savedFilters: isRecordArray(stored.savedFilters) ? (stored.savedFilters as SavedFilter[]) : [],
     serverFeatures: parseServerFeatures(stored.serverFeatures),
+    trashRetentionDays:
+      typeof stored.trashRetentionDays === 'number' && stored.trashRetentionDays > 0 ? stored.trashRetentionDays : undefined,
     household: parseHousehold(stored.household),
     cursor: typeof stored.cursor === 'string' ? stored.cursor : undefined,
     savedAt: typeof stored.savedAt === 'string' ? stored.savedAt : new Date(0).toISOString(),

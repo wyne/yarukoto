@@ -66,6 +66,7 @@ const VIEWS: { route: string; title: string; keywords?: string }[] = [
   { route: 'BrowseTab', title: 'Browse', keywords: 'search find' },
   { route: 'ActivityTab', title: 'Activity', keywords: 'history log' },
   { route: 'TrashTab', title: 'Trash', keywords: 'deleted bin' },
+  { route: 'ArchiveTab', title: 'Archive', keywords: 'completed done old history' },
 ];
 
 /**

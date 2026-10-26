@@ -13,6 +13,7 @@ export const NATIVE_LIST_DESTINATIONS = {
   AllTab: { screen: 'Tasks', params: { view: 'all' } },
   ActivityTab: { screen: 'Activity', params: undefined },
   TrashTab: { screen: 'Trash', params: undefined },
+  ArchiveTab: { screen: 'Archive', params: undefined },
 } as const;
 
 /**

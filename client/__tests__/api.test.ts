@@ -34,6 +34,7 @@ describe('server health and compatibility', () => {
       commitShort: 'abc123',
       builtAt: null,
       features: ['taskReminders', 'futureFeature'],
+      trashRetentionDays: 45,
     });
 
     await expect(createApi('https://tasks.test///', 'token').health()).resolves.toEqual({
@@ -42,8 +43,14 @@ describe('server health and compatibility', () => {
       commitShort: 'abc123',
       builtAt: null,
       features: ['taskReminders'],
+      trashRetentionDays: 45,
     });
     expect(fetcher).toHaveBeenCalledWith('https://tasks.test/api/v1/health');
+  });
+
+  test.each([[undefined], [0], ['30']])('reports no trash window for %p', async (trashRetentionDays) => {
+    fetchOnce({ ok: true, features: [], trashRetentionDays });
+    await expect(createApi('https://tasks.test', 'token').health()).resolves.toMatchObject({ trashRetentionDays: null });
   });
 
   test.each([
@@ -198,8 +205,14 @@ describe('pairing and cursor recovery', () => {
         .mockResolvedValueOnce(fresh),
     } as never;
 
-    await expect(pullSince(api, 'old')).resolves.toBe(fresh);
+    await expect(pullSince(api, 'old')).resolves.toEqual({ now: 'fresh', full: true });
     expect((api as { pull: jest.Mock }).pull.mock.calls).toEqual([['old'], [undefined]]);
+  });
+
+  test('marks an incremental pull as partial and a pull with no cursor as full', async () => {
+    const api = { pull: jest.fn().mockResolvedValue({ now: 'n' }) } as never;
+    await expect(pullSince(api, 'cursor')).resolves.toEqual({ now: 'n', full: false });
+    await expect(pullSince(api, undefined)).resolves.toEqual({ now: 'n', full: true });
   });
 
   test('does not retry other pull failures', async () => {

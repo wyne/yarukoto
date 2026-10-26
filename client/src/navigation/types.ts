@@ -61,6 +61,7 @@ export type MainTabParamList = {
   ActivityTab: undefined;
   BrowseTab: BrowseParams | undefined;
   TrashTab: undefined;
+  ArchiveTab: undefined;
 };
 
 export type RootStackParamList = {

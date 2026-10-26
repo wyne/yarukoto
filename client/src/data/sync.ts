@@ -182,17 +182,35 @@ export async function pushDirty(
   return result;
 }
 
-export async function pullSince(api: Api, since: string | undefined): Promise<SyncBatch> {
+/**
+ * Pulls what changed since the cursor. `full` is set when the answer is the whole
+ * of what this person can see, so the caller can drop rows the server no longer has.
+ */
+export async function pullSince(api: Api, since: string | undefined): Promise<SyncBatch & { full: boolean }> {
+  if (since === undefined) return { ...(await api.pull(undefined)), full: true };
   try {
-    return await api.pull(since);
+    return { ...(await api.pull(since)), full: false };
   } catch (err) {
     if (err instanceof ApiError && err.status === 409) {
       // Client was offline longer than the retention window — a hard delete could
       // have happened without a tombstone ever reaching it. Re-hydrate fully.
-      return api.pull(undefined);
+      return { ...(await api.pull(undefined)), full: true };
     }
     throw err;
   }
+}
+
+/**
+ * Narrows local rows to those in a full batch, plus any local edit not yet pushed.
+ *
+ * A row missing from a full batch was hard-deleted on the server, or was never
+ * visible to this person; either way it must not stay here, where an edit would
+ * push it back. An unpushed row is new or about to change, so it waits for its push.
+ */
+export function keepOnlyBatch<T extends { id: string }>(local: T[], incoming: T[], dirtyIds: ReadonlySet<string>): T[] {
+  const present = new Set(incoming.map((r) => r.id));
+  const kept = local.filter((r) => present.has(r.id) || dirtyIds.has(r.id));
+  return kept.length === local.length ? local : kept;
 }
 
 /**

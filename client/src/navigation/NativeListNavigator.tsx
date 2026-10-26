@@ -14,6 +14,7 @@ import {
 import TaskListScreen from '../screens/TaskListScreen';
 import ActivityScreen from '../screens/ActivityScreen';
 import TrashScreen from '../screens/TrashScreen';
+import ArchiveScreen from '../screens/ArchiveScreen';
 import { MAC } from '../data/platform';
 import { createPlainStackNavigator } from './createPlainStackNavigator';
 
@@ -21,6 +22,7 @@ export type NativeListStackParamList = {
   Tasks: NativeTaskViewParams | undefined;
   Activity: undefined;
   Trash: undefined;
+  Archive: undefined;
 };
 
 // Plain on the Mac for the same reason as the root stack: see createPlainStackNavigator.
@@ -69,12 +71,18 @@ function NativeTrashScreen() {
   return <TrashScreen />;
 }
 
+function NativeArchiveScreen() {
+  useRememberFirstTabView({ kind: 'archive' });
+  return <ArchiveScreen />;
+}
+
 function destinationFor(view: SavedFirstTabView | null): {
   screen: keyof NativeListStackParamList;
   params?: NativeTaskViewParams;
 } {
   if (view?.kind === 'activity') return { screen: 'Activity' };
   if (view?.kind === 'trash') return { screen: 'Trash' };
+  if (view?.kind === 'archive') return { screen: 'Archive' };
   if (view?.kind === 'list') return { screen: 'Tasks', params: { listId: view.id } };
   if (view?.kind === 'folder') return { screen: 'Tasks', params: { folderId: view.id } };
   if (view?.kind === 'tag') return { screen: 'Tasks', params: { tag: view.value } };
@@ -119,6 +127,7 @@ export default function NativeListNavigator() {
       />
       <Stack.Screen name="Activity" component={NativeActivityScreen} />
       <Stack.Screen name="Trash" component={NativeTrashScreen} />
+      <Stack.Screen name="Archive" component={NativeArchiveScreen} />
     </Stack.Navigator>
   );
 }

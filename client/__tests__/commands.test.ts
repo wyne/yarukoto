@@ -176,13 +176,13 @@ describe('the Keyboard shortcuts page', () => {
   const page = fs.readFileSync(path.join(__dirname, '../../docs/src/content/docs/using/keyboard.md'), 'utf8');
 
   test('lists every key a menu command has', () => {
-    // The views are listed together, as ⌘1 to ⌘7.
-    const views = new Set(['goAll', 'goInbox', 'goToday', 'goCalendar', 'goActivity', 'goBrowse', 'goTrash']);
+    // The views are listed together, as ⌘1 to ⌘8.
+    const views = new Set(['goAll', 'goInbox', 'goToday', 'goCalendar', 'goActivity', 'goBrowse', 'goTrash', 'goArchive']);
     const missing = COMMANDS.filter((c) => c.shortcut && !c.submenu && !views.has(c.id))
       .map((c) => formatShortcut(c.shortcut!, true))
       .filter((glyphs) => !page.includes(glyphs));
     expect(missing).toEqual([]);
-    expect(page).toContain('⌘1 to ⌘7');
+    expect(page).toContain('⌘1 to ⌘8');
   });
 });
 
