@@ -785,13 +785,16 @@ const Sidebar = React.memo(function Sidebar({ state, navigation, onNavigate }: P
             different folder with no slot opening for it. `navTree` flattens the
             tree on the way in and reads the meaning back out of the drop.
 
-            Collapsed rail mode opts out — there is nothing to drag when the rows
-            are 20pt colour badges with no folder headings between them.
+            Collapsed rail mode opts out: its compact list and folder badges are
+            navigation targets, not useful drag handles.
           */}
           <DragList
             items={rows}
             keyExtractor={(row) => row.key}
             enabled={!collapsed}
+            // The rail is a density switch, not a reordering. Its rows should
+            // land in their compact layout immediately when the sidebar closes.
+            immediateChanges={collapsed}
             scrollableRef={scrollRef}
             onDragStart={dragStart}
             onDragMove={dragMove}
@@ -847,6 +850,11 @@ const Sidebar = React.memo(function Sidebar({ state, navigation, onNavigate }: P
                       depth={row.depth}
                       count={counts[row.list.id] ?? 0}
                       active={showActive('list', row.list.id)}
+                      folderActive={
+                        collapsed
+                        && row.list.folderId !== null
+                        && showActive('folder', row.list.folderId)
+                      }
                       ringed={keyRing && showActive('list', row.list.id)}
                       accent={accent}
                       onPress={openList}
@@ -1117,7 +1125,33 @@ const FolderRow = React.memo(function FolderRow({
   const hoverBg = useHoverBg();
   const colors = useColors();
   const styles = useStyles();
-  if (rail) return null;
+  if (rail) {
+    return (
+      <Pressable
+        style={hoverBg(
+          [
+            styles.row,
+            styles.rowCollapsed,
+            active && { backgroundColor: colors.selectedRowBg },
+            held && { backgroundColor: colors.heldRowBg },
+          ],
+          active || held
+        )}
+        onPress={() => onPress(folder.id)}
+        onPressIn={(e) => onPressIn(rowKey, { x: e.nativeEvent.pageX, y: e.nativeEvent.pageY })}
+        accessibilityLabel={folder.name}
+        accessibilityState={{ selected: active }}
+      >
+        <View style={styles.folderBadge}>
+          <IconFolder size={28} color={active ? accent : colors.textTertiary} />
+          <Text style={[styles.folderBadgeText, active && { color: accent }]}>
+            {folder.name.charAt(0).toUpperCase()}
+          </Text>
+        </View>
+        {ringed && <KeyRing />}
+      </Pressable>
+    );
+  }
   return (
     <Pressable
       style={hoverBg(
@@ -1176,6 +1210,7 @@ const ListRow = React.memo(function ListRow({
   depth,
   count,
   active,
+  folderActive,
   accent,
   ringed,
   onPress,
@@ -1193,6 +1228,8 @@ const ListRow = React.memo(function ListRow({
   depth: 0 | 1;
   count: number;
   active: boolean;
+  /** The rail is showing the folder that contains this list. */
+  folderActive: boolean;
   accent: string;
   /** The sidebar holds the keyboard and this is the row it is on. See `KeyRing`. */
   ringed: boolean;
@@ -1201,6 +1238,7 @@ const ListRow = React.memo(function ListRow({
   const hoverBg = useHoverBg();
   const colors = useColors();
   const styles = useStyles();
+  const highlighted = active || folderActive;
   return (
     <Pressable
       style={hoverBg(
@@ -1210,12 +1248,12 @@ const ListRow = React.memo(function ListRow({
           // The inset lands on the row, not the label, so the whole row still
           // takes a press and the hover fill starts where the row appears to.
           !rail && depth === 1 && { marginLeft: INDENT },
-          active && { backgroundColor: colors.selectedRowBg },
+          highlighted && { backgroundColor: colors.selectedRowBg },
           // Last, so a held row reads as held even when it is also the view
           // you are currently looking at.
           held && { backgroundColor: colors.heldRowBg },
         ],
-        active || held
+        highlighted || held
       )}
       onPress={() => onPress(list.id)}
       onPressIn={(e) => onPressIn(rowKey, { x: e.nativeEvent.pageX, y: e.nativeEvent.pageY })}
@@ -1440,6 +1478,20 @@ const useStyles = makeStyles((c) => ({
     fontFamily: fonts.sansBold,
     fontSize: 14,
     color: c.surface,
+  },
+  folderBadge: {
+    width: 28,
+    height: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  folderBadgeText: {
+    position: 'absolute',
+    top: 10,
+    fontFamily: fonts.sansBold,
+    fontSize: 10,
+    lineHeight: 11,
+    color: c.textTertiary,
   },
   footer: {
     flexDirection: 'row',
