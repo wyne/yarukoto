@@ -32,7 +32,14 @@ pushes dirty records and pulls changes every 5 seconds.
 Conflicts resolve **last-write-wins per record**, compared on `updatedAt`. Deletes are soft
 (`deletedAt`), so a deletion propagates to other devices instead of the record reappearing on the
 next pull. A pull whose cursor predates the retention window is rejected, and the client re-hydrates
-fully — otherwise a client offline long enough could miss a hard delete and resurrect the task.
+fully — otherwise a client offline long enough could miss a hard delete and resurrect the task. A
+full pull replaces the local rows rather than merging into them, keeping only edits not yet pushed,
+because a row missing from it is one the server no longer has.
+
+Trash expires on each device as well as on the server. A hard delete leaves nothing for a pull to
+return, so the app drops its own copy of anything trashed longer than the server's
+`TRASH_RETENTION_DAYS`, which `/api/v1/health` reports as `trashRetentionDays` (30 when a server
+predates the field). A row whose deletion hasn't been pushed yet is kept until it has.
 
 **Two timestamps, deliberately.** `updated_at` is stamped by the client that made the edit and is
 only ever used for that last-write-wins comparison, because resolving a conflict wants to know when

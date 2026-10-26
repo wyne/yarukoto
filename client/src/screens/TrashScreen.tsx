@@ -12,6 +12,7 @@ import { getListById, trashedTasks } from '../data/selectors';
 import { formatDueShort } from '../data/dateUtils';
 import { confirmDestructive } from '../data/confirm';
 import { useSyncRefresh } from '../data/useSyncRefresh';
+import { trashDaysLeft } from '../data/retention';
 import Card from '../components/Card';
 import GlassIconButton from '../components/GlassIconButton';
 import Divider from '../components/Divider';
@@ -29,10 +30,12 @@ export default function TrashScreen() {
   const insets = useSafeAreaInsets();
   const refreshControl = useSyncRefresh();
   const { wide, openDrawer } = useSidebar();
-  const { state, restoreTasks, purgeTasks } = useTasks();
+  const { state, restoreTasks, purgeTasks, trashRetentionDays } = useTasks();
   const now = new Date();
 
   const tasks = trashedTasks(state.tasks);
+
+  const span = `${trashRetentionDays} day${trashRetentionDays === 1 ? '' : 's'}`;
 
   const confirmPurge = (ids: string[], label: string) =>
     confirmDestructive('Delete forever?', label, () => purgeTasks(ids));
@@ -73,11 +76,16 @@ export default function TrashScreen() {
         {tasks.length === 0 ? (
           <Text style={styles.empty}>Trash is empty.</Text>
         ) : (
+          <Text style={styles.note}>Tasks are deleted forever {span} after they move to Trash.</Text>
+        )}
+        {tasks.length > 0 && (
           <Card style={{ marginHorizontal: 12 }}>
             {tasks.map((task, i) => {
               const list = getListById(state.lists, task.listId);
               const due = formatDueShort(now, task.dueDate, task.dueTime);
-              const meta = [list?.name, due].filter(Boolean).join(' · ');
+              const left = task.deletedAt ? trashDaysLeft(task.deletedAt, now, trashRetentionDays) : null;
+              const expiry = left === null ? null : left <= 1 ? 'Last day' : `${left} days left`;
+              const meta = [list?.name, due, expiry].filter(Boolean).join(' · ');
               return (
                 <View key={task.id}>
                   <View style={styles.row}>
@@ -134,6 +142,13 @@ const useStyles = makeStyles((c) => ({
     fontFamily: fonts.sansMedium,
     fontSize: 14,
     color: c.priorityHigh,
+  },
+  note: {
+    marginHorizontal: 16,
+    marginBottom: 10,
+    fontFamily: fonts.sansRegular,
+    fontSize: 13,
+    color: c.textTertiary,
   },
   /** `flexGrow` reaches the bottom on a short list. See TaskListScreen's `scrollContent`. */
   scroll: { flexGrow: 1, paddingBottom: 24 },

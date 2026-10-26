@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { DEFAULT_TRASH_RETENTION_DAYS } from '@yarukoto/domain/retention';
 
 /**
  * `NAME`, or the contents of the file `NAME_FILE` points at — the convention
@@ -41,7 +42,7 @@ export const env = {
   token: required('YARUKOTO_TOKEN'),
   port: Number(process.env.PORT ?? 8080),
   databasePath,
-  trashRetentionDays: Number(process.env.TRASH_RETENTION_DAYS ?? 30),
+  trashRetentionDays: Number(process.env.TRASH_RETENTION_DAYS ?? DEFAULT_TRASH_RETENTION_DAYS),
   historyRevisionsPerTask: Number(process.env.HISTORY_REVISIONS_PER_TASK ?? 50),
   webRoot: process.env.WEB_ROOT ?? path.resolve(process.cwd(), '../web'),
   /**

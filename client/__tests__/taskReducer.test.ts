@@ -270,4 +270,40 @@ describe('saved filters and dataset transitions', () => {
     });
     expect(emptyMerge).toBe(merged);
   });
+
+  test('a full merge drops rows the server no longer has, except unpushed ones', () => {
+    const kept = task('kept', { updatedAt: OLD });
+    const purged = task('purged', { updatedAt: OLD });
+    const unpushed = task('unpushed', { updatedAt: OLD });
+    const base = state({ tasks: [kept, purged, unpushed], lists: [list('gone-list')] });
+    const action = {
+      type: 'MERGE' as const,
+      dirtyIds: new Set(['unpushed']),
+      tasks: [kept],
+      lists: [], folders: [], viewPrefs: [], savedFilters: [],
+    };
+
+    expect(reduce(base, action).tasks).toHaveLength(3);
+    const full = reduce(base, { ...action, full: true });
+    expect(full.tasks.map((t) => t.id)).toEqual(['kept', 'unpushed']);
+    expect(full.lists).toEqual([]);
+  });
+
+  test('expires trash past the cutoff, keeping rows still waiting to push', () => {
+    const before = '2026-09-20T12:00:00.000Z';
+    const old = task('old', { deletedAt: '2026-09-01T00:00:00.000Z' });
+    const recent = task('recent', { deletedAt: '2026-10-01T00:00:00.000Z' });
+    const pending = task('pending', { deletedAt: '2026-09-01T00:00:00.000Z' });
+    const live = task('live');
+    const base = state({
+      tasks: [old, recent, pending, live],
+      lists: [list('old-list', { deletedAt: '2026-09-01T00:00:00.000Z' }), list('live-list')],
+    });
+
+    const next = reduce(base, { type: 'EXPIRE_TRASH', before, keep: new Set(['pending']) });
+    expect(next.tasks).toEqual([recent, pending, live]);
+    expect(next.lists.map((l) => l.id)).toEqual(['live-list']);
+
+    expect(reduce(next, { type: 'EXPIRE_TRASH', before, keep: new Set(['pending']) })).toBe(next);
+  });
 });
