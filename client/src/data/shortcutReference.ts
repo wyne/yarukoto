@@ -1,18 +1,20 @@
 import { MAC, MAC_KEYS } from './platform';
 import { ShortcutSearchRow, ShortcutSearchSection, shortcutSearchTerms } from './shortcutSearch';
-import { COMMANDS, CommandDef, CommandId, Shortcut, formatShortcut, paletteTitle } from '../navigation/commands';
+import { COMMANDS, CommandDef, CommandId, Shortcut, formatShortcut, menuKeys, paletteTitle } from '../navigation/commands';
 
 /** The views, which are eight commands but one row: ⌘1 to ⌘8. */
 const VIEW_IDS = new Set<CommandId>(['goAll', 'goInbox', 'goToday', 'goCalendar', 'goActivity', 'goBrowse', 'goTrash', 'goArchive']);
 /** Answered by the notes editor, not the list or the window. */
 const EDITING_IDS = new Set<CommandId>(['bold', 'italic']);
 
-/** The keys this build answers for a command: the menu's, where it has it, then the list's. */
-function keysFor(def: CommandDef, mac: boolean): string | null {
-  const shortcuts: Shortcut[] = [];
+/** The keys this build answers for a command: the menu's, where it has them, then the list's. */
+function shortcutsFor(def: CommandDef): Shortcut[] {
   // The web only answers the shortcuts a browser lets a page have.
-  if (def.shortcut && (MAC || def.web)) shortcuts.push(def.shortcut);
-  shortcuts.push(...(def.listKeys ?? []));
+  return [...(MAC || def.web ? menuKeys(def) : []), ...(def.listKeys ?? [])];
+}
+
+function keysFor(def: CommandDef, mac: boolean): string | null {
+  const shortcuts = shortcutsFor(def);
   if (shortcuts.length === 0) return null;
   return shortcuts.map((k) => formatShortcut(k, mac)).join(MAC_KEYS ? '  ' : ', ');
 }
@@ -57,10 +59,7 @@ export function shortcutSections(): ShortcutSearchSection[] {
     if (VIEW_IDS.has(def.id) || def.id === 'trashKeyHint') continue;
     const keys = keysFor(def, MAC_KEYS);
     if (!keys) continue;
-    const shortcuts = [
-      ...(def.shortcut && (MAC || def.web) ? [def.shortcut] : []),
-      ...(def.listKeys ?? []),
-    ];
+    const shortcuts = shortcutsFor(def);
     const row = {
       title: def.hiddenFromPalette ? def.title : paletteTitle(def),
       keys,

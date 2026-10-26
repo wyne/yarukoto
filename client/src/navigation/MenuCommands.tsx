@@ -9,6 +9,7 @@ import { PendingUndo, usePendingUndo, useTasks } from '../data/TaskContext';
 import { afterLayersClose, anyLayerOpen } from '../components/openLayers';
 import CommandPalette from '../components/CommandPalette';
 import { COMMANDS, CommandId, commandDef, createKeySequenceReader, domKeyName, webCommandFor } from './commands';
+import { currentDestination, goBack, goForward, useNavHistory, watchNavHistory } from './navHistory';
 import { navigationRef } from './DateTimePickerContext';
 import { tabNavigation } from './destinations';
 import { useDrawerState, useSidebar, useSidebarCollapsed } from './SidebarContext';
@@ -29,7 +30,7 @@ import type { PalettePicker } from '../data/palettePickers';
  * `useCommand`. New Task and Find also work from a screen without one: they go
  * to a screen that has it and wait there for it to register. Settings, the
  * command menu, the views (⌘1–⌘8), the Help links and Undo belong to the whole app and are
- * answered here.
+ * answered here, as are Back and Forward.
  *
  * Desktop only: a phone has no keyboard to send these.
  */
@@ -46,6 +47,17 @@ const FALLBACKS: Partial<Record<CommandId, () => void>> = {
 };
 
 /**
+ * Answers for when nothing on screen has one of its own, which, unlike a
+ * fallback, need nothing to register afterwards. Next and Previous View are the
+ * sidebar's, in its own order; with no sidebar to answer — a narrow window whose
+ * drawer is shut — they go round the fixed views.
+ */
+const DEFAULTS: Partial<Record<CommandId, () => void>> = {
+  nextView: () => stepFixedView(1),
+  previousView: () => stepFixedView(-1),
+};
+
+/**
  * A command sent ahead to a screen that hadn't registered yet. Short-lived, so a
  * screen opened by some other route much later doesn't act on a stale request.
  */
@@ -54,7 +66,8 @@ const PENDING_MS = 1500;
 
 // What can be answered, as a store React and the menu bar both read.
 const subscribers = new Set<() => void>();
-let available: ReadonlySet<CommandId> = new Set(Object.keys(FALLBACKS) as CommandId[]);
+const ALWAYS = [...Object.keys(FALLBACKS), ...Object.keys(DEFAULTS)] as CommandId[];
+let available: ReadonlySet<CommandId> = new Set(ALWAYS);
 
 /** How many answers in force say each command is the option in use. */
 const checks = new Map<CommandId, number>();
@@ -64,7 +77,7 @@ const sameSet = (a: ReadonlySet<CommandId>, b: ReadonlySet<CommandId>) =>
   a.size === b.size && [...a].every((id) => b.has(id));
 
 function recompute() {
-  const next = new Set<CommandId>(Object.keys(FALLBACKS) as CommandId[]);
+  const next = new Set<CommandId>(ALWAYS);
   handlers.forEach((stack, id) => {
     if (stack.length) next.add(id);
   });
@@ -113,6 +126,11 @@ export function dispatchCommand(id: CommandId, fromPalette = false): boolean {
   const stack = handlers.get(id);
   if (stack?.length) {
     stack[stack.length - 1]();
+    return true;
+  }
+  const answer = DEFAULTS[id];
+  if (answer) {
+    answer();
     return true;
   }
   const fallback = FALLBACKS[id];
@@ -240,6 +258,17 @@ const goBrowse = () => goTo('BrowseTab');
 const goTrash = () => goTo('TrashTab');
 const goArchive = () => goTo('ArchiveTab');
 
+/** The fixed views, in sidebar order. */
+const VIEW_ROUTES = ['AllTab', 'InboxTab', 'TodayTab', 'CalendarTab', 'ActivityTab', 'BrowseTab', 'TrashTab', 'ArchiveTab'];
+
+/** The next or previous fixed view, round again at the ends. From a list or tag, the first or last. */
+function stepFixedView(delta: 1 | -1) {
+  const here = currentDestination();
+  const at = here && !here.params ? VIEW_ROUTES.indexOf(here.route) : -1;
+  const n = VIEW_ROUTES.length;
+  goTo(VIEW_ROUTES[at === -1 ? (delta === 1 ? 0 : n - 1) : (at + delta + n) % n]);
+}
+
 const openSetupGuide = () => openLink(LINKS.setupGuide);
 const openSupport = () => openLink(LINKS.support);
 const openPrivacy = () => openLink(LINKS.privacy);
@@ -327,6 +356,10 @@ export default function MenuCommands() {
   useCommandHandler('goBrowse', goBrowse, DESKTOP_UI);
   useCommandHandler('goTrash', goTrash, DESKTOP_UI);
   useCommandHandler('goArchive', goArchive, DESKTOP_UI);
+  useEffect(() => (DESKTOP_UI ? watchNavHistory() : undefined), []);
+  const { canGoBack, canGoForward } = useNavHistory();
+  useCommandHandler('goBack', goBack, DESKTOP_UI && canGoBack);
+  useCommandHandler('goForward', goForward, DESKTOP_UI && canGoForward);
   useCommandHandler('help', openSetupGuide, DESKTOP_UI);
   useCommandHandler('support', openSupport, DESKTOP_UI);
   useCommandHandler('privacy', openPrivacy, DESKTOP_UI);
@@ -349,7 +382,9 @@ export default function MenuCommands() {
         submenu: c.submenu,
         input: c.shortcut?.input,
         modifiers: c.shortcut?.modifiers ?? [],
+        aliases: (c.aliases ?? []).map(({ input, modifiers }) => ({ input, modifiers })),
         list: !!c.list,
+        yieldsToText: !!c.yieldsToText,
       }))
     );
     const subscription = MacMenu.addListener('onCommand', ({ command }) => {
@@ -379,6 +414,8 @@ export default function MenuCommands() {
       if (e.defaultPrevented || (e.repeat && !e.key.startsWith('Arrow') && !REPEATING_KEYS.has(e.key))) return;
       const match = webCommandFor(e);
       if (match && !match.listKey) {
+        // A key a field has its own use for stays with the field.
+        if (match.def.yieldsToText && typingIn(e.target)) return;
         if (dispatchCommand(match.def.id)) e.preventDefault();
         return;
       }

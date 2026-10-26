@@ -13,7 +13,11 @@ export interface MacMenuCommandSpec {
   submenu?: string;
   input?: string;
   modifiers: string[];
+  /** More keys for it, answered but not drawn. */
+  aliases: { input: string; modifiers: string[] }[];
   list: boolean;
+  /** Dimmed while a text field has focus, which passes its key to the field. */
+  yieldsToText: boolean;
 }
 
 type MacMenuEvents = {

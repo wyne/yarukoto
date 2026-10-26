@@ -42,8 +42,12 @@ public enum MacMenuBar {
     let submenu: String?
     let input: String?
     let modifiers: UIKeyModifierFlags
+    /// More keys for the same command, in the menu but hidden: a menu item draws one.
+    let aliases: [(input: String, modifiers: UIKeyModifierFlags)]
     /// Acts on the task list; see `canPerform`.
     let list: Bool
+    /// Left to a focused text field; see `canPerform`.
+    let yieldsToText: Bool
   }
 
   private static var specs: [Spec] = []
@@ -60,7 +64,11 @@ public enum MacMenuBar {
         submenu: record.submenu,
         input: record.input.flatMap(keyInput),
         modifiers: modifierFlags(record.modifiers),
-        list: record.list
+        aliases: record.aliases.compactMap { alias in
+          keyInput(alias.input).map { (input: $0, modifiers: modifierFlags(alias.modifiers)) }
+        },
+        list: record.list,
+        yieldsToText: record.yieldsToText
       )
     }
     UIMenuSystem.main.setNeedsRebuild()
@@ -154,7 +162,9 @@ public enum MacMenuBar {
    * (JS refuses those too, in dispatchCommand; this is what draws it dimmed.)
    *
    * None of these is on a plain key — those belong to the list itself, through
-   * KeyCommandsView — so a focused text field needs no special case here.
+   * KeyCommandsView — so a focused text field needs no special case here, but
+   * for a command that yields to one (⌘[ and ⌘]): dimmed while a field is first
+   * responder, its key equivalent goes unclaimed and the field gets the key.
    */
   public static func canPerform(_ action: Selector, withSender sender: Any?) -> Bool? {
     guard action == Self.action else { return nil }
@@ -165,6 +175,7 @@ public enum MacMenuBar {
     }
     guard enabled.contains(id) else { return false }
     if spec.list, keyWindow()?.rootViewController?.presentedViewController != nil { return false }
+    if spec.yieldsToText, firstResponder() is UITextInput { return false }
     return true
   }
 
@@ -217,6 +228,7 @@ public enum MacMenuBar {
       for spec in members {
         guard let submenu = spec.submenu else {
           elements.append(element(spec))
+          elements.append(contentsOf: aliasElements(spec))
           continue
         }
         if submenus.contains(submenu) { continue }
@@ -246,6 +258,20 @@ public enum MacMenuBar {
     return command
   }
 
+  /// A command's other keys, as hidden items: answered like its own, never drawn.
+  private static func aliasElements(_ spec: Spec) -> [UIMenuElement] {
+    spec.aliases.map { alias in
+      UIKeyCommand(
+        title: spec.title,
+        action: action,
+        input: alias.input,
+        modifierFlags: alias.modifiers,
+        propertyList: spec.id,
+        attributes: .hidden
+      )
+    }
+  }
+
   /// A group drawn inline, between separators, rather than as a submenu.
   private static func inline(_ id: String, _ children: [UIMenuElement]) -> UIMenu {
     UIMenu(
@@ -261,6 +287,7 @@ public enum MacMenuBar {
     switch name {
     case "return": return "\r"
     case "delete": return "\u{8}"
+    case "tab": return "\t"
     case "escape": return UIKeyCommand.inputEscape
     case "up": return UIKeyCommand.inputUpArrow
     case "down": return UIKeyCommand.inputDownArrow
@@ -286,10 +313,30 @@ public enum MacMenuBar {
 
   // MARK: Helpers
 
+  /// UIKit names no first responder, but an action sent to nil goes to it.
+  private static weak var foundResponder: UIResponder?
+
+  private static func firstResponder() -> UIResponder? {
+    foundResponder = nil
+    UIApplication.shared.sendAction(#selector(UIResponder.yk_reportFirstResponder), to: nil, from: nil, for: nil)
+    return foundResponder
+  }
+
+  fileprivate static func report(_ responder: UIResponder) {
+    foundResponder = responder
+  }
+
   private static func keyWindow() -> UIWindow? {
     UIApplication.shared.connectedScenes
       .compactMap { $0 as? UIWindowScene }
       .flatMap(\.windows)
       .first(where: \.isKeyWindow)
+  }
+}
+
+extension UIResponder {
+  /// Answered by the first responder only, which is what `firstResponder` relies on.
+  @objc fileprivate func yk_reportFirstResponder() {
+    MacMenuBar.report(self)
   }
 }

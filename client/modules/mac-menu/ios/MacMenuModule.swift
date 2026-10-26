@@ -1,5 +1,11 @@
 import ExpoModulesCore
 
+/// A key a command answers besides its own. See MacMenuBar.
+struct MenuKeyRecord: Record {
+  @Field var input: String = ""
+  @Field var modifiers: [String] = []
+}
+
 /// One command from src/navigation/commands.ts, as JS sends it. See MacMenuBar.
 struct MenuCommandRecord: Record {
   @Field var id: String = ""
@@ -9,7 +15,9 @@ struct MenuCommandRecord: Record {
   @Field var submenu: String? = nil
   @Field var input: String? = nil
   @Field var modifiers: [String] = []
+  @Field var aliases: [MenuKeyRecord] = []
   @Field var list: Bool = false
+  @Field var yieldsToText: Bool = false
 }
 
 public final class MacMenuModule: Module {

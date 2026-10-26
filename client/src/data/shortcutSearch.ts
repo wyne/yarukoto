@@ -34,8 +34,10 @@ const INPUT_TERMS: Record<string, string> = {
   pagedown: 'page down',
   '/': 'slash',
   ',': 'comma',
-  '{': 'brace curly vim',
-  '}': 'brace curly vim',
+  '{': 'brace curly bracket vim',
+  '}': 'brace curly bracket vim',
+  '[': 'bracket',
+  ']': 'bracket',
 };
 
 /** Words people use to describe a shortcut, independent of how this platform draws it. */

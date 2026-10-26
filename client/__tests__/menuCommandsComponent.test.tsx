@@ -17,6 +17,11 @@ let mockSidebar = { wide: true, railOnly: false };
 let mockCollapsed = false;
 let mockDrawerOpen = false;
 let mockSidebarHolds = false;
+/** The navigation container's state, as navHistory reads it, and who is told it changed. */
+let mockRootState: object = {};
+const mockStateListeners = new Set<() => void>();
+const onTab = (name: string, params?: object) =>
+  (mockRootState = { index: 0, routes: [{ name: 'Main', state: { index: 0, routes: [{ name, params }] } }] });
 
 jest.mock('../src/data/platform', () => ({
   DESKTOP_APP: true,
@@ -43,7 +48,15 @@ jest.mock('../src/data/appUpdates', () => ({
   checkForAppUpdatesInteractively: () => mockCheckForUpdates(),
 }));
 jest.mock('../src/navigation/DateTimePickerContext', () => ({
-  navigationRef: { navigate: (...args: unknown[]) => mockNavigate(...args) },
+  navigationRef: {
+    navigate: (...args: unknown[]) => mockNavigate(...args),
+    isReady: () => true,
+    getRootState: () => mockRootState,
+    addListener: (_event: string, listener: () => void) => {
+      mockStateListeners.add(listener);
+      return () => mockStateListeners.delete(listener);
+    },
+  },
 }));
 jest.mock('../src/navigation/SidebarContext', () => ({
   useSidebar: () => ({
@@ -87,6 +100,7 @@ beforeEach(() => {
   mockCollapsed = false;
   mockDrawerOpen = false;
   mockSidebarHolds = false;
+  onTab('AllTab');
   Object.defineProperty(Platform, 'OS', { configurable: true, value: 'ios' });
 });
 
@@ -327,5 +341,102 @@ test('the web reads vim keys for the list, but not from a field or past the side
   expect(next).toHaveBeenCalledTimes(2);
 
   act(() => root.unmount());
+  Object.defineProperty(global, 'document', { configurable: true, value: undefined });
+});
+
+test('⌘[ and ⌘] go back and forward through the views you settled on', () => {
+  jest.useFakeTimers();
+  const root = renderMenu();
+  const arrive = (name: string, params?: object) => {
+    onTab(name, params);
+    act(() => mockStateListeners.forEach((notify) => notify()));
+  };
+  arrive('TodayTab');
+  act(() => jest.advanceTimersByTime(1000));
+  // Passed through on the way to a list, too briefly to be somewhere.
+  arrive('TrashTab');
+  arrive('InboxTab', { listId: 'l-1' });
+  act(() => jest.advanceTimersByTime(1000));
+
+  act(() => expect(dispatchCommand('goBack')).toBe(true));
+  expect(mockNavigate).toHaveBeenLastCalledWith('Main', { screen: 'TodayTab', params: undefined });
+  arrive('TodayTab');
+  act(() => jest.advanceTimersByTime(1000));
+
+  act(() => expect(dispatchCommand('goForward')).toBe(true));
+  expect(mockNavigate).toHaveBeenLastCalledWith('Main', {
+    screen: 'ListsTab',
+    params: expect.objectContaining({ screen: 'Tasks', params: expect.objectContaining({ listId: 'l-1' }) }),
+  });
+  arrive('InboxTab', { listId: 'l-1' });
+  act(() => jest.advanceTimersByTime(1000));
+  // Nothing ahead now, so Forward is dimmed.
+  expect(dispatchCommand('goForward')).toBe(false);
+
+  act(() => root.unmount());
+  jest.useRealTimers();
+});
+
+test('with no sidebar to answer, Next and Previous View go round the fixed views', () => {
+  const root = renderMenu();
+  onTab('TrashTab');
+  expect(dispatchCommand('nextView')).toBe(true);
+  expect(mockNavigate).toHaveBeenLastCalledWith('Main', expect.objectContaining({ params: expect.objectContaining({ screen: 'Archive' }) }));
+  // All is a view of the native first tab's stack: Tasks.
+  onTab('InboxTab');
+  dispatchCommand('previousView');
+  expect(mockNavigate).toHaveBeenLastCalledWith('Main', expect.objectContaining({ params: expect.objectContaining({ screen: 'Tasks' }) }));
+  onTab('ArchiveTab');
+  dispatchCommand('nextView');
+  expect(mockNavigate).toHaveBeenLastCalledWith('Main', expect.objectContaining({ params: expect.objectContaining({ screen: 'Tasks' }) }));
+  act(() => root.unmount());
+});
+
+test('on the web, ⌘[ typed in a field is the field\'s', () => {
+  Object.defineProperty(Platform, 'OS', { configurable: true, value: 'web' });
+  const add = jest.fn();
+  Object.defineProperty(global, 'document', {
+    configurable: true,
+    value: { addEventListener: add, removeEventListener: jest.fn() },
+  });
+  jest.useFakeTimers();
+  const root = renderMenu();
+  onTab('TodayTab');
+  act(() => mockStateListeners.forEach((notify) => notify()));
+  act(() => jest.advanceTimersByTime(1000));
+  onTab('InboxTab');
+  act(() => mockStateListeners.forEach((notify) => notify()));
+  act(() => jest.advanceTimersByTime(1000));
+  mockNavigate.mockClear();
+
+  const capture = add.mock.calls.find(([event, _listener, options]) => event === 'keydown' && options === true)?.[1] as EventListener;
+  const bubble = add.mock.calls.find(([event, _listener, options]) => event === 'keydown' && options !== true)?.[1] as EventListener;
+  const back = (target: object) =>
+    ({
+      key: '[',
+      code: 'BracketLeft',
+      metaKey: true,
+      ctrlKey: false,
+      altKey: false,
+      shiftKey: false,
+      repeat: false,
+      defaultPrevented: false,
+      target,
+      preventDefault: jest.fn(),
+      getModifierState: () => false,
+    }) as unknown as KeyboardEvent;
+
+  const inField = back({ tagName: 'TEXTAREA' });
+  act(() => capture(inField));
+  expect(inField.preventDefault).not.toHaveBeenCalled();
+  expect(mockNavigate).not.toHaveBeenCalled();
+
+  const outside = back({ tagName: 'DIV' });
+  act(() => bubble(outside));
+  expect(outside.preventDefault).toHaveBeenCalled();
+  expect(mockNavigate).toHaveBeenLastCalledWith('Main', { screen: 'TodayTab', params: undefined });
+
+  act(() => root.unmount());
+  jest.useRealTimers();
   Object.defineProperty(global, 'document', { configurable: true, value: undefined });
 });
