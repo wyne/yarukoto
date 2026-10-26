@@ -415,6 +415,13 @@ test('⌘O, ⌘K and ⌘/ cycle through one menu, over and over, and leave the w
     await page.keyboard.press('Escape');
     await expect(dialogs).toHaveCount(0);
   }
+  // Each key, pressed again, closes its own menu.
+  for (const menu of menus) {
+    await page.keyboard.press(menu.key);
+    await expect(page.getByPlaceholder(menu.placeholder)).toBeFocused();
+    await page.keyboard.press(menu.key);
+    await expect(dialogs).toHaveCount(0);
+  }
   const add = page.getByPlaceholder(/Add a task/);
   await add.click();
   await expect(add).toBeFocused();

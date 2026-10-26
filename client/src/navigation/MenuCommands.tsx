@@ -254,6 +254,9 @@ export default function MenuCommands() {
   const [picker, setPicker] = useState<{ picker: PalettePicker; fromSearch: boolean } | null>(null);
   const searchingNow = useRef(false);
   searchingNow.current = paletteOpen && !picker;
+  /** What the menu shows, if it is up: the search, or a picker by kind. */
+  const showingNow = useRef<PalettePicker['kind'] | 'search' | null>(null);
+  showingNow.current = paletteOpen ? picker?.picker.kind ?? 'search' : null;
   // Escape from a picker reached through the search goes back to the search;
   // from one that replaced another picker, it closes, as that one's would have.
   const openPicker = useCallback((next: PalettePicker) => {
@@ -274,21 +277,27 @@ export default function MenuCommands() {
 
   useCommandHandler('settings', openServer, DESKTOP_UI);
   useCommandHandler('checkForUpdates', () => void checkForAppUpdatesInteractively(), DESKTOP_APP);
+  // A menu's own key, pressed again while it is up, puts it away.
   useCommandHandler(
     'commandMenu',
     useCallback(() => {
+      if (showingNow.current === 'search') return closePalette();
       setPicker(null);
       setPaletteOpen(true);
-    }, []),
+    }, [closePalette]),
     DESKTOP_UI
   );
   // The command menu again, searching tasks or the keys: pickers with nothing to
   // act on. One dialog shows all three, so pressing one key while another's menu
   // is up swaps what it shows rather than stacking a second dialog on the first.
-  useCommandHandler('goToTask', useCallback(() => openPicker({ kind: 'goToTask' }), [openPicker]), DESKTOP_UI);
+  const togglePicker = useCallback(
+    (next: PalettePicker) => (showingNow.current === next.kind ? closePalette() : openPicker(next)),
+    [closePalette, openPicker]
+  );
+  useCommandHandler('goToTask', useCallback(() => togglePicker({ kind: 'goToTask' }), [togglePicker]), DESKTOP_UI);
   useCommandHandler(
     'keyboardShortcuts',
-    useCallback(() => openPicker({ kind: 'keyboardShortcuts' }), [openPicker]),
+    useCallback(() => togglePicker({ kind: 'keyboardShortcuts' }), [togglePicker]),
     DESKTOP_UI
   );
   // A narrow window has no pinned sidebar to shrink, and a rail-only one no room

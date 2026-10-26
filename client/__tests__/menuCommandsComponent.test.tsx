@@ -174,6 +174,27 @@ test('⌘O, ⌘K and ⌘/ swap what the one menu shows, whichever is up', () => 
   act(() => root.unmount());
 });
 
+test('a menu\'s own key closes it again', () => {
+  const root = renderMenu();
+  for (const id of ['commandMenu', 'goToTask', 'keyboardShortcuts'] as const) {
+    act(() => expect(dispatchCommand(id)).toBe(true));
+    expect(mockPaletteProps.visible).toBe(true);
+    act(() => expect(dispatchCommand(id)).toBe(true));
+    expect(mockPaletteProps.visible).toBe(false);
+    expect(mockPaletteProps.picker).toBeNull();
+  }
+  // Another menu's key still swaps rather than closing.
+  act(() => {
+    dispatchCommand('goToTask');
+  });
+  act(() => {
+    dispatchCommand('commandMenu');
+  });
+  expect(mockPaletteProps.visible).toBe(true);
+  expect(mockPaletteProps.picker).toBeNull();
+  act(() => root.unmount());
+});
+
 test('toggles pinned, narrow, and open-drawer sidebars', () => {
   mockCollapsed = true;
   let root = renderMenu();
