@@ -1,5 +1,27 @@
 # Changelog
 
+## [1.5.0](https://github.com/wyne/yarukoto/compare/v1.4.0...v1.5.0) (2026-10-26)
+
+
+### Features
+
+* ⌘↩ in a subtask checks off that subtask ([#280](https://github.com/wyne/yarukoto/issues/280)) ([b9f700d](https://github.com/wyne/yarukoto/commit/b9f700d79fff0555cd7ac2efbbfc523198bf8d8b))
+* archive old completed tasks and expire trash on every device ([#282](https://github.com/wyne/yarukoto/issues/282)) ([e00e8ea](https://github.com/wyne/yarukoto/commit/e00e8eacbdbfc20576821fcd4f22bc6cc6e4e6da))
+* close ⌘K, ⌘O and ⌘/ by pressing the same key again ([#279](https://github.com/wyne/yarukoto/issues/279)) ([0c1546b](https://github.com/wyne/yarukoto/commit/0c1546b4fa3f10372b4c47068fe06fb8d89bf1d6))
+* desktop text size, denser task list and narrower window ([#274](https://github.com/wyne/yarukoto/issues/274)) ([414ebeb](https://github.com/wyne/yarukoto/commit/414ebebae15bca8b2b0771479ba5d4b645dd700d))
+* vim keys for the desktop task list ([#276](https://github.com/wyne/yarukoto/issues/276)) ([2561632](https://github.com/wyne/yarukoto/commit/25616320a15fda88cf448a39a1ecc55f272383e2))
+
+
+### Bug Fixes
+
+* float the task pane over the list when a desktop window is too narrow for a column ([#281](https://github.com/wyne/yarukoto/issues/281)) ([fbe9953](https://github.com/wyne/yarukoto/commit/fbe99532a0efa9f5d5eace80c4e63539639a36dd))
+* show ⌘K, ⌘O and ⌘/ in one menu so switching between them works ([#277](https://github.com/wyne/yarukoto/issues/277)) ([2b25215](https://github.com/wyne/yarukoto/commit/2b252157d015446703404b203451a83d4c91231e))
+
+
+### Documentation
+
+* feature vim keys, the shared ⌘K/⌘O/⌘/ menu, Agenda and desktop text size ([#278](https://github.com/wyne/yarukoto/issues/278)) ([9505c10](https://github.com/wyne/yarukoto/commit/9505c10f04d694ac2e82a13ffb6df95ce7b2fd7c))
+
 ## [1.4.0](https://github.com/wyne/yarukoto/compare/v1.3.0...v1.4.0) (2026-10-24)
 
 
