@@ -382,7 +382,6 @@ export default function MenuCommands() {
         submenu: c.submenu,
         input: c.shortcut?.input,
         modifiers: c.shortcut?.modifiers ?? [],
-        aliases: (c.aliases ?? []).map(({ input, modifiers }) => ({ input, modifiers })),
         list: !!c.list,
         yieldsToText: !!c.yieldsToText,
       }))

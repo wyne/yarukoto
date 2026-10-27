@@ -47,9 +47,8 @@ The iOS project also builds for the Mac (`npm run mac`; details in
   so a new command is one entry there plus a `useCommand` — nothing native to add. A command
   nothing has registered is dimmed in the menu and left out of ⌘K, so pass `enabled` false when
   there is nothing for it to act on. **Never give a menu command a plain key** (no ⌘): a menu
-  key equivalent fires before any focused field hears the key. (⌃Tab is the one exception: no
-  field types or edits with it.) Plain keys go in `listKeys`, which the task list answers itself
-  (`src/components/ListKeys.tsx`). A ⌘ key a field has its own use for, like ⌘[, takes
+  key equivalent fires before any focused field hears the key. Plain keys go in `listKeys`, which
+  the task list answers itself (`src/components/ListKeys.tsx`). A ⌘ key a field has its own use for, like ⌘[, takes
   `yieldsToText`, which dims it while a field has the caret so the key reaches the field.
 - **Tab, Shift-Tab and Escape move the keyboard between panes** (`src/navigation/focusPanes.ts`).
   A new pane registers with `usePaneFocus`; a new text field in the task pane joins the Tab order in

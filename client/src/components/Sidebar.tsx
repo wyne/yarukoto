@@ -714,7 +714,7 @@ const Sidebar = React.memo(function Sidebar({ state, navigation, onNavigate }: P
   };
 
   /**
-   * ⌃Tab and ⌃⇧Tab: the next or previous row, round again at the ends, shown
+   * ⇧⌘] and ⇧⌘[: the next or previous row, round again at the ends, shown
    * as the arrows show one, wherever the keyboard is.
    *
    * Answered by the sidebar the arrows would move — the pinned one, or the

@@ -25,7 +25,7 @@ engine, which keeps those keys for itself (⌘N opens a window, ⌘T a tab, ⌘1
 ⌘K for those commands there.
 
 In a browser, the text size keys are the browser's own zoom, which does the same job there, and the
-browser keeps ⌃⇥ and ⌘[ ⌘] for its own tabs and history.
+browser keeps ⇧⌘] ⇧⌘[ and ⌘[ ⌘] for its own tabs and history.
 
 ## Moving around the window
 
@@ -44,7 +44,7 @@ does.
 | ⌘K | Command menu: go to any view, list, folder, tag or saved filter, or run any command |
 | ⌘O | Go to a task: search the tasks that aren't done by title, and open the one you pick |
 | ⌘1 to ⌘8 | All, Inbox, Agenda, Plan, Activity, Browse, Trash, Archive *(Mac)* |
-| ⌃⇥ ⌃⇧⇥, or ⇧⌘] ⇧⌘[ | Next and previous view in sidebar order, round again at the ends, with your lists, filters and tags *(Mac and Windows apps)* |
+| ⇧⌘] ⇧⌘[ | Next and previous view down and up the sidebar, round again at the ends, with your lists, filters and tags *(Mac and Windows apps)* |
 | ⌘[ ⌘] | Back and forward through the views you've been to. While you're typing in a field, the field keeps these keys *(Mac and Windows apps)* |
 | ⌘S | Show or hide the sidebar, which takes the keyboard as it opens *(Mac)* |
 | ⌘D | Show or hide the task pane *(Mac)* |

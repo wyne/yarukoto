@@ -120,16 +120,8 @@ export interface CommandDef {
   group: string;
   /** Drawn as a submenu of this name inside its group. */
   submenu?: string;
-  /**
-   * The menu bar's key for it, which works whatever has focus. Always has ⌘,
-   * but for ⌃Tab, which no field types or edits with.
-   */
+  /** The menu bar's key for it, which works whatever has focus. Always has ⌘. */
   shortcut?: Shortcut;
-  /**
-   * More keys for the same command, answered as `shortcut` is but not drawn in
-   * the menu, which has room for one.
-   */
-  aliases?: Shortcut[];
   /**
    * Left to a text field that has focus, for keys a field has a use of its own
    * for. Dimmed in the menu bar while one does, which is what passes the key on.
@@ -237,11 +229,10 @@ export const COMMANDS: readonly CommandDef[] = [
   // use for them.
   { id: 'goBack', title: 'Back', menu: 'view', group: 'history', shortcut: cmd('['), web: true, yieldsToText: true, keywords: 'history previous return' },
   { id: 'goForward', title: 'Forward', menu: 'view', group: 'history', shortcut: cmd(']'), web: true, yieldsToText: true, keywords: 'history next' },
-  // The next row of the sidebar, wrapping round, as ⌃Tab steps through tabs. ⇧⌘]
-  // and ⇧⌘[ too, the other key tabs go by; spelled as the braces they type, as a
-  // key equivalent has to be.
-  { id: 'previousView', title: 'Previous View', menu: 'view', group: 'cycle', shortcut: plain('tab', 'control', 'shift'), aliases: [cmd('{')], web: true, keywords: 'sidebar tab switch cycle' },
-  { id: 'nextView', title: 'Next View', menu: 'view', group: 'cycle', shortcut: plain('tab', 'control'), aliases: [cmd('}')], web: true, keywords: 'sidebar tab switch cycle' },
+  // Down and up the sidebar a row, wrapping round. ⇧⌘] and ⇧⌘[, spelled as the
+  // braces they type, as a key equivalent has to be.
+  { id: 'previousView', title: 'Previous View', menu: 'view', group: 'cycle', shortcut: cmd('{'), web: true, keywords: 'sidebar up switch cycle' },
+  { id: 'nextView', title: 'Next View', menu: 'view', group: 'cycle', shortcut: cmd('}'), web: true, keywords: 'sidebar down switch cycle' },
 
   // Space opens the task beside the list and leaves the keyboard on the list,
   // as Quick Look does; Return opens it to edit, with the caret in its title.
@@ -461,11 +452,6 @@ export function matchesShortcut(shortcut: Shortcut, event: KeyEventLike): boolea
   return wants('option') === event.altKey && (symbol || wants('shift') === event.shiftKey);
 }
 
-/** A command's menu bar keys: its shortcut, then any aliases. */
-export function menuKeys(def: CommandDef): Shortcut[] {
-  return def.shortcut ? [def.shortcut, ...(def.aliases ?? [])] : [];
-}
-
 /**
  * The command a DOM key event asks for, among those the web answers, and
  * whether it came as one of the list's plain keys — which a field being typed
@@ -473,7 +459,7 @@ export function menuKeys(def: CommandDef): Shortcut[] {
  */
 export function webCommandFor(event: KeyEventLike): { def: CommandDef; listKey: boolean } | undefined {
   for (const def of COMMANDS) {
-    if (def.web && menuKeys(def).some((k) => matchesShortcut(k, event))) return { def, listKey: false };
+    if (def.web && def.shortcut && matchesShortcut(def.shortcut, event)) return { def, listKey: false };
     if (def.listKeys?.some((k) => matchesShortcut(k, event))) return { def, listKey: true };
   }
   return undefined;

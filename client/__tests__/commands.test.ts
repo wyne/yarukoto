@@ -8,7 +8,6 @@ import {
   domKeyName,
   formatShortcut,
   keyName,
-  menuKeys,
   keyInputOf,
   matchesShortcut,
   paletteTitle,
@@ -32,22 +31,16 @@ describe('the command list', () => {
   });
 
   test('no two commands share a key', () => {
-    const keys = COMMANDS.flatMap((c) => [...menuKeys(c), ...(c.listKeys ?? [])])
+    const keys = COMMANDS.flatMap((c) => [c.shortcut, ...(c.listKeys ?? [])])
       .filter((k): k is NonNullable<typeof k> => !!k)
       .map(keyName);
     expect(new Set(keys).size).toBe(keys.length);
   });
 
-  test('the menu bar holds no key a field types or edits with, which it would take from every field', () => {
-    // ⌃Tab is the one key without ⌘: a field has no use for it.
-    const controlTab = (k: { input: string; modifiers: string[] }) => k.input === 'tab' && k.modifiers.includes('control');
+  test('the menu bar holds no plain key, which would take it from every focused field', () => {
     for (const c of COMMANDS) {
-      for (const k of menuKeys(c)) expect(k.modifiers.includes('command') || controlTab(k)).toBe(true);
+      if (c.shortcut) expect(c.shortcut.modifiers).toContain('command');
     }
-  });
-
-  test('only a command with a menu key has aliases', () => {
-    for (const c of COMMANDS) if (c.aliases?.length) expect(c.shortcut).toBeDefined();
   });
 
   test('every list key is answered by the list, and acts on it unless it is a way out of it', () => {
@@ -161,16 +154,13 @@ describe('matching DOM keys', () => {
 });
 
 describe('switching views', () => {
-  test('⌃Tab and ⌃⇧Tab step through the views, and ⇧⌘] ⇧⌘[ too', () => {
-    expect(webCommandFor(key('Tab', 'Tab', { ctrlKey: true }))).toMatchObject({ def: { id: 'nextView' }, listKey: false });
-    expect(webCommandFor(key('Tab', 'Tab', { ctrlKey: true, shiftKey: true }))?.def.id).toBe('previousView');
-    expect(webCommandFor(key('}', 'BracketRight', { metaKey: true, shiftKey: true }))?.def.id).toBe('nextView');
+  test('⇧⌘] and ⇧⌘[ step down and up the sidebar', () => {
+    expect(webCommandFor(key('}', 'BracketRight', { metaKey: true, shiftKey: true }))).toMatchObject({ def: { id: 'nextView' }, listKey: false });
     expect(webCommandFor(key('{', 'BracketLeft', { metaKey: true, shiftKey: true }))?.def.id).toBe('previousView');
     // Ctrl+Shift+] on Windows.
     expect(webCommandFor(key('}', 'BracketRight', { ctrlKey: true, shiftKey: true }))?.def.id).toBe('nextView');
-    // ⌘Tab is the system's app switcher, and plain Tab moves between panes.
-    expect(webCommandFor(key('Tab', 'Tab', { metaKey: true }))).toBeUndefined();
-    expect(webCommandFor(key('Tab', 'Tab'))?.def.id).toBe('nextPane');
+    // Plain } is still the list's next group.
+    expect(webCommandFor(key('}', 'BracketRight', { shiftKey: true }))?.def.id).toBe('nextGroup');
   });
 
   test('⌘[ and ⌘] go back and forward, and leave a field its own use of them', () => {
@@ -181,9 +171,9 @@ describe('switching views', () => {
 
   test('are drawn as menus draw them', () => {
     const def = (id: string) => COMMANDS.find((c) => c.id === id)!;
-    expect(menuKeys(def('nextView')).map((k) => formatShortcut(k, true))).toEqual(['⌃⇥', '⇧⌘]']);
-    expect(menuKeys(def('previousView')).map((k) => formatShortcut(k, true))).toEqual(['⌃⇧⇥', '⇧⌘[']);
-    expect(menuKeys(def('previousView')).map((k) => formatShortcut(k, false))).toEqual(['Ctrl+Shift+Tab', 'Ctrl+Shift+[']);
+    expect(formatShortcut(def('nextView').shortcut!, true)).toBe('⇧⌘]');
+    expect(formatShortcut(def('previousView').shortcut!, true)).toBe('⇧⌘[');
+    expect(formatShortcut(def('previousView').shortcut!, false)).toBe('Ctrl+Shift+[');
     expect(formatShortcut(def('goBack').shortcut!, true)).toBe('⌘[');
   });
 });
@@ -214,7 +204,7 @@ describe('the Keyboard shortcuts page', () => {
     // The views are listed together, as ⌘1 to ⌘8.
     const views = new Set(['goAll', 'goInbox', 'goToday', 'goCalendar', 'goActivity', 'goBrowse', 'goTrash', 'goArchive']);
     const missing = COMMANDS.filter((c) => c.shortcut && !c.submenu && !views.has(c.id))
-      .flatMap((c) => menuKeys(c).map((k) => formatShortcut(k, true)))
+      .map((c) => formatShortcut(c.shortcut!, true))
       .filter((glyphs) => !page.includes(glyphs));
     expect(missing).toEqual([]);
     expect(page).toContain('⌘1 to ⌘8');

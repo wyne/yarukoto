@@ -42,8 +42,6 @@ public enum MacMenuBar {
     let submenu: String?
     let input: String?
     let modifiers: UIKeyModifierFlags
-    /// More keys for the same command, in the menu but hidden: a menu item draws one.
-    let aliases: [(input: String, modifiers: UIKeyModifierFlags)]
     /// Acts on the task list; see `canPerform`.
     let list: Bool
     /// Left to a focused text field; see `canPerform`.
@@ -64,9 +62,6 @@ public enum MacMenuBar {
         submenu: record.submenu,
         input: record.input.flatMap(keyInput),
         modifiers: modifierFlags(record.modifiers),
-        aliases: record.aliases.compactMap { alias in
-          keyInput(alias.input).map { (input: $0, modifiers: modifierFlags(alias.modifiers)) }
-        },
         list: record.list,
         yieldsToText: record.yieldsToText
       )
@@ -228,7 +223,6 @@ public enum MacMenuBar {
       for spec in members {
         guard let submenu = spec.submenu else {
           elements.append(element(spec))
-          elements.append(contentsOf: aliasElements(spec))
           continue
         }
         if submenus.contains(submenu) { continue }
@@ -258,20 +252,6 @@ public enum MacMenuBar {
     return command
   }
 
-  /// A command's other keys, as hidden items: answered like its own, never drawn.
-  private static func aliasElements(_ spec: Spec) -> [UIMenuElement] {
-    spec.aliases.map { alias in
-      UIKeyCommand(
-        title: spec.title,
-        action: action,
-        input: alias.input,
-        modifierFlags: alias.modifiers,
-        propertyList: spec.id,
-        attributes: .hidden
-      )
-    }
-  }
-
   /// A group drawn inline, between separators, rather than as a submenu.
   private static func inline(_ id: String, _ children: [UIMenuElement]) -> UIMenu {
     UIMenu(
@@ -287,7 +267,6 @@ public enum MacMenuBar {
     switch name {
     case "return": return "\r"
     case "delete": return "\u{8}"
-    case "tab": return "\t"
     case "escape": return UIKeyCommand.inputEscape
     case "up": return UIKeyCommand.inputUpArrow
     case "down": return UIKeyCommand.inputDownArrow
