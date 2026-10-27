@@ -52,6 +52,8 @@ import {
   usePaneFocus,
 } from '../navigation/focusPanes';
 import DragList from './DragList';
+import { commandDef, keyName } from '../navigation/commands';
+import { dispatchCommand } from '../navigation/MenuCommands';
 import ShortcutHint, { HINT_OVER_ICON } from './ShortcutHint';
 import { NavRow, flattenTree, parentOf, resolveDrop } from './sidebar/navTree';
 import { loadCollapsedFolders, saveCollapsedFolders } from '../data/storage';
@@ -98,6 +100,21 @@ const FOLD_MS = 180;
 
 /** Nav icons, matched to the desktop's smaller labels. */
 const ICON_SIZE = FINE_POINTER ? 18 : 20;
+const CHEVRON_SIZE = 18;
+/** A folder in the rail: its icon, drawn large enough to hold the folder's initial. */
+const FOLDER_BADGE = 28;
+/** The scroll's own inset from the sidebar's edges. */
+const SCROLL_INSET = 10;
+/** A row's inset from the scroll edge, and so the left edge of its mark. */
+const ROW_INSET = 12;
+/**
+ * A rail row is exactly as wide as the mark column of a full row with its inset
+ * on both sides, so a centred mark lands where the full row draws it: collapsing
+ * and expanding move the labels and nothing else.
+ */
+const RAIL_ROW_WIDTH = ROW_INSET * 2 + ICON_SIZE;
+/** Line height of the wordmark, which the brand row keeps with or without it. */
+const BRAND_LINE = FINE_POINTER ? 22 : 25;
 
 export { SIDEBAR_COLLAPSED_WIDTH, SIDEBAR_WIDTH };
 
@@ -662,6 +679,10 @@ const Sidebar = React.memo(function Sidebar({ state, navigation, onNavigate }: P
     const row = here && (here.kind === 'folder' || here.kind === 'list')
       ? rows.find((r) => (r.kind === 'folder' ? r.folder.id : r.list.id) === here.value && r.kind === here.kind)
       : undefined;
+    if (TOGGLE_KEYS.includes(name)) {
+      dispatchCommand('toggleSidebar');
+      return;
+    }
     switch (name) {
       case 'down':
       case 'up': {
@@ -736,7 +757,7 @@ const Sidebar = React.memo(function Sidebar({ state, navigation, onNavigate }: P
               hitSlop={8}
               accessibilityLabel={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             >
-              {collapsed ? <IconChevronRight size={18} /> : <IconChevronLeft size={18} />}
+              {collapsed ? <IconChevronRight size={CHEVRON_SIZE} /> : <IconChevronLeft size={CHEVRON_SIZE} />}
               {/* To the left of the chevron, which sits against the sidebar's clipped edge. */}
               <ShortcutHint command="toggleSidebar" style={collapsed ? HINT_OVER_ICON : { right: 24 }} />
             </Pressable>
@@ -984,7 +1005,13 @@ const Sidebar = React.memo(function Sidebar({ state, navigation, onNavigate }: P
 
 export default Sidebar;
 
-const SIDEBAR_KEYS = ['up', 'down', 'left', 'right', 'space', 'return', 'escape', 'tab', 'shift+tab'];
+/**
+ * The list's sidebar key (`\`) is the sidebar's too. Once it has expanded the
+ * sidebar, the keyboard is here, and a character the sidebar doesn't claim
+ * goes to nobody: the list only hears one while it has focus.
+ */
+const TOGGLE_KEYS = (commandDef('toggleSidebar').listKeys ?? []).map(keyName);
+const SIDEBAR_KEYS = ['up', 'down', 'left', 'right', 'space', 'return', 'escape', 'tab', 'shift+tab', ...TOGGLE_KEYS];
 
 /**
  * The sidebar's outer view, which on the desktop is also where its keys are
@@ -1143,10 +1170,12 @@ const FolderRow = React.memo(function FolderRow({
         accessibilityState={{ selected: active }}
       >
         <View style={styles.folderBadge}>
-          <IconFolder size={28} color={active ? accent : colors.textTertiary} />
-          <Text style={[styles.folderBadgeText, active && { color: accent }]}>
-            {folder.name.charAt(0).toUpperCase()}
-          </Text>
+          <IconFolder size={FOLDER_BADGE} color={active ? accent : colors.textTertiary} />
+          <View style={styles.folderBadgeBody}>
+            <Text style={[styles.folderBadgeText, active && { color: accent }]}>
+              {folder.name.charAt(0).toUpperCase()}
+            </Text>
+          </View>
         </View>
         {ringed && <KeyRing />}
       </Pressable>
@@ -1326,16 +1355,20 @@ const useStyles = makeStyles((c) => ({
   brandRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    // Padding counts towards a minimum height.
+    minHeight: BRAND_LINE + 14,
     paddingRight: 12,
     paddingBottom: 14,
   },
+  /** The chevron over the rail's column of marks; see `RAIL_ROW_WIDTH`. */
   brandRowCollapsed: {
-    justifyContent: 'center',
+    paddingLeft: SCROLL_INSET + ROW_INSET + (ICON_SIZE - CHEVRON_SIZE) / 2,
     paddingRight: 0,
   },
   rowCollapsed: {
     justifyContent: 'center',
     paddingHorizontal: 0,
+    width: RAIL_ROW_WIDTH,
   },
   footerCollapsed: {
     justifyContent: 'center',
@@ -1344,6 +1377,7 @@ const useStyles = makeStyles((c) => ({
   brand: {
     fontFamily: fonts.sansBold,
     fontSize: FINE_POINTER ? 17 : 19,
+    lineHeight: BRAND_LINE,
     flex: 1,
     color: c.textPrimary,
     paddingHorizontal: 18,
@@ -1359,7 +1393,7 @@ const useStyles = makeStyles((c) => ({
     overflow: 'hidden',
   },
   scroll: {
-    paddingHorizontal: 10,
+    paddingHorizontal: SCROLL_INSET,
     paddingBottom: 14,
     // The scroller is already flex:1; this is the content filling it, so the
     // space under the last tag belongs to the list and can be dragged on.
@@ -1369,7 +1403,7 @@ const useStyles = makeStyles((c) => ({
     flexDirection: 'row',
     alignItems: 'center',
     gap: FINE_POINTER ? 10 : 12,
-    paddingHorizontal: 12,
+    paddingHorizontal: ROW_INSET,
     borderRadius: 8,
     minHeight: FINE_POINTER ? 34 : 44,
   },
@@ -1459,7 +1493,7 @@ const useStyles = makeStyles((c) => ({
    * same x in both halves of the nav.
    */
   rowIcon: {
-    width: 20,
+    width: ICON_SIZE,
     alignItems: 'center',
   },
   dot: {
@@ -1480,17 +1514,26 @@ const useStyles = makeStyles((c) => ({
     color: c.surface,
   },
   folderBadge: {
-    width: 28,
-    height: 28,
+    width: FOLDER_BADGE,
+    height: FOLDER_BADGE,
+  },
+  /**
+   * The inside of the folder's body, under the tab: IconFolder draws it from 7.5
+   * to 15.5 of its 20, and its stroke takes half of 1.7 off each side.
+   */
+  folderBadgeBody: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: (FOLDER_BADGE * 8.35) / 20,
+    height: (FOLDER_BADGE * 6.3) / 20,
     alignItems: 'center',
     justifyContent: 'center',
   },
   folderBadgeText: {
-    position: 'absolute',
-    top: 10,
     fontFamily: fonts.sansBold,
-    fontSize: 10,
-    lineHeight: 11,
+    fontSize: 8.5,
+    lineHeight: 9,
     color: c.textTertiary,
   },
   footer: {

@@ -217,6 +217,24 @@ test('a narrowed window keeps the sidebar as a rail, and expanding it hands it t
   const before = page.url();
   await page.keyboard.press('ArrowDown');
   await expect.poll(() => page.url()).not.toBe(before);
+
+  // `\` keeps toggling from the sidebar that it just handed the keyboard to, and
+  // the marks stay where they are: only the labels come and go.
+  const marks = () =>
+    Promise.all(
+      ['Inbox', rootList].map((label) =>
+        page.getByLabel(label, { exact: true }).evaluate((row) => {
+          const box = (row.querySelector('svg') ?? row.firstElementChild)!.getBoundingClientRect();
+          return [box.x + box.width / 2, box.y + box.height / 2];
+        })
+      )
+    );
+  const expanded = await marks();
+  for (const label of ['Expand sidebar', 'Collapse sidebar', 'Expand sidebar']) {
+    await page.keyboard.press('\\');
+    await expect(page.getByLabel(label)).toBeVisible();
+    if (label === 'Expand sidebar') expect(await marks()).toEqual(expanded);
+  }
 });
 
 test('the sidebar keeps the keyboard row in view, and Space and ← fold a folder', async ({ page, request }) => {
