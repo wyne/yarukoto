@@ -376,7 +376,7 @@ static id BuildMenu(void)
       [item setToolTip:overdue ? @"Overdue. Choose to open, or hold Option to mark as done."
                                : @"Choose to open, or hold Option to mark as done."];
       [menu addItem:item];
-      id<YKMenuItem> done = MenuItem(shown, @[ @"complete", taskId ], @"");
+      id<YKMenuItem> done = MenuItem([@"Complete " stringByAppendingString:shown], @[ @"complete", taskId ], @"");
       [done setImage:Symbol(@"checkmark.circle", nil)];
       [done setToolTip:@"Mark as done."];
       [done setKeyEquivalentModifierMask:YKOptionKeyMask];
@@ -386,6 +386,7 @@ static id BuildMenu(void)
     if (sMore > 0) {
       [menu addItem:MenuItem([NSString stringWithFormat:@"%ld More in Today…", (long)sMore], @[ @"today" ], @"")];
     }
+    if (sTasks.count > 0) [menu addItem:DisabledItem(@"Hold ⌥ to complete a task")];
     [menu addItem:[(id<YKMenuItemClass>)itemClass separatorItem]];
   }
 
