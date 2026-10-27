@@ -68,6 +68,7 @@ import {
   IconClock,
   IconFilter,
   IconFolder,
+  IconFolderBadge,
   IconInboxTray,
   IconPeople,
   IconPlus,
@@ -101,8 +102,8 @@ const FOLD_MS = 180;
 /** Nav icons, matched to the desktop's smaller labels. */
 const ICON_SIZE = FINE_POINTER ? 18 : 20;
 const CHEVRON_SIZE = 18;
-/** A folder in the rail: its icon, drawn large enough to hold the folder's initial. */
-const FOLDER_BADGE = 28;
+/** A folder in the rail, the size of a list's letter badge. */
+const FOLDER_BADGE = 24;
 /** The scroll's own inset from the sidebar's edges. */
 const SCROLL_INSET = 10;
 /** A row's inset from the scroll edge, and so the left edge of its mark. */
@@ -1170,7 +1171,7 @@ const FolderRow = React.memo(function FolderRow({
         accessibilityState={{ selected: active }}
       >
         <View style={styles.folderBadge}>
-          <IconFolder size={FOLDER_BADGE} color={active ? accent : colors.textTertiary} />
+          <IconFolderBadge size={FOLDER_BADGE} color={active ? accent : colors.textTertiary} />
           <View style={styles.folderBadgeBody}>
             <Text style={[styles.folderBadgeText, active && { color: accent }]}>
               {folder.name.charAt(0).toUpperCase()}
@@ -1517,23 +1518,19 @@ const useStyles = makeStyles((c) => ({
     width: FOLDER_BADGE,
     height: FOLDER_BADGE,
   },
-  /**
-   * The inside of the folder's body, under the tab: IconFolder draws it from 7.5
-   * to 15.5 of its 20, and its stroke takes half of 1.7 off each side.
-   */
+  /** The inside of the folder's body, under the tab IconFolderBadge draws. */
   folderBadgeBody: {
     position: 'absolute',
     left: 0,
     right: 0,
-    top: (FOLDER_BADGE * 8.35) / 20,
-    height: (FOLDER_BADGE * 6.3) / 20,
+    top: (FOLDER_BADGE * 4.5) / 24,
+    bottom: FOLDER_BADGE / 24,
     alignItems: 'center',
     justifyContent: 'center',
   },
   folderBadgeText: {
     fontFamily: fonts.sansBold,
-    fontSize: 8.5,
-    lineHeight: 9,
+    fontSize: 12,
     color: c.textTertiary,
   },
   footer: {
