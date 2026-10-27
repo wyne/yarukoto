@@ -54,7 +54,7 @@ import {
 import DragList from './DragList';
 import { commandDef, keyName } from '../navigation/commands';
 import { dispatchCommand } from '../navigation/MenuCommands';
-import ShortcutHint, { HINT_OVER_ICON } from './ShortcutHint';
+import ShortcutHint, { HINT_ON_ICON_CORNER } from './ShortcutHint';
 import { NavRow, flattenTree, parentOf, resolveDrop } from './sidebar/navTree';
 import { loadCollapsedFolders, saveCollapsedFolders } from '../data/storage';
 import SyncIndicator from './SyncIndicator';
@@ -759,8 +759,12 @@ const Sidebar = React.memo(function Sidebar({ state, navigation, onNavigate }: P
               accessibilityLabel={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             >
               {collapsed ? <IconChevronRight size={CHEVRON_SIZE} /> : <IconChevronLeft size={CHEVRON_SIZE} />}
-              {/* To the left of the chevron, which sits against the sidebar's clipped edge. */}
-              <ShortcutHint command="toggleSidebar" style={collapsed ? HINT_OVER_ICON : { right: 24 }} />
+              {/* The rail uses a corner badge so the chevron still identifies this control. */}
+              <ShortcutHint
+                command="toggleSidebar"
+                compact={collapsed}
+                style={collapsed ? HINT_ON_ICON_CORNER : { right: 24 }}
+              />
             </Pressable>
           )}
         </View>
@@ -790,7 +794,7 @@ const Sidebar = React.memo(function Sidebar({ state, navigation, onNavigate }: P
                     {count !== null && <Text style={styles.rowCount}>{count}</Text>}
                   </>
                 )}
-                <ShortcutHint command={command} style={collapsed && HINT_OVER_ICON} />
+                <ShortcutHint command={command} compact={collapsed} style={collapsed && HINT_ON_ICON_CORNER} />
                 {keyRing && active && <KeyRing />}
               </Pressable>
             );
@@ -973,7 +977,11 @@ const Sidebar = React.memo(function Sidebar({ state, navigation, onNavigate }: P
             compact={collapsed}
           />
           <IconSettings size={18} color={colors.textTertiary} />
-          <ShortcutHint command="settings" style={collapsed ? HINT_OVER_ICON : { right: 10 }} />
+          <ShortcutHint
+            command="settings"
+            compact={collapsed}
+            style={collapsed ? HINT_ON_ICON_CORNER : { right: 10 }}
+          />
         </Pressable>
 
         <NavContextMenu
