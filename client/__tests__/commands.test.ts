@@ -154,19 +154,31 @@ describe('matching DOM keys', () => {
 });
 
 describe('switching views', () => {
+  const desktopKey = (event: KeyEventLike) => webCommandFor(event, true);
+
+  test('browser navigation keys stay with the browser and are not advertised', () => {
+    for (const input of ['[', ']', '{', '}']) {
+      expect(webCommandFor(key(input, '', { metaKey: true, shiftKey: '{}'.includes(input) }))).toBeUndefined();
+    }
+    for (const id of ['goBack', 'goForward', 'previousView', 'nextView']) {
+      const def = COMMANDS.find((c) => c.id === id)!;
+      expect(displayShortcut(def, true)).toBeUndefined();
+      expect(displayShortcut(def, true, true)).toBe(def.shortcut);
+    }
+  });
   test('⇧⌘] and ⇧⌘[ step down and up the sidebar', () => {
-    expect(webCommandFor(key('}', 'BracketRight', { metaKey: true, shiftKey: true }))).toMatchObject({ def: { id: 'nextView' }, listKey: false });
-    expect(webCommandFor(key('{', 'BracketLeft', { metaKey: true, shiftKey: true }))?.def.id).toBe('previousView');
+    expect(desktopKey(key('}', 'BracketRight', { metaKey: true, shiftKey: true }))).toMatchObject({ def: { id: 'nextView' }, listKey: false });
+    expect(desktopKey(key('{', 'BracketLeft', { metaKey: true, shiftKey: true }))?.def.id).toBe('previousView');
     // Ctrl+Shift+] on Windows.
-    expect(webCommandFor(key('}', 'BracketRight', { ctrlKey: true, shiftKey: true }))?.def.id).toBe('nextView');
+    expect(desktopKey(key('}', 'BracketRight', { ctrlKey: true, shiftKey: true }))?.def.id).toBe('nextView');
     // Plain } is still the list's next group.
-    expect(webCommandFor(key('}', 'BracketRight', { shiftKey: true }))?.def.id).toBe('nextGroup');
+    expect(desktopKey(key('}', 'BracketRight', { shiftKey: true }))?.def.id).toBe('nextGroup');
   });
 
   test('⌘[ and ⌘] go back and forward, and leave a field its own use of them', () => {
-    expect(webCommandFor(key('[', 'BracketLeft', { metaKey: true }))).toMatchObject({ def: { id: 'goBack', yieldsToText: true } });
-    expect(webCommandFor(key(']', 'BracketRight', { metaKey: true }))).toMatchObject({ def: { id: 'goForward', yieldsToText: true } });
-    expect(webCommandFor(key('[', 'BracketLeft', { ctrlKey: true }))?.def.id).toBe('goBack');
+    expect(desktopKey(key('[', 'BracketLeft', { metaKey: true }))).toMatchObject({ def: { id: 'goBack', yieldsToText: true } });
+    expect(desktopKey(key(']', 'BracketRight', { metaKey: true }))).toMatchObject({ def: { id: 'goForward', yieldsToText: true } });
+    expect(desktopKey(key('[', 'BracketLeft', { ctrlKey: true }))?.def.id).toBe('goBack');
   });
 
   test('are drawn as menus draw them', () => {

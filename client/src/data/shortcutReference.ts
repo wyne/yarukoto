@@ -1,4 +1,4 @@
-import { MAC, MAC_KEYS } from './platform';
+import { DESKTOP_APP, MAC, MAC_KEYS } from './platform';
 import { ShortcutSearchRow, ShortcutSearchSection, shortcutSearchTerms } from './shortcutSearch';
 import { COMMANDS, CommandDef, CommandId, Shortcut, formatShortcut, paletteTitle } from '../navigation/commands';
 
@@ -10,7 +10,7 @@ const EDITING_IDS = new Set<CommandId>(['bold', 'italic']);
 /** The keys this build answers for a command: the menu's, where it has them, then the list's. */
 function shortcutsFor(def: CommandDef): Shortcut[] {
   // The web only answers the shortcuts a browser lets a page have.
-  return [...(def.shortcut && (MAC || def.web) ? [def.shortcut] : []), ...(def.listKeys ?? [])];
+  return [...(def.shortcut && (MAC || def.web || (DESKTOP_APP && def.desktopWeb)) ? [def.shortcut] : []), ...(def.listKeys ?? [])];
 }
 
 function keysFor(def: CommandDef, mac: boolean): string | null {

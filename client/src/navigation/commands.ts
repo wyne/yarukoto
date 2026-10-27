@@ -146,6 +146,8 @@ export interface CommandDef {
    * always answers.
    */
   web?: boolean;
+  /** Also answered by the Windows webview, whose host has no browser shortcuts. */
+  desktopWeb?: boolean;
   /** Left out of the command menu: moving a cursor means nothing from a search box. */
   hiddenFromPalette?: boolean;
   /** Extra words the command menu matches, beyond the title. */
@@ -227,12 +229,12 @@ export const COMMANDS: readonly CommandDef[] = [
   // Back and forward through the views you have been to (navHistory.ts), as a
   // browser's ⌘[ and ⌘] do. Left to a field that has the caret, which may have a
   // use for them.
-  { id: 'goBack', title: 'Back', menu: 'view', group: 'history', shortcut: cmd('['), web: true, yieldsToText: true, keywords: 'history previous return' },
-  { id: 'goForward', title: 'Forward', menu: 'view', group: 'history', shortcut: cmd(']'), web: true, yieldsToText: true, keywords: 'history next' },
+  { id: 'goBack', title: 'Back', menu: 'view', group: 'history', shortcut: cmd('['), desktopWeb: true, yieldsToText: true, keywords: 'history previous return' },
+  { id: 'goForward', title: 'Forward', menu: 'view', group: 'history', shortcut: cmd(']'), desktopWeb: true, yieldsToText: true, keywords: 'history next' },
   // Down and up the sidebar a row, wrapping round. ⇧⌘] and ⇧⌘[, spelled as the
   // braces they type, as a key equivalent has to be.
-  { id: 'previousView', title: 'Previous View', menu: 'view', group: 'cycle', shortcut: cmd('{'), web: true, keywords: 'sidebar up switch cycle' },
-  { id: 'nextView', title: 'Next View', menu: 'view', group: 'cycle', shortcut: cmd('}'), web: true, keywords: 'sidebar down switch cycle' },
+  { id: 'previousView', title: 'Previous View', menu: 'view', group: 'cycle', shortcut: cmd('{'), desktopWeb: true, keywords: 'sidebar up switch cycle' },
+  { id: 'nextView', title: 'Next View', menu: 'view', group: 'cycle', shortcut: cmd('}'), desktopWeb: true, keywords: 'sidebar down switch cycle' },
 
   // Space opens the task beside the list and leaves the keyboard on the list,
   // as Quick Look does; Return opens it to edit, with the caret in its title.
@@ -457,9 +459,9 @@ export function matchesShortcut(shortcut: Shortcut, event: KeyEventLike): boolea
  * whether it came as one of the list's plain keys — which a field being typed
  * in keeps for itself.
  */
-export function webCommandFor(event: KeyEventLike): { def: CommandDef; listKey: boolean } | undefined {
+export function webCommandFor(event: KeyEventLike, desktopApp = false): { def: CommandDef; listKey: boolean } | undefined {
   for (const def of COMMANDS) {
-    if (def.web && def.shortcut && matchesShortcut(def.shortcut, event)) return { def, listKey: false };
+    if ((def.web || (desktopApp && def.desktopWeb)) && def.shortcut && matchesShortcut(def.shortcut, event)) return { def, listKey: false };
     if (def.listKeys?.some((k) => matchesShortcut(k, event))) return { def, listKey: true };
   }
   return undefined;
@@ -530,7 +532,7 @@ export function createKeySequenceReader(timeoutMs = SEQUENCE_MS) {
 }
 
 /** The key the command menu shows for a command: its menu shortcut, else its list key. */
-export function displayShortcut(def: CommandDef, web: boolean): Shortcut | undefined {
-  if (def.shortcut && (!web || def.web)) return def.shortcut;
+export function displayShortcut(def: CommandDef, web: boolean, desktopApp = false): Shortcut | undefined {
+  if (def.shortcut && (!web || def.web || (desktopApp && def.desktopWeb))) return def.shortcut;
   return def.listKeys?.[0];
 }

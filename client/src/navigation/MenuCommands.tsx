@@ -411,7 +411,7 @@ export default function MenuCommands() {
       // Held arrows repeat, as they do in any list, and vim's j, k, ⌃E and ⌃Y
       // with them; nothing else should.
       if (e.defaultPrevented || (e.repeat && !e.key.startsWith('Arrow') && !REPEATING_KEYS.has(e.key))) return;
-      const match = webCommandFor(e);
+      const match = webCommandFor(e, DESKTOP_APP);
       if (match && !match.listKey) {
         // A key a field has its own use for stays with the field.
         if (match.def.yieldsToText && typingIn(e.target)) return;
