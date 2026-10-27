@@ -207,7 +207,7 @@ test('a narrowed window keeps the sidebar as a rail, and expanding it hands it t
   expect(childTwoBg).toBe(folderBg);
   expect(rootBg).not.toBe(folderBg);
 
-  await page.getByPlaceholder(/Add a task/).click();
+  await page.getByPlaceholder(`Add a task to ${firstChild}`).click();
   await page.keyboard.press('Escape');
   await palette('Toggle Sidebar');
   await expect(page.getByLabel('Collapse sidebar')).toBeVisible();
