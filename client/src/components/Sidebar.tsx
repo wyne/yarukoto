@@ -52,6 +52,8 @@ import {
   usePaneFocus,
 } from '../navigation/focusPanes';
 import DragList from './DragList';
+import { commandDef, keyName } from '../navigation/commands';
+import { dispatchCommand } from '../navigation/MenuCommands';
 import ShortcutHint, { HINT_OVER_ICON } from './ShortcutHint';
 import { NavRow, flattenTree, parentOf, resolveDrop } from './sidebar/navTree';
 import { loadCollapsedFolders, saveCollapsedFolders } from '../data/storage';
@@ -66,6 +68,7 @@ import {
   IconClock,
   IconFilter,
   IconFolder,
+  IconFolderBadge,
   IconInboxTray,
   IconPeople,
   IconPlus,
@@ -98,6 +101,21 @@ const FOLD_MS = 180;
 
 /** Nav icons, matched to the desktop's smaller labels. */
 const ICON_SIZE = FINE_POINTER ? 18 : 20;
+const CHEVRON_SIZE = 18;
+/** A folder in the rail, the size of a list's letter badge. */
+const FOLDER_BADGE = 24;
+/** The scroll's own inset from the sidebar's edges. */
+const SCROLL_INSET = 10;
+/** A row's inset from the scroll edge, and so the left edge of its mark. */
+const ROW_INSET = 12;
+/**
+ * A rail row is exactly as wide as the mark column of a full row with its inset
+ * on both sides, so a centred mark lands where the full row draws it: collapsing
+ * and expanding move the labels and nothing else.
+ */
+const RAIL_ROW_WIDTH = ROW_INSET * 2 + ICON_SIZE;
+/** Line height of the wordmark, which the brand row keeps with or without it. */
+const BRAND_LINE = FINE_POINTER ? 22 : 25;
 
 export { SIDEBAR_COLLAPSED_WIDTH, SIDEBAR_WIDTH };
 
@@ -662,6 +680,10 @@ const Sidebar = React.memo(function Sidebar({ state, navigation, onNavigate }: P
     const row = here && (here.kind === 'folder' || here.kind === 'list')
       ? rows.find((r) => (r.kind === 'folder' ? r.folder.id : r.list.id) === here.value && r.kind === here.kind)
       : undefined;
+    if (TOGGLE_KEYS.includes(name)) {
+      dispatchCommand('toggleSidebar');
+      return;
+    }
     switch (name) {
       case 'down':
       case 'up': {
@@ -736,7 +758,7 @@ const Sidebar = React.memo(function Sidebar({ state, navigation, onNavigate }: P
               hitSlop={8}
               accessibilityLabel={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             >
-              {collapsed ? <IconChevronRight size={18} /> : <IconChevronLeft size={18} />}
+              {collapsed ? <IconChevronRight size={CHEVRON_SIZE} /> : <IconChevronLeft size={CHEVRON_SIZE} />}
               {/* To the left of the chevron, which sits against the sidebar's clipped edge. */}
               <ShortcutHint command="toggleSidebar" style={collapsed ? HINT_OVER_ICON : { right: 24 }} />
             </Pressable>
@@ -785,13 +807,16 @@ const Sidebar = React.memo(function Sidebar({ state, navigation, onNavigate }: P
             different folder with no slot opening for it. `navTree` flattens the
             tree on the way in and reads the meaning back out of the drop.
 
-            Collapsed rail mode opts out — there is nothing to drag when the rows
-            are 20pt colour badges with no folder headings between them.
+            Collapsed rail mode opts out: its compact list and folder badges are
+            navigation targets, not useful drag handles.
           */}
           <DragList
             items={rows}
             keyExtractor={(row) => row.key}
             enabled={!collapsed}
+            // The rail is a density switch, not a reordering. Its rows should
+            // land in their compact layout immediately when the sidebar closes.
+            immediateChanges={collapsed}
             scrollableRef={scrollRef}
             onDragStart={dragStart}
             onDragMove={dragMove}
@@ -847,6 +872,11 @@ const Sidebar = React.memo(function Sidebar({ state, navigation, onNavigate }: P
                       depth={row.depth}
                       count={counts[row.list.id] ?? 0}
                       active={showActive('list', row.list.id)}
+                      folderActive={
+                        collapsed
+                        && row.list.folderId !== null
+                        && showActive('folder', row.list.folderId)
+                      }
                       ringed={keyRing && showActive('list', row.list.id)}
                       accent={accent}
                       onPress={openList}
@@ -976,7 +1006,13 @@ const Sidebar = React.memo(function Sidebar({ state, navigation, onNavigate }: P
 
 export default Sidebar;
 
-const SIDEBAR_KEYS = ['up', 'down', 'left', 'right', 'space', 'return', 'escape', 'tab', 'shift+tab'];
+/**
+ * The list's sidebar key (`\`) is the sidebar's too. Once it has expanded the
+ * sidebar, the keyboard is here, and a character the sidebar doesn't claim
+ * goes to nobody: the list only hears one while it has focus.
+ */
+const TOGGLE_KEYS = (commandDef('toggleSidebar').listKeys ?? []).map(keyName);
+const SIDEBAR_KEYS = ['up', 'down', 'left', 'right', 'space', 'return', 'escape', 'tab', 'shift+tab', ...TOGGLE_KEYS];
 
 /**
  * The sidebar's outer view, which on the desktop is also where its keys are
@@ -1117,7 +1153,35 @@ const FolderRow = React.memo(function FolderRow({
   const hoverBg = useHoverBg();
   const colors = useColors();
   const styles = useStyles();
-  if (rail) return null;
+  if (rail) {
+    return (
+      <Pressable
+        style={hoverBg(
+          [
+            styles.row,
+            styles.rowCollapsed,
+            active && { backgroundColor: colors.selectedRowBg },
+            held && { backgroundColor: colors.heldRowBg },
+          ],
+          active || held
+        )}
+        onPress={() => onPress(folder.id)}
+        onPressIn={(e) => onPressIn(rowKey, { x: e.nativeEvent.pageX, y: e.nativeEvent.pageY })}
+        accessibilityLabel={folder.name}
+        accessibilityState={{ selected: active }}
+      >
+        <View style={styles.folderBadge}>
+          <IconFolderBadge size={FOLDER_BADGE} color={active ? accent : colors.textTertiary} />
+          <View style={styles.folderBadgeBody}>
+            <Text style={[styles.folderBadgeText, active && { color: accent }]}>
+              {folder.name.charAt(0).toUpperCase()}
+            </Text>
+          </View>
+        </View>
+        {ringed && <KeyRing />}
+      </Pressable>
+    );
+  }
   return (
     <Pressable
       style={hoverBg(
@@ -1176,6 +1240,7 @@ const ListRow = React.memo(function ListRow({
   depth,
   count,
   active,
+  folderActive,
   accent,
   ringed,
   onPress,
@@ -1193,6 +1258,8 @@ const ListRow = React.memo(function ListRow({
   depth: 0 | 1;
   count: number;
   active: boolean;
+  /** The rail is showing the folder that contains this list. */
+  folderActive: boolean;
   accent: string;
   /** The sidebar holds the keyboard and this is the row it is on. See `KeyRing`. */
   ringed: boolean;
@@ -1201,6 +1268,7 @@ const ListRow = React.memo(function ListRow({
   const hoverBg = useHoverBg();
   const colors = useColors();
   const styles = useStyles();
+  const highlighted = active || folderActive;
   return (
     <Pressable
       style={hoverBg(
@@ -1210,12 +1278,12 @@ const ListRow = React.memo(function ListRow({
           // The inset lands on the row, not the label, so the whole row still
           // takes a press and the hover fill starts where the row appears to.
           !rail && depth === 1 && { marginLeft: INDENT },
-          active && { backgroundColor: colors.selectedRowBg },
+          highlighted && { backgroundColor: colors.selectedRowBg },
           // Last, so a held row reads as held even when it is also the view
           // you are currently looking at.
           held && { backgroundColor: colors.heldRowBg },
         ],
-        active || held
+        highlighted || held
       )}
       onPress={() => onPress(list.id)}
       onPressIn={(e) => onPressIn(rowKey, { x: e.nativeEvent.pageX, y: e.nativeEvent.pageY })}
@@ -1288,16 +1356,20 @@ const useStyles = makeStyles((c) => ({
   brandRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    // Padding counts towards a minimum height.
+    minHeight: BRAND_LINE + 14,
     paddingRight: 12,
     paddingBottom: 14,
   },
+  /** The chevron over the rail's column of marks; see `RAIL_ROW_WIDTH`. */
   brandRowCollapsed: {
-    justifyContent: 'center',
+    paddingLeft: SCROLL_INSET + ROW_INSET + (ICON_SIZE - CHEVRON_SIZE) / 2,
     paddingRight: 0,
   },
   rowCollapsed: {
     justifyContent: 'center',
     paddingHorizontal: 0,
+    width: RAIL_ROW_WIDTH,
   },
   footerCollapsed: {
     justifyContent: 'center',
@@ -1306,6 +1378,7 @@ const useStyles = makeStyles((c) => ({
   brand: {
     fontFamily: fonts.sansBold,
     fontSize: FINE_POINTER ? 17 : 19,
+    lineHeight: BRAND_LINE,
     flex: 1,
     color: c.textPrimary,
     paddingHorizontal: 18,
@@ -1321,7 +1394,7 @@ const useStyles = makeStyles((c) => ({
     overflow: 'hidden',
   },
   scroll: {
-    paddingHorizontal: 10,
+    paddingHorizontal: SCROLL_INSET,
     paddingBottom: 14,
     // The scroller is already flex:1; this is the content filling it, so the
     // space under the last tag belongs to the list and can be dragged on.
@@ -1331,7 +1404,7 @@ const useStyles = makeStyles((c) => ({
     flexDirection: 'row',
     alignItems: 'center',
     gap: FINE_POINTER ? 10 : 12,
-    paddingHorizontal: 12,
+    paddingHorizontal: ROW_INSET,
     borderRadius: 8,
     minHeight: FINE_POINTER ? 34 : 44,
   },
@@ -1421,7 +1494,7 @@ const useStyles = makeStyles((c) => ({
    * same x in both halves of the nav.
    */
   rowIcon: {
-    width: 20,
+    width: ICON_SIZE,
     alignItems: 'center',
   },
   dot: {
@@ -1440,6 +1513,25 @@ const useStyles = makeStyles((c) => ({
     fontFamily: fonts.sansBold,
     fontSize: 14,
     color: c.surface,
+  },
+  folderBadge: {
+    width: FOLDER_BADGE,
+    height: FOLDER_BADGE,
+  },
+  /** The inside of the folder's body, under the tab IconFolderBadge draws. */
+  folderBadgeBody: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: (FOLDER_BADGE * 4.5) / 24,
+    bottom: FOLDER_BADGE / 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  folderBadgeText: {
+    fontFamily: fonts.sansBold,
+    fontSize: 12,
+    color: c.textTertiary,
   },
   footer: {
     flexDirection: 'row',

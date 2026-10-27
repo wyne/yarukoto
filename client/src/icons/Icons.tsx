@@ -180,6 +180,26 @@ export function IconFolder({ size = 20, color: colorProp, strokeWidth = 1.7 }: I
   );
 }
 
+/**
+ * A folder drawn to the size of a list's letter badge, for the collapsed rail:
+ * the tab sits above a body as large as the badge itself, so the folder's
+ * initial has room to sit inside it at the size a list's does.
+ */
+export function IconFolderBadge({ size = 24, color: colorProp, strokeWidth = 1.6 }: IconProps) {
+  const c = useColors();
+  const color = colorProp ?? c.textTertiary;
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M1 4.5A2.5 2.5 0 0 1 3.5 2h5l2 2.2h10A2.5 2.5 0 0 1 23 6.7v13.8a2.5 2.5 0 0 1-2.5 2.5h-17A2.5 2.5 0 0 1 1 20.5z"
+        stroke={color}
+        strokeWidth={strokeWidth}
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
 /** Stacked layers — the All view, everything at once. */
 export function IconStack({ size = 20, color: colorProp, strokeWidth = 1.7 }: IconProps) {
   const c = useColors();

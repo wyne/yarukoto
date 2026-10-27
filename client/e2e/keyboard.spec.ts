@@ -129,7 +129,27 @@ test('Return edits, Space opens, and the list and sidebar answer their keys', as
   await expect.poll(async () => (await shortcutSearch.boundingBox())?.y).toBe(top);
 });
 
-test('a narrowed window keeps the sidebar as a rail, and expanding it hands it the keyboard', async ({ page }) => {
+test('a narrowed window keeps the sidebar as a rail, and expanding it hands it the keyboard', async ({ page, request }) => {
+  const stamp = Date.now();
+  const now = new Date().toISOString();
+  const folderId = `rail-folder-${stamp}`;
+  const folderName = `Rail folder ${stamp}`;
+  const firstChild = `Rail child one ${stamp}`;
+  const secondChild = `Rail child two ${stamp}`;
+  const rootList = `Rail root ${stamp}`;
+  const response = await request.post('/api/v1/sync', {
+    headers: { Authorization: `Bearer ${TOKEN}` },
+    data: {
+      folders: [{ id: folderId, name: folderName, order: -100, updatedAt: now }],
+      lists: [
+        { id: `rail-child-one-${stamp}`, name: firstChild, color: '#4A7BF7', folderId, order: 0, updatedAt: now },
+        { id: `rail-child-two-${stamp}`, name: secondChild, color: '#DB8A00', folderId, order: 1, updatedAt: now },
+        { id: `rail-root-${stamp}`, name: rootList, color: '#1E7A3C', folderId: null, order: -99, updatedAt: now },
+      ],
+    },
+  });
+  expect(response.ok()).toBe(true);
+
   await connect(page);
   const palette = async (command: string) => {
     await page.keyboard.press('ControlOrMeta+k');
@@ -154,9 +174,40 @@ test('a narrowed window keeps the sidebar as a rail, and expanding it hands it t
   // comes back expanded because the rail never touched the preference.
   await page.setViewportSize({ width: 1400, height: 900 });
   await expect(page.getByLabel('Collapse sidebar')).toBeVisible();
+  const folder = page.getByLabel(folderName, { exact: true });
+  const childOne = page.getByLabel(firstChild, { exact: true });
+  const childTwo = page.getByLabel(secondChild, { exact: true });
+  const root = page.getByLabel(rootList, { exact: true });
+  await expect(folder).toBeVisible();
   await palette('Toggle Sidebar');
   await expect(page.getByLabel('Expand sidebar')).toBeVisible();
-  await page.getByPlaceholder(/Add a task/).click();
+  // Folders keep their row in the rail and the density switch snaps. Once the
+  // collapsed render lands, no layout transition keeps carrying the lists up.
+  await expect(folder).toBeVisible();
+  const childPositions = await childOne.evaluate(async (node) => {
+    const positions: number[] = [];
+    for (let frame = 0; frame < 8; frame++) {
+      await new Promise(requestAnimationFrame);
+      positions.push(node.getBoundingClientRect().y);
+    }
+    return positions;
+  });
+  expect(new Set(childPositions).size).toBe(1);
+
+  await folder.click();
+  await expect.poll(() => page.url()).toContain(folderId);
+  const background = async (row: typeof folder) => row.evaluate((node) => getComputedStyle(node).backgroundColor);
+  const [folderBg, childOneBg, childTwoBg, rootBg] = await Promise.all([
+    background(folder),
+    background(childOne),
+    background(childTwo),
+    background(root),
+  ]);
+  expect(childOneBg).toBe(folderBg);
+  expect(childTwoBg).toBe(folderBg);
+  expect(rootBg).not.toBe(folderBg);
+
+  await page.getByPlaceholder(`Add a task to ${firstChild}`).click();
   await page.keyboard.press('Escape');
   await palette('Toggle Sidebar');
   await expect(page.getByLabel('Collapse sidebar')).toBeVisible();
@@ -166,6 +217,24 @@ test('a narrowed window keeps the sidebar as a rail, and expanding it hands it t
   const before = page.url();
   await page.keyboard.press('ArrowDown');
   await expect.poll(() => page.url()).not.toBe(before);
+
+  // `\` keeps toggling from the sidebar that it just handed the keyboard to, and
+  // the marks stay where they are: only the labels come and go.
+  const marks = () =>
+    Promise.all(
+      ['Inbox', rootList].map((label) =>
+        page.getByLabel(label, { exact: true }).evaluate((row) => {
+          const box = (row.querySelector('svg') ?? row.firstElementChild)!.getBoundingClientRect();
+          return [box.x + box.width / 2, box.y + box.height / 2];
+        })
+      )
+    );
+  const expanded = await marks();
+  for (const label of ['Expand sidebar', 'Collapse sidebar', 'Expand sidebar']) {
+    await page.keyboard.press('\\');
+    await expect(page.getByLabel(label)).toBeVisible();
+    if (label === 'Expand sidebar') expect(await marks()).toEqual(expanded);
+  }
 });
 
 test('the sidebar keeps the keyboard row in view, and Space and ← fold a folder', async ({ page, request }) => {
