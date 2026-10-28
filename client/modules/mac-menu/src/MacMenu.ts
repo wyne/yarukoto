@@ -23,6 +23,10 @@ type MacMenuEvents = {
   onCommand: (event: { command: string }) => void;
   /** ⌘ went down on its own (true), or came up, gained company or was used (false). See YKCommandKey.h. */
   onCommandKey: (event: { held: boolean }) => void;
+  /** ⌃Tab (1), or ⌃⇧Tab or ⌃` (-1), taken for the task switcher. See YKSwitcherKeys.h. */
+  onSwitcherStep: (event: { step: number }) => void;
+  /** ⌃ came up after a switcher step. */
+  onSwitcherRelease: () => void;
 };
 
 declare class MacMenuModule extends NativeModule<MacMenuEvents> {

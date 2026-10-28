@@ -10,6 +10,12 @@ import { useShortcutHintsShown } from '../navigation/shortcutHints';
 interface Props {
   command: CommandId;
   /**
+   * The command modifier is already down while a hint is visible. Icon rails
+   * can therefore show only the remaining key, keeping the icon underneath
+   * legible in their much smaller target.
+   */
+  compact?: boolean;
+  /**
    * Where the label sits, over the control it names. By default against the
    * right edge, centred, which suits a row; an icon button wants it below.
    */
@@ -24,17 +30,22 @@ interface Props {
  * Shows only a key that works here and now: one the web leaves to the browser,
  * or one nothing on screen answers, is no hint at all.
  */
-export default function ShortcutHint({ command, style }: Props) {
+export default function ShortcutHint({ command, compact = false, style }: Props) {
   const styles = useStyles();
   const shown = useShortcutHintsShown();
   const available = useAvailableCommands();
   if (!shown || !available.has(command)) return null;
   const { shortcut, web } = commandDef(command);
   if (!shortcut || !(MAC || web)) return null;
+  const displayedShortcut = compact
+    ? { ...shortcut, modifiers: shortcut.modifiers.filter((modifier) => modifier !== 'command') }
+    : shortcut;
   return (
     <View pointerEvents="none" style={[styles.place, style]}>
-      <View style={styles.badge}>
-        <Text style={styles.keys} numberOfLines={1}>{formatShortcut(shortcut, MAC_KEYS)}</Text>
+      <View style={[styles.badge, compact && styles.compactBadge]}>
+        <Text style={[styles.keys, compact && styles.compactKeys]} numberOfLines={1}>
+          {formatShortcut(displayedShortcut, MAC_KEYS)}
+        </Text>
       </View>
     </View>
   );
@@ -61,20 +72,29 @@ const useStyles = makeStyles((c) => ({
     paddingHorizontal: 5,
     paddingVertical: 2,
   },
+  compactBadge: {
+    borderRadius: 4,
+    paddingHorizontal: 3,
+    paddingVertical: 1,
+  },
   keys: {
     fontFamily: fonts.sansMedium,
     fontSize: 12,
     letterSpacing: 0.5,
     color: c.inverseText,
   },
+  compactKeys: {
+    fontSize: 10,
+    letterSpacing: 0,
+  },
 }));
 
-/** For an icon button: centred on it, rather than against a row's right edge. */
-export const HINT_OVER_ICON: ViewStyle = {
-  top: 0,
-  bottom: 0,
-  left: -40,
-  right: -40,
-  width: 'auto',
+/** For an icon rail: a small lower-right badge that leaves the icon visible. */
+export const HINT_ON_ICON_CORNER: ViewStyle = {
+  top: 17,
+  bottom: undefined,
+  right: 1,
+  width: 18,
+  justifyContent: 'flex-start',
   alignItems: 'center',
 };

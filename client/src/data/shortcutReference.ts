@@ -43,6 +43,21 @@ export function shortcutSections(): ShortcutSearchSection[] {
     // completeTask's key, answered by the subtask field that has the caret.
     { title: 'Check off subtask', keys: fmt('return', 'command'), searchTerms: `complete done finish ${terms('return', 'command')}` },
   ];
+  // The task switcher, heard as ⌃ comes up rather than through a command (TaskSwitcher.tsx).
+  if (DESKTOP_APP) {
+    window.push(
+      {
+        title: 'Recent tasks: next',
+        keys: fmt('tab', 'control'),
+        searchTerms: `switcher switch previous last back ${terms('tab', 'control')}`,
+      },
+      {
+        title: 'Recent tasks: previous',
+        keys: `${fmt('tab', 'control', 'shift')}${MAC_KEYS ? '  ' : ', '}${fmt('`', 'control')}`,
+        searchTerms: `switcher switch backwards ${terms('tab', 'control', 'shift')} grave backtick`,
+      }
+    );
+  }
   if (MAC) {
     const viewShortcuts = Array.from({ length: 8 }, (_, i): Shortcut => ({
       input: String(i + 1),

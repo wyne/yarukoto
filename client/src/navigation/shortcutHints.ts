@@ -5,8 +5,10 @@ import { DESKTOP_UI, MAC, MAC_KEYS } from '../data/platform';
 
 /**
  * Hold ⌘ and the window labels what it can reach: ⌘1 beside All, ⌘, beside the
- * gear. Each label is a `ShortcutHint` beside the control it names; this is
- * the half that knows when they show.
+ * gear. In the collapsed icon rail, the already-held ⌘ is omitted so the
+ * small badge can sit on one corner without hiding the icon. Each label is a
+ * `ShortcutHint` beside the control it names; this is the half that knows when
+ * they show.
  *
  * Only ⌘ on its own, and only once it has been held a moment: a shortcut typed
  * at speed never flashes them, and pressing a key or clicking with ⌘ down puts

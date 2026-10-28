@@ -42,6 +42,7 @@ import JoinLinkHandler from './JoinLinkHandler';
 import NavSheets from '../components/sidebar/NavSheets';
 import TaskReminderNotifications from './TaskReminderNotifications';
 import MenuCommands, { dispatchCommand } from './MenuCommands';
+import TaskSwitcher from '../components/TaskSwitcher';
 import TextSizeCommands from './TextSizeCommands';
 import MacStatusMenu from './MacStatusMenu';
 import WindowsTrayMenu from './WindowsTrayMenu';
@@ -366,6 +367,7 @@ function Layout() {
       <TaskReminderNotifications />
       <MenuCommands />
       {DESKTOP_APP && <TextSizeCommands />}
+      {DESKTOP_APP && <TaskSwitcher />}
       {MAC && <MacStatusMenu />}
       {WINDOWS_APP && <WindowsTrayMenu />}
     </View>
