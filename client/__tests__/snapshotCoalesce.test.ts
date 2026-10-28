@@ -250,6 +250,24 @@ test('a snapshot written by the shipped build still loads', async () => {
   expect(snapshot?.savedAt).toBe('2026-10-01T09:00:00.000Z');
 });
 
+test('a cold start parses the stored snapshot once, and a new write is read fresh', async () => {
+  const storage = await freshStorageWith(
+    JSON.stringify({ schemaVersion: 1, tasks: [task('a')], lists: [], folders: [], viewPrefs: [], cursor: 'c1' })
+  );
+  const parse = jest.spyOn(JSON, 'parse');
+  const first = storage.loadServerSnapshot();
+  expect(storage.loadServerSnapshot()).toBe(first);
+  expect(storage.loadServerSnapshot()?.cursor).toBe('c1');
+  expect(parse).toHaveBeenCalledTimes(1);
+
+  storage.saveServerSnapshot(payload({ tasks: [task('b')], cursor: 'c2' }));
+  storage.flushServerSnapshot();
+  const next = storage.loadServerSnapshot();
+  expect(next?.tasks.map((t) => t.id)).toEqual(['b']);
+  expect(next?.cursor).toBe('c2');
+  parse.mockRestore();
+});
+
 async function freshStorageWith(raw: string): Promise<Storage> {
   for (const k of Object.keys(mockAsyncData)) delete mockAsyncData[k];
   mockAsyncData[SNAPSHOT_KEY] = raw;
