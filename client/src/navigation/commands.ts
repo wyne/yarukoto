@@ -223,7 +223,7 @@ export const COMMANDS: readonly CommandDef[] = [
   { id: 'goToday', title: 'Agenda', menu: 'view', group: 'go', shortcut: cmd('3'), hiddenFromPalette: true },
   { id: 'goCalendar', title: 'Plan', menu: 'view', group: 'go', shortcut: cmd('4'), hiddenFromPalette: true },
   { id: 'goActivity', title: 'Activity', menu: 'view', group: 'go', shortcut: cmd('5'), hiddenFromPalette: true },
-  { id: 'goBrowse', title: 'Browse', menu: 'view', group: 'go', shortcut: cmd('6'), hiddenFromPalette: true },
+  { id: 'goBrowse', title: 'Search', menu: 'view', group: 'go', shortcut: cmd('6'), hiddenFromPalette: true },
   { id: 'goTrash', title: 'Trash', menu: 'view', group: 'go', shortcut: cmd('7'), hiddenFromPalette: true },
   { id: 'goArchive', title: 'Archive', menu: 'view', group: 'go', shortcut: cmd('8'), hiddenFromPalette: true },
   // Back and forward through the views you have been to (navHistory.ts), as a

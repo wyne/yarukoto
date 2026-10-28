@@ -178,10 +178,10 @@ stay web-only.
 | Yarukoto | Settings… | ⌘, |
 | File | New Task — the pinned add field, or the Inbox's on a screen without one | ⌘N |
 | File | Close Window — into the menu bar while its icon is on, otherwise quits | ⌘W |
-| Edit | Find… — Browse's search | ⌘F |
+| Edit | Find… — the Search view's field | ⌘F |
 | View | Command Menu… | ⌘K |
 | View | Toggle Sidebar / Toggle Task Pane | ⌘S / ⌘D |
-| View | All, Inbox, Agenda, Plan, Activity, Browse, Trash, Archive — the sidebar's views, in its order | ⌘1 to ⌘8 |
+| View | All, Inbox, Agenda, Plan, Activity, Search, Trash, Archive — the sidebar's views, in its order | ⌘1 to ⌘8 |
 | Task | Open Task — beside the list, keeping the keyboard there | ⌘O, or Space in the list |
 | Task | Mark as Done | ⌘↩ |
 | Task | Due Today / Due Tomorrow / Remove Due Date | ⌘T / ⌥⌘T / — |
