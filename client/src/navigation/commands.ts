@@ -48,6 +48,10 @@ export type CommandId =
   | 'goBrowse'
   | 'goTrash'
   | 'goArchive'
+  | 'goBack'
+  | 'goForward'
+  | 'nextView'
+  | 'previousView'
   | 'openTask'
   | 'editTask'
   | 'firstTask'
@@ -119,6 +123,11 @@ export interface CommandDef {
   /** The menu bar's key for it, which works whatever has focus. Always has ⌘. */
   shortcut?: Shortcut;
   /**
+   * Left to a text field that has focus, for keys a field has a use of its own
+   * for. Dimmed in the menu bar while one does, which is what passes the key on.
+   */
+  yieldsToText?: boolean;
+  /**
    * Plain keys — ↑, ↓, Return, Escape, Delete — answered by the task list itself while
    * it has focus, rather than by the menu bar. A key equivalent in the menu bar
    * fires before anything focused hears the key, so a plain one there would
@@ -137,6 +146,8 @@ export interface CommandDef {
    * always answers.
    */
   web?: boolean;
+  /** Also answered by the Windows webview, whose host has no browser shortcuts. */
+  desktopWeb?: boolean;
   /** Left out of the command menu: moving a cursor means nothing from a search box. */
   hiddenFromPalette?: boolean;
   /** Extra words the command menu matches, beyond the title. */
@@ -215,6 +226,15 @@ export const COMMANDS: readonly CommandDef[] = [
   { id: 'goBrowse', title: 'Browse', menu: 'view', group: 'go', shortcut: cmd('6'), hiddenFromPalette: true },
   { id: 'goTrash', title: 'Trash', menu: 'view', group: 'go', shortcut: cmd('7'), hiddenFromPalette: true },
   { id: 'goArchive', title: 'Archive', menu: 'view', group: 'go', shortcut: cmd('8'), hiddenFromPalette: true },
+  // Back and forward through the views you have been to (navHistory.ts), as a
+  // browser's ⌘[ and ⌘] do. Left to a field that has the caret, which may have a
+  // use for them.
+  { id: 'goBack', title: 'Back', menu: 'view', group: 'history', shortcut: cmd('['), desktopWeb: true, yieldsToText: true, keywords: 'history previous return' },
+  { id: 'goForward', title: 'Forward', menu: 'view', group: 'history', shortcut: cmd(']'), desktopWeb: true, yieldsToText: true, keywords: 'history next' },
+  // Down and up the sidebar a row, wrapping round. ⇧⌘] and ⇧⌘[, spelled as the
+  // braces they type, as a key equivalent has to be.
+  { id: 'previousView', title: 'Previous View', menu: 'view', group: 'cycle', shortcut: cmd('{'), desktopWeb: true, keywords: 'sidebar up switch cycle' },
+  { id: 'nextView', title: 'Next View', menu: 'view', group: 'cycle', shortcut: cmd('}'), desktopWeb: true, keywords: 'sidebar down switch cycle' },
 
   // Space opens the task beside the list and leaves the keyboard on the list,
   // as Quick Look does; Return opens it to edit, with the caret in its title.
@@ -339,6 +359,8 @@ const PC_KEY: Record<string, string> = {
   pagedown: 'PgDn',
 };
 
+const BRACKET_OF_BRACE: Record<string, string> = { '{': '[', '}': ']' };
+
 /**
  * A key that types a character, pressed with nothing but Shift: drawn as the
  * character it types — `j`, `G`, `}` — the way vim's keys are written.
@@ -357,6 +379,9 @@ export function formatShortcut(shortcut: Shortcut, mac: boolean): string {
   const prefix = shortcut.prefix ?? '';
   const typed = typedGlyph(shortcut);
   if (typed) return prefix + typed;
+  // ⌘} is drawn as the keys pressed for it, ⇧⌘], as menus draw it.
+  const bracket = BRACKET_OF_BRACE[shortcut.input];
+  if (bracket) return formatShortcut({ input: bracket, modifiers: [...shortcut.modifiers, 'shift'] }, mac);
   const order = mac ? MODIFIER_ORDER : PC_MODIFIER_ORDER;
   const mods = order.filter((m) => shortcut.modifiers.includes(m));
   if (mac) {
@@ -434,9 +459,9 @@ export function matchesShortcut(shortcut: Shortcut, event: KeyEventLike): boolea
  * whether it came as one of the list's plain keys — which a field being typed
  * in keeps for itself.
  */
-export function webCommandFor(event: KeyEventLike): { def: CommandDef; listKey: boolean } | undefined {
+export function webCommandFor(event: KeyEventLike, desktopApp = false): { def: CommandDef; listKey: boolean } | undefined {
   for (const def of COMMANDS) {
-    if (def.web && def.shortcut && matchesShortcut(def.shortcut, event)) return { def, listKey: false };
+    if ((def.web || (desktopApp && def.desktopWeb)) && def.shortcut && matchesShortcut(def.shortcut, event)) return { def, listKey: false };
     if (def.listKeys?.some((k) => matchesShortcut(k, event))) return { def, listKey: true };
   }
   return undefined;
@@ -507,7 +532,7 @@ export function createKeySequenceReader(timeoutMs = SEQUENCE_MS) {
 }
 
 /** The key the command menu shows for a command: its menu shortcut, else its list key. */
-export function displayShortcut(def: CommandDef, web: boolean): Shortcut | undefined {
-  if (def.shortcut && (!web || def.web)) return def.shortcut;
+export function displayShortcut(def: CommandDef, web: boolean, desktopApp = false): Shortcut | undefined {
+  if (def.shortcut && (!web || def.web || (desktopApp && def.desktopWeb))) return def.shortcut;
   return def.listKeys?.[0];
 }

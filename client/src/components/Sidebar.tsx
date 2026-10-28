@@ -44,6 +44,7 @@ import type { PopoverAnchor } from './Popover';
 import { FolderDef, ListDef } from '../data/types';
 import { DESKTOP_UI, FINE_POINTER, MAC } from '../data/platform';
 import KeyCommandsView from '../../modules/mac-pointer/src/KeyCommandsView';
+import { useCommand } from '../navigation/MenuCommands';
 import {
   focusNextPane,
   focusPane,
@@ -733,6 +734,30 @@ const Sidebar = React.memo(function Sidebar({ state, navigation, onNavigate }: P
         if (!leaveForList()) focusPane('list');
     }
   };
+
+  /**
+   * ⇧⌘] and ⇧⌘[: the next or previous row, round again at the ends, shown
+   * as the arrows show one, wherever the keyboard is.
+   *
+   * Answered by the sidebar the arrows would move — the pinned one, or the
+   * drawer while it is open — and by a narrow window's drawer while it is shut,
+   * which steps through it without opening it. With no sidebar mounted at all,
+   * MenuCommands goes round the fixed views instead.
+   */
+  const stepView = (delta: 1 | -1) => {
+    const n = navTargets.length;
+    if (n === 0) return;
+    const at = navTargets.findIndex((t) => showActive(t.kind, t.value));
+    fromKeys.current = true;
+    try {
+      openTarget(navTargets[at === -1 ? (delta === 1 ? 0 : n - 1) : (at + delta + n) % n]);
+    } finally {
+      fromKeys.current = false;
+    }
+  };
+  const answersViewKeys = DESKTOP_UI && (takesKeys || (inDrawer && !wide));
+  useCommand('nextView', () => stepView(1), answersViewKeys);
+  useCommand('previousView', () => stepView(-1), answersViewKeys);
 
   const sidebarStyle = [
     styles.sidebar,

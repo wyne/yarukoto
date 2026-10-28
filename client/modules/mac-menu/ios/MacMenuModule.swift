@@ -10,6 +10,7 @@ struct MenuCommandRecord: Record {
   @Field var input: String? = nil
   @Field var modifiers: [String] = []
   @Field var list: Bool = false
+  @Field var yieldsToText: Bool = false
 }
 
 public final class MacMenuModule: Module {

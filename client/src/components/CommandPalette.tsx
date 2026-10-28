@@ -18,7 +18,7 @@ import {
   taskPickerItems,
   toggleTag,
 } from '../data/palettePickers';
-import { MAC, MAC_KEYS } from '../data/platform';
+import { DESKTOP_APP, MAC, MAC_KEYS } from '../data/platform';
 import { LINKS, openLink } from '../data/links';
 import { filterShortcutSections } from '../data/shortcutSearch';
 import { shortcutSections } from '../data/shortcutReference';
@@ -175,7 +175,7 @@ export default function CommandPalette({ visible, onClose, picker = null, onLeav
       if (def.hiddenFromPalette || !available.has(def.id) || checked.has(def.id)) continue;
       // Only a key that works here is worth teaching: the web leaves some to
       // the browser.
-      const shortcut = displayShortcut(def, !MAC);
+      const shortcut = displayShortcut(def, !MAC, DESKTOP_APP);
       out.push({
         key: `c:${def.id}`,
         title: paletteTitle(def),

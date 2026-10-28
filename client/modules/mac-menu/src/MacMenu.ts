@@ -14,6 +14,8 @@ export interface MacMenuCommandSpec {
   input?: string;
   modifiers: string[];
   list: boolean;
+  /** Dimmed while a text field has focus, which passes its key to the field. */
+  yieldsToText: boolean;
 }
 
 type MacMenuEvents = {
