@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.6.0](https://github.com/wyne/yarukoto/compare/v1.5.0...v1.6.0) (2026-10-28)
+
+
+### Features
+
+* clarify menu bar task completion ([#286](https://github.com/wyne/yarukoto/issues/286)) ([fa6a506](https://github.com/wyne/yarukoto/commit/fa6a50662ece02f02a248f813fdbccb0a29ccc32))
+* step through the sidebar with ⇧⌘] ⇧⌘[ and go back and forward with ⌘[ ⌘] ([#284](https://github.com/wyne/yarukoto/issues/284)) ([a8be353](https://github.com/wyne/yarukoto/commit/a8be353392c2bef470777339d18ae7e9ff28ae3f))
+* switch between recent tasks with ⌃Tab ([#288](https://github.com/wyne/yarukoto/issues/288)) ([42da19a](https://github.com/wyne/yarukoto/commit/42da19adea36669debd9c31c56fac587f43aad11))
+
+
+### Bug Fixes
+
+* keep collapsed sidebar icons visible with shortcut hints ([#289](https://github.com/wyne/yarukoto/issues/289)) ([5a43c69](https://github.com/wyne/yarukoto/commit/5a43c69c006cde115e3536b1838071ab5ea06a6d))
+* preserve folders in the collapsed sidebar ([#285](https://github.com/wyne/yarukoto/issues/285)) ([7bf2e79](https://github.com/wyne/yarukoto/commit/7bf2e79095d43eb4cccec5b2aa8f83461ebca8c9))
+
 ## [1.5.0](https://github.com/wyne/yarukoto/compare/v1.4.0...v1.5.0) (2026-10-26)
 
 
