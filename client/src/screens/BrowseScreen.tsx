@@ -111,7 +111,7 @@ export default function BrowseScreen() {
             <IconMenu />
           </GlassIconButton>
         )}
-        <Text style={styles.title}>Browse</Text>
+        <Text style={styles.title}>Search</Text>
       </View>
 
       <BrowseView criteria={criteria} onCriteriaChange={setCriteria} />

@@ -64,7 +64,7 @@ export function shortcutSections(): ShortcutSearchSection[] {
       modifiers: ['command'],
     }));
     window.push({
-      title: 'All, Inbox, Today, Plan, Activity, Browse, Trash, Archive',
+      title: 'All, Inbox, Today, Plan, Activity, Search, Trash, Archive',
       keys: `${fmt('1', 'command')} – ${fmt('8', 'command')}`,
       searchTerms: shortcutSearchTerms(viewShortcuts),
     });
