@@ -43,6 +43,8 @@ does.
 | ⌘K | Command menu: go to any view, list, folder, tag or saved filter, or run any command |
 | ⌘O | Go to a task: search the tasks that aren't done by title, and open the one you pick |
 | ⌘1 to ⌘8 | All, Inbox, Agenda, Plan, Activity, Browse, Trash, Archive *(Mac)* |
+| ⌃⇥ | Switch to a recent task. Hold ⌃ and press ⇥ again to go further back, then let go to open it *(Mac and Windows apps)* |
+| ⌃⇧⇥ or ⌃\` | The same, back up the list of recent tasks *(Mac and Windows apps)* |
 | ⌘S | Show or hide the sidebar, which takes the keyboard as it opens *(Mac)* |
 | ⌘D | Show or hide the task pane *(Mac)* |
 | ⌘/ | Keyboard shortcuts |
@@ -50,6 +52,16 @@ does.
 | ⌘0 | Text back to its usual size *(Mac and Windows apps)* |
 | ⌘, | Settings *(Mac)* |
 | ⌘W | Close the window; with the menu bar icon on, Yarukoto keeps running there *(Mac)* |
+
+## Recent tasks
+
+Press **⌃⇥** (**Ctrl+Tab** on Windows) to see the last ten tasks you've had open, with the one open
+now at the top and the one before it chosen. Keep holding ⌃ and press ⇥ to move down the list, or
+⌃⇧⇥ or ⌃\` to move up; let go of ⌃ to open the chosen task. A quick ⌃⇥ on its own goes straight back
+to the task you had open before. Press ⎋ Escape to put the list away without opening anything.
+
+A task counts as recent once it has been open for a second, so moving through a list with the task
+pane open doesn't fill it with every row you pass. The list is kept on that device until you quit.
 
 ## The sidebar
 

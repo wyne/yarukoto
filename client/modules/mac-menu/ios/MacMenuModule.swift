@@ -16,7 +16,7 @@ public final class MacMenuModule: Module {
   public func definition() -> ModuleDefinition {
     Name("MacMenu")
 
-    Events("onCommand", "onCommandKey")
+    Events("onCommand", "onCommandKey", "onSwitcherStep", "onSwitcherRelease")
 
     OnStartObserving {
       DispatchQueue.main.async { [weak self] in
@@ -26,6 +26,11 @@ public final class MacMenuModule: Module {
         YKCommandKey.watch { held in
           self?.sendEvent("onCommandKey", ["held": held])
         }
+        YKSwitcherKeys.watchSteps({ step in
+          self?.sendEvent("onSwitcherStep", ["step": step])
+        }, released: {
+          self?.sendEvent("onSwitcherRelease", [:])
+        })
       }
     }
 
@@ -33,6 +38,7 @@ public final class MacMenuModule: Module {
       DispatchQueue.main.async {
         MacMenuBar.onCommand = nil
         YKCommandKey.watch(nil)
+        YKSwitcherKeys.watchSteps(nil, released: nil)
       }
     }
 
