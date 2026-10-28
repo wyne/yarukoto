@@ -26,7 +26,7 @@ To install it:
    - **Me**, which sees everything you see, private lists and Inbox included. Choose
      **Enter a code instead** to get the code field.
 4. Pick which lists and saved filters become to-do lists. Saved filters are made in the app,
-   under Browse.
+   under Search.
 
 Home Assistant shows up under Devices in the app, where signing it out makes Home Assistant ask to
 sign in again. Deleting an item moves the task to the app's Trash.

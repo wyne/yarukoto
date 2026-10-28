@@ -40,10 +40,10 @@ does.
 | ⇧⇥ Shift-Tab | The same, backwards |
 | ⎋ Escape | Leaves the field you're typing in and gives the keyboard to the list |
 | ⌘N | Puts the cursor in the add field *(Mac)* |
-| ⌘F | Search, in Browse *(Mac)* |
+| ⌘F | Search *(Mac)* |
 | ⌘K | Command menu: go to any view, list, folder, tag or saved filter, or run any command |
 | ⌘O | Go to a task: search the tasks that aren't done by title, and open the one you pick |
-| ⌘1 to ⌘8 | All, Inbox, Agenda, Plan, Activity, Browse, Trash, Archive *(Mac)* |
+| ⌘1 to ⌘8 | All, Inbox, Agenda, Plan, Activity, Search, Trash, Archive *(Mac)* |
 | ⇧⌘] ⇧⌘[ | Next and previous view down and up the sidebar, round again at the ends, with your lists, filters and tags *(Mac and Windows apps)* |
 | ⌘[ ⌘] | Back and forward through the views you've been to. While you're typing in a field, the field keeps these keys *(Mac and Windows apps)* |
 | ⌃⇥ | Switch to a recent task. Hold ⌃ and press ⇥ again to go further back, then let go to open it *(Mac and Windows apps)* |
@@ -90,7 +90,7 @@ While the sidebar has the keyboard, the row you're on is outlined in your accent
 | zc zo | Fold, or unfold, the current group |
 | zM zR | Fold, or unfold, every group |
 | i or o | Put the cursor in the add field: the web's New Task, where the browser keeps ⌘N |
-| / | Search, in Browse: the web's Find, where the browser keeps ⌘F |
+| / | Search: the web's Find, where the browser keeps ⌘F |
 | `\` | Show or hide the sidebar: the web's ⌘S, which the browser keeps |
 | ⇧↑ ⇧↓ | Select several tasks |
 | ↩ Return | Open the task and start editing its title |
