@@ -617,13 +617,34 @@ function parseServerFeatures(value: unknown): ServerFeature[] | undefined {
 let pendingSnapshot: ServerSnapshot | null = null;
 let snapshotTimer: ReturnType<typeof setTimeout> | null = null;
 
+/**
+ * The last snapshot read from disk, keyed by the exact string it was parsed
+ * from. Starting up reads the snapshot several times — the task state, the
+ * feature list, retention, household and cursor each take theirs from it — and
+ * each read used to parse the whole store again. The string is what's in the
+ * cache, so an unchanged string is an unchanged snapshot.
+ */
+let parsedSnapshot: { raw: string; snapshot: ServerSnapshot | null } | null = null;
+
 export function loadServerSnapshot(): ServerSnapshot | null {
   // A queued write is already the newest snapshot, and this module built it, so
   // it skips the validation below — that is for whatever a previous build, or a
   // hand-edited store, left on disk.
   if (pendingSnapshot) return pendingSnapshot;
-  const stored = readJson<Partial<ServerSnapshot>>(SERVER_SNAPSHOT_KEY);
-  if (!stored || stored.schemaVersion !== SERVER_SNAPSHOT_SCHEMA) return null;
+  const raw = read(SERVER_SNAPSHOT_KEY);
+  if (!raw) return null;
+  if (parsedSnapshot?.raw !== raw) parsedSnapshot = { raw, snapshot: parseServerSnapshot(raw) };
+  return parsedSnapshot.snapshot;
+}
+
+function parseServerSnapshot(raw: string): ServerSnapshot | null {
+  let stored: Partial<ServerSnapshot>;
+  try {
+    stored = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+  if (!stored || typeof stored !== 'object' || stored.schemaVersion !== SERVER_SNAPSHOT_SCHEMA) return null;
   if (
     !isRecordArray(stored.tasks) ||
     !isRecordArray(stored.lists) ||
