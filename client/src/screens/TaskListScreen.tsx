@@ -935,13 +935,6 @@ const TaskListBody = memo(
   const filterHideListId = filter?.type === 'list' ? filter.value : undefined;
   const filterHideTag = filter?.type === 'tag' ? filter.value : undefined;
 
-  const groupHide = (groupKey: string) => ({
-    hideListId:
-      groupDimension === 'list' && groupKey !== INBOX_GROUP_KEY ? groupKey : filterHideListId,
-    hideTag:
-      groupDimension === 'tag' && groupKey.startsWith('tag:') ? groupKey.slice(4) : filterHideTag,
-  });
-
   // Every view is draggable. Under a sort the drag wins rather than being undone
   // by the comparator: the view remembers that its order was customised and offers
   // to restore the sort, instead of the drop rewriting the task to match where it
@@ -1028,9 +1021,18 @@ const TaskListBody = memo(
   useCommand('sortByTag', sortBy('tag'), true, options.sortBy === 'tag');
   useCommand('sortByPriority', sortBy('priority'), true, options.sortBy === 'priority');
 
+  /**
+   * The web's grouped rows, which are all built rather than virtualized.
+   *
+   * Drawn by the same renderers as the virtualized list, and for the same
+   * reason: a row's version is its marks, its neighbour and those renderers, so
+   * a cursor move redraws the two rows it moved between and `DragList` skips
+   * the rest. Rebuilding every row on each key press was most of what one cost
+   * on a long list.
+   */
   const renderTaskCard = (group: TaskGroup) => {
     const tasks = group.tasks;
-    const hide = groupHide(group.key);
+    const marks = tasks.map((task) => rowMark(task.id, group.key));
     return (
     <Card style={{ marginHorizontal: 12 }}>
       <DragList
@@ -1040,54 +1042,20 @@ const TaskListBody = memo(
         immediateChanges
         scrollableRef={scrollRef}
         onReorder={(ids, moved) => handleReorder(group.key, ids, moved)}
-        dragCount={(id) => (isSelected(id) ? webSelection.length : 1)}
-        renderItem={(task, i) => (
-          <ContextMenuTarget
+        dragCount={virtualDragCount}
+        itemVersion={(_task, i) =>
+          `${rendererEpoch}.${group.key}.${marks[i]}.${i < tasks.length - 1 ? `${marks[i + 1]}.${tasks[i + 1].id}` : ''}`
+        }
+        renderItem={(task, i) => {
+          const next = tasks[i + 1];
+          return (
             // How the cursor's row is found to bring it into view.
-            dataSet={{ taskRow: task.id }}
-            onOpen={(pos) => {
-              setMenuTask(task.id);
-              setMenuAt({ x: pos.x, y: pos.y, width: 0, height: 0 });
-            }}
-          >
-            <TaskRow
-              task={task}
-              list={task.listId ? listsById.get(task.listId) : undefined}
-              now={now}
-              selectionMode={selectionMode}
-              active={highlighted(task.id) && !isSelected(task.id)}
-              muted={!listHasKeyboard && highlighted(task.id)}
-              handleGutter={canReorder && FINE_POINTER}
-              showContext={rowContext}
-              hideListId={hide.hideListId}
-              hideTag={hide.hideTag}
-              selected={isSelected(task.id)}
-              onPress={() => pressRow(task.id)}
-              onToggleComplete={() => toggleComplete(task.id)}
-              onToday={() => scheduleToday(task.id)}
-              onLater={() => snoozeTask(task.id)}
-              onNextWeek={() => scheduleNextWeek(task.id)}
-            />
-            {i < tasks.length - 1 &&
-              (() => {
-                const next = tasks[i + 1];
-                // The divider is inset and drawn on the card, so beside a tinted
-                // row it leaves a band of card that reads as a half-drawn line.
-                // Any divider touching one squares off to the full width; one
-                // between two selected rows also takes the tint, so a run of
-                // them closes up into a single block.
-                const touching = highlighted(task.id) || highlighted(next.id);
-                const within = isSelected(task.id) && isSelected(next.id);
-                return (
-                  <Divider
-                    indent={touching ? 0 : undefined}
-                    color={within ? colors.selectedRowBg : undefined}
-                    railColor={task.listId ? listsById.get(task.listId)?.color : undefined}
-                  />
-                );
-              })()}
-          </ContextMenuTarget>
-        )}
+            <View {...({ dataSet: { taskRow: task.id } } as object)}>
+              {renderVirtualRow(task, { groupKey: group.key, mark: marks[i] })}
+              {next && renderVirtualDivider(task, next, false, marks[i], marks[i + 1])}
+            </View>
+          );
+        }}
       />
     </Card>
     );
@@ -1236,6 +1204,15 @@ const TaskListBody = memo(
     },
     [listsById, selectedRowBg]
   );
+  /**
+   * Counts each new pair of renderers, for the web rows' version: a row skipped
+   * while either had changed would keep drawing what the old pair drew.
+   */
+  const renderers = useRef({ row: renderVirtualRow, divider: renderVirtualDivider, epoch: 0 });
+  if (renderers.current.row !== renderVirtualRow || renderers.current.divider !== renderVirtualDivider) {
+    renderers.current = { row: renderVirtualRow, divider: renderVirtualDivider, epoch: renderers.current.epoch + 1 };
+  }
+  const rendererEpoch = renderers.current.epoch;
   const virtualDragCount = useCallback(
     (id: string) => (live.current.isSelected(id) ? live.current.selectionCount : 1),
     []
