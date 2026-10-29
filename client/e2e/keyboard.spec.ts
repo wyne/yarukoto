@@ -404,7 +404,7 @@ test('a task added off screen is scrolled to, becomes the cursor and opens besid
   await expect.poll(async () => (await focused(page)).value).toBe(title);
 });
 
-test('Browse opens blank after leaving it on a saved filter', async ({ page, request }) => {
+test('Search opens blank after leaving it on a saved filter', async ({ page, request }) => {
   const stamp = Date.now();
   const query = `keysfilter${stamp}`;
   const filterId = `sf-keys-${stamp}`;
@@ -431,14 +431,14 @@ test('Browse opens blank after leaving it on a saved filter', async ({ page, req
   await expect(search).toHaveValue(query);
 
   await page.getByLabel('Inbox', { exact: true }).click();
-  await page.getByLabel('Browse', { exact: true }).click();
+  await page.getByLabel('Search', { exact: true }).click();
   await expect(search).toHaveValue('');
   expect(page.url()).not.toContain(filterId);
 
   // A question that isn't saved is still there when you come back.
   await search.fill('unsaved question');
   await page.getByLabel('Inbox', { exact: true }).click();
-  await page.getByLabel('Browse', { exact: true }).click();
+  await page.getByLabel('Search', { exact: true }).click();
   await expect(search).toHaveValue('unsaved question');
 });
 

@@ -6,7 +6,6 @@ export const fonts = {
   sansBold: 'IBMPlexSans_700Bold',
   monoRegular: 'IBMPlexMono_400Regular',
   monoMedium: 'IBMPlexMono_500Medium',
-  monoSemiBold: 'IBMPlexMono_600SemiBold',
 } as const;
 
 export const fontMap = {
@@ -16,5 +15,4 @@ export const fontMap = {
   IBMPlexSans_700Bold: require('@expo-google-fonts/ibm-plex-sans/700Bold/IBMPlexSans_700Bold.ttf'),
   IBMPlexMono_400Regular: require('@expo-google-fonts/ibm-plex-mono/400Regular/IBMPlexMono_400Regular.ttf'),
   IBMPlexMono_500Medium: require('@expo-google-fonts/ibm-plex-mono/500Medium/IBMPlexMono_500Medium.ttf'),
-  IBMPlexMono_600SemiBold: require('@expo-google-fonts/ibm-plex-mono/600SemiBold/IBMPlexMono_600SemiBold.ttf'),
 };

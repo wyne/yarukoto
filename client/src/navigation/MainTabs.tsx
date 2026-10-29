@@ -523,7 +523,7 @@ const Tabs = memo(function Tabs() {
       <Tab.Screen name="TodayTab" component={TodayScreen} options={{ title: 'Agenda' }} />
       <Tab.Screen name="CalendarTab" component={CalendarScreen} options={{ title: 'Plan' }} />
       <Tab.Screen name="ActivityTab" component={ActivityScreen} options={{ title: 'Activity' }} />
-      <Tab.Screen name="BrowseTab" component={BrowseScreen} options={{ title: 'Browse' }} />
+      <Tab.Screen name="BrowseTab" component={BrowseScreen} options={{ title: 'Search' }} />
       <Tab.Screen name="TrashTab" component={TrashScreen} options={{ title: 'Trash' }} />
       <Tab.Screen name="ArchiveTab" component={ArchiveScreen} options={{ title: 'Archive' }} />
     </Tab.Navigator>

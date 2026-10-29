@@ -63,7 +63,7 @@ const VIEWS: { route: string; title: string; keywords?: string }[] = [
   { route: 'TodayTab', title: 'Agenda', keywords: 'today upcoming' },
   { route: 'AllTab', title: 'All' },
   { route: 'CalendarTab', title: 'Plan', keywords: 'calendar schedule' },
-  { route: 'BrowseTab', title: 'Browse', keywords: 'search find' },
+  { route: 'BrowseTab', title: 'Search', keywords: 'find browse filter' },
   { route: 'ActivityTab', title: 'Activity', keywords: 'history log' },
   { route: 'TrashTab', title: 'Trash', keywords: 'deleted bin' },
   { route: 'ArchiveTab', title: 'Archive', keywords: 'completed done old history' },

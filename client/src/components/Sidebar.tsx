@@ -69,6 +69,7 @@ import {
   IconFilter,
   IconFolder,
   IconFolderBadge,
+  IconSearch,
   IconInboxTray,
   IconPeople,
   IconPulse,
@@ -129,7 +130,7 @@ const VIEWS = [
   { route: 'TodayTab', label: 'Agenda', Icon: IconClock, command: 'goToday' },
   { route: 'CalendarTab', label: 'Plan', Icon: IconCalendar, command: 'goCalendar' },
   { route: 'ActivityTab', label: 'Activity', Icon: IconPulse, command: 'goActivity' },
-  { route: 'BrowseTab', label: 'Browse', Icon: IconFolder, command: 'goBrowse' },
+  { route: 'BrowseTab', label: 'Search', Icon: IconSearch, command: 'goBrowse' },
   { route: 'TrashTab', label: 'Trash', Icon: IconTrash, command: 'goTrash' },
   { route: 'ArchiveTab', label: 'Archive', Icon: IconArchive, command: 'goArchive' },
 ] as const;
