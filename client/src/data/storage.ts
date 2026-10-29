@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
 import { AppState, Platform } from 'react-native';
 import { ACCENT_OPTIONS, AccentColor, DEFAULT_ACCENT, SchemePref } from '../theme/colors';
+import { BADGE_COUNT_OPTIONS, BadgeCount } from './badgeCount';
 import { SnoozedReminder } from './notificationActions';
 import { Household, parseHousehold } from './household';
 import { FolderDef, ListDef, SERVER_FEATURES, SavedFilter, ServerFeature, Task, ViewPref } from './types';
@@ -51,6 +52,7 @@ const SNOOZES_KEY = 'yarukoto.snoozedReminders';
 const SIDEBAR_RAIL_KEY = 'yarukoto.sidebarRail';
 const TODAY_DAYS_KEY = 'yarukoto.todayDays';
 const TEXT_SCALE_KEY = 'yarukoto.textScale';
+const BADGE_COUNT_KEY = 'yarukoto.badgeCount';
 
 const ALL_KEYS = [
   URL_KEY,
@@ -70,6 +72,7 @@ const ALL_KEYS = [
   SIDEBAR_RAIL_KEY,
   TODAY_DAYS_KEY,
   TEXT_SCALE_KEY,
+  BADGE_COUNT_KEY,
 ];
 
 /** Kept in SecureStore rather than AsyncStorage, on platforms that have one. */
@@ -357,6 +360,19 @@ export function loadTodayDays(): TodayDays {
 
 export function saveTodayDays(days: TodayDays): void {
   write(TODAY_DAYS_KEY, String(days));
+}
+
+/**
+ * The Badge count setting. Device-local, since a phone's badge and a desktop's
+ * menu bar can want different things. Today unless chosen otherwise.
+ */
+export function loadBadgeCount(): BadgeCount {
+  const stored = read(BADGE_COUNT_KEY);
+  return BADGE_COUNT_OPTIONS.includes(stored as BadgeCount) ? (stored as BadgeCount) : 'today';
+}
+
+export function saveBadgeCount(value: BadgeCount): void {
+  write(BADGE_COUNT_KEY, value);
 }
 
 /** Which sections of one view are folded shut. */

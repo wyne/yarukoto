@@ -217,9 +217,12 @@ when it gains and loses first responder, and its cursor row is drawn in gray whi
 the keyboard. The full list of keys, as users see it, is on [Keyboard shortcuts](/using/keyboard/).
 
 **The menu bar extra.** Yarukoto also puts an icon in the right side of the menu bar, with the
-number of tasks due by today beside it. Its menu lists Today's tasks, overdue first (choosing one
-opens it in the window; holding Option turns each row into its alternate, which marks it done), then
-New Task…, Open Yarukoto, Settings… and Quit. Settings ▸ General has two Mac
+a number beside it. Its menu lists Today's tasks in two sections, Overdue and Today, each headed by
+its total and given half of the eight rows, with what one doesn't use going to the other (choosing a
+task opens it in the window; holding Option turns each row into its alternate, which marks it done),
+then New Task…, Open Yarukoto, Settings… and Quit. The number follows **Badge count** in Settings ▸
+General, the same setting as the Dock badge: both sections (the default), Overdue only, or Off.
+Either way it matches one header or the two added together, so it can always be found in the menu. Settings ▸ General has two Mac
 switches: **Show in menu bar**, on by default, and **Open at login**.
 
 While the extra is on, closing the window doesn't close it: the red button and File ▸ Close Window

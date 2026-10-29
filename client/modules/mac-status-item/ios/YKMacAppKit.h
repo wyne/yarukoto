@@ -43,12 +43,13 @@ typedef NS_ENUM(NSInteger, YKLoginItemStatus) {
 + (void)applicationDidFinishLaunching;
 
 /**
- * Today's tasks for the menu, as `{ id, title, overdue }`, the number left out
- * of the list, and the count the icon shows (0 shows none).
+ * The menu's sections, Overdue then Today, each as `{ overdue, total, tasks,
+ * more }` with tasks as `{ id, title }`, and the count the icon shows (0 shows
+ * none).
  */
-+ (void)setTasks:(NSArray<NSDictionary<NSString *, id> *> *)tasks more:(NSInteger)more count:(NSInteger)count;
++ (void)setSections:(NSArray<NSDictionary<NSString *, id> *> *)sections count:(NSInteger)count;
 
-/// Drops the Today section and the count, as after sign-out, until `setTasks` sends a list again.
+/// Drops the task sections and the count, as after sign-out, until `setSections` sends them again.
 + (void)clearTasks;
 
 /**

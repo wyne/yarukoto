@@ -6,7 +6,7 @@
 //! count is in the icon's tooltip and on the taskbar button (tray icons carry
 //! no badge), and the menu ends in Exit rather than Quit.
 //!
-//! The page sends Today's tasks with `set_tray_tasks`, built from the same
+//! The page sends the Overdue and Today sections with `set_tray_tasks`, built from the same
 //! `statusMenuContents` the Mac's menu is, and gets the menu's choices back as
 //! `tray-action` events. Everything here is native state rather than a synced
 //! preference, because it has to be known before the page loads: whether a
@@ -34,16 +34,24 @@ const TITLE_LIMIT: usize = 60;
 pub struct TrayTask {
     id: String,
     title: String,
+}
+
+/// Overdue or Today. `total` is everything in it, for its header; past the
+/// tasks listed, `more`.
+#[derive(Clone, Deserialize)]
+pub struct TraySection {
     overdue: bool,
+    total: u32,
+    tasks: Vec<TrayTask>,
+    more: u32,
 }
 
 /// What the page last sent. None until it has, and again once it leaves the
-/// account, so a signed-out app lists nothing from it.
+/// account, so a signed-out app lists nothing from it. The page's `count`
+/// goes to the taskbar badge rather than here.
 #[derive(Clone, Deserialize)]
 pub struct TrayContents {
-    tasks: Vec<TrayTask>,
-    more: u32,
-    count: u32,
+    sections: Vec<TraySection>,
 }
 
 #[derive(Deserialize, Serialize)]
@@ -161,29 +169,29 @@ fn build_menu<R: Runtime>(
 ) -> tauri::Result<Menu<R>> {
     let menu = Menu::new(app)?;
     if let Some(contents) = contents {
-        if contents.tasks.is_empty() {
-            menu.append(&MenuItem::new(
-                app,
-                "Nothing due today",
-                false,
-                None::<&str>,
-            )?)?;
-        } else {
-            menu.append(&MenuItem::new(app, "Today", false, None::<&str>)?)?;
-            // Choosing a task opens it; marking one done is a step further in,
-            // under Mark done, so a stray click never checks a task off.
-            let done = Submenu::new(app, "Mark done", true)?;
-            for task in &contents.tasks {
+        // Choosing a task opens it; marking one done is a step further in,
+        // under Mark done, so a stray click never checks a task off.
+        let done = Submenu::new(app, "Mark done", true)?;
+        let mut listed = false;
+        for section in &contents.sections {
+            let name = if section.overdue { "Overdue" } else { "Today" };
+            // The header carries the section's total, so the badge's number can
+            // always be found in the menu: one header, or both added together.
+            let heading = if section.total > 0 {
+                format!("{name} · {}", section.total)
+            } else {
+                name.to_owned()
+            };
+            menu.append(&MenuItem::new(app, heading, false, None::<&str>)?)?;
+            if section.total == 0 {
+                menu.append(&MenuItem::new(app, "Nothing due", false, None::<&str>)?)?;
+            }
+            for task in &section.tasks {
                 let title = menu_text(&task.title);
-                let text = if task.overdue {
-                    format!("{title}  (overdue)")
-                } else {
-                    title.clone()
-                };
                 menu.append(&MenuItem::with_id(
                     app,
                     format!("task:{}", task.id),
-                    text,
+                    title.clone(),
                     true,
                     None::<&str>,
                 )?)?;
@@ -196,16 +204,28 @@ fn build_menu<R: Runtime>(
                     false,
                     None::<&str>,
                 )?)?;
+                listed = true;
             }
-            if contents.more > 0 {
+            if section.more > 0 {
+                // Both open Today, which lists overdue tasks too.
+                let text = if section.overdue {
+                    format!("{} more overdue…", section.more)
+                } else {
+                    format!("{} more in Today…", section.more)
+                };
                 menu.append(&MenuItem::with_id(
                     app,
-                    "today",
-                    format!("{} more in Today…", contents.more),
+                    format!(
+                        "today:{}",
+                        if section.overdue { "overdue" } else { "today" }
+                    ),
+                    text,
                     true,
                     None::<&str>,
                 )?)?;
             }
+        }
+        if listed {
             menu.append(&PredefinedMenuItem::separator(app)?)?;
             menu.append(&done)?;
         }
@@ -242,7 +262,7 @@ fn on_menu_event<R: Runtime>(app: &AppHandle<R>, event: MenuEvent) {
     let action = match id {
         "open" => return show_main(app),
         "exit" => return app.exit(0),
-        "newTask" | "settings" | "today" => {
+        "newTask" | "settings" | "today:overdue" | "today:today" => {
             show_main(app);
             TrayAction {
                 action: match id {
@@ -276,10 +296,23 @@ fn on_menu_event<R: Runtime>(app: &AppHandle<R>, event: MenuEvent) {
 fn refresh<R: Runtime>(app: &AppHandle<R>, tray: &TrayIcon<R>) -> tauri::Result<()> {
     let contents = app.state::<Tray>().contents.lock().unwrap().clone();
     tray.set_menu(Some(build_menu(app, contents.as_ref())?))?;
-    let tooltip = match contents.map(|c| c.count) {
-        Some(1) => "Yarukoto · 1 due today".to_owned(),
-        Some(n) if n > 1 => format!("Yarukoto · {n} due today"),
-        _ => "Yarukoto".to_owned(),
+    // The tooltip says what both sections hold, whatever the badge counts.
+    let parts: Vec<String> = contents
+        .iter()
+        .flat_map(|c| &c.sections)
+        .filter(|s| s.total > 0)
+        .map(|s| {
+            if s.overdue {
+                format!("{} overdue", s.total)
+            } else {
+                format!("{} due today", s.total)
+            }
+        })
+        .collect();
+    let tooltip = if parts.is_empty() {
+        "Yarukoto".to_owned()
+    } else {
+        format!("Yarukoto · {}", parts.join(", "))
     };
     tray.set_tooltip(Some(tooltip))
 }
