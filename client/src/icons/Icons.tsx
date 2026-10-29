@@ -264,6 +264,17 @@ export function IconTrendUp({ size = 18, color: colorProp, strokeWidth = 1.7 }: 
   );
 }
 
+/** A pulse line — the Activity view, a running record of what changed. */
+export function IconPulse({ size = 20, color: colorProp, strokeWidth = 1.7 }: IconProps) {
+  const c = useColors();
+  const color = colorProp ?? c.textTertiary;
+  return (
+    <Svg width={size} height={size} viewBox="0 0 20 20" fill="none">
+      <Path d="M2.5 10.5h3l2-5.5 4 10 2-4.5h4" stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
 export function IconDotsHorizontal({ size = 18, color: colorProp }: IconProps) {
   const c = useColors();
   const color = colorProp ?? c.textPrimary;

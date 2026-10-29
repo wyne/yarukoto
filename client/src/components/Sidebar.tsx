@@ -62,7 +62,6 @@ import SyncIndicator from './SyncIndicator';
 import { useWindowSelector } from './useWindowSelector';
 import {
   IconCalendar,
-  IconBell,
   IconChevronDown,
   IconChevronLeft,
   IconChevronRight,
@@ -73,6 +72,7 @@ import {
   IconSearch,
   IconInboxTray,
   IconPeople,
+  IconPulse,
   IconPlus,
   IconSettings,
   IconStack,
@@ -129,7 +129,7 @@ const VIEWS = [
   { route: 'InboxTab', label: 'Inbox', Icon: IconInboxTray, command: 'goInbox' },
   { route: 'TodayTab', label: 'Agenda', Icon: IconClock, command: 'goToday' },
   { route: 'CalendarTab', label: 'Plan', Icon: IconCalendar, command: 'goCalendar' },
-  { route: 'ActivityTab', label: 'Activity', Icon: IconBell, command: 'goActivity' },
+  { route: 'ActivityTab', label: 'Activity', Icon: IconPulse, command: 'goActivity' },
   { route: 'BrowseTab', label: 'Search', Icon: IconSearch, command: 'goBrowse' },
   { route: 'TrashTab', label: 'Trash', Icon: IconTrash, command: 'goTrash' },
   { route: 'ArchiveTab', label: 'Archive', Icon: IconArchive, command: 'goArchive' },
