@@ -219,9 +219,8 @@ static BOOL sReopenInstalled;
 static void (^sOnAction)(NSString *, NSString *);
 
 static id sStatusItem;
-/// Nil until JS first sends the list; the menu then has no Today section yet.
-static NSArray<NSDictionary *> *sTasks;
-static NSInteger sMore;
+/// Nil until JS first sends the sections; the menu then has no tasks in it yet.
+static NSArray<NSDictionary *> *sSections;
 static NSInteger sCount;
 
 /// The menu items' target. A class can't be one, so a single instance answers.
@@ -356,37 +355,53 @@ static id BuildMenu(void)
   id<YKMenu> menu = [(id<YKMenu>)[NSClassFromString(@"NSMenu") alloc] initWithTitle:AppName()];
   [menu setAutoenablesItems:NO];
 
-  if (sTasks) {
-    // sectionHeaderWithTitle: is macOS 14, which is also the app's minimum.
-    [menu addItem:[itemClass respondsToSelector:@selector(sectionHeaderWithTitle:)]
-                    ? [(id<YKMenuItemClass>)itemClass sectionHeaderWithTitle:@"Today"]
-                    : DisabledItem(@"Today")];
-    if (sTasks.count == 0) [menu addItem:DisabledItem(@"Nothing due")];
-    for (NSDictionary *task in sTasks) {
-      NSString *taskId = task[@"id"];
-      NSString *title = task[@"title"];
-      if (![taskId isKindOfClass:NSString.class] || ![title isKindOfClass:NSString.class]) continue;
-      BOOL overdue = [task[@"overdue"] boolValue];
-      NSString *shown = title.length ? title : @"Untitled";
-      // Choosing a task opens it. Holding Option turns the row into its
-      // alternate, which marks it done in place: the menu's own way of putting
-      // a second action on a row without a submenu in the way of the first.
-      id<YKMenuItem> item = MenuItem(shown, @[ @"openTask", taskId ], @"");
-      [item setImage:Symbol(overdue ? @"exclamationmark.circle" : @"circle", nil)];
-      [item setToolTip:overdue ? @"Overdue. Choose to open, or hold Option to mark as done."
-                               : @"Choose to open, or hold Option to mark as done."];
-      [menu addItem:item];
-      id<YKMenuItem> done = MenuItem([@"Complete " stringByAppendingString:shown], @[ @"complete", taskId ], @"");
-      [done setImage:Symbol(@"checkmark.circle", nil)];
-      [done setToolTip:@"Mark as done."];
-      [done setKeyEquivalentModifierMask:YKOptionKeyMask];
-      [done setAlternate:YES];
-      [menu addItem:done];
+  if (sSections) {
+    BOOL listed = NO;
+    for (NSDictionary *section in sSections) {
+      if (![section isKindOfClass:NSDictionary.class]) continue;
+      BOOL overdue = [section[@"overdue"] boolValue];
+      NSInteger total = [section[@"total"] integerValue];
+      NSInteger more = [section[@"more"] integerValue];
+      NSArray *tasks = [section[@"tasks"] isKindOfClass:NSArray.class] ? section[@"tasks"] : @[];
+      NSString *name = overdue ? @"Overdue" : @"Today";
+      // The header carries the section's total, so the number beside the icon
+      // can always be found in the menu: one header, or both added together.
+      NSString *heading = total > 0 ? [NSString stringWithFormat:@"%@ · %ld", name, (long)total] : name;
+      // sectionHeaderWithTitle: is macOS 14, which is also the app's minimum.
+      [menu addItem:[itemClass respondsToSelector:@selector(sectionHeaderWithTitle:)]
+                      ? [(id<YKMenuItemClass>)itemClass sectionHeaderWithTitle:heading]
+                      : DisabledItem(heading)];
+      if (total == 0) [menu addItem:DisabledItem(@"Nothing due")];
+      for (NSDictionary *task in tasks) {
+        if (![task isKindOfClass:NSDictionary.class]) continue;
+        NSString *taskId = task[@"id"];
+        NSString *title = task[@"title"];
+        if (![taskId isKindOfClass:NSString.class] || ![title isKindOfClass:NSString.class]) continue;
+        NSString *shown = title.length ? title : @"Untitled";
+        // Choosing a task opens it. Holding Option turns the row into its
+        // alternate, which marks it done in place: the menu's own way of putting
+        // a second action on a row without a submenu in the way of the first.
+        id<YKMenuItem> item = MenuItem(shown, @[ @"openTask", taskId ], @"");
+        [item setImage:Symbol(overdue ? @"exclamationmark.circle" : @"circle", nil)];
+        [item setToolTip:overdue ? @"Overdue. Choose to open, or hold Option to mark as done."
+                                 : @"Choose to open, or hold Option to mark as done."];
+        [menu addItem:item];
+        id<YKMenuItem> done = MenuItem([@"Complete " stringByAppendingString:shown], @[ @"complete", taskId ], @"");
+        [done setImage:Symbol(@"checkmark.circle", nil)];
+        [done setToolTip:@"Mark as done."];
+        [done setKeyEquivalentModifierMask:YKOptionKeyMask];
+        [done setAlternate:YES];
+        [menu addItem:done];
+        listed = YES;
+      }
+      if (more > 0) {
+        // Both open Today, which lists overdue tasks too.
+        NSString *title = overdue ? [NSString stringWithFormat:@"%ld More Overdue…", (long)more]
+                                  : [NSString stringWithFormat:@"%ld More in Today…", (long)more];
+        [menu addItem:MenuItem(title, @[ @"today" ], @"")];
+      }
     }
-    if (sMore > 0) {
-      [menu addItem:MenuItem([NSString stringWithFormat:@"%ld More in Today…", (long)sMore], @[ @"today" ], @"")];
-    }
-    if (sTasks.count > 0) [menu addItem:DisabledItem(@"Hold ⌥ to complete a task")];
+    if (listed) [menu addItem:DisabledItem(@"Hold ⌥ to complete a task")];
     [menu addItem:[(id<YKMenuItemClass>)itemClass separatorItem]];
   }
 
@@ -555,11 +570,10 @@ static id<YKAppService> _Nullable MainAppService(void)
 #endif
 }
 
-+ (void)setTasks:(NSArray<NSDictionary<NSString *, id> *> *)tasks more:(NSInteger)more count:(NSInteger)count
++ (void)setSections:(NSArray<NSDictionary<NSString *, id> *> *)sections count:(NSInteger)count
 {
 #if TARGET_OS_MACCATALYST
-  sTasks = [tasks copy];
-  sMore = more;
+  sSections = [sections copy];
   sCount = count;
   if (self.available) UpdateStatusItem();
 #endif
@@ -568,8 +582,7 @@ static id<YKAppService> _Nullable MainAppService(void)
 + (void)clearTasks
 {
 #if TARGET_OS_MACCATALYST
-  sTasks = nil;
-  sMore = 0;
+  sSections = nil;
   sCount = 0;
   if (self.available) UpdateStatusItem();
 #endif

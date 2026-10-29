@@ -1,11 +1,13 @@
 import { requireOptionalNativeModule } from 'expo';
 import type { NativeModule } from 'expo';
 
-/** One of Today's tasks, as the menu bar extra lists it. */
-export interface MacStatusTask {
-  id: string;
-  title: string;
+/** One of the menu bar extra's sections: Overdue or Today, and the tasks it lists. */
+export interface MacStatusSection {
   overdue: boolean;
+  /** Everything in the section, for its header; past the listed tasks, `more`. */
+  total: number;
+  tasks: { id: string; title: string }[];
+  more: number;
 }
 
 /**
@@ -35,10 +37,10 @@ declare class MacStatusItemModule extends NativeModule<MacStatusItemEvents> {
   openLoginItemsSettings(): Promise<void>;
   /** File ▸ Close: into the menu bar while the extra is on, else quits, as the red button does. */
   closeMainWindow(): Promise<void>;
-  /** Takes the Today section and count out of the menu, so a signed-out app shows none of the old account's tasks. */
+  /** Takes the task sections and count out of the menu, so a signed-out app shows none of the old account's tasks. */
   clearTasks(): Promise<void>;
-  /** The menu's Today section; `count` is the number beside the icon, none at 0. */
-  setTasks(tasks: MacStatusTask[], more: number, count: number): Promise<void>;
+  /** The menu's Overdue and Today sections; `count` is the number beside the icon, none at 0. */
+  setSections(sections: MacStatusSection[], count: number): Promise<void>;
 }
 
 /**

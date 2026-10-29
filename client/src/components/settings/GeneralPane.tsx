@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { AppState, Switch, Text, View } from 'react-native';
+import { AppState, Platform, Switch, Text, View } from 'react-native';
 import MacStatusItem, { LoginItemStatus } from '../../../modules/mac-status-item/src/MacStatusItem';
 import Pressable from '../HoverPressable';
 import { ACCENT_OPTIONS, SchemePref } from '../../theme/colors';
@@ -9,6 +9,8 @@ import { useColors, useTheme } from '../../theme/ThemeContext';
 import { LINKS, openLink } from '../../data/links';
 import { APP_VERSION, checkForAppUpdatesInteractively } from '../../data/appUpdates';
 import { DESKTOP_APP, MAC, WINDOWS_APP } from '../../data/platform';
+import { BadgeCount } from '../../data/badgeCount';
+import { setBadgeCount, useBadgeCount } from '../../data/badgeCountSetting';
 import { setOpenAtLogin, setShowInTray, traySettings, TraySettings } from '../../data/windowsTray';
 import { Group, Note, Row, Segmented } from './parts';
 
@@ -18,6 +20,22 @@ const SCHEME_OPTIONS: Array<{ value: SchemePref; label: string }> = [
   { value: 'dark', label: 'Dark' },
 ];
 
+const BADGE_OPTIONS: Array<{ value: BadgeCount; label: string }> = [
+  { value: 'today', label: 'Today' },
+  { value: 'overdue', label: 'Overdue' },
+  { value: 'off', label: 'Off' },
+];
+
+/** Where the app has a number to show: an app icon, a taskbar button, or an installed web app. */
+const HAS_BADGE =
+  Platform.OS !== 'web' || WINDOWS_APP || (typeof navigator !== 'undefined' && 'setAppBadge' in navigator);
+
+const BADGE_WHERE = MAC
+  ? 'On the Dock icon and in the menu bar.'
+  : WINDOWS_APP
+    ? 'On the taskbar button.'
+    : 'On the app icon.';
+
 /** In the order someone needing them would look: how it works, then who to ask. */
 const HELP_LINKS: Array<{ label: string; url: string }> = [
   { label: 'Setting up a server', url: LINKS.setupGuide },
@@ -26,11 +44,12 @@ const HELP_LINKS: Array<{ label: string; url: string }> = [
   { label: 'Privacy policy', url: LINKS.privacy },
 ];
 
-/** How this device draws the app. Stored here only, never synced. */
+/** How this device draws the app, and what its badge counts. Stored here only, never synced. */
 export function AppearanceGroup({ label }: { label?: string }) {
   const styles = useStyles();
   const colors = useColors();
   const { accent, setAccent, schemePref, setSchemePref } = useTheme();
+  const badge = useBadgeCount();
   return (
     <Group label={label}>
       <Row
@@ -58,6 +77,16 @@ export function AppearanceGroup({ label }: { label?: string }) {
           </View>
         }
       />
+      {HAS_BADGE && (
+        <Row
+          divided
+          title="Badge count"
+          subtitle={BADGE_WHERE}
+          trailing={
+            <Segmented options={BADGE_OPTIONS} value={badge} onChange={setBadgeCount} style={styles.scheme} />
+          }
+        />
+      )}
     </Group>
   );
 }

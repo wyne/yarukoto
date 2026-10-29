@@ -28,7 +28,9 @@ if SmartScreen appears. Installing the matching package replaces the old version
 your tasks or sign-in.
 On a computer, everything can be done from the keyboard: see [Keyboard shortcuts](/using/keyboard/).
 
-On the Mac, Yarukoto also lives in the menu bar, with today's tasks and their count. Choose a task
+On the Mac, Yarukoto also lives in the menu bar, with today's tasks and their count, split into
+**Overdue** and **Today**. **Badge count** in **Settings → General** picks what that number and the
+app icon's badge count. Choose a task
 there to open it, or hold **Option** and choose it to mark it done. You can start a new one from
 there too. Closing the window leaves it running in the menu bar
 until you choose **Quit**. Both that and **Open at login** are in **Settings → General**.

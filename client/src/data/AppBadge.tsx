@@ -2,7 +2,9 @@ import { useEffect, useMemo, useState } from 'react';
 import { AppState, Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import { useTasks } from './TaskContext';
-import { overdueCount } from './selectors';
+import { overdueCount, tasksDueByToday } from './selectors';
+import { badgeNumber } from './badgeCount';
+import { useBadgeCount } from './badgeCountSetting';
 import { addDays, startOfDay, toISODate } from './dateUtils';
 
 /** Web's Badging API, which only installed web apps get. Not in TypeScript's DOM lib yet. */
@@ -24,9 +26,10 @@ function setBadge(count: number): void {
 }
 
 /**
- * Keeps the app icon's badge at the number of overdue tasks.
+ * Keeps the app icon's badge at the number the Badge count setting asks for:
+ * everything due by today, only what is overdue, or nothing.
  *
- * Overdue is day-level (see `isOverdue`), so the count changes when a task does
+ * Both are day-level (see `isOverdue`), so the count changes when a task does
  * or when the date does. The date is tracked as state, moved on by a timer at
  * midnight and by coming back to the foreground — the timer doesn't run while
  * the app is suspended, so a phone left overnight is caught up on return.
@@ -36,6 +39,7 @@ function setBadge(count: number): void {
  */
 export default function AppBadge() {
   const { state } = useTasks();
+  const setting = useBadgeCount();
   const [today, setToday] = useState(() => toISODate(new Date()));
 
   useEffect(() => {
@@ -55,12 +59,14 @@ export default function AppBadge() {
   }, []);
 
   // Sample data is a demo, and its overdue tasks aren't the user's.
-  const count = useMemo(
-    () => (state.mode === 'server' ? overdueCount(state.tasks, new Date()) : 0),
+  const count = useMemo(() => {
+    if (state.mode !== 'server') return 0;
+    const now = new Date();
+    const overdue = overdueCount(state.tasks, now);
+    return badgeNumber(setting, overdue, tasksDueByToday(state.tasks, now).length - overdue);
     // `today` is read through `new Date()`; it's here to recount when the date moves.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [state.mode, state.tasks, today]
-  );
+  }, [state.mode, state.tasks, setting, today]);
 
   useEffect(() => {
     setBadge(count);

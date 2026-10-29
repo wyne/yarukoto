@@ -1,10 +1,17 @@
 import ExpoModulesCore
 
-/// One of Today's tasks, as the menu lists it.
+/// One of the menu's tasks.
 struct StatusTaskRecord: Record {
   @Field var id: String = ""
   @Field var title: String = ""
+}
+
+/// Overdue or Today, as the menu lists it.
+struct StatusSectionRecord: Record {
   @Field var overdue: Bool = false
+  @Field var total: Int = 0
+  @Field var tasks: [StatusTaskRecord] = []
+  @Field var more: Int = 0
 }
 
 /// JS's side of YKMacAppKit: the setting, the login item and the menu's tasks.
@@ -63,10 +70,16 @@ public final class MacStatusItemModule: Module {
       YKMacAppKit.closeMainWindow()
     }.runOnQueue(.main)
 
-    AsyncFunction("setTasks") { (tasks: [StatusTaskRecord], more: Int, count: Int) in
-      YKMacAppKit.setTasks(
-        tasks.map { ["id": $0.id, "title": $0.title, "overdue": $0.overdue] },
-        more: more,
+    AsyncFunction("setSections") { (sections: [StatusSectionRecord], count: Int) in
+      YKMacAppKit.setSections(
+        sections.map { section in
+          [
+            "overdue": section.overdue,
+            "total": section.total,
+            "tasks": section.tasks.map { ["id": $0.id, "title": $0.title] },
+            "more": section.more,
+          ] as [String: Any]
+        },
         count: count
       )
     }.runOnQueue(.main)
