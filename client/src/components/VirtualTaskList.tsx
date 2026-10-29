@@ -319,6 +319,9 @@ const VirtualTaskList = forwardRef<FlatList<Item>, Props>(function VirtualTaskLi
   const followedTo = useRef(new Set<string>());
 
   const scrollLinesOnWeb = (lines: number) => {
+    // Through `latest`: the handle is only rebuilt when the rows change, so its
+    // own render's cursor can be long out of date.
+    const { items, cursorIndex, onCursorScrolledOff } = latest.current;
     const shown = page();
     const row = shown?.cells.find((cell) => !cell.dataset.listItem!.startsWith('h:')) ?? shown?.cells[0];
     if (!shown || !row) return;
