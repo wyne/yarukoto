@@ -310,6 +310,14 @@ const VirtualTaskList = forwardRef<FlatList<Item>, Props>(function VirtualTaskLi
     return { scroller, cells, place, cellFor };
   };
 
+  /**
+   * Rows `scrollLinesOnWeb` has moved the cursor to since the cursor was last
+   * revealed. Each was on screen when it was chosen, so revealing it has nothing
+   * to do — and by the time the reveal runs, a held key may already have
+   * scrolled past it, and bringing it back would undo those presses.
+   */
+  const followedTo = useRef(new Set<string>());
+
   const scrollLinesOnWeb = (lines: number) => {
     const shown = page();
     const row = shown?.cells.find((cell) => !cell.dataset.listItem!.startsWith('h:')) ?? shown?.cells[0];
@@ -320,7 +328,15 @@ const VirtualTaskList = forwardRef<FlatList<Item>, Props>(function VirtualTaskLi
     const cursorCell = shown.cellFor(items[at].key);
     if (cursorCell && shown.place(cursorCell) === 'in') return;
     const inView = new Set(shown.cells.filter((cell) => shown.place(cell) === 'in').map((cell) => cell.dataset.listItem));
-    followCursor(items.filter((item) => inView.has(item.key)), lines > 0 ? 1 : -1, onCursorScrolledOff);
+    followCursor(items.filter((item) => inView.has(item.key)), lines > 0 ? 1 : -1, (stop) => {
+      const item = items.find((it) =>
+        stop.taskId
+          ? it.kind === 'task' && it.groupKey === stop.groupKey && it.task.id === stop.taskId
+          : it.kind === 'header' && it.group.key === stop.groupKey
+      );
+      if (item) followedTo.current.add(item.key);
+      onCursorScrolledOff(stop);
+    });
   };
 
   useImperativeHandle(
@@ -343,7 +359,9 @@ const VirtualTaskList = forwardRef<FlatList<Item>, Props>(function VirtualTaskLi
 
   useEffect(() => {
     const index = cursorIndex(items);
-    if (index === -1) return;
+    const followed = followedTo.current;
+    followedTo.current = new Set();
+    if (index === -1 || followed.has(items[index].key)) return;
     const shown = Platform.OS === 'web' ? page() : null;
     const cell = shown?.cellFor(items[index].key);
     const at = cell ? shown!.place(cell) : null;
