@@ -114,6 +114,16 @@ describe('device-local view state', () => {
     expect(storage.loadTodayDays()).toBe(7);
   });
 
+  test('remembers what the badge counts, and reads anything else as Today', async () => {
+    expect((await fresh({})).loadBadgeCount()).toBe('today');
+    expect((await fresh({ 'yarukoto.badgeCount': 'all' })).loadBadgeCount()).toBe('today');
+    const storage = await fresh({ 'yarukoto.badgeCount': 'overdue' });
+    expect(storage.loadBadgeCount()).toBe('overdue');
+    storage.saveBadgeCount('off');
+    expect(storage.loadBadgeCount()).toBe('off');
+    expect(mockAsyncData['yarukoto.badgeCount']).toBe('off');
+  });
+
   test('remembers the desktop text size, and reads anything unusable as the default', async () => {
     expect((await fresh({})).loadTextScale()).toBe(1);
     expect((await fresh({ 'yarukoto.textScale': 'big' })).loadTextScale()).toBe(1);
