@@ -1,5 +1,5 @@
 import React, { forwardRef, memo, useCallback, useEffect, useImperativeHandle, useMemo, useReducer, useRef, useState } from 'react';
-import { type FlatList, type ListRenderItemInfo, Pressable, type RefreshControlProps, type StyleProp, Text, View, type ViewStyle, type ViewToken } from 'react-native';
+import { type FlatList, type ListRenderItemInfo, Platform, Pressable, type RefreshControlProps, type StyleProp, Text, View, type ViewStyle, type ViewToken } from 'react-native';
 import { Gesture } from 'react-native-gesture-handler';
 import { LinearTransition } from 'react-native-reanimated';
 import ReorderableList, {
@@ -285,20 +285,68 @@ const VirtualTaskList = forwardRef<FlatList<Item>, Props>(function VirtualTaskLi
     const { items, cursorIndex, onCursorScrolledOff } = latest.current;
     const at = cursorIndex(items);
     if (!toward || !onCursorScrolledOff || at === -1 || onScreen.current.has(items[at].key)) return;
-    // Scrolling down takes the cursor off the top, so it comes to the first
-    // stop on screen; scrolling up, to the last.
-    const visible = items.filter((item) => onScreen.current.has(item.key));
-    const stops = toward > 0 ? visible : visible.reverse();
-    for (const item of stops) {
-      if (item.kind === 'task' && item.groupKey !== null) return onCursorScrolledOff({ taskId: item.task.id, groupKey: item.groupKey });
-      if (item.kind === 'header' && item.collapsed) return onCursorScrolledOff({ taskId: null, groupKey: item.group.key });
-    }
+    followCursor(items.filter((item) => onScreen.current.has(item.key)), toward, onCursorScrolledOff);
   }).current;
+
+  /**
+   * On the web, what is on screen is read from the page rather than from what
+   * the list reports. Those reports can arrive mid-way through the list
+   * re-laying itself out after a jump — once, a single row from much further
+   * down — and a held ⌃E or ⌃Y repeats faster than they settle, so steering by
+   * them skipped to the end of the list. The rows near the screen are always on
+   * the page, and their positions are what is actually shown.
+   */
+  const page = () => {
+    const scroller = (listRef.current as unknown as { getScrollableNode?: () => HTMLElement } | null)?.getScrollableNode?.();
+    if (!scroller) return null;
+    const cells = Array.from(scroller.querySelectorAll<HTMLElement>('[data-list-item]'));
+    const view = scroller.getBoundingClientRect();
+    /** Where a cell sits against the visible part of the list. */
+    const place = (cell: Element) => {
+      const { top, bottom } = cell.getBoundingClientRect();
+      return top < view.top ? 'above' : bottom > view.bottom ? 'below' : 'in';
+    };
+    const cellFor = (key: string) => cells.find((cell) => cell.dataset.listItem === key);
+    return { scroller, cells, place, cellFor };
+  };
+
+  /**
+   * Rows `scrollLinesOnWeb` has moved the cursor to since the cursor was last
+   * revealed. Each was on screen when it was chosen, so revealing it has nothing
+   * to do — and by the time the reveal runs, a held key may already have
+   * scrolled past it, and bringing it back would undo those presses.
+   */
+  const followedTo = useRef(new Set<string>());
+
+  const scrollLinesOnWeb = (lines: number) => {
+    // Through `latest`: the handle is only rebuilt when the rows change, so its
+    // own render's cursor can be long out of date.
+    const { items, cursorIndex, onCursorScrolledOff } = latest.current;
+    const shown = page();
+    const row = shown?.cells.find((cell) => !cell.dataset.listItem!.startsWith('h:')) ?? shown?.cells[0];
+    if (!shown || !row) return;
+    shown.scroller.scrollTop += lines * row.getBoundingClientRect().height;
+    const at = cursorIndex(items);
+    if (at === -1 || !onCursorScrolledOff) return;
+    const cursorCell = shown.cellFor(items[at].key);
+    if (cursorCell && shown.place(cursorCell) === 'in') return;
+    const inView = new Set(shown.cells.filter((cell) => shown.place(cell) === 'in').map((cell) => cell.dataset.listItem));
+    followCursor(items.filter((item) => inView.has(item.key)), lines > 0 ? 1 : -1, (stop) => {
+      const item = items.find((it) =>
+        stop.taskId
+          ? it.kind === 'task' && it.groupKey === stop.groupKey && it.task.id === stop.taskId
+          : it.kind === 'header' && it.group.key === stop.groupKey
+      );
+      if (item) followedTo.current.add(item.key);
+      onCursorScrolledOff(stop);
+    });
+  };
 
   useImperativeHandle(
     handleRef,
     () => ({
       scrollLines: (lines: number) => {
+        if (Platform.OS === 'web') return scrollLinesOnWeb(lines);
         const first = items.findIndex((item) => onScreen.current.has(item.key));
         if (first === -1 || lines === 0) return;
         // Past the end there is nothing to bring up.
@@ -314,11 +362,17 @@ const VirtualTaskList = forwardRef<FlatList<Item>, Props>(function VirtualTaskLi
 
   useEffect(() => {
     const index = cursorIndex(items);
-    if (index === -1 || onScreen.current.has(items[index].key)) return;
+    const followed = followedTo.current;
+    followedTo.current = new Set();
+    if (index === -1 || followed.has(items[index].key)) return;
+    const shown = Platform.OS === 'web' ? page() : null;
+    const cell = shown?.cellFor(items[index].key);
+    const at = cell ? shown!.place(cell) : null;
+    if (at ? at === 'in' : onScreen.current.has(items[index].key)) return;
     // Above what's on screen comes in at the top; below, at the bottom — the
     // least scrolling that shows it, as a Mac list scrolls.
-    const firstOnScreen = items.findIndex((item) => onScreen.current.has(item.key));
-    listRef.current?.scrollToIndex({ index, viewPosition: index < firstOnScreen ? 0 : 1, animated: false });
+    const above = at ? at === 'above' : index < items.findIndex((item) => onScreen.current.has(item.key));
+    listRef.current?.scrollToIndex({ index, viewPosition: above ? 0 : 1, animated: false });
   }, [revealTaskId, cursorGroup, items]);
 
   // Read only once a row is lifted, so the cells get one function for good
@@ -338,6 +392,7 @@ const VirtualTaskList = forwardRef<FlatList<Item>, Props>(function VirtualTaskLi
       case 'header':
         return (
           <HeaderCell
+            itemKey={item.key}
             first={item.first}
             label={item.group.label}
             count={item.group.tasks.length}
@@ -351,6 +406,7 @@ const VirtualTaskList = forwardRef<FlatList<Item>, Props>(function VirtualTaskLi
       case 'completedHeader':
         return (
           <HeaderCell
+            itemKey={item.key}
             first={item.first}
             label={`Completed · ${item.count}`}
             collapsed={item.collapsed}
@@ -388,7 +444,11 @@ const VirtualTaskList = forwardRef<FlatList<Item>, Props>(function VirtualTaskLi
       shouldUpdateActiveItem={!!dragCount}
       // Not while the window is being resized: every row changes width on every
       // frame of the drag, and each change would start a layout animation of its own.
-      itemLayoutAnimation={animateLayout && !resizing ? LAYOUT : undefined}
+      //
+      // Never on the web, where a layout animation measures its row in the DOM as
+      // the change commits: every row on screen forces a layout of its own, one
+      // after another, and completing a task spent most of a second on it.
+      itemLayoutAnimation={animateLayout && !resizing && Platform.OS !== 'web' ? LAYOUT : undefined}
       contentContainerStyle={contentContainerStyle}
       refreshControl={refreshControl}
       onScrollBeginDrag={onScrollBeginDrag}
@@ -409,6 +469,22 @@ const VirtualTaskList = forwardRef<FlatList<Item>, Props>(function VirtualTaskLi
 
 export default VirtualTaskList;
 
+/**
+ * Moves the cursor that scrolling took off screen to the edge it went past:
+ * scrolling down takes it off the top, so it comes to the first stop on screen;
+ * scrolling up, to the last.
+ */
+function followCursor(visible: Item[], toward: 1 | -1, onCursorScrolledOff: (stop: ListStop) => void) {
+  const stops = toward > 0 ? visible : [...visible].reverse();
+  for (const item of stops) {
+    if (item.kind === 'task' && item.groupKey !== null) return onCursorScrolledOff({ taskId: item.task.id, groupKey: item.groupKey });
+    if (item.kind === 'header' && item.collapsed) return onCursorScrolledOff({ taskId: null, groupKey: item.group.key });
+  }
+}
+
+/** Marks a cell on the web for `scrollLinesOnWeb` to find; nothing elsewhere. */
+const listItemData = (key: string) => (Platform.OS === 'web' ? ({ dataSet: { listItem: key } } as object) : null);
+
 function sameGroup(item: Item | undefined, groupKey: string): boolean {
   return item?.kind === 'task' && item.groupKey === groupKey;
 }
@@ -421,6 +497,7 @@ function EmptyCell({ text }: { text: string }) {
 }
 
 const HeaderCell = memo(function HeaderCell({
+  itemKey,
   first,
   label,
   count,
@@ -430,6 +507,7 @@ const HeaderCell = memo(function HeaderCell({
   current,
   muted,
 }: {
+  itemKey: string;
   first: boolean;
   label: string;
   count?: number;
@@ -441,7 +519,7 @@ const HeaderCell = memo(function HeaderCell({
 }) {
   const styles = useStyles();
   return (
-    <View style={[styles.header, first && styles.headerFirst]}>
+    <View style={[styles.header, first && styles.headerFirst]} {...listItemData(itemKey)}>
       <SectionHeader
         label={label}
         count={count}
@@ -487,6 +565,7 @@ const TaskCell = memo(function TaskCell({
 
   return (
     <View
+      {...listItemData(item.key)}
       style={[styles.cell, item.first && styles.cellFirst, item.last && styles.cellLast]}
       onPointerEnter={handle ? () => setHovered(true) : undefined}
       onPointerLeave={handle ? () => setHovered(false) : undefined}
