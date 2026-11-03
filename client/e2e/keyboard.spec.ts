@@ -1,4 +1,4 @@
-import { expect, Page, test } from '@playwright/test';
+import { APIRequestContext, expect, Page, test } from '@playwright/test';
 
 const TOKEN = 'e2e-token';
 
@@ -20,6 +20,19 @@ const focused = (page: Page) =>
   });
 
 const typingIn = (f: { tag: string | null }) => f.tag === 'INPUT' || f.tag === 'TEXTAREA';
+
+/** Moves a list's tasks to the trash, so they stay out of the views later tests read. */
+async function trashList(request: APIRequestContext, listId: string): Promise<void> {
+  const headers = { Authorization: `Bearer ${TOKEN}` };
+  const pulled = await request.get('/api/v1/sync', { headers });
+  expect(pulled.ok()).toBe(true);
+  const now = new Date().toISOString();
+  const tasks = (await pulled.json()).tasks
+    .filter((task: { listId: string | null }) => task.listId === listId)
+    .map((task: object) => ({ ...task, deletedAt: now, updatedAt: now }));
+  const pushed = await request.post('/api/v1/sync', { headers, data: { tasks } });
+  expect(pushed.ok()).toBe(true);
+}
 
 test('the keyboard moves between the add field, the list and the task pane', async ({ page }) => {
   const stamp = Date.now();
@@ -431,30 +444,36 @@ for (const groupBy of ['none', 'list'] as const) {
       },
     });
     expect(response.ok()).toBe(true);
-    await page.setViewportSize({ width: 1400, height: 600 });
-    await connect(page);
-    await page.getByLabel(list.name, { exact: true }).click();
-    await expect.poll(() => page.url()).toContain(list.id);
-    await page.goto(page.url());
-    const quickAdd = page.getByPlaceholder(`Add a task to ${list.name}`);
-    await expect(page.getByText(tasks[0].title, { exact: true })).toBeInViewport();
-    // The destination must start outside the measured window.
-    await expect(page.getByText(tasks[1099].title, { exact: true })).not.toBeAttached();
-    await quickAdd.click();
-    await page.keyboard.press('Escape');
-    await page.keyboard.press('ControlOrMeta+ArrowDown');
-    await expect(page.getByText(tasks[1099].title, { exact: true })).toBeInViewport();
-    await page.keyboard.press('ControlOrMeta+ArrowUp');
-    await expect(page.getByText(tasks[0].title, { exact: true })).toBeInViewport();
+    // Every later test shares this server, and 1,100 rows ahead of theirs in All would
+    // leave their own tasks unbuilt, so these go to the trash however the test ends.
+    try {
+      await page.setViewportSize({ width: 1400, height: 600 });
+      await connect(page);
+      await page.getByLabel(list.name, { exact: true }).click();
+      await expect.poll(() => page.url()).toContain(list.id);
+      await page.goto(page.url());
+      const quickAdd = page.getByPlaceholder(`Add a task to ${list.name}`);
+      await expect(page.getByText(tasks[0].title, { exact: true })).toBeInViewport();
+      // The destination must start outside the measured window.
+      await expect(page.getByText(tasks[1099].title, { exact: true })).not.toBeAttached();
+      await quickAdd.click();
+      await page.keyboard.press('Escape');
+      await page.keyboard.press('ControlOrMeta+ArrowDown');
+      await expect(page.getByText(tasks[1099].title, { exact: true })).toBeInViewport();
+      await page.keyboard.press('ControlOrMeta+ArrowUp');
+      await expect(page.getByText(tasks[0].title, { exact: true })).toBeInViewport();
 
-    // Reload so the add cannot reuse measurements from the jump to the end.
-    await page.goto(page.url());
-    await expect(quickAdd).toBeVisible();
-    const title = `Distant added ${groupBy} ${stamp}`;
-    await quickAdd.fill(title);
-    await quickAdd.press('Enter');
-    await expect(page.getByText(title, { exact: true })).toBeInViewport();
-    await expect(quickAdd).toBeFocused();
+      // Reload so the add cannot reuse measurements from the jump to the end.
+      await page.goto(page.url());
+      await expect(quickAdd).toBeVisible();
+      const title = `Distant added ${groupBy} ${stamp}`;
+      await quickAdd.fill(title);
+      await quickAdd.press('Enter');
+      await expect(page.getByText(title, { exact: true })).toBeInViewport();
+      await expect(quickAdd).toBeFocused();
+    } finally {
+      await trashList(request, list.id);
+    }
   });
 }
 
