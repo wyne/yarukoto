@@ -88,7 +88,8 @@ public final class KeyCommandsView: ExpoView {
       Self.parse(name)?.variants.contains { $0.0 == command.input && $0.1 == command.modifierFlags } ?? false
     }) else { return }
     var event: [String: Any] = ["key": name]
-    if let text = focusedText(in: self) { event["text"] = text }
+    // Lists and sidebars hold focus themselves; none of their rows can be focused.
+    if !isFirstResponder, let text = focusedText(in: self) { event["text"] = text }
     onKeyCommand(event)
   }
 

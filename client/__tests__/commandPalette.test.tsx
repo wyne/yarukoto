@@ -252,6 +252,50 @@ test('Mac arrows use native search text and a delayed duplicate change keeps the
   act(() => root.unmount());
 });
 
+test('Mac arrows ignore older text events until TextInput catches up', () => {
+  mockMac = true;
+  const root = renderPalette();
+  act(() => root.root.findByType('KeyCommandsView' as never).props.onKeyCommand({
+    nativeEvent: { key: 'down', text: 'ar' },
+  }));
+  act(() => input(root).props.onChangeText('a'));
+  expect(input(root).props.value).toBe('ar');
+  act(() => input(root).props.onChangeText('ar'));
+  act(() => input(root).props.onSubmitEditing());
+  act(() => jest.runOnlyPendingTimers());
+  expect(mockNavigate).toHaveBeenCalledWith('Main', { screen: 'BrowseTab', params: undefined });
+
+  // Once the text stream catches up, subsequent edits work normally.
+  act(() => input(root).props.onChangeText('inbox'));
+  expect(input(root).props.value).toBe('inbox');
+  act(() => root.unmount());
+});
+
+test('Mac arrow and Enter before a render choose the updated selection', () => {
+  mockMac = true;
+  const root = renderPalette();
+  act(() => {
+    root.root.findByType('KeyCommandsView' as never).props.onKeyCommand({
+      nativeEvent: { key: 'down', text: 'ar' },
+    });
+    input(root).props.onSubmitEditing();
+  });
+  act(() => jest.runOnlyPendingTimers());
+  expect(mockNavigate).toHaveBeenCalledWith('Main', { screen: 'BrowseTab', params: undefined });
+  act(() => root.unmount());
+});
+
+test('typing and Enter before a render can create a tag from the latest query', () => {
+  const root = renderPalette({ kind: 'editTags', taskIds: ['t-inbox'] });
+  act(() => {
+    input(root).props.onChangeText('Deep Work');
+    input(root).props.onSubmitEditing();
+  });
+  expect(updateTask).toHaveBeenCalledWith('t-inbox', { tags: ['urgent', 'deep-work'] });
+  expect(input(root).props.value).toBe('');
+  act(() => root.unmount());
+});
+
 test('a new query resets selection after navigating the previous results', () => {
   const root = renderPalette();
   act(() => input(root).props.onKeyPress({ nativeEvent: { key: 'ArrowDown' } }));

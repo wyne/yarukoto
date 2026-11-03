@@ -103,6 +103,14 @@ jest.mock('../src/data/api', () => {
   };
 });
 
+beforeEach(() => {
+  jest.useFakeTimers().setSystemTime(new Date('2026-10-03T12:00:00.000Z'));
+});
+
+afterEach(() => {
+  jest.useRealTimers();
+});
+
 test('precision respace queues only tasks changed in its local window', async () => {
   let root: ReactTestRenderer | undefined;
   let context: ReturnType<typeof useTasks> | undefined;
