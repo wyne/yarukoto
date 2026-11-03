@@ -351,8 +351,11 @@ export default function CommandPalette({ visible, onClose, picker = null, onLeav
       ref={inputRef}
       value={query}
       onChangeText={(text) => {
-        if (pendingNativeText.current !== null) {
-          if (text !== pendingNativeText.current) return;
+        const pending = pendingNativeText.current;
+        if (pending !== null) {
+          // Only skip earlier prefixes; a merged event or composition may skip
+          // the exact text carried by the key. Let other edits resume searching.
+          if (text !== pending && pending.startsWith(text)) return;
           pendingNativeText.current = null;
         }
         changeQuery(text);

@@ -271,6 +271,26 @@ test('Mac arrows ignore older text events until TextInput catches up', () => {
   act(() => root.unmount());
 });
 
+test.each([
+  ['continued typing', 'arch', 'a'],
+  ['replacement text', 'inbox', 'in'],
+  ['composition text', 'あ', ''],
+])('Mac search accepts %s when the pending native text never arrives', (_kind, text, next) => {
+  mockMac = true;
+  const root = renderPalette();
+  act(() => root.root.findByType('KeyCommandsView' as never).props.onKeyCommand({
+    nativeEvent: { key: 'down', text: 'ar' },
+  }));
+  act(() => input(root).props.onChangeText('a'));
+  expect(input(root).props.value).toBe('ar');
+  act(() => input(root).props.onChangeText(text));
+  expect(input(root).props.value).toBe(text);
+  // A prefix edit must work once the pending gate has been released.
+  act(() => input(root).props.onChangeText(next));
+  expect(input(root).props.value).toBe(next);
+  act(() => root.unmount());
+});
+
 test('Mac arrow and Enter before a render choose the updated selection', () => {
   mockMac = true;
   const root = renderPalette();
