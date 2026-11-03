@@ -87,7 +87,22 @@ public final class KeyCommandsView: ExpoView {
     guard let name = keys.first(where: { name in
       Self.parse(name)?.variants.contains { $0.0 == command.input && $0.1 == command.modifierFlags } ?? false
     }) else { return }
-    onKeyCommand(["key": name])
+    var event: [String: Any] = ["key": name]
+    if let text = focusedText(in: self) { event["text"] = text }
+    onKeyCommand(event)
+  }
+
+  // TextInput changes and Expo key events can reach JS in different turns.
+  // Carry the text with the key so navigation uses what was actually typed.
+  private func focusedText(in view: UIView) -> String? {
+    if view.isFirstResponder {
+      if let field = view as? UITextField { return field.text ?? "" }
+      if let field = view as? UITextView { return field.text ?? "" }
+    }
+    for child in view.subviews {
+      if let text = focusedText(in: child) { return text }
+    }
+    return nil
   }
 
   public override func didMoveToWindow() {

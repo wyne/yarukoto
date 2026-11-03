@@ -13,6 +13,7 @@ const mockFocusPane = jest.fn();
 const mockOpenLink = jest.fn();
 let mockAvailable = new Set<string>();
 let mockChecked = new Set<string>();
+let mockMac = false;
 
 // Drawn as the real one is: the header, then the body.
 jest.mock('../src/components/Dialog', () => {
@@ -31,7 +32,7 @@ jest.mock('../src/theme/ThemeContext', () => ({
 jest.mock('../src/theme/focus', () => ({
   useFieldFocus: () => ({ focusProps: {}, focusStyle: null }),
 }));
-jest.mock('../src/data/platform', () => ({ MAC: false, MAC_KEYS: false }));
+jest.mock('../src/data/platform', () => ({ get MAC() { return mockMac; }, MAC_KEYS: false }));
 jest.mock('../src/data/links', () => ({
   LINKS: { keyboard: 'keyboard' },
   openLink: (...args: unknown[]) => mockOpenLink(...args),
@@ -119,6 +120,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockAvailable = new Set();
   mockChecked = new Set();
+  mockMac = false;
   mockUseTasks.mockReturnValue({ state, supportsFeature, bulkUpdate, updateTask });
 });
 
@@ -213,6 +215,51 @@ test('arrow keys wrap the selection and submit the highlighted destination', () 
   expect(mockNavigate).toHaveBeenCalledWith('Main', {
     screen: 'BrowseTab',
     params: { savedFilterId: 'sf-1', at: Date.now() },
+  });
+  act(() => root.unmount());
+});
+
+test('typing and repeated arrows before a render keep each navigation step', () => {
+  const root = renderPalette();
+  act(() => {
+    const field = input(root);
+    field.props.onChangeText('ar');
+    field.props.onKeyPress({ nativeEvent: { key: 'ArrowDown' } });
+    field.props.onKeyPress({ nativeEvent: { key: 'ArrowDown' } });
+  });
+  // Archive and Search match "ar"; two arrows wrap back to Archive.
+  act(() => input(root).props.onSubmitEditing());
+  act(() => jest.runOnlyPendingTimers());
+  expect(mockNavigate).toHaveBeenCalledWith('Main', {
+    screen: 'ListsTab', params: { screen: 'Archive', params: undefined, pop: false },
+  });
+  act(() => root.unmount());
+});
+
+test('Mac arrows use native search text and a delayed duplicate change keeps the selection', () => {
+  mockMac = true;
+  const root = renderPalette();
+  act(() => {
+    root.root.findByType('KeyCommandsView' as never).props.onKeyCommand({
+      nativeEvent: { key: 'down', text: 'ar' },
+    });
+  });
+  expect(input(root).props.value).toBe('ar');
+  act(() => input(root).props.onChangeText('ar'));
+  act(() => input(root).props.onSubmitEditing());
+  act(() => jest.runOnlyPendingTimers());
+  expect(mockNavigate).toHaveBeenCalledWith('Main', { screen: 'BrowseTab', params: undefined });
+  act(() => root.unmount());
+});
+
+test('a new query resets selection after navigating the previous results', () => {
+  const root = renderPalette();
+  act(() => input(root).props.onKeyPress({ nativeEvent: { key: 'ArrowDown' } }));
+  act(() => input(root).props.onChangeText('ar'));
+  act(() => input(root).props.onSubmitEditing());
+  act(() => jest.runOnlyPendingTimers());
+  expect(mockNavigate).toHaveBeenCalledWith('Main', {
+    screen: 'ListsTab', params: { screen: 'Archive', params: undefined, pop: false },
   });
   act(() => root.unmount());
 });

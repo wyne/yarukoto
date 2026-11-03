@@ -120,6 +120,8 @@ export default function CommandPalette({ visible, onClose, picker = null, onLeav
   const checked = useCheckedCommands();
   const [query, setQuery] = useState('');
   const [index, setIndex] = useState(0);
+  // Events can be queued before React renders the preceding text/key change.
+  const search = useRef({ query: '', index: 0 });
   const inputRef = useRef<TextInput>(null);
   const { focusProps, focusStyle } = useFieldFocus();
   const listRef = useRef<ScrollView>(null);
@@ -130,6 +132,7 @@ export default function CommandPalette({ visible, onClose, picker = null, onLeav
     if (!visible) return;
     setQuery('');
     setIndex(0);
+    search.current = { query: '', index: 0 };
     scrollY.current = 0;
     pointerAt.current = null;
     listRef.current?.scrollTo({ y: 0, animated: false });
@@ -158,7 +161,7 @@ export default function CommandPalette({ visible, onClose, picker = null, onLeav
       keepOpen: true,
       run: () => {
         toggleTag(state.tasks, ids, item.key).forEach(({ id, tags }) => updateTask(id, { tags }));
-        setQuery('');
+        changeQuery('');
       },
     }));
   }, [visible, picker, query, state.lists, state.folders, state.tasks, bulkUpdate, updateTask, showTask]);
@@ -304,12 +307,32 @@ export default function CommandPalette({ visible, onClose, picker = null, onLeav
     const { clientX: x, clientY: y } = e.nativeEvent;
     const last = pointerAt.current;
     pointerAt.current = { x, y };
-    if (last && (last.x !== x || last.y !== y)) setIndex(i);
+    if (last && (last.x !== x || last.y !== y)) {
+      search.current.index = i;
+      setIndex(i);
+    }
   };
 
-  const move = (delta: number) => {
-    if (results.length === 0) return;
-    const next = (selected + delta + results.length) % results.length;
+  const changeQuery = (text: string) => {
+    if (text === search.current.query) return;
+    search.current = { query: text, index: 0 };
+    setQuery(text);
+    setIndex(0);
+    reveal(0);
+  };
+
+  const move = (delta: number, text?: string) => {
+    if (text !== undefined) changeQuery(text);
+    const queryNow = search.current.query;
+    // Tag creation adds a row based on the query, which may not have rendered yet.
+    const matches = picker?.kind === 'editTags'
+      ? rankPaletteItems(tagPickerItems(state.tasks, picker.taskIds, queryNow), queryNow)
+      : rankPaletteItems(pickerEntries ?? entries, queryNow);
+    const count = Math.min(matches.length, MAX_RESULTS);
+    if (count === 0) return;
+    const current = Math.min(search.current.index, count - 1);
+    const next = (current + delta + count) % count;
+    search.current.index = next;
     setIndex(next);
     reveal(next);
   };
@@ -318,11 +341,7 @@ export default function CommandPalette({ visible, onClose, picker = null, onLeav
     <TextInput
       ref={inputRef}
       value={query}
-      onChangeText={(text) => {
-        setQuery(text);
-        setIndex(0);
-        reveal(0);
-      }}
+      onChangeText={changeQuery}
       placeholder={picker ? PICKER_PLACEHOLDER[picker.kind] : 'Go to or do…'}
       accessibilityLabel={reference ? 'Search keyboard shortcuts' : undefined}
       placeholderTextColor={colors.textFaint}
@@ -365,7 +384,7 @@ export default function CommandPalette({ visible, onClose, picker = null, onLeav
           {MAC ? (
             <KeyCommandsView
               keys={['up', 'down']}
-              onKeyCommand={({ nativeEvent }) => move(nativeEvent.key === 'down' ? 1 : -1)}
+              onKeyCommand={({ nativeEvent }) => move(nativeEvent.key === 'down' ? 1 : -1, nativeEvent.text)}
             >
               {field}
             </KeyCommandsView>
