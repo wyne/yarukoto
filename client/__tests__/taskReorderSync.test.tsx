@@ -103,16 +103,20 @@ jest.mock('../src/data/api', () => {
   };
 });
 
+let root: ReactTestRenderer | undefined;
+
 beforeEach(() => {
+  // Keep the deleted fixture inside the trash retention window on every run.
   jest.useFakeTimers().setSystemTime(new Date('2026-10-03T12:00:00.000Z'));
 });
 
 afterEach(() => {
+  act(() => root?.unmount());
+  root = undefined;
   jest.useRealTimers();
 });
 
 test('precision respace queues only tasks changed in its local window', async () => {
-  let root: ReactTestRenderer | undefined;
   let context: ReturnType<typeof useTasks> | undefined;
 
   function CaptureContext() {
@@ -148,6 +152,4 @@ test('precision respace queues only tasks changed in its local window', async ()
   for (const id of ['a', 'c', 'other-list', 'completed', 'deleted', 'shared-list']) {
     expect(context!.state.tasks.find((row) => row.id === id)).toBe(mockInitialTasks.find((row) => row.id === id));
   }
-
-  act(() => root?.unmount());
 });
