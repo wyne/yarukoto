@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { statusMenuContents } from '../data/macStatusMenu';
 import { useTasks } from '../data/TaskContext';
+import { useBadgeCount } from '../data/badgeCountSetting';
 import { onTrayAction, setTaskbarBadge, setTrayTasks } from '../data/windowsTray';
 import { useShowTask } from './showTask';
 import { dispatchCommand } from './MenuCommands';
@@ -21,6 +22,7 @@ const RECHECK_MS = 60_000;
  */
 export default function WindowsTrayMenu() {
   const { state, toggleComplete } = useTasks();
+  const setting = useBadgeCount();
   const [minute, setMinute] = useState(0);
 
   useEffect(() => {
@@ -31,7 +33,7 @@ export default function WindowsTrayMenu() {
   const sent = useRef('');
   const badge = useRef(0);
   useEffect(() => {
-    const contents = statusMenuContents(state.tasks, new Date());
+    const contents = statusMenuContents(state.tasks, new Date(), setting);
     const key = JSON.stringify(contents);
     if (key === sent.current) return;
     sent.current = key;
@@ -40,7 +42,7 @@ export default function WindowsTrayMenu() {
       badge.current = contents.count;
       setTaskbarBadge(contents.count).catch(() => {});
     }
-  }, [state.tasks, minute]);
+  }, [state.tasks, setting, minute]);
 
   // Hiding the window takes its taskbar button away, and the badge with it,
   // so it goes back on whenever the window comes back.

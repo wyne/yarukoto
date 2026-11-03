@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Platform, PointerEvent, ScrollView, Text, TextInput, View } from 'react-native';
 import Pressable from './HoverPressable';
 import Dialog from './Dialog';
@@ -120,6 +120,9 @@ export default function CommandPalette({ visible, onClose, picker = null, onLeav
   const checked = useCheckedCommands();
   const [query, setQuery] = useState('');
   const [index, setIndex] = useState(0);
+  // Events can be queued before React renders the preceding text/key change.
+  const search = useRef({ query: '', index: 0 });
+  const pendingNativeText = useRef<string | null>(null);
   const inputRef = useRef<TextInput>(null);
   const { focusProps, focusStyle } = useFieldFocus();
   const listRef = useRef<ScrollView>(null);
@@ -130,6 +133,8 @@ export default function CommandPalette({ visible, onClose, picker = null, onLeav
     if (!visible) return;
     setQuery('');
     setIndex(0);
+    search.current = { query: '', index: 0 };
+    pendingNativeText.current = null;
     scrollY.current = 0;
     pointerAt.current = null;
     listRef.current?.scrollTo({ y: 0, animated: false });
@@ -152,16 +157,9 @@ export default function CommandPalette({ visible, onClose, picker = null, onLeav
         run: () => bulkUpdate(ids, { listId: listIdFor(item.key) }),
       }));
     }
-    return tagPickerItems(state.tasks, ids, query).map((item) => ({
-      ...item,
-      // Toggling one tag is rarely all: the picker stays for the next.
-      keepOpen: true,
-      run: () => {
-        toggleTag(state.tasks, ids, item.key).forEach(({ id, tags }) => updateTask(id, { tags }));
-        setQuery('');
-      },
-    }));
-  }, [visible, picker, query, state.lists, state.folders, state.tasks, bulkUpdate, updateTask, showTask]);
+    // Tag entries depend on the query, including a possible new tag row.
+    return [];
+  }, [visible, picker, state.lists, state.folders, state.tasks, bulkUpdate, showTask]);
 
   const entries = useMemo<Entry[]>(() => {
     if (!visible || picker) return [];
@@ -246,11 +244,6 @@ export default function CommandPalette({ visible, onClose, picker = null, onLeav
     return out;
   }, [visible, picker, available, checked, state.lists, state.folders, state.tasks, state.savedFilters, supportsFeature]);
 
-  const results = useMemo(
-    () => rankPaletteItems(pickerEntries ?? entries, query).slice(0, MAX_RESULTS),
-    [pickerEntries, entries, query]
-  );
-  const selected = Math.min(index, Math.max(0, results.length - 1));
   const shortcuts = useMemo(
     () => (visible && reference ? filterShortcutSections(shortcutSections(), query) : []),
     [visible, reference, query]
@@ -264,7 +257,7 @@ export default function CommandPalette({ visible, onClose, picker = null, onLeav
    */
   const scrollY = useRef(0);
   const rowHeight = Math.round(ROW_HEIGHT * useTextScale());
-  const reveal = (i: number) => {
+  const reveal = useCallback((i: number) => {
     const top = i * rowHeight;
     const viewport = rowHeight * MAX_ROWS;
     let y = scrollY.current;
@@ -273,7 +266,7 @@ export default function CommandPalette({ visible, onClose, picker = null, onLeav
     else return;
     scrollY.current = y;
     listRef.current?.scrollTo({ y, animated: false });
-  };
+  }, [rowHeight]);
 
   /**
    * Closes, then runs. A command acting on the list, or focusing a field, has to
@@ -304,12 +297,51 @@ export default function CommandPalette({ visible, onClose, picker = null, onLeav
     const { clientX: x, clientY: y } = e.nativeEvent;
     const last = pointerAt.current;
     pointerAt.current = { x, y };
-    if (last && (last.x !== x || last.y !== y)) setIndex(i);
+    if (last && (last.x !== x || last.y !== y)) {
+      search.current.index = i;
+      setIndex(i);
+    }
   };
 
-  const move = (delta: number) => {
-    if (results.length === 0) return;
-    const next = (selected + delta + results.length) % results.length;
+  const changeQuery = useCallback((text: string) => {
+    if (text === search.current.query) return;
+    search.current = { query: text, index: 0 };
+    setQuery(text);
+    setIndex(0);
+    reveal(0);
+  }, [reveal]);
+
+  const resultsFor = useCallback((text: string): Entry[] => {
+    let items = pickerEntries ?? entries;
+    if (visible && picker?.kind === 'editTags') {
+      const ids = picker.taskIds;
+      items = tagPickerItems(state.tasks, ids, text).map((item) => ({
+        ...item,
+        // Toggling one tag is rarely all: the picker stays for the next.
+        keepOpen: true,
+        run: () => {
+          toggleTag(state.tasks, ids, item.key).forEach(({ id, tags }) => updateTask(id, { tags }));
+          pendingNativeText.current = null;
+          changeQuery('');
+        },
+      }));
+    }
+    return rankPaletteItems(items, text).slice(0, MAX_RESULTS);
+  }, [pickerEntries, entries, visible, picker, state.tasks, updateTask, changeQuery]);
+  const results = useMemo(() => resultsFor(query), [resultsFor, query]);
+  const selected = Math.min(index, Math.max(0, results.length - 1));
+
+  const move = (delta: number, text?: string) => {
+    if (text !== undefined && text !== search.current.query) {
+      // Ignore older TextInput events until they catch up with this key's text.
+      pendingNativeText.current = text;
+      changeQuery(text);
+    }
+    const count = resultsFor(search.current.query).length;
+    if (count === 0) return;
+    const current = Math.min(search.current.index, count - 1);
+    const next = (current + delta + count) % count;
+    search.current.index = next;
     setIndex(next);
     reveal(next);
   };
@@ -319,9 +351,14 @@ export default function CommandPalette({ visible, onClose, picker = null, onLeav
       ref={inputRef}
       value={query}
       onChangeText={(text) => {
-        setQuery(text);
-        setIndex(0);
-        reveal(0);
+        const pending = pendingNativeText.current;
+        if (pending !== null) {
+          // Only skip earlier prefixes; a merged event or composition may skip
+          // the exact text carried by the key. Let other edits resume searching.
+          if (text !== pending && pending.startsWith(text)) return;
+          pendingNativeText.current = null;
+        }
+        changeQuery(text);
       }}
       placeholder={picker ? PICKER_PLACEHOLDER[picker.kind] : 'Go to or do…'}
       accessibilityLabel={reference ? 'Search keyboard shortcuts' : undefined}
@@ -333,7 +370,10 @@ export default function CommandPalette({ visible, onClose, picker = null, onLeav
       autoCapitalize="none"
       returnKeyType="go"
       blurOnSubmit={false}
-      onSubmitEditing={() => choose(results[selected])}
+      onSubmitEditing={() => {
+        const matches = resultsFor(search.current.query);
+        choose(matches[Math.min(search.current.index, Math.max(0, matches.length - 1))]);
+      }}
       // The web reports arrows here; the Mac doesn't, so KeyCommandsView below.
       onKeyPress={(e) => {
         const key = e.nativeEvent.key;
@@ -365,7 +405,7 @@ export default function CommandPalette({ visible, onClose, picker = null, onLeav
           {MAC ? (
             <KeyCommandsView
               keys={['up', 'down']}
-              onKeyCommand={({ nativeEvent }) => move(nativeEvent.key === 'down' ? 1 : -1)}
+              onKeyCommand={({ nativeEvent }) => move(nativeEvent.key === 'down' ? 1 : -1, nativeEvent.text)}
             >
               {field}
             </KeyCommandsView>

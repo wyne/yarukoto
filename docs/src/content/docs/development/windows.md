@@ -60,11 +60,13 @@ Everything else is the page, unchanged. The shell only stops it from behaving li
 The Windows counterpart of [the Mac's menu bar extra](/development/mac/), done the Windows way
 rather than copied from it:
 
-- **Left-click** opens the window. **Right-click** opens the menu: Today's tasks (choosing one opens
-  it), *N more in Today…*, a **Mark done** submenu with the same tasks as checkboxes, New task…,
+- **Left-click** opens the window. **Right-click** opens the menu: Today's tasks in an Overdue and a
+  Today section, each headed by its total (choosing a task opens it), *N more…* under a section that
+  runs past its rows, a **Mark done** submenu with the same tasks as checkboxes, New task…,
   Open Yarukoto, Settings…, and **Exit**, which is what quits.
-- **The count** of tasks due by today is in the icon's tooltip and on the taskbar button, as an
-  overlay badge. Windows gives tray icons no badge of their own.
+- **The count** is on the taskbar button, as an overlay badge, and follows **Badge count** in
+  Settings ▸ General: both sections, Overdue only, or Off. The icon's tooltip says how many are
+  overdue and due today. Windows gives tray icons no badge of their own.
 - **The close button** hides the window while the icon is on, the way chat apps do; the page keeps
   running, so sync carries on. WebView2 slows a hidden page's timers to about once a minute.
 - **Open at login** passes `--hidden`, and a launch with it starts with no window, unless the icon is

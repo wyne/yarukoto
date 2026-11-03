@@ -34,7 +34,7 @@ export function setOpenAtLogin(enabled: boolean): Promise<boolean> {
   return invoke<boolean>('set_open_at_login', { enabled });
 }
 
-/** The menu's Today section and the tooltip's count; null takes them out. */
+/** The menu's Overdue and Today sections and the tooltip; null takes them out. */
 export function setTrayTasks(contents: StatusMenuContents | null): Promise<void> {
   if (!WINDOWS_APP) return Promise.resolve();
   return invoke('set_tray_tasks', { contents });

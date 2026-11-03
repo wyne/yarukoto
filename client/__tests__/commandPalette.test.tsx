@@ -13,6 +13,7 @@ const mockFocusPane = jest.fn();
 const mockOpenLink = jest.fn();
 let mockAvailable = new Set<string>();
 let mockChecked = new Set<string>();
+let mockMac = false;
 
 // Drawn as the real one is: the header, then the body.
 jest.mock('../src/components/Dialog', () => {
@@ -31,7 +32,7 @@ jest.mock('../src/theme/ThemeContext', () => ({
 jest.mock('../src/theme/focus', () => ({
   useFieldFocus: () => ({ focusProps: {}, focusStyle: null }),
 }));
-jest.mock('../src/data/platform', () => ({ MAC: false, MAC_KEYS: false }));
+jest.mock('../src/data/platform', () => ({ get MAC() { return mockMac; }, MAC_KEYS: false }));
 jest.mock('../src/data/links', () => ({
   LINKS: { keyboard: 'keyboard' },
   openLink: (...args: unknown[]) => mockOpenLink(...args),
@@ -119,6 +120,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockAvailable = new Set();
   mockChecked = new Set();
+  mockMac = false;
   mockUseTasks.mockReturnValue({ state, supportsFeature, bulkUpdate, updateTask });
 });
 
@@ -213,6 +215,115 @@ test('arrow keys wrap the selection and submit the highlighted destination', () 
   expect(mockNavigate).toHaveBeenCalledWith('Main', {
     screen: 'BrowseTab',
     params: { savedFilterId: 'sf-1', at: Date.now() },
+  });
+  act(() => root.unmount());
+});
+
+test('typing and repeated arrows before a render keep each navigation step', () => {
+  const root = renderPalette();
+  act(() => {
+    const field = input(root);
+    field.props.onChangeText('ar');
+    field.props.onKeyPress({ nativeEvent: { key: 'ArrowDown' } });
+    field.props.onKeyPress({ nativeEvent: { key: 'ArrowDown' } });
+  });
+  // Archive and Search match "ar"; two arrows wrap back to Archive.
+  act(() => input(root).props.onSubmitEditing());
+  act(() => jest.runOnlyPendingTimers());
+  expect(mockNavigate).toHaveBeenCalledWith('Main', {
+    screen: 'ListsTab', params: { screen: 'Archive', params: undefined, pop: false },
+  });
+  act(() => root.unmount());
+});
+
+test('Mac arrows use native search text and a delayed duplicate change keeps the selection', () => {
+  mockMac = true;
+  const root = renderPalette();
+  act(() => {
+    root.root.findByType('KeyCommandsView' as never).props.onKeyCommand({
+      nativeEvent: { key: 'down', text: 'ar' },
+    });
+  });
+  expect(input(root).props.value).toBe('ar');
+  act(() => input(root).props.onChangeText('ar'));
+  act(() => input(root).props.onSubmitEditing());
+  act(() => jest.runOnlyPendingTimers());
+  expect(mockNavigate).toHaveBeenCalledWith('Main', { screen: 'BrowseTab', params: undefined });
+  act(() => root.unmount());
+});
+
+test('Mac arrows ignore older text events until TextInput catches up', () => {
+  mockMac = true;
+  const root = renderPalette();
+  act(() => root.root.findByType('KeyCommandsView' as never).props.onKeyCommand({
+    nativeEvent: { key: 'down', text: 'ar' },
+  }));
+  act(() => input(root).props.onChangeText('a'));
+  expect(input(root).props.value).toBe('ar');
+  act(() => input(root).props.onChangeText('ar'));
+  act(() => input(root).props.onSubmitEditing());
+  act(() => jest.runOnlyPendingTimers());
+  expect(mockNavigate).toHaveBeenCalledWith('Main', { screen: 'BrowseTab', params: undefined });
+
+  // Once the text stream catches up, subsequent edits work normally.
+  act(() => input(root).props.onChangeText('inbox'));
+  expect(input(root).props.value).toBe('inbox');
+  act(() => root.unmount());
+});
+
+test.each([
+  ['continued typing', 'arch', 'a'],
+  ['replacement text', 'inbox', 'in'],
+  ['composition text', 'あ', ''],
+])('Mac search accepts %s when the pending native text never arrives', (_kind, text, next) => {
+  mockMac = true;
+  const root = renderPalette();
+  act(() => root.root.findByType('KeyCommandsView' as never).props.onKeyCommand({
+    nativeEvent: { key: 'down', text: 'ar' },
+  }));
+  act(() => input(root).props.onChangeText('a'));
+  expect(input(root).props.value).toBe('ar');
+  act(() => input(root).props.onChangeText(text));
+  expect(input(root).props.value).toBe(text);
+  // A prefix edit must work once the pending gate has been released.
+  act(() => input(root).props.onChangeText(next));
+  expect(input(root).props.value).toBe(next);
+  act(() => root.unmount());
+});
+
+test('Mac arrow and Enter before a render choose the updated selection', () => {
+  mockMac = true;
+  const root = renderPalette();
+  act(() => {
+    root.root.findByType('KeyCommandsView' as never).props.onKeyCommand({
+      nativeEvent: { key: 'down', text: 'ar' },
+    });
+    input(root).props.onSubmitEditing();
+  });
+  act(() => jest.runOnlyPendingTimers());
+  expect(mockNavigate).toHaveBeenCalledWith('Main', { screen: 'BrowseTab', params: undefined });
+  act(() => root.unmount());
+});
+
+test('typing and Enter before a render can create a tag from the latest query', () => {
+  const root = renderPalette({ kind: 'editTags', taskIds: ['t-inbox'] });
+  act(() => {
+    input(root).props.onChangeText('Deep Work');
+    input(root).props.onSubmitEditing();
+  });
+  expect(updateTask).toHaveBeenCalledWith('t-inbox', { tags: ['urgent', 'deep-work'] });
+  expect(input(root).props.value).toBe('');
+  act(() => root.unmount());
+});
+
+test('a new query resets selection after navigating the previous results', () => {
+  const root = renderPalette();
+  act(() => input(root).props.onKeyPress({ nativeEvent: { key: 'ArrowDown' } }));
+  act(() => input(root).props.onChangeText('ar'));
+  act(() => input(root).props.onSubmitEditing());
+  act(() => jest.runOnlyPendingTimers());
+  expect(mockNavigate).toHaveBeenCalledWith('Main', {
+    screen: 'ListsTab', params: { screen: 'Archive', params: undefined, pop: false },
   });
   act(() => root.unmount());
 });
