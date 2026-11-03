@@ -107,7 +107,7 @@ let root: ReactTestRenderer | undefined;
 
 beforeEach(() => {
   // Keep the deleted fixture inside the trash retention window on every run.
-  jest.useFakeTimers({ now: new Date('2026-10-03T12:00:00.000Z') });
+  jest.useFakeTimers().setSystemTime(new Date('2026-10-03T12:00:00.000Z'));
 });
 
 afterEach(() => {

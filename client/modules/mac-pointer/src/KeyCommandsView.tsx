@@ -19,7 +19,8 @@ export interface KeyCommandsViewProps extends ViewProps {
    */
   anyDevice?: boolean;
   /** On the web, returning false leaves the key to the browser; the Mac always takes it. */
-  onKeyCommand: (event: NativeSyntheticEvent<{ key: string }>) => void | boolean;
+  /** Native text at the time of the key, when a field inside has focus. */
+  onKeyCommand: (event: NativeSyntheticEvent<{ key: string; text?: string }>) => void | boolean;
   /** A `focusable` view taking or giving up the keyboard. */
   onFocusChange?: (event: NativeSyntheticEvent<{ focused: boolean }>) => void;
 }
