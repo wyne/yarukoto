@@ -318,7 +318,23 @@ const VirtualTaskList = forwardRef<FlatList<Item>, Props>(function VirtualTaskLi
    */
   const followedTo = useRef(new Set<string>());
 
+  const revealRequest = useRef<{ index: number; viewPosition: number; animated: false } | null>(null);
+  const revealTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cancelReveal = useCallback(() => {
+    if (revealTimer.current !== null) clearTimeout(revealTimer.current);
+    revealTimer.current = null;
+    revealRequest.current = null;
+  }, []);
+  const retryReveal = useCallback(() => {
+    revealTimer.current = null;
+    if (!revealRequest.current) return;
+    listRef.current?.scrollToIndex(revealRequest.current);
+    // A failed attempt synchronously schedules another pass after measurement.
+    if (revealTimer.current === null) revealRequest.current = null;
+  }, []);
+
   const scrollLinesOnWeb = (lines: number) => {
+    cancelReveal();
     // Through `latest`: the handle is only rebuilt when the rows change, so its
     // own render's cursor can be long out of date.
     const { items, cursorIndex, onCursorScrolledOff } = latest.current;
@@ -361,6 +377,7 @@ const VirtualTaskList = forwardRef<FlatList<Item>, Props>(function VirtualTaskLi
   );
 
   useEffect(() => {
+    cancelReveal();
     const index = cursorIndex(items);
     const followed = followedTo.current;
     followedTo.current = new Set();
@@ -372,7 +389,19 @@ const VirtualTaskList = forwardRef<FlatList<Item>, Props>(function VirtualTaskLi
     // Above what's on screen comes in at the top; below, at the bottom — the
     // least scrolling that shows it, as a Mac list scrolls.
     const above = at ? at === 'above' : index < items.findIndex((item) => onScreen.current.has(item.key));
-    listRef.current?.scrollToIndex({ index, viewPosition: above ? 0 : 1, animated: false });
+    revealRequest.current = { index, viewPosition: above ? 0 : 1, animated: false };
+    retryReveal();
+    // A pending keyboard jump must not fight a wheel, touch or pointer gesture.
+    const scroller = shown?.scroller;
+    scroller?.addEventListener('wheel', cancelReveal, { passive: true });
+    scroller?.addEventListener('touchstart', cancelReveal, { passive: true });
+    scroller?.addEventListener('pointerdown', cancelReveal, { passive: true });
+    return () => {
+      cancelReveal();
+      scroller?.removeEventListener('wheel', cancelReveal);
+      scroller?.removeEventListener('touchstart', cancelReveal);
+      scroller?.removeEventListener('pointerdown', cancelReveal);
+    };
   }, [revealTaskId, cursorGroup, items]);
 
   // Read only once a row is lifted, so the cells get one function for good
@@ -451,14 +480,20 @@ const VirtualTaskList = forwardRef<FlatList<Item>, Props>(function VirtualTaskLi
       itemLayoutAnimation={animateLayout && !resizing && Platform.OS !== 'web' ? LAYOUT : undefined}
       contentContainerStyle={contentContainerStyle}
       refreshControl={refreshControl}
-      onScrollBeginDrag={onScrollBeginDrag}
+      onScrollBeginDrag={() => {
+        cancelReveal();
+        onScrollBeginDrag?.();
+      }}
       onViewableItemsChanged={onViewableItemsChanged}
       viewabilityConfig={VIEWABILITY}
-      // Rows far from the screen aren't built, so a jump to one can miss; it is
-      // only ever one row past the edge here, so landing nearby is enough.
-      onScrollToIndexFailed={({ averageItemLength, index }) =>
-        listRef.current?.scrollToOffset({ offset: averageItemLength * index, animated: false })
-      }
+      // An estimated offset can be clamped to the measured tail. Keep the
+      // requested row until successive windows have rendered and measured it.
+      onScrollToIndexFailed={({ averageItemLength, index }) => {
+        listRef.current?.scrollToOffset({ offset: averageItemLength * index, animated: false });
+        if (revealRequest.current && revealTimer.current === null) {
+          revealTimer.current = setTimeout(retryReveal, 50);
+        }
+      }}
       keyboardShouldPersistTaps="handled"
       // Enough to cover a fast flick on a long list without building it all.
       initialNumToRender={16}

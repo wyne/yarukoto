@@ -404,6 +404,60 @@ test('a task added off screen is scrolled to, becomes the cursor and opens besid
   await expect.poll(async () => (await focused(page)).value).toBe(title);
 });
 
+for (const groupBy of ['none', 'list'] as const) {
+  test(`distant keyboard jumps and quick-add reveal their rows when grouped by ${groupBy}`, async ({ page, request }) => {
+    const stamp = Date.now();
+    const now = new Date().toISOString();
+    const list = { id: `distant-${groupBy}-${stamp}`, name: `Distant ${groupBy} ${stamp}`, color: '#4A7BF7', folderId: null, order: -1, updatedAt: now };
+    const tasks = Array.from({ length: 1100 }, (_, i) => ({
+      id: `${list.id}-${i}`,
+      title: `Distant row ${i} ${stamp}`,
+      notes: '',
+      priority: 'none',
+      reminders: [],
+      listId: list.id,
+      tags: [],
+      subtasks: [],
+      completed: false,
+      createdAt: now,
+      updatedAt: now,
+      order: -1e15 + i,
+    }));
+    const response = await request.post('/api/v1/sync', {
+      headers: { Authorization: `Bearer ${TOKEN}` },
+      data: {
+        lists: [list], tasks,
+        viewPrefs: [{ id: `inbox:list:${list.id}`, groupBy, sortBy: 'manual', arrangements: {}, updatedAt: now }],
+      },
+    });
+    expect(response.ok()).toBe(true);
+    await page.setViewportSize({ width: 1400, height: 600 });
+    await connect(page);
+    await page.getByLabel(list.name, { exact: true }).click();
+    await expect.poll(() => page.url()).toContain(list.id);
+    await page.goto(page.url());
+    const quickAdd = page.getByPlaceholder(`Add a task to ${list.name}`);
+    await expect(page.getByText(tasks[0].title, { exact: true })).toBeInViewport();
+    // The destination must start outside the measured window.
+    await expect(page.getByText(tasks[1099].title, { exact: true })).not.toBeAttached();
+    await quickAdd.click();
+    await page.keyboard.press('Escape');
+    await page.keyboard.press('ControlOrMeta+ArrowDown');
+    await expect(page.getByText(tasks[1099].title, { exact: true })).toBeInViewport();
+    await page.keyboard.press('ControlOrMeta+ArrowUp');
+    await expect(page.getByText(tasks[0].title, { exact: true })).toBeInViewport();
+
+    // Reload so the add cannot reuse measurements from the jump to the end.
+    await page.goto(page.url());
+    await expect(quickAdd).toBeVisible();
+    const title = `Distant added ${groupBy} ${stamp}`;
+    await quickAdd.fill(title);
+    await quickAdd.press('Enter');
+    await expect(page.getByText(title, { exact: true })).toBeInViewport();
+    await expect(quickAdd).toBeFocused();
+  });
+}
+
 test('Search opens blank after leaving it on a saved filter', async ({ page, request }) => {
   const stamp = Date.now();
   const query = `keysfilter${stamp}`;
