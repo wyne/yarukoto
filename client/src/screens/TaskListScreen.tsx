@@ -1,11 +1,6 @@
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Platform, Pressable, Text, View } from 'react-native';
 import MenuView, { type MenuAction } from '../components/NativeMenu';
-import Animated, {
-  FadeIn,
-  LinearTransition,
-  useAnimatedRef,
-} from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { makeStyles } from '../theme/styles';
 import { fonts } from '../theme/typography';
@@ -29,7 +24,6 @@ import {
   GroupBy,
   INBOX_GROUP_KEY,
   SortBy,
-  TaskGroup,
   ViewOptions,
   groupByDay,
   groupTasks,
@@ -63,9 +57,7 @@ import {
 /** How far Page Up and Page Down move the cursor: about a window's worth of rows. */
 const PAGE_ROWS = 10;
 import { useRowContext } from '../components/useRowContext';
-import Card from '../components/Card';
 import Divider from '../components/Divider';
-import DragList from '../components/DragList';
 import VirtualTaskList, {
   ROW_HIGHLIGHTED,
   ROW_MUTED,
@@ -74,7 +66,6 @@ import VirtualTaskList, {
   type VirtualTaskListHandle,
   type VirtualTaskListRef,
 } from '../components/VirtualTaskList';
-import SectionHeader from '../components/SectionHeader';
 import QuickAddBar from '../components/QuickAddBar';
 import BulkActionBar from '../components/BulkActionBar';
 import AddTaskFab from '../components/AddTaskFab';
@@ -95,31 +86,6 @@ import { IconCheckBig, IconChevronDown, IconDotsHorizontal, IconMenu, IconViewOp
 const TITLES = { all: 'All', inbox: 'Inbox', today: 'Agenda' } as const;
 /** The Agenda's title is the stretch it covers, so it always says what is on screen. */
 const TODAY_DAYS_LABEL: Record<TodayDays, string> = { 1: 'Today', 2: 'Next 2 days', 3: 'Next 3 days', 7: 'Week' };
-/**
- * Native lists only build the rows near the screen; see `VirtualTaskList`. The
- * web keeps the fully built column, whose drag and hover wiring is DOM-specific.
- */
-const VIRTUALIZED = Platform.OS !== 'web';
-/** Room left between a revealed row and the edge it was brought in from. */
-const REVEAL_MARGIN = 8;
-/** How many frames a revealed row on the web is followed while it settles. */
-const REVEAL_SETTLE_FRAMES = 45;
-const GROUP_LAYOUT = LinearTransition.duration(180);
-const GROUP_ENTER = FadeIn.duration(140);
-/**
- * No exit to match the entrance.
- *
- * An exiting animation is the one that cannot be called off for a change of
- * view: Reanimated reads it from the element being removed, and that element's
- * last render was the one before anything knew a change was coming. So it fired
- * on every switch, and it fires by holding the outgoing views on screen for its
- * whole duration — which put both lists' rows in the tree at once, in the frames
- * the new one was being built.
- *
- * What it cost within a view was a group fading rather than closing when it is
- * folded shut. The rows around it still slide, since they animate their own
- * layout, so the fold still reads as one movement.
- */
 
 interface Props {
   mode: 'all' | 'inbox' | 'today';
@@ -177,8 +143,6 @@ const TaskListBody = memo(
   } = useTasks();
   const now = new Date();
 
-  // Hosts every group's DragList; passed down so dragging auto-scrolls the page.
-  const scrollRef = useAnimatedRef<Animated.ScrollView>();
   const listRef = useRef<VirtualTaskListRef>(null);
   const listHandle = useRef<VirtualTaskListHandle>(null);
 
@@ -286,7 +250,6 @@ const TaskListBody = memo(
     if (previousViewKey.current === key) return;
     previousViewKey.current = key;
     closeOpenSwipeRow();
-    scrollRef.current?.scrollTo({ y: 0, animated: false });
     listRef.current?.scrollToOffset({ offset: 0, animated: false });
     setSelectionMode(false);
     setSelectedIds((current) => current.length > 0 ? [] : current);
@@ -301,7 +264,7 @@ const TaskListBody = memo(
     setPickerTask(null);
     setPickerAt(null);
     setFoldStop(null);
-  }, [key, scrollRef]);
+  }, [key]);
 
   /**
    * The row the context-menu flow is currently acting on, whether that is the
@@ -601,29 +564,7 @@ const TaskListBody = memo(
    * go off screen, when it comes along at the edge it went past.
    */
   const scrollLines = (lines: number) => {
-    if (VIRTUALIZED) return listHandle.current?.scrollLines(lines);
-    const scroller = scrollRef.current as unknown as HTMLElement | null;
-    const rows = Array.from(scroller?.querySelectorAll?.<HTMLElement>('[data-task-row], [data-fold-header]') ?? []);
-    if (!scroller || rows.length === 0) return;
-    scroller.scrollTop += lines * rows[0].getBoundingClientRect().height;
-    const view = scroller.getBoundingClientRect();
-    const inView = (el: Element) => {
-      const { top, bottom } = el.getBoundingClientRect();
-      return top >= view.top && bottom <= view.bottom;
-    };
-    const current = onFoldStop
-      ? scroller.querySelector(`[data-fold-header="${CSS.escape(foldStop!)}"]`)
-      : cursor
-        ? scroller.querySelector(`[data-task-row="${CSS.escape(cursor)}"]`)
-        : null;
-    if (!current || inView(current)) return;
-    const visible = rows.filter(inView);
-    const edge = lines > 0 ? visible[0] : visible[visible.length - 1];
-    if (!edge) return;
-    const taskId = edge.dataset.taskRow;
-    moveToStop(
-      taskId ? stops.find((s) => s.taskId === taskId) : stops.find((s) => s.taskId === null && s.groupKey === edge.dataset.foldHeader)
-    );
+    listHandle.current?.scrollLines(lines);
   };
   /**
    * A task just added from this view, until the list has drawn it.
@@ -664,50 +605,6 @@ const TaskListBody = memo(
   const onAdded = (id: string | undefined) => {
     if (id) justAdded.current = id;
   };
-  /**
-   * Brings the cursor's row into view on the web, as `VirtualTaskList` does
-   * natively. The web column is fully built, so the row is always on the page
-   * to find; it comes in at whichever edge it was past, the least scrolling
-   * that shows it.
-   *
-   * A row that has only just been added isn't where it will end up yet: the
-   * column places its rows itself once it has measured them, some frames
-   * later, and grows to fit after that. So it is followed for a short while,
-   * and brought back into view whenever it or the column moves. A row already
-   * in place never moves, so scrolling away from it isn't fought.
-   */
-  const revealSelector = Platform.OS !== 'web'
-    ? null
-    : onFoldStop
-    ? `[data-fold-header="${CSS.escape(foldStop!)}"]`
-    : cursor
-      ? `[data-task-row="${CSS.escape(cursor)}"]`
-      : null;
-  useEffect(() => {
-    if (Platform.OS !== 'web' || !revealSelector) return;
-    const scroller = scrollRef.current as unknown as HTMLElement | null;
-    let frame = 0;
-    let placed: string | null = null;
-    const reveal = (framesLeft: number) => {
-      const row = scroller?.querySelector?.(revealSelector);
-      if (!scroller || !row) return;
-      const view = scroller.getBoundingClientRect();
-      const { top, bottom } = row.getBoundingClientRect();
-      // Where the row sits in the column, which scrolling doesn't change, and
-      // how tall the column is.
-      const at = `${top - view.top + scroller.scrollTop}:${scroller.scrollHeight}`;
-      if (at !== placed) {
-        placed = at;
-        const above = top - REVEAL_MARGIN - view.top;
-        const below = bottom + REVEAL_MARGIN - view.bottom;
-        const by = above < 0 ? above : below > 0 ? below : 0;
-        if (by !== 0) scroller.scrollTop += by;
-      }
-      if (framesLeft > 0) frame = requestAnimationFrame(() => reveal(framesLeft - 1));
-    };
-    reveal(REVEAL_SETTLE_FRAMES);
-    return () => cancelAnimationFrame(frame);
-  }, [revealSelector, scrollRef]);
   const extendTo = (delta: 1 | -1) => {
     if (!cursor) return stepTo(delta);
     // With nothing selected the range starts here, wherever the cursor came from.
@@ -1022,50 +919,9 @@ const TaskListBody = memo(
   useCommand('sortByPriority', sortBy('priority'), true, options.sortBy === 'priority');
 
   /**
-   * The web's grouped rows, which are all built rather than virtualized.
-   *
-   * Drawn by the same renderers as the virtualized list, and for the same
-   * reason: a row's version is its marks, its neighbour and those renderers, so
-   * a cursor move redraws the two rows it moved between and `DragList` skips
-   * the rest. Rebuilding every row on each key press was most of what one cost
-   * on a long list.
-   */
-  const renderTaskCard = (group: TaskGroup) => {
-    const tasks = group.tasks;
-    const marks = tasks.map((task) => rowMark(task.id, group.key));
-    return (
-    <Card style={{ marginHorizontal: 12 }}>
-      <DragList
-        items={tasks}
-        keyExtractor={(task) => task.id}
-        enabled={canReorder}
-        immediateChanges
-        scrollableRef={scrollRef}
-        onReorder={(ids, moved) => handleReorder(group.key, ids, moved)}
-        dragCount={virtualDragCount}
-        itemVersion={(_task, i) =>
-          `${rendererEpoch}.${group.key}.${marks[i]}.${i < tasks.length - 1 ? `${marks[i + 1]}.${tasks[i + 1].id}` : ''}`
-        }
-        renderItem={(task, i) => {
-          const next = tasks[i + 1];
-          return (
-            // How the cursor's row is found to bring it into view.
-            <View {...({ dataSet: { taskRow: task.id } } as object)}>
-              {renderVirtualRow(task, { groupKey: group.key, mark: marks[i] })}
-              {next && renderVirtualDivider(task, next, false, marks[i], marks[i + 1])}
-            </View>
-          );
-        }}
-      />
-    </Card>
-    );
-  };
-
-  /**
-   * The same row and divider as `renderTaskCard` and the completed card, for the
-   * virtualized list, which lays them out itself. A group's hide rules follow
-   * the group the row is drawn under, since a task under two tags appears once
-   * in each.
+   * A row and the divider under it, for the virtualized list, which lays them
+   * out itself. A group's hide rules follow the group the row is drawn under,
+   * since a task under two tags appears once in each.
    *
    * Both keep their identity across a move of the cursor, which is what lets
    * the list skip every cell the cursor didn't touch (see `TaskCell`). So what
@@ -1204,15 +1060,6 @@ const TaskListBody = memo(
     },
     [listsById, selectedRowBg]
   );
-  /**
-   * Counts each new pair of renderers, for the web rows' version: a row skipped
-   * while either had changed would keep drawing what the old pair drew.
-   */
-  const renderers = useRef({ row: renderVirtualRow, divider: renderVirtualDivider, epoch: 0 });
-  if (renderers.current.row !== renderVirtualRow || renderers.current.divider !== renderVirtualDivider) {
-    renderers.current = { row: renderVirtualRow, divider: renderVirtualDivider, epoch: renderers.current.epoch + 1 };
-  }
-  const rendererEpoch = renderers.current.epoch;
   const virtualDragCount = useCallback(
     (id: string) => (live.current.isSelected(id) ? live.current.selectionCount : 1),
     []
@@ -1321,7 +1168,6 @@ const TaskListBody = memo(
       )}
 
       <ListKeys focusKey={keyFocus}>
-      {VIRTUALIZED ? (
         <VirtualTaskList
           ref={listRef}
           groups={groups}
@@ -1353,107 +1199,6 @@ const TaskListBody = memo(
             wide && styles.paneWide,
           ]}
         />
-      ) : (
-        <Animated.ScrollView
-          ref={scrollRef}
-          refreshControl={refreshControl}
-          // Scrolling away from an open row is how you dismiss it everywhere else.
-          onScrollBeginDrag={closeOpenSwipeRow}
-          contentContainerStyle={[
-            styles.scrollContent,
-            !DESKTOP_UI && styles.scrollContentFab,
-            FLOATING_TAB_BAR && !wide && { paddingBottom: bottomChrome },
-            wide && styles.paneWide,
-          ]}
-          keyboardShouldPersistTaps="handled"
-        >
-          {active.length === 0 && <Text style={styles.empty}>Nothing here. Nice work.</Text>}
-
-          {active.length > 0 &&
-            (grouped ? (
-              groups.map((group) => {
-                const collapsed = sections.isGroupCollapsed(group.key);
-                return (
-                  <Animated.View
-                    key={group.key}
-                    layout={switchingView ? undefined : GROUP_LAYOUT}
-                    style={styles.group}
-                  >
-                    <View
-                      style={{ marginHorizontal: 6 }}
-                      // How a folded header holding the cursor is found to bring it into view.
-                      {...({ dataSet: collapsed ? { foldHeader: group.key } : undefined } as object)}
-                    >
-                      <SectionHeader
-                        label={group.label}
-                        count={group.tasks.length}
-                        color={group.color}
-                        collapsed={collapsed}
-                        onToggle={() => sections.toggleGroup(group.key)}
-                        current={onFoldStop && foldStop === group.key}
-                        muted={!listHasKeyboard}
-                      />
-                    </View>
-                    {!collapsed && group.tasks.length > 0 && (
-                      <Animated.View
-                        entering={switchingView ? undefined : GROUP_ENTER}
-                        layout={switchingView ? undefined : GROUP_LAYOUT}
-                      >
-                        {renderTaskCard(group)}
-                      </Animated.View>
-                    )}
-                  </Animated.View>
-                );
-              })
-            ) : (
-              renderTaskCard(groups[0])
-            ))}
-
-          {completed.length > 0 && (
-            <Animated.View layout={switchingView ? undefined : GROUP_LAYOUT}>
-              <View style={{ marginHorizontal: 6 }}>
-                <SectionHeader
-                  label={`Completed · ${completed.length}`}
-                  collapsed={sections.completedCollapsed}
-                  onToggle={sections.toggleCompleted}
-                />
-              </View>
-              {!sections.completedCollapsed && (
-                <Animated.View
-                  entering={switchingView ? undefined : GROUP_ENTER}
-                  layout={switchingView ? undefined : GROUP_LAYOUT}
-                >
-                  <Card style={{ marginHorizontal: 12 }}>
-                    {completed.map((task, i) => (
-                      <View key={task.id}>
-                        <TaskRow
-                          task={task}
-                          list={task.listId ? listsById.get(task.listId) : undefined}
-                          now={now}
-                          selectionMode={selectionMode}
-                          active={openTaskId === task.id && !selectedIds.includes(task.id)}
-                          showContext={rowContext}
-                          selected={selectedIds.includes(task.id)}
-                          onPress={() =>
-                            selectionMode ? toggleSelected(task.id) : openTask(task.id)
-                          }
-                          onToggleComplete={() => toggleComplete(task.id)}
-                          onToday={() => scheduleToday(task.id)}
-                          onLater={() => snoozeTask(task.id)}
-                          onNextWeek={() => scheduleNextWeek(task.id)}
-                        />
-                        {i < completed.length - 1 && (
-                          <Divider railColor={task.listId ? listsById.get(task.listId)?.color : undefined} />
-                        )}
-                      </View>
-                    ))}
-                  </Card>
-                </Animated.View>
-              )}
-            </Animated.View>
-          )}
-        </Animated.ScrollView>
-      )}
       </ListKeys>
 
       {!DESKTOP_UI && canQuickAdd && (
@@ -1649,30 +1394,12 @@ const useStyles = makeStyles((c) => ({
     fontSize: 16,
     color: c.textPrimary,
   },
-  scrollContent: {
-    /**
-     * Stretches the content to the viewport when there is less than a screenful
-     * of it, so the scrollable area reaches the bottom instead of ending under
-     * the last row.
-     *
-     * The ScrollView's own frame already fills the screen — RN gives it
-     * `flexGrow: 1` in its base style. What stops short is the content inside
-     * it, and the content is what you can pull on: below it the drag finds the
-     * frame's empty backing rather than anything scrollable, so pull-to-refresh
-     * only answers in the band the rows happen to occupy. On a list with two
-     * tasks that is a couple of hundred points at the top of an otherwise
-     * reachable screen.
-     *
-     * `flexGrow` rather than `flex`, and on the content rather than the frame:
-     * a full screenful must still be free to run past the bottom and scroll.
-     */
-    flexGrow: 1,
-    paddingBottom: 24,
-    gap: 12,
-  },
   /**
-   * `scrollContent` without the gap: the virtualized list's children are its
-   * rows, and the spacing between groups is drawn by their headers instead.
+   * Stretches the content to the viewport when there is less than a screenful
+   * of it, so the scrollable area reaches the bottom instead of ending under the
+   * last row, and pull-to-refresh answers anywhere on the screen rather than
+   * only in the band the rows happen to occupy. `flexGrow` rather than `flex`: a
+   * full screenful must still be free to run past the bottom and scroll.
    */
   listContent: {
     flexGrow: 1,
@@ -1687,19 +1414,9 @@ const useStyles = makeStyles((c) => ({
     // Over the list below it, which the chips' tooltips hang down into.
     zIndex: 1,
   },
-  group: {
-    gap: 2,
-  },
   /** Keeps the list at a readable width instead of stretching across a desktop window. */
   paneWide: {
     width: '100%',
     maxWidth: PANE_MAX_WIDTH,
-  },
-  empty: {
-    textAlign: 'center',
-    marginTop: 32,
-    fontFamily: fonts.sansRegular,
-    fontSize: 15,
-    color: c.textTertiary,
   },
 }));
