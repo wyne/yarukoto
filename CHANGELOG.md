@@ -1,5 +1,26 @@
 # Changelog
 
+## [1.6.1](https://github.com/wyne/yarukoto/compare/v1.6.0...v1.6.1) (2026-11-03)
+
+
+### Bug Fixes
+
+* add a Badge count setting and split the menu bar into Overdue and Today ([#297](https://github.com/wyne/yarukoto/issues/297)) ([6a3fa9b](https://github.com/wyne/yarukoto/commit/6a3fa9bade8bc8a309aec89358ff15b968cf026e))
+* call the Browse view Search ([#292](https://github.com/wyne/yarukoto/issues/292)) ([a884416](https://github.com/wyne/yarukoto/commit/a88441688d3d6badabae6b855bdb900d68c72699))
+* preserve command palette selection while typing quickly ([#298](https://github.com/wyne/yarukoto/issues/298)) ([d58f069](https://github.com/wyne/yarukoto/commit/d58f0698cf729e222573950ce38d859a39142d55))
+* use a pulse icon for Activity in the sidebar ([#293](https://github.com/wyne/yarukoto/issues/293)) ([3161cec](https://github.com/wyne/yarukoto/commit/3161cecbf9db8d70bef2882501d57e93f50acab5))
+
+
+### Performance
+
+* parse the cached snapshot once at startup and drop an unused font ([#291](https://github.com/wyne/yarukoto/issues/291)) ([1e2bdab](https://github.com/wyne/yarukoto/commit/1e2bdab2034519572a25a6c2bbfd0d031d748222))
+* redraw only the web list rows a key press changes ([#295](https://github.com/wyne/yarukoto/issues/295)) ([afd0431](https://github.com/wyne/yarukoto/commit/afd043119f1ba8311982e03dc1838d8acc4d63bc))
+
+
+### Documentation
+
+* escape the { and } keys on the docs home page so MDX builds ([#290](https://github.com/wyne/yarukoto/issues/290)) ([b8b5cdf](https://github.com/wyne/yarukoto/commit/b8b5cdf6805dd14bda67515951d41c99a972b033))
+
 ## [1.6.0](https://github.com/wyne/yarukoto/compare/v1.5.0...v1.6.0) (2026-10-28)
 
 
