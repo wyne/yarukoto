@@ -3,6 +3,7 @@ import MacStatusItem from '../../modules/mac-status-item/src/MacStatusItem';
 import { statusMenuContents } from '../data/macStatusMenu';
 import { MAC } from '../data/platform';
 import { useTasks } from '../data/TaskContext';
+import { useBadgeCount } from '../data/badgeCountSetting';
 import { useShowTask } from './showTask';
 import { dispatchCommand, useCommand } from './MenuCommands';
 
@@ -24,6 +25,7 @@ const RECHECK_MS = 60_000;
  */
 export default function MacStatusMenu() {
   const { state, toggleComplete } = useTasks();
+  const setting = useBadgeCount();
   const [minute, setMinute] = useState(0);
 
   // File ▸ Close, ⌘W. Native decides whether that hides or quits.
@@ -38,12 +40,12 @@ export default function MacStatusMenu() {
   const sent = useRef('');
   useEffect(() => {
     if (!MAC || !MacStatusItem) return;
-    const contents = statusMenuContents(state.tasks, new Date());
+    const contents = statusMenuContents(state.tasks, new Date(), setting);
     const key = JSON.stringify(contents);
     if (key === sent.current) return;
     sent.current = key;
-    MacStatusItem.setTasks(contents.tasks, contents.more, contents.count);
-  }, [state.tasks, minute]);
+    MacStatusItem.setSections(contents.sections, contents.count);
+  }, [state.tasks, setting, minute]);
 
   // Unmounted when the app leaves the account for the first-run screen
   // (disconnect, a revoked sign-in): the menu bar mustn't keep that account's
