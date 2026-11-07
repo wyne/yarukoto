@@ -1,7 +1,7 @@
 import { FolderDef, GroupBy, ListDef, Priority, SortBy, Task, ViewPref } from './types';
 import { DueBucket, addDays, dueBucket, startOfDay, toISODate } from '@yarukoto/domain/dates';
 import { orderedLists } from './selectors';
-import { fromISODate, monthShort, weekdayShort } from './dateUtils';
+import { fromISODate, monthDayLabel, weekdayShort } from './dateUtils';
 
 export type { GroupBy, SortBy };
 
@@ -291,7 +291,7 @@ export function groupByDay(tasks: Task[], options: ViewOptions, now: Date, days:
           ? 'Today'
           : offset === 1
           ? 'Tomorrow'
-          : `${weekdayShort(date)} ${monthShort(date)} ${date.getDate()}`,
+          : `${weekdayShort(date)} ${monthDayLabel(date, now)}`,
       tasks: [],
     };
   });
