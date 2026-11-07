@@ -5,7 +5,7 @@ import { makeStyles } from '../../theme/styles';
 import { fonts } from '../../theme/typography';
 import { useAccent, useColors, useScheme } from '../../theme/ThemeContext';
 import { useFieldFocus } from '../../theme/focus';
-import { formatTime24to12, fromISODate, toISODate } from '../../data/dateUtils';
+import { formatDueFull, formatTime24to12, fromISODate, toISODate } from '../../data/dateUtils';
 import ThemedAndroidDateTimeDialog from './ThemedAndroidDateTimeDialog';
 
 interface Props {
@@ -90,7 +90,7 @@ export default function DueDateTimeControls({
     if (done) finish();
   };
   const dateLabel = date
-    ? fromISODate(date).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })
+    ? formatDueFull(date, undefined, now)
     : 'Pick a date';
   const timeLabel = time ? formatTime24to12(time) : 'None';
 

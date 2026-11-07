@@ -3,7 +3,7 @@ import { LayoutChangeEvent, Text, View } from 'react-native';
 import { makeStyles } from '../../theme/styles';
 import { fonts } from '../../theme/typography';
 import { useAccent } from '../../theme/ThemeContext';
-import { monthShort, toISODate, weekdayShort } from '../../data/dateUtils';
+import { monthDayLabel, toISODate, weekdayShort } from '../../data/dateUtils';
 import { ListDef, Task } from '../../data/types';
 import Card from '../../components/Card';
 import Divider from '../../components/Divider';
@@ -126,7 +126,7 @@ export default function AgendaDayGroup({
       ]}
     >
       <Text style={[styles.header, droppable && isDropDay && { color: accent }]}>
-        {weekdayShort(date)}, {monthShort(date)} {date.getDate()} · {tasks.length} task
+        {weekdayShort(date)}, {monthDayLabel(date, now)} · {tasks.length} task
         {tasks.length === 1 ? '' : 's'}
       </Text>
       <Card>
