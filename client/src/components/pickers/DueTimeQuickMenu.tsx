@@ -8,11 +8,13 @@ interface Props {
   time?: string;
   onChange: (time: string | undefined) => void;
   onPickTime: () => void;
+  /** Called once a choice is made in the menu itself, so a field can take focus back. */
+  onDone?: () => void;
   children: React.ReactNode;
   style?: StyleProp<ViewStyle>;
 }
 
-export default function DueTimeQuickMenu({ time, onChange, onPickTime, children, style }: Props) {
+export default function DueTimeQuickMenu({ time, onChange, onPickTime, onDone, children, style }: Props) {
   const actions: MenuAction[] = [
     ...QUICK_TIMES.map((item) => ({
       id: item.id,
@@ -39,6 +41,7 @@ export default function DueTimeQuickMenu({ time, onChange, onPickTime, children,
 
     if (QUICK_TIMES.some((item) => item.id === id)) {
       onChange(id);
+      onDone?.();
       return;
     }
     if (id === 'pick') {
@@ -47,6 +50,7 @@ export default function DueTimeQuickMenu({ time, onChange, onPickTime, children,
     }
     if (id === 'clear') {
       onChange(undefined);
+      onDone?.();
     }
   };
 
@@ -57,6 +61,7 @@ export default function DueTimeQuickMenu({ time, onChange, onPickTime, children,
         time={time}
         accessibilityLabel={time ? `Time, ${time}` : 'Time, none'}
         onChange={(_, dueTime) => onChange(dueTime)}
+        onDone={onDone}
         style={style}
       >
         {children}

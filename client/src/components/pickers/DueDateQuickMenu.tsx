@@ -4,7 +4,7 @@ import MenuView, { type MenuAction, type NativeActionEvent } from '../NativeMenu
 import { makeStyles } from '../../theme/styles';
 import { fonts } from '../../theme/typography';
 import { useAccent } from '../../theme/ThemeContext';
-import { formatDueFull, formatTime24to12 } from '../../data/dateUtils';
+import { formatDueFull } from '../../data/dateUtils';
 import WebDateTimeQuickMenu from './WebDateTimeQuickMenu';
 import { QUICK_DATES } from './dateTimeQuickOptions';
 
@@ -13,7 +13,6 @@ interface Props {
   time?: string;
   onChange: (date: string | undefined, time: string | undefined) => void;
   onCustomDate: () => void;
-  onCustomTime?: () => void;
   onDone?: () => void;
   children?: React.ReactNode;
   style?: StyleProp<ViewStyle>;
@@ -25,7 +24,6 @@ export default function DueDateQuickMenu({
   time,
   onChange,
   onCustomDate,
-  onCustomTime,
   onDone,
   children,
   style,
@@ -43,15 +41,6 @@ export default function DueDateQuickMenu({
       image: 'calendar' as const,
       state: quickValues[item.id] === date ? ('on' as const) : undefined,
     })),
-    ...(date && onCustomTime
-      ? [
-          {
-            id: 'time',
-            title: time ? `Time: ${formatTime24to12(time)}` : 'Time',
-            image: 'clock' as const,
-          },
-        ]
-      : []),
     {
       id: 'custom',
       title: 'Pick date',
@@ -73,10 +62,6 @@ export default function DueDateQuickMenu({
     if (quickDate) {
       onChange(quickDate, time);
       onDone?.();
-      return;
-    }
-    if (id === 'time') {
-      onCustomTime?.();
       return;
     }
     if (id === 'custom') {
@@ -101,7 +86,6 @@ export default function DueDateQuickMenu({
         mode="date"
         date={date}
         time={time}
-        showTimeShortcut={!!onCustomTime}
         onChange={onChange}
         onDone={onDone}
         clearLabel={clearLabel}
