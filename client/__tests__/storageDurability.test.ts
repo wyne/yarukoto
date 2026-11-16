@@ -155,6 +155,19 @@ describe('device-local view state', () => {
     expect(mockAsyncData['yarukoto.collapsedFolders']).toBeUndefined();
   });
 
+  test('keeps a dragged sidebar width, and stores the default as nothing', async () => {
+    const storage = await fresh({ 'yarukoto.sidebarWidth': 'wide' });
+    expect(storage.loadSidebarWidth()).toBeNull();
+
+    storage.saveSidebarWidth(312.6);
+    expect(mockAsyncData['yarukoto.sidebarWidth']).toBe('313');
+    expect(storage.loadSidebarWidth()).toBe(313);
+
+    storage.saveSidebarWidth(null);
+    expect(storage.loadSidebarWidth()).toBeNull();
+    expect(mockAsyncData['yarukoto.sidebarWidth']).toBeUndefined();
+  });
+
   test('keeps one current credential per saved server', async () => {
     const storage = await fresh({
       'yarukoto.savedServers': [

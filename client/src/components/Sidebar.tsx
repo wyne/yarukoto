@@ -37,6 +37,7 @@ import {
   useDrawerState,
   useSidebar,
   useSidebarCollapsed,
+  useSidebarWidth,
 } from '../navigation/SidebarContext';
 import NavContextMenu, { NavMenuTarget } from './NavContextMenu';
 import ContextMenuTarget from './ContextMenuTarget';
@@ -224,6 +225,7 @@ const Sidebar = React.memo(function Sidebar({ state, navigation, onNavigate }: P
   } | null>(null);
   const { wide, railOnly, toggleCollapsed, openDrawer, openServer, openNavSheet } = useSidebar();
   const collapsedPref = useSidebarCollapsed();
+  const { width: pinnedWidth } = useSidebarWidth();
   const scrollRef = useAnimatedRef<Animated.ScrollView>();
   const scrollOffset = useScrollViewOffset(scrollRef);
   /**
@@ -255,6 +257,8 @@ const Sidebar = React.memo(function Sidebar({ state, navigation, onNavigate }: P
   // The drawer is a transient overlay, so it always shows the full sidebar —
   // including when it is opened over a rail-only window's rail.
   const collapsed = wide && !inDrawer && collapsedPref;
+  // The drawer keeps the default width: it is sized for the panel that slides, not dragged.
+  const fullWidth = wide && !inDrawer ? pinnedWidth : SIDEBAR_WIDTH;
   const insets = useSafeAreaInsets();
   const winHeight = useWindowSelector((window) => window.height);
   const { state: data, reorderList, reorderFolder, supportsFeature } = useTasks();
@@ -762,7 +766,7 @@ const Sidebar = React.memo(function Sidebar({ state, navigation, onNavigate }: P
 
   const sidebarStyle = [
     styles.sidebar,
-    collapsed && { width: SIDEBAR_COLLAPSED_WIDTH },
+    { width: collapsed ? SIDEBAR_COLLAPSED_WIDTH : fullWidth },
     { paddingTop: insets.top + 14 },
   ];
 
@@ -1015,7 +1019,7 @@ const Sidebar = React.memo(function Sidebar({ state, navigation, onNavigate }: P
           // second Modal presented from within one never appears on iOS. Drawn
           // into the sidebar instead, which fills the height it needs.
           inline
-          bounds={{ width: SIDEBAR_WIDTH, height: winHeight }}
+          bounds={{ width: fullWidth, height: winHeight }}
           target={menuTarget}
           at={menuAt}
           onClose={closeMenu}

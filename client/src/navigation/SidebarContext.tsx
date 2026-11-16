@@ -4,12 +4,29 @@ import { Easing, useSharedValue, withTiming } from 'react-native-reanimated';
 import type { SharedValue } from 'react-native-reanimated';
 import { useWindowSelector } from '../components/useWindowSelector';
 import { FINE_POINTER } from '../data/platform';
-import { loadSidebarRail, saveSidebarRail } from '../data/storage';
+import { loadSidebarRail, loadSidebarWidth, saveSidebarRail, saveSidebarWidth } from '../data/storage';
 
 /** Narrower on the desktop, where the rows are denser and a window has less to give. */
 export const SIDEBAR_WIDTH = FINE_POINTER ? 280 : 300;
 /** Icon-only rail when the pinned sidebar is collapsed. */
 export const SIDEBAR_COLLAPSED_WIDTH = 64;
+
+/**
+ * The range the pinned sidebar can be dragged across.
+ *
+ * Narrower than the minimum, list names are cut to a few letters and the rail
+ * says as much in less room, so a drag past it snaps to the rail instead. Wider
+ * than the maximum takes room from the list without showing more of the nav.
+ */
+export const SIDEBAR_MIN_WIDTH = 180;
+export const SIDEBAR_MAX_WIDTH = 360;
+
+/**
+ * Only with a pointer. A finger has nothing to drag at the edge of a pinned
+ * sidebar that a scroll or a swipe would not also want, and a tablet's sidebar
+ * is sized for its touch targets rather than its text.
+ */
+export const SIDEBAR_RESIZABLE = FINE_POINTER;
 
 /**
  * The narrowest list a desktop window keeps beside the pinned sidebar.
@@ -117,6 +134,23 @@ interface SidebarValue {
   closeNavSheet: () => void;
 }
 
+interface SidebarWidthValue {
+  /**
+   * The full pinned sidebar's width as drawn: the width it was dragged to,
+   * narrowed where the window would otherwise leave the list less than
+   * `DESKTOP_LIST_MIN_WIDTH`. The chosen width is kept for when it widens.
+   */
+  width: number;
+  /** The widest a drag can take it in this window. */
+  maxWidth: number;
+  /** Clamped to the range. `save` is for the end of a drag, not every frame of it. */
+  setWidth: (width: number, save?: boolean) => void;
+  /** Back to the default width, out of the rail if it was in it. */
+  resetWidth: () => void;
+  /** The rail, explicitly — a drag snaps to it rather than toggling. */
+  setRail: (rail: boolean) => void;
+}
+
 interface DrawerStateValue {
   drawerOpen: boolean;
   closeDrawer: () => void;
@@ -132,6 +166,19 @@ const DrawerStateContext = createContext<DrawerStateValue | null>(null);
  * re-rendered all of them before the sidebar could move, which is what made ⌘S lag.
  */
 const CollapsedContext = createContext(false);
+/**
+ * The pinned sidebar's width, isolated for the same reason: a drag sets it on
+ * every frame, and only the sidebar and the row it sits in are sized by it.
+ */
+const SidebarWidthContext = createContext<SidebarWidthValue>({
+  width: SIDEBAR_WIDTH,
+  maxWidth: SIDEBAR_WIDTH,
+  setWidth: () => {},
+  resetWidth: () => {},
+  setRail: () => {},
+});
+
+const clampWidth = (width: number) => Math.min(Math.max(width, SIDEBAR_MIN_WIDTH), SIDEBAR_MAX_WIDTH);
 
 export function SidebarProvider({ children }: { children: React.ReactNode }) {
   // Below the wide breakpoint a desktop window keeps the sidebar as its icon
@@ -145,6 +192,21 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
   const railOnly = layout === 'rail';
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(loadSidebarRail);
+  const [chosenWidth, setChosenWidth] = useState(() => {
+    const stored = SIDEBAR_RESIZABLE ? loadSidebarWidth() : null;
+    return stored === null ? SIDEBAR_WIDTH : clampWidth(stored);
+  });
+  /**
+   * The widest sidebar that still leaves the list its room. Never below the
+   * default: under `WIDE_BREAKPOINT` the window drops to the rail anyway, so a
+   * dragged width only ever gives back what it took beyond the default, and the
+   * breakpoint stays where it was before the sidebar could be resized.
+   */
+  const roomForSidebar = useWindowSelector((window) =>
+    SIDEBAR_RESIZABLE
+      ? Math.min(SIDEBAR_MAX_WIDTH, Math.max(SIDEBAR_WIDTH, window.width - DESKTOP_LIST_MIN_WIDTH))
+      : SIDEBAR_WIDTH
+  );
   const [serverOpen, setServerOpen] = useState(false);
   const [serverPairCode, setServerPairCode] = useState<string | null>(null);
   const [navSheet, setNavSheet] = useState<NavSheet | null>(null);
@@ -205,6 +267,35 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  const setRail = useCallback((rail: boolean) => {
+    setCollapsed(rail);
+    saveSidebarRail(rail);
+  }, []);
+
+  const setWidth = useCallback((width: number, save?: boolean) => {
+    const next = clampWidth(width);
+    setChosenWidth(next);
+    // The default is stored as nothing, so a later change of default reaches it.
+    if (save) saveSidebarWidth(next === SIDEBAR_WIDTH ? null : next);
+  }, []);
+
+  const resetWidth = useCallback(() => {
+    setChosenWidth(SIDEBAR_WIDTH);
+    saveSidebarWidth(null);
+    setRail(false);
+  }, [setRail]);
+
+  const widthValue = useMemo<SidebarWidthValue>(
+    () => ({
+      width: Math.min(chosenWidth, roomForSidebar),
+      maxWidth: roomForSidebar,
+      setWidth,
+      resetWidth,
+      setRail,
+    }),
+    [chosenWidth, roomForSidebar, setWidth, resetWidth, setRail]
+  );
+
   const value = useMemo<SidebarValue>(
     () => ({
       wide,
@@ -238,7 +329,9 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
     <SidebarContext.Provider value={value}>
       <DrawerStateContext.Provider value={drawerState}>
         {/* A rail-only window shows the rail whatever the preference, which is kept for when it widens. */}
-        <CollapsedContext.Provider value={collapsed || railOnly}>{children}</CollapsedContext.Provider>
+        <CollapsedContext.Provider value={collapsed || railOnly}>
+          <SidebarWidthContext.Provider value={widthValue}>{children}</SidebarWidthContext.Provider>
+        </CollapsedContext.Provider>
       </DrawerStateContext.Provider>
     </SidebarContext.Provider>
   );
@@ -260,4 +353,9 @@ export function useDrawerState(): DrawerStateValue {
 /** Whether the pinned sidebar is a rail. Read only where that changes what is drawn. */
 export function useSidebarCollapsed(): boolean {
   return useContext(CollapsedContext);
+}
+
+/** The pinned sidebar's width, and the means to drag it. See `SidebarWidthValue`. */
+export function useSidebarWidth(): SidebarWidthValue {
+  return useContext(SidebarWidthContext);
 }
