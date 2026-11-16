@@ -22,10 +22,12 @@ import { useSyncRefresh } from '../data/useSyncRefresh';
 import { DESKTOP_UI, FINE_POINTER, FLOATING_TAB_BAR, MAC_KEYS } from '../data/platform';
 import {
   GroupBy,
+  GroupDimension,
   INBOX_GROUP_KEY,
   SortBy,
   ViewOptions,
   groupByDay,
+  groupDropPatch,
   LATER_REPEATS_KEY,
   groupTasks,
   laterRepeatsGroup,
@@ -43,6 +45,7 @@ import { useSelection } from '../navigation/SelectionContext';
 import { showPalettePicker, useCommand } from '../navigation/MenuCommands';
 import { commandDef, formatShortcut } from '../navigation/commands';
 import { showKeyHint } from '../navigation/keyHint';
+import { clearDateLabel } from '../data/reminders';
 import { showAddedNotice } from '../navigation/addedNotice';
 import { taskHome } from '../navigation/showTask';
 import { type ListStop, groupStop, listStops, rangeBetween, stepCursor, stepStop } from '../data/listCursor';
@@ -852,20 +855,42 @@ const TaskListBody = memo(
   // landed.
   const canReorder = !selectionMode;
 
+  /**
+   * The tasks a drag of row `id` in `groupKey` carries. Grabbing a row that is
+   * part of a selection takes the selected rows in the same group along;
+   * selected rows under other groups stay where they are, and the badge on the
+   * lifted row counts only what is coming.
+   */
+  const movingIdsFor = (id: string, groupKey: string): string[] => {
+    const group = groups.find((g) => g.key === groupKey);
+    if (!group || !isSelected(id) || webSelection.length < 2) return [id];
+    return group.tasks.filter((t) => webSelection.includes(t.id)).map((t) => t.id);
+  };
+
+  /** What a drop into another group changes, or null when that group can't take it. */
+  const dropDimension: GroupDimension = byDay ? 'day' : options.groupBy;
+  const acceptsDrop = (from: string, to: string, id: string) => {
+    const dropNow = new Date();
+    const moving = movingIdsFor(id, from).map((m) => state.tasks.find((t) => t.id === m));
+    const accepted = moving.every((t) => !!t && groupDropPatch(t, from, to, dropDimension, dropNow) !== null);
+    // No date turns away a task whose repeat or reminders would go with the
+    // date; point at the button that says so.
+    if (!accepted && dropDimension === 'date' && to === 'nodate') {
+      const label = moving.map((t) => t && clearDateLabel(t)).find(Boolean);
+      if (label) showKeyHint(`Use “${label}” in the task`);
+    }
+    return accepted;
+  };
+
   const handleReorder = (
     groupKey: string,
     nextIds: string[],
-    moved: { id: string; prevId: string | null; nextId: string | null }
+    moved: { id: string; prevId: string | null; nextId: string | null },
+    fromGroupKey: string
   ) => {
-    // Grabbing a row that is part of a selection drags the whole selection to
-    // where it lands; grabbing anything else drops the selection first, so a
+    // Grabbing anything outside the selection drops the selection first, so a
     // stray drag can never quietly rearrange rows you had picked out earlier.
-    const group = groups.find((g) => g.key === groupKey);
-    const dragged = isSelected(moved.id) ? webSelection : [];
-    const movingIds =
-      dragged.length > 1 && group
-        ? group.tasks.filter((t) => dragged.includes(t.id)).map((t) => t.id)
-        : [moved.id];
+    const movingIds = movingIdsFor(moved.id, fromGroupKey);
     if (movingIds.length === 1 && webSelection.length > 0 && !isSelected(moved.id)) {
       clearSelection();
     }
@@ -886,6 +911,17 @@ const TaskListBody = memo(
     else {
       const sequence = [...remaining.slice(0, at), ...movingIds, ...remaining.slice(at)];
       setArrangement(key, options.sortBy, groupKey, sequence);
+    }
+
+    // Landing in another group sets what that group stands for. Each task gets
+    // its own patch, since a tag swap keeps whatever other tags it has.
+    if (groupKey !== fromGroupKey) {
+      const dropNow = new Date();
+      for (const id of movingIds) {
+        const task = state.tasks.find((t) => t.id === id);
+        const patch = task && groupDropPatch(task, fromGroupKey, groupKey, dropDimension, dropNow);
+        if (patch) updateTask(id, patch);
+      }
     }
   };
 
@@ -954,7 +990,7 @@ const TaskListBody = memo(
     scheduleNextWeek,
     selectionMode,
     isSelected,
-    selectionCount: webSelection.length,
+    movingIdsFor,
   });
   live.current = {
     pressRow,
@@ -966,7 +1002,7 @@ const TaskListBody = memo(
     scheduleNextWeek,
     selectionMode,
     isSelected,
-    selectionCount: webSelection.length,
+    movingIdsFor,
   };
   // A row only reads the day, so the renderers below change at midnight, not
   // with each render's clock.
@@ -1075,7 +1111,7 @@ const TaskListBody = memo(
     [listsById, selectedRowBg]
   );
   const virtualDragCount = useCallback(
-    (id: string) => (live.current.isSelected(id) ? live.current.selectionCount : 1),
+    (id: string, groupKey: string) => live.current.movingIdsFor(id, groupKey).length,
     []
   );
 
@@ -1198,6 +1234,7 @@ const TaskListBody = memo(
           renderDivider={renderVirtualDivider}
           rowMark={rowMark}
           onReorder={handleReorder}
+          acceptsDrop={acceptsDrop}
           dragCount={DESKTOP_UI ? virtualDragCount : undefined}
           refreshControl={refreshControl}
           onScrollBeginDrag={closeOpenSwipeRow}

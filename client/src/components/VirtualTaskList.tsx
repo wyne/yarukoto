@@ -28,9 +28,10 @@ import { useFontScale } from '../theme/textScale';
  * of a single FlatList, so only what is near the screen exists, and a regroup
  * re-keys a screenful of rows rather than all of them.
  *
- * Rows only move within their own group. The library does not know about
- * groups, so a drop that lands outside the group it started in is ignored and
- * the row returns to where it was.
+ * The library does not know about groups. A drop is read back into one from
+ * the rows it landed between, and one the screen turns away — a group that
+ * can't take the row, or past the completed header — returns the row to where
+ * it was.
  */
 
 /**
@@ -89,13 +90,21 @@ interface Props {
   renderDivider: (task: Task, next: Task, completed: boolean, mark: number, nextMark: number) => React.ReactNode;
   /** `ROW_*` bits for a row; `groupKey` is null for a completed one. */
   rowMark: (id: string, groupKey: string | null) => number;
+  /**
+   * A row came to rest in `groupKey`, whose sequence is now `nextIds`.
+   * `fromGroupKey` is the group it was picked up from, the same one unless
+   * `acceptsDrop` let it cross.
+   */
   onReorder: (
     groupKey: string,
     nextIds: string[],
-    moved: { id: string; prevId: string | null; nextId: string | null }
+    moved: { id: string; prevId: string | null; nextId: string | null },
+    fromGroupKey: string
   ) => void;
-  /** How many rows a drag of this one carries, for the badge on the lifted row. */
-  dragCount?: (id: string) => number;
+  /** Whether row `id` may be dropped from group `from` into group `to`. Absent means never. */
+  acceptsDrop?: (from: string, to: string, id: string) => boolean;
+  /** How many rows a drag of this one, in this group, carries, for the badge on the lifted row. */
+  dragCount?: (id: string, groupKey: string) => number;
   contentContainerStyle?: StyleProp<ViewStyle>;
   refreshControl?: React.ReactElement<RefreshControlProps>;
   onScrollBeginDrag?: () => void;
@@ -143,6 +152,7 @@ const VirtualTaskList = forwardRef<FlatList<Item>, Props>(function VirtualTaskLi
     renderDivider,
     rowMark,
     onReorder,
+    acceptsDrop,
     dragCount,
     contentContainerStyle,
     refreshControl,
@@ -239,22 +249,36 @@ const VirtualTaskList = forwardRef<FlatList<Item>, Props>(function VirtualTaskLi
       rejectDrop();
       return;
     }
-    const groupKey = moving.groupKey;
-    // The group's rows are contiguous; find where they start and end.
-    let start = from;
-    while (start > 0 && sameGroup(items[start - 1], groupKey)) start--;
-    let end = from;
-    while (end < items.length - 1 && sameGroup(items[end + 1], groupKey)) end++;
-    if (to < start || to > end) {
+    const fromKey = moving.groupKey;
+    // Where the row came to rest, read off the rows it now sits between: the
+    // group of the row above, or of the header above when it lands first in a
+    // group. A folded group's header with nothing under it takes the row too.
+    const rest = items.filter((_, i) => i !== from);
+    const above = rest[to - 1];
+    const below = rest[to];
+    const toKey =
+      above?.kind === 'task'
+        ? above.groupKey
+        : above?.kind === 'header'
+        ? above.group.key
+        : above === undefined && below?.kind === 'task'
+        ? below.groupKey
+        : null;
+    if (toKey === null || (toKey !== fromKey && !acceptsDrop?.(fromKey, toKey, moving.task.id))) {
       rejectDrop();
       return;
     }
 
-    const ids = items.slice(start, end + 1).map((item) => (item as Extract<Item, { kind: 'task' }>).task.id);
-    const [id] = ids.splice(from - start, 1);
-    ids.splice(to - start, 0, id);
-    const at = to - start;
-    onReorder(groupKey, ids, { id, prevId: ids[at - 1] ?? null, nextId: ids[at + 1] ?? null });
+    const id = moving.task.id;
+    const target = groups.find((g) => g.key === toKey);
+    // The group's sequence with the row taken out, then put back where it
+    // landed. A task can already be in the group it is dropped on — tagged both
+    // — so it is taken out by id rather than by position.
+    const ids = (target?.tasks ?? []).map((t) => t.id).filter((t) => t !== id);
+    let at = 0;
+    if (above?.kind === 'task' && above.groupKey === toKey) at = ids.indexOf(above.task.id) + 1;
+    ids.splice(at, 0, id);
+    onReorder(toKey, ids, { id, prevId: ids[at - 1] ?? null, nextId: ids[at + 1] ?? null }, fromKey);
   };
 
   const listRef = useRef<FlatList<Item> | null>(null);
@@ -427,7 +451,7 @@ const VirtualTaskList = forwardRef<FlatList<Item>, Props>(function VirtualTaskLi
   latestDragCount.current = dragCount;
   const hasDragCount = !!dragCount;
   const stableDragCount = useMemo(
-    () => (hasDragCount ? (id: string) => latestDragCount.current?.(id) ?? 1 : undefined),
+    () => (hasDragCount ? (id: string, groupKey: string) => latestDragCount.current?.(id, groupKey) ?? 1 : undefined),
     [hasDragCount]
   );
 
@@ -602,7 +626,7 @@ const TaskCell = memo(function TaskCell({
   draggable: boolean;
   renderRow: Props['renderRow'];
   renderDivider: Props['renderDivider'];
-  dragCount?: (id: string) => number;
+  dragCount?: (id: string, groupKey: string) => number;
   mark: number;
   nextMark: number;
 }) {
@@ -635,16 +659,26 @@ const TaskCell = memo(function TaskCell({
           </Pressable>
         </View>
       )}
-      {dragCount && <DragCountBadge id={item.task.id} dragCount={dragCount} />}
+      {dragCount && item.groupKey !== null && (
+        <DragCountBadge id={item.task.id} groupKey={item.groupKey} dragCount={dragCount} />
+      )}
     </View>
   );
 });
 
 /** Split out so only the lifted row, not every row, reads the active state. */
-function DragCountBadge({ id, dragCount }: { id: string; dragCount: (id: string) => number }) {
+function DragCountBadge({
+  id,
+  groupKey,
+  dragCount,
+}: {
+  id: string;
+  groupKey: string;
+  dragCount: (id: string, groupKey: string) => number;
+}) {
   const styles = useStyles();
   const activeRow = useIsActive();
-  const count = activeRow ? dragCount(id) : 1;
+  const count = activeRow ? dragCount(id, groupKey) : 1;
   if (count <= 1) return null;
   return (
     <View pointerEvents="none" style={styles.count}>

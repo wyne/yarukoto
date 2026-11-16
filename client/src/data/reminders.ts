@@ -179,3 +179,12 @@ export function normalizeTaskPatch<T extends Partial<Task>>(patch: T): T {
   }
   return patch;
 }
+
+/** A reminder or a repeat counts from the date, so clearing it clears them; say so. */
+export function clearDateLabel(task: { reminders?: unknown[]; repeat?: unknown }): string | undefined {
+  const reminders = (task.reminders?.length ?? 0) > 0;
+  if (reminders && task.repeat) return 'Clear date, reminders and repeat';
+  if (reminders) return 'Clear date and reminders';
+  if (task.repeat) return 'Clear date and repeat';
+  return undefined;
+}

@@ -15,6 +15,7 @@ import { formatDueFull, formatTime24to12 } from '../data/dateUtils';
 import { confirmDestructive } from '../data/confirm';
 import { Priority } from '../data/types';
 import {
+  clearDateLabel,
   normalizeReminders,
   reminderOffsetLabel,
   reminderSummary,
@@ -54,15 +55,6 @@ import RichNotes, { RichNotesHandle } from './RichNotes';
 import KeyCommandsView from '../../modules/mac-pointer/src/KeyCommandsView';
 import { focusNextPane, focusPane, usePaneFocus } from '../navigation/focusPanes';
 import { useCommand } from '../navigation/MenuCommands';
-
-/** A reminder or a repeat counts from the date, so clearing it clears them; say so. */
-function clearDateLabel(task: { reminders?: unknown[]; repeat?: unknown }): string | undefined {
-  const reminders = (task.reminders?.length ?? 0) > 0;
-  if (reminders && task.repeat) return 'Clear date, reminders and repeat';
-  if (reminders) return 'Clear date and reminders';
-  if (task.repeat) return 'Clear date and repeat';
-  return undefined;
-}
 
 interface Props {
   taskId: string;
