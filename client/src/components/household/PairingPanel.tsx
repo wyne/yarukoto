@@ -156,19 +156,22 @@ export default function PairingPanel({ serverUrl, onApproved, onCancel }: Props)
 function SignInCode({ code }: { code: string }) {
   const styles = useStyles();
   const hoverBg = useHoverBg();
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState<'copied' | 'failed' | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   useEffect(() => () => clearTimeout(timer.current), []);
 
   const copy = async () => {
+    // A browser that refuses the write resolves false rather than throwing;
+    // saying Copied then would paste whatever was on the clipboard before.
+    let ok = false;
     try {
-      await Clipboard.setStringAsync(code);
+      ok = await Clipboard.setStringAsync(code);
     } catch {
-      return;
+      ok = false;
     }
-    setCopied(true);
+    setCopied(ok ? 'copied' : 'failed');
     clearTimeout(timer.current);
-    timer.current = setTimeout(() => setCopied(false), COPIED_MS);
+    if (ok) timer.current = setTimeout(() => setCopied(null), COPIED_MS);
   };
 
   const label = `Code ${code.split('').join(' ')}`;
@@ -192,11 +195,18 @@ function SignInCode({ code }: { code: string }) {
         onPress={copy}
         style={hoverBg(styles.copyBtn)}
         accessibilityRole="button"
-        accessibilityLabel={copied ? 'Code copied' : 'Copy code'}
+        accessibilityLabel={copied === 'copied' ? 'Code copied' : 'Copy code'}
         accessibilityLiveRegion="polite"
       >
-        <Text style={[styles.copyText, copied && styles.copiedText]}>{copied ? 'Copied' : 'Copy code'}</Text>
+        <Text style={[styles.copyText, copied === 'copied' && styles.copiedText]}>
+          {copied === 'copied' ? 'Copied' : 'Copy code'}
+        </Text>
       </HoverPressable>
+      {copied === 'failed' && (
+        <Text style={styles.copyFailed} accessibilityLiveRegion="polite">
+          Couldn't copy. Select the code above and copy it instead.
+        </Text>
+      )}
     </>
   );
 }
@@ -249,6 +259,13 @@ const useStyles = makeStyles((c) => ({
   },
   copiedText: {
     color: c.success,
+  },
+  copyFailed: {
+    marginTop: 6,
+    textAlign: 'center',
+    fontFamily: fonts.sansRegular,
+    fontSize: 13,
+    color: c.priorityHigh,
   },
   qrFrame: {
     marginTop: 14,
