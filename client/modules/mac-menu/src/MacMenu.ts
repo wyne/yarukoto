@@ -38,6 +38,8 @@ declare class MacMenuModule extends NativeModule<MacMenuEvents> {
   setEnabled(ids: string[]): Promise<void>;
   /** The options in use, which are drawn checked. */
   setChecked(ids: string[]): Promise<void>;
+  /** The window's title bar: the view in front, as a document window names its document. */
+  setWindowTitle(title: string): Promise<void>;
 }
 
 /**

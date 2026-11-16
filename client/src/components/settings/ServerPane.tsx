@@ -27,7 +27,7 @@ function formatBuiltAt(iso: string): string {
  * the saved-servers list so coming back is one tap.
  */
 export default function ServerPane({ onLeft }: { onLeft: () => void }) {
-  const { state } = useTasks();
+  const { state, serverName } = useTasks();
   const syncStatus = useSyncStatus();
   const [info, setInfo] = useState<ServerInfo | null | undefined>(undefined);
 
@@ -52,7 +52,7 @@ export default function ServerPane({ onLeft }: { onLeft: () => void }) {
         {/* The indicator names the host when all is well and the problem when not. */}
         <Row value={lastSyncedLabel(new Date(), syncStatus.lastSyncedAt)} mono>
           <View style={{ flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <SyncIndicator mode={state.mode} serverUrl={state.serverUrl} />
+            <SyncIndicator mode={state.mode} serverUrl={state.serverUrl} serverName={serverName} />
           </View>
         </Row>
         <Row divided title="Address" value={state.serverUrl} mono />

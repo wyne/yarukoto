@@ -1,4 +1,5 @@
 import ExpoModulesCore
+import UIKit
 
 /// One command from src/navigation/commands.ts, as JS sends it. See MacMenuBar.
 struct MenuCommandRecord: Record {
@@ -57,6 +58,14 @@ public final class MacMenuModule: Module {
 
     AsyncFunction("setChecked") { (ids: [String]) in
       MacMenuBar.setChecked(ids)
+    }.runOnQueue(.main)
+
+    // The Mac draws a window scene's title in its title bar and lists it under
+    // the Window menu. Every scene gets it: the app has one window.
+    AsyncFunction("setWindowTitle") { (title: String) in
+      for case let scene as UIWindowScene in UIApplication.shared.connectedScenes {
+        scene.title = title
+      }
     }.runOnQueue(.main)
   }
 }

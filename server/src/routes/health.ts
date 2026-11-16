@@ -10,6 +10,14 @@ export function registerHealthRoute(app: FastifyInstance): void {
     // The trash window is how long apps keep deleted rows before dropping them
     // themselves: purges never reach a device as a pull, because nothing is left
     // to pull.
-    reply.send({ ok: true, ...buildInfo, features: SERVER_FEATURES, trashRetentionDays: env.trashRetentionDays });
+    // `name` is display text the owner chose, nothing the apps act on, so it
+    // needs no feature id: an older server leaves it out and the host shows.
+    reply.send({
+      ok: true,
+      ...buildInfo,
+      features: SERVER_FEATURES,
+      trashRetentionDays: env.trashRetentionDays,
+      name: env.serverName,
+    });
   });
 }

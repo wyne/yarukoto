@@ -35,6 +35,7 @@ describe('server health and compatibility', () => {
       builtAt: null,
       features: ['taskReminders', 'futureFeature'],
       trashRetentionDays: 45,
+      name: ' Home ',
     });
 
     await expect(createApi('https://tasks.test///', 'token').health()).resolves.toEqual({
@@ -44,6 +45,7 @@ describe('server health and compatibility', () => {
       builtAt: null,
       features: ['taskReminders'],
       trashRetentionDays: 45,
+      name: 'Home',
     });
     expect(fetcher).toHaveBeenCalledWith('https://tasks.test/api/v1/health');
   });
@@ -51,6 +53,11 @@ describe('server health and compatibility', () => {
   test.each([[undefined], [0], ['30']])('reports no trash window for %p', async (trashRetentionDays) => {
     fetchOnce({ ok: true, features: [], trashRetentionDays });
     await expect(createApi('https://tasks.test', 'token').health()).resolves.toMatchObject({ trashRetentionDays: null });
+  });
+
+  test.each([[undefined], [null], [''], [42]])('reports no server name for %p', async (name) => {
+    fetchOnce({ ok: true, features: [], name });
+    await expect(createApi('https://tasks.test', 'token').health()).resolves.toMatchObject({ name: null });
   });
 
   test.each([

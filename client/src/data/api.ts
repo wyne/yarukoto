@@ -74,6 +74,8 @@ export interface ServerInfo {
   features: ServerFeature[];
   /** Days a deleted row stays restorable there. Null for a server that predates the field. */
   trashRetentionDays: number | null;
+  /** What the owner calls this server (`YARUKOTO_SERVER_NAME`). Null when unset, or from a server that predates it. */
+  name: string | null;
 }
 
 /** Who this token signs in as. `member` is null for a household integration. */
@@ -200,6 +202,7 @@ export function createApi(serverUrl: string, token: string): Api {
             : [],
           trashRetentionDays:
             typeof body.trashRetentionDays === 'number' && body.trashRetentionDays > 0 ? body.trashRetentionDays : null,
+          name: typeof body.name === 'string' && body.name.trim() ? body.name.trim() : null,
         };
       } catch {
         return null;
