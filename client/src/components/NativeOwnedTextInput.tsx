@@ -1,4 +1,4 @@
-import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from 'react';
 import { Platform, TextInput, TextInputProps } from 'react-native';
 import { BottomSheetTextInput, useBottomSheetInternal } from '@gorhom/bottom-sheet';
 import { useScheme } from '../theme/ThemeContext';
@@ -41,7 +41,7 @@ const NativeOwnedTextInput = forwardRef<TextInput, Props>(function NativeOwnedTe
   // so later renders don't push the typed text back over the bridge — with one
   // exception, below.
   const [mountedText, setMountedText] = useState(value);
-  const mountedTextRef = useRef(value);
+  const handingOverRef = useRef(value === '');
   const nativeValueRef = useRef(value);
   const onChangeTextRef = useRef(onChangeText);
   onChangeTextRef.current = onChangeText;
@@ -66,13 +66,19 @@ const NativeOwnedTextInput = forwardRef<TextInput, Props>(function NativeOwnedTe
       // while the typing runs on below it. Handing over the first text typed
       // lets it size from what native holds from then on. It is the same text
       // native already shows, so nothing is redrawn, and it happens once.
-      if (mountedTextRef.current === '' && next !== '' && !hasChildrenRef.current) {
-        mountedTextRef.current = next;
-        setMountedText(next);
-      }
+      //
+      // Every change is handed over until one commits, not just the first:
+      // native accepts the text when it comes with the latest event count, and
+      // two keystrokes can land before React renders, so the text has to be
+      // the one that count belongs to.
+      if (handingOverRef.current && !hasChildrenRef.current) setMountedText(next);
     }
     onChangeTextRef.current(next);
   }, []);
+
+  useLayoutEffect(() => {
+    if (mountedText !== '') handingOverRef.current = false;
+  }, [mountedText]);
 
   useEffect(() => {
     if (Platform.OS === 'web') return;
