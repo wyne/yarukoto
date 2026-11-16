@@ -4,6 +4,9 @@ import {
   dateBucket,
   dayGroupKey,
   groupByDay,
+  groupDropPatch,
+  INBOX_GROUP_KEY,
+  UNTAGGED_KEY,
   DEFAULT_VIEW_OPTIONS,
   groupTasks,
   hasArrangement,
@@ -184,5 +187,47 @@ describe('far-off repeats', () => {
     expect(laterRepeatsGroup([])).toEqual([]);
     const [group] = laterRepeatsGroup([task('a', { dueDate: '2027-01-01', repeat: yearly })]);
     expect(group).toMatchObject({ key: LATER_REPEATS_KEY, headed: true });
+  });
+});
+
+describe('groupDropPatch', () => {
+  const at = new Date(2026, 8, 27, 12);
+  const t = task('t', { tags: ['dev', 'docs'], dueDate: '2026-09-20', dueTime: '09:00' });
+
+  it('moves a task to the list it lands in, or out of every list into Inbox', () => {
+    expect(groupDropPatch(t, INBOX_GROUP_KEY, 'l_home', 'list', at)).toEqual({ listId: 'l_home' });
+    expect(groupDropPatch(t, 'l_home', INBOX_GROUP_KEY, 'list', at)).toEqual({ listId: null });
+  });
+
+  it('sets the priority of the group', () => {
+    expect(groupDropPatch(t, 'p:none', 'p:high', 'priority', at)).toEqual({ priority: 'high' });
+  });
+
+  it('dates a task only into groups that stand for one day', () => {
+    expect(groupDropPatch(t, 'overdue', 'today', 'date', at)).toEqual({ dueDate: '2026-09-27' });
+    expect(groupDropPatch(t, 'overdue', 'tomorrow', 'date', at)).toEqual({ dueDate: '2026-09-28' });
+    expect(groupDropPatch(t, 'overdue', 'nodate', 'date', at)).toEqual({ dueDate: undefined, dueTime: undefined });
+    for (const range of ['overdue', 'week', 'later']) {
+      expect(groupDropPatch(t, 'today', range, 'date', at)).toBeNull();
+    }
+  });
+
+  it('dates a task to the day section it lands in', () => {
+    expect(groupDropPatch(t, dayGroupKey(0), dayGroupKey(3), 'day', at)).toEqual({ dueDate: '2026-09-30' });
+    expect(groupDropPatch(t, dayGroupKey(2), dayGroupKey(0), 'day', at)).toEqual({ dueDate: '2026-09-27' });
+  });
+
+  it('swaps the tag the row was under for the one it lands under, keeping the rest', () => {
+    expect(groupDropPatch(t, 'tag:dev', 'tag:home', 'tag', at)).toEqual({ tags: ['docs', 'home'] });
+    expect(groupDropPatch(t, 'tag:dev', 'tag:docs', 'tag', at)).toEqual({ tags: ['docs'] });
+    expect(groupDropPatch(t, 'tag:dev', UNTAGGED_KEY, 'tag', at)).toEqual({ tags: ['docs'] });
+    expect(groupDropPatch(task('u'), UNTAGGED_KEY, 'tag:home', 'tag', at)).toEqual({ tags: ['home'] });
+  });
+
+  it('turns away Upcoming repeats, ungrouped views and drops onto the same group', () => {
+    expect(groupDropPatch(t, LATER_REPEATS_KEY, 'p:high', 'priority', at)).toBeNull();
+    expect(groupDropPatch(t, 'p:high', LATER_REPEATS_KEY, 'priority', at)).toBeNull();
+    expect(groupDropPatch(t, UNGROUPED_KEY, LATER_REPEATS_KEY, 'none', at)).toBeNull();
+    expect(groupDropPatch(t, 'p:high', 'p:high', 'priority', at)).toBeNull();
   });
 });

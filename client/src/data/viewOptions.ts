@@ -68,6 +68,9 @@ export const UNGROUPED_KEY = 'all';
  */
 export const INBOX_GROUP_KEY = '__inbox';
 
+/** Where grouping by tag puts the tasks that have none. */
+export const UNTAGGED_KEY = '__untagged';
+
 /** Positions the user dragged out for one group under one sort, if any. */
 export function arrangementFor(
   arrangements: Arrangements,
@@ -255,7 +258,7 @@ export function groupTasks(tasks: Task[], options: ViewOptions, ctx: GroupContex
         break;
       }
       case 'tag': {
-        if (t.tags.length === 0) push('__untagged', 'No tag', t);
+        if (t.tags.length === 0) push(UNTAGGED_KEY, 'No tag', t);
         else for (const tag of t.tags) push(`tag:${tag}`, `#${tag}`, t);
         break;
       }
@@ -292,8 +295,8 @@ export function groupTasks(tasks: Task[], options: ViewOptions, ctx: GroupContex
       return groups.sort((a, b) => DATE_BUCKET_ORDER.indexOf(a.key) - DATE_BUCKET_ORDER.indexOf(b.key));
     case 'tag':
       return groups.sort((a, b) => {
-        if (a.key === '__untagged') return 1;
-        if (b.key === '__untagged') return -1;
+        if (a.key === UNTAGGED_KEY) return 1;
+        if (b.key === UNTAGGED_KEY) return -1;
         return a.label.localeCompare(b.label);
       });
     case 'priority':
@@ -349,3 +352,64 @@ export function groupByDay(tasks: Task[], options: ViewOptions, now: Date, days:
 export function dayGroupKey(offset: number): string {
   return offset === 0 ? UNGROUPED_KEY : `day:${offset}`;
 }
+
+/** What a view's groups stand for: a `GroupBy`, or the days of a several-day Today. */
+export type GroupDimension = GroupBy | 'day';
+
+/**
+ * The change a task takes on when it is dragged out of group `from` and dropped
+ * into group `to`, or null when `to` can't take it.
+ *
+ * A group is a value of the field the view is grouped by, so landing in one sets
+ * that field: a list moves the task, a priority sets it, a day dates it. Only
+ * groups that stand for one exact value accept a drop. "Overdue", "Next 7 days"
+ * and "Later" are stretches of time, and picking a day inside one for the user
+ * would be a guess. Upcoming repeats is held out by how far off a repeat is, which
+ * a drop can't sensibly change, so it neither gives nor takes.
+ *
+ * Grouping by tag swaps the tag of the group the task left for the one it landed
+ * in, leaving its other tags alone — the row was under #dev, so #dev is the tag
+ * being moved. No tag on either end removes or adds just that one.
+ */
+export function groupDropPatch(
+  task: Task,
+  from: string,
+  to: string,
+  dimension: GroupDimension,
+  now: Date
+): Partial<Task> | null {
+  if (from === to || from === LATER_REPEATS_KEY || to === LATER_REPEATS_KEY) return null;
+  switch (dimension) {
+    case 'list':
+      return { listId: to === INBOX_GROUP_KEY ? null : to };
+    case 'priority': {
+      const priority = to.slice(2) as Priority;
+      return to.startsWith('p:') && priority in PRIORITY_RANK ? { priority } : null;
+    }
+    case 'date': {
+      const offset = DATE_DROP_OFFSET[to];
+      if (offset === undefined) return null;
+      return offset === null
+        ? { dueDate: undefined, dueTime: undefined }
+        : { dueDate: toISODate(addDays(startOfDay(now), offset)) };
+    }
+    case 'day': {
+      const offset = to === UNGROUPED_KEY ? 0 : to.startsWith('day:') ? Number(to.slice(4)) : NaN;
+      return Number.isInteger(offset) && offset >= 0 ? { dueDate: toISODate(addDays(startOfDay(now), offset)) } : null;
+    }
+    case 'tag': {
+      const leaving = from.startsWith('tag:') ? from.slice(4) : null;
+      const joining = to.startsWith('tag:') ? to.slice(4) : null;
+      if (leaving === null && from !== UNTAGGED_KEY) return null;
+      if (joining === null && to !== UNTAGGED_KEY) return null;
+      const tags = task.tags.filter((tag) => tag !== leaving);
+      if (joining !== null && !tags.includes(joining)) tags.push(joining);
+      return { tags };
+    }
+    default:
+      return null;
+  }
+}
+
+/** Days from today each date group stands for; null clears the date. Ranges are absent. */
+const DATE_DROP_OFFSET: Partial<Record<string, number | null>> = { today: 0, tomorrow: 1, nodate: null };

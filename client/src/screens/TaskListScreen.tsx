@@ -22,10 +22,12 @@ import { useSyncRefresh } from '../data/useSyncRefresh';
 import { DESKTOP_UI, FINE_POINTER, FLOATING_TAB_BAR, MAC_KEYS } from '../data/platform';
 import {
   GroupBy,
+  GroupDimension,
   INBOX_GROUP_KEY,
   SortBy,
   ViewOptions,
   groupByDay,
+  groupDropPatch,
   LATER_REPEATS_KEY,
   groupTasks,
   laterRepeatsGroup,
@@ -852,15 +854,27 @@ const TaskListBody = memo(
   // landed.
   const canReorder = !selectionMode;
 
+  /** What a drop into another group changes, or null when that group can't take it. */
+  const dropDimension: GroupDimension = byDay ? 'day' : options.groupBy;
+  const acceptsDrop = useCallback(
+    (from: string, to: string) => {
+      const sample = groups.find((g) => g.key === from)?.tasks[0];
+      return !!sample && groupDropPatch(sample, from, to, dropDimension, new Date()) !== null;
+    },
+    [groups, dropDimension]
+  );
+
   const handleReorder = (
     groupKey: string,
     nextIds: string[],
-    moved: { id: string; prevId: string | null; nextId: string | null }
+    moved: { id: string; prevId: string | null; nextId: string | null },
+    fromGroupKey: string
   ) => {
     // Grabbing a row that is part of a selection drags the whole selection to
     // where it lands; grabbing anything else drops the selection first, so a
     // stray drag can never quietly rearrange rows you had picked out earlier.
-    const group = groups.find((g) => g.key === groupKey);
+    // Only the selected rows in the group it was picked up from come along.
+    const group = groups.find((g) => g.key === fromGroupKey);
     const dragged = isSelected(moved.id) ? webSelection : [];
     const movingIds =
       dragged.length > 1 && group
@@ -886,6 +900,17 @@ const TaskListBody = memo(
     else {
       const sequence = [...remaining.slice(0, at), ...movingIds, ...remaining.slice(at)];
       setArrangement(key, options.sortBy, groupKey, sequence);
+    }
+
+    // Landing in another group sets what that group stands for. Each task gets
+    // its own patch, since a tag swap keeps whatever other tags it has.
+    if (groupKey !== fromGroupKey) {
+      const dropNow = new Date();
+      for (const id of movingIds) {
+        const task = state.tasks.find((t) => t.id === id);
+        const patch = task && groupDropPatch(task, fromGroupKey, groupKey, dropDimension, dropNow);
+        if (patch) updateTask(id, patch);
+      }
     }
   };
 
@@ -1198,6 +1223,7 @@ const TaskListBody = memo(
           renderDivider={renderVirtualDivider}
           rowMark={rowMark}
           onReorder={handleReorder}
+          acceptsDrop={acceptsDrop}
           dragCount={DESKTOP_UI ? virtualDragCount : undefined}
           refreshControl={refreshControl}
           onScrollBeginDrag={closeOpenSwipeRow}
