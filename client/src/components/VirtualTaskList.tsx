@@ -178,8 +178,9 @@ const VirtualTaskList = forwardRef<FlatList<Item>, Props>(function VirtualTaskLi
     if (active === 0) out.push({ kind: 'empty', key: 'empty' });
     else {
       groups.forEach((group, gi) => {
-        const collapsed = grouped && isGroupCollapsed(group.key);
-        if (grouped) out.push({ kind: 'header', key: `h:${group.key}`, group, collapsed, first: gi === 0 });
+        const headed = grouped || !!group.headed;
+        const collapsed = headed && isGroupCollapsed(group.key);
+        if (headed) out.push({ kind: 'header', key: `h:${group.key}`, group, collapsed, first: gi === 0 });
         if (collapsed) return;
         group.tasks.forEach((task, i) =>
           out.push({
@@ -190,7 +191,7 @@ const VirtualTaskList = forwardRef<FlatList<Item>, Props>(function VirtualTaskLi
             task,
             next: group.tasks[i + 1],
             groupKey: group.key,
-            first: i === 0 && (grouped || gi === 0),
+            first: i === 0 && (headed || gi === 0),
             last: i === group.tasks.length - 1,
           })
         );

@@ -154,6 +154,42 @@ export interface TaskGroup {
   tasks: Task[];
   /** Swatch shown next to the header — list colours when grouping by list. */
   color?: string;
+  /** Shown under its own header even in an ungrouped view. */
+  headed?: boolean;
+}
+
+/**
+ * The folded group at the end of a list that holds repeating tasks not due for a
+ * while. Unlike every other group it starts folded, so `useCollapsedSections`
+ * stores it the other way round: listed means open.
+ */
+export const LATER_REPEATS_KEY = '__laterRepeats';
+
+/** How far ahead a repeating task can be due and still sit among the rest. */
+export const LATER_REPEAT_DAYS = 14;
+
+/**
+ * Sets aside repeating tasks due more than `LATER_REPEAT_DAYS` out. A yearly
+ * task is in every list for the eleven months it can't be done; once it is this
+ * far off it is a reminder that it exists, not something to act on, so it waits
+ * folded at the bottom until it comes close. One-off tasks stay put: someone
+ * dated them on purpose, and there is only ever one of each.
+ */
+export function splitLaterRepeats(tasks: Task[], now: Date): { soon: Task[]; later: Task[] } {
+  const cutoff = toISODate(addDays(startOfDay(now), LATER_REPEAT_DAYS));
+  const soon: Task[] = [];
+  const later: Task[] = [];
+  for (const t of tasks) {
+    if (t.repeat && t.dueDate && t.dueDate > cutoff) later.push(t);
+    else soon.push(t);
+  }
+  later.sort((a, b) => dueKey(a).localeCompare(dueKey(b)));
+  return { soon, later };
+}
+
+/** The group `splitLaterRepeats` set aside, or nothing when it is empty. */
+export function laterRepeatsGroup(later: Task[]): TaskGroup[] {
+  return later.length > 0 ? [{ key: LATER_REPEATS_KEY, label: 'Upcoming repeats', tasks: later, headed: true }] : [];
 }
 
 interface GroupContext {

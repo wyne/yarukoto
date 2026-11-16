@@ -7,6 +7,9 @@ import {
   DEFAULT_VIEW_OPTIONS,
   groupTasks,
   hasArrangement,
+  LATER_REPEATS_KEY,
+  laterRepeatsGroup,
+  splitLaterRepeats,
   sortLabel,
   sortTasks,
   UNGROUPED_KEY,
@@ -158,5 +161,28 @@ describe('Today by day', () => {
     const tasks = [task('a', { dueDate: '2026-10-31' }), task('b', { dueDate: '2026-10-31' })];
     const arranged = options({ sortBy: 'title', arrangements: { title: { [UNGROUPED_KEY]: arrangementFrom(['b', 'a']) } } });
     expect(groupByDay(tasks, arranged, saturday, 2)[0].tasks.map((t) => t.id)).toEqual(['b', 'a']);
+  });
+});
+
+describe('far-off repeats', () => {
+  const yearly = { rule: 'FREQ=YEARLY;INTERVAL=1', from: 'due' as const };
+
+  test('sets aside only repeating tasks due more than two weeks out, soonest first', () => {
+    const tasks = [
+      task('tax', { dueDate: '2027-04-15', repeat: yearly }),
+      task('edge', { dueDate: '2026-10-11', repeat: yearly }),
+      task('renew', { dueDate: '2026-12-01', repeat: yearly }),
+      task('oneoff', { dueDate: '2027-06-01' }),
+      task('undated'),
+    ];
+    const { soon, later } = splitLaterRepeats(tasks, now);
+    expect(soon.map((t) => t.id)).toEqual(['edge', 'oneoff', 'undated']);
+    expect(later.map((t) => t.id)).toEqual(['renew', 'tax']);
+  });
+
+  test('builds a headed group only when there is something in it', () => {
+    expect(laterRepeatsGroup([])).toEqual([]);
+    const [group] = laterRepeatsGroup([task('a', { dueDate: '2027-01-01', repeat: yearly })]);
+    expect(group).toMatchObject({ key: LATER_REPEATS_KEY, headed: true });
   });
 });
