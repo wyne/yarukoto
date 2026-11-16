@@ -114,7 +114,7 @@ export default function QuickAddBar({ defaults, contextLabel, onAdded }: Props) 
         mode,
         date: effective.dueDate,
         time: effective.dueTime,
-        onChange: draft.changeDue,
+        onChange: mode === 'date' ? draft.changeDue : (_, dueTime) => draft.changeTime(dueTime),
         onDismiss: refocus,
       });
     if (node?.measureInWindow) node.measureInWindow((x, y, width, height) => present({ x, y, width, height }));
@@ -240,7 +240,7 @@ export default function QuickAddBar({ defaults, contextLabel, onAdded }: Props) 
           <View ref={timeRef} collapsable={false}>
             <DueTimeQuickMenu
               time={effective.dueTime}
-              onChange={(dueTime) => draft.changeDue(effective.dueDate, dueTime)}
+              onChange={draft.changeTime}
               onPickTime={() => openDueTimePicker('time')}
               onDone={refocus}
             >

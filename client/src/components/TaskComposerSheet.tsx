@@ -167,7 +167,7 @@ export default function TaskComposerSheet({ visible, onClose, defaults, contextL
       mode,
       date: effective.dueDate,
       time: effective.dueTime,
-      onChange: draft.changeDue,
+      onChange: mode === 'date' ? draft.changeDue : (_, dueTime) => draft.changeTime(dueTime),
       onDismiss: () => requestAnimationFrame(() => inputRef.current?.focus()),
     });
   };
@@ -303,7 +303,7 @@ export default function TaskComposerSheet({ visible, onClose, defaults, contextL
         {!!effective.dueDate && (
           <DueTimeQuickMenu
             time={effective.dueTime}
-            onChange={(dueTime) => draft.changeDue(effective.dueDate, dueTime)}
+            onChange={draft.changeTime}
             onPickTime={() => openDuePicker('time')}
             onDone={closeMenu}
           >

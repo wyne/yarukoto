@@ -82,10 +82,15 @@ export function useQuickAddDraft() {
     ? state.lists.find((l) => !l.deletedAt && l.name.toLowerCase() === parsed.listName!.toLowerCase())?.id
     : undefined;
 
+  // A time counts from a date, so a picked one is dropped while nothing sets a
+  // date — deleting a typed "tomorrow" must not leave a time-only task behind.
+  const effectiveDate = parsed?.dueDate ?? dueDate;
+  const effectiveTime = effectiveDate ? (parsed?.dueTime ?? dueTime) : undefined;
+
   /** What will be created: typed tokens over the tools, as `addTaskFromQuickAdd` resolves it. */
   const effective = {
-    dueDate: parsed?.dueDate ?? dueDate,
-    dueTime: parsed?.dueTime ?? dueTime,
+    dueDate: effectiveDate,
+    dueTime: effectiveTime,
     priority: parsed && parsed.priority !== 'none' ? parsed.priority : priority,
     tags: Array.from(new Set([...tags, ...(parsed?.tags ?? [])])),
     listId: typedListId ?? listId,
@@ -101,6 +106,17 @@ export function useQuickAddDraft() {
     else if (!nextTime) keepAsText((s) => s.kind === 'time');
     else if (parsed?.dueTime && nextTime !== parsed.dueTime) replaceTyped((s) => s.kind === 'time');
     setDueDate(nextDate);
+    setDueTime(nextTime);
+  };
+
+  /**
+   * The time alone, leaving the date with whatever set it. A typed date stays a
+   * typed word the person can still edit or delete; routing a time pick
+   * through `changeDue` would copy that date into the tool and keep it.
+   */
+  const changeTime = (nextTime: string | undefined) => {
+    if (!nextTime) keepAsText((s) => s.kind === 'time');
+    else if (parsed?.dueTime && nextTime !== parsed.dueTime) replaceTyped((s) => s.kind === 'time');
     setDueTime(nextTime);
   };
 
@@ -139,7 +155,11 @@ export function useQuickAddDraft() {
   /** Adds the task, returning its id; undefined when there's no title yet. */
   const commit = () => {
     if (!canSubmit) return undefined;
-    return addTaskFromQuickAdd(text, { listId, tags, dueDate, dueTime, priority }, literal);
+    return addTaskFromQuickAdd(
+      text,
+      { listId, tags, dueDate, dueTime: effectiveDate ? dueTime : undefined, priority },
+      literal
+    );
   };
 
   return {
@@ -151,6 +171,7 @@ export function useQuickAddDraft() {
     reset,
     changeText,
     changeDue,
+    changeTime,
     choosePriority,
     chooseList,
     toggleTag,
