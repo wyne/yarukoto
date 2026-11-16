@@ -477,6 +477,70 @@ for (const groupBy of ['none', 'list'] as const) {
   });
 }
 
+test('a sync leaves the list where the wheel scrolled it, away from the cursor', async ({ page, request }) => {
+  const stamp = Date.now();
+  const now = new Date().toISOString();
+  const headers = { Authorization: `Bearer ${TOKEN}` };
+  const list = { id: `synced-${stamp}`, name: `Synced ${stamp}`, color: '#4A7BF7', folderId: null, order: -1, updatedAt: now };
+  const task = (i: number, title = `Synced row ${i} ${stamp}`) => ({
+    id: `${list.id}-${i}`,
+    title,
+    notes: '',
+    priority: 'none',
+    reminders: [],
+    listId: list.id,
+    tags: [],
+    subtasks: [],
+    completed: false,
+    createdAt: now,
+    updatedAt: now,
+    order: i,
+  });
+  const tasks = Array.from({ length: 60 }, (_, i) => task(i));
+  const response = await request.post('/api/v1/sync', { headers, data: { lists: [list], tasks } });
+  expect(response.ok()).toBe(true);
+  try {
+    await page.setViewportSize({ width: 1400, height: 600 });
+    await connect(page);
+    await page.getByLabel(list.name, { exact: true }).click();
+    await expect.poll(() => page.url()).toContain(list.id);
+    // Loaded fresh, so this list is the only one built.
+    await page.goto(page.url());
+    await page.getByPlaceholder(`Add a task to ${list.name}`).click();
+    await page.keyboard.press('Escape');
+    await page.keyboard.press('ArrowDown');
+    // The list's own rows: the cursor's task is open in the pane beside it too.
+    const row = (title: string) => page.locator('[data-list-item]').getByText(title, { exact: true });
+    const first = row(tasks[0].title);
+    await expect(first).toBeInViewport();
+
+    await first.hover();
+    await page.mouse.wheel(0, 1200);
+    await expect(first).not.toBeInViewport();
+    /** How far the list is scrolled. */
+    const scrolled = () =>
+      page.locator('[data-list-item]').first().evaluate((cell) => {
+        let el: Element | null = cell;
+        while (el && !(el.scrollHeight > el.clientHeight && getComputedStyle(el).overflowY !== 'visible')) el = el.parentElement;
+        return el?.scrollTop ?? -1;
+      });
+    await expect.poll(scrolled).toBeGreaterThan(0);
+    const before = await scrolled();
+
+    // Another device adds a task to the list; it arrives with the next pull.
+    const added = task(60, `Synced from elsewhere ${stamp}`);
+    const pushed = await request.post('/api/v1/sync', { headers, data: { tasks: [added] } });
+    expect(pushed.ok()).toBe(true);
+    await expect(row(added.title)).toBeAttached({ timeout: 20000 });
+    // Given a moment to scroll, if anything were going to.
+    await page.waitForTimeout(500);
+    expect(await scrolled()).toBe(before);
+    await expect(first).not.toBeInViewport();
+  } finally {
+    await trashList(request, list.id);
+  }
+});
+
 test('Search opens blank after leaving it on a saved filter', async ({ page, request }) => {
   const stamp = Date.now();
   const query = `keysfilter${stamp}`;

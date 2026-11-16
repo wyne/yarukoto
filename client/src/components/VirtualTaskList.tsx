@@ -377,11 +377,18 @@ const VirtualTaskList = forwardRef<FlatList<Item>, Props>(function VirtualTaskLi
     [items]
   );
 
+  /**
+   * The row the cursor is on. A reveal starts only when this changes: the rows
+   * also change under a sync from another device, and that must not pull the
+   * list back to a cursor it was scrolled away from.
+   */
+  const cursorAt = cursorIndex(items);
+  const cursorKey = cursorAt === -1 ? null : items[cursorAt].key;
+
   useEffect(() => {
-    cancelReveal();
-    const index = cursorIndex(items);
     const followed = followedTo.current;
     followedTo.current = new Set();
+    const index = cursorKey === null ? -1 : items.findIndex((item) => item.key === cursorKey);
     if (index === -1 || followed.has(items[index].key)) return;
     const shown = Platform.OS === 'web' ? page() : null;
     const cell = shown?.cellFor(items[index].key);
@@ -403,7 +410,16 @@ const VirtualTaskList = forwardRef<FlatList<Item>, Props>(function VirtualTaskLi
       scroller?.removeEventListener('touchstart', cancelReveal);
       scroller?.removeEventListener('pointerdown', cancelReveal);
     };
-  }, [revealTaskId, cursorGroup, items]);
+  }, [cursorKey]);
+
+  // A reveal still on its way follows its row as rows around it come and go.
+  useEffect(() => {
+    const request = revealRequest.current;
+    if (!request || cursorKey === null) return;
+    const index = items.findIndex((item) => item.key === cursorKey);
+    if (index === -1) cancelReveal();
+    else request.index = index;
+  }, [items]);
 
   // Read only once a row is lifted, so the cells get one function for good
   // rather than a new one — and a re-render — each time the selection moves.
