@@ -1,5 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Platform, Pressable, Text, View } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, Text, TextInput, View } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
+import HoverPressable from '../HoverPressable';
+import { useHoverBg } from '../../theme/hover';
 import { makeStyles } from '../../theme/styles';
 import { fonts } from '../../theme/typography';
 import { useAccent } from '../../theme/ThemeContext';
@@ -9,6 +12,9 @@ import QrCode from './QrCode';
 
 /** Often enough that approval feels immediate, rarely enough to be no load. */
 const POLL_MS = 2000;
+
+/** How long the Copy button says Copied before it reads Copy again. */
+const COPIED_MS = 1500;
 
 /**
  * What this device is called in the Devices list. Only the kind: iOS has not
@@ -98,9 +104,7 @@ export default function PairingPanel({ serverUrl, onApproved, onCancel }: Props)
       {phase.kind === 'waiting' ? (
         <>
           <Text style={styles.label}>Your sign-in code</Text>
-          <Text style={styles.code} selectable accessibilityLabel={`Code ${phase.pairing.code.split('').join(' ')}`}>
-            {phase.pairing.code}
-          </Text>
+          <SignInCode code={phase.pairing.code} />
           <View style={styles.qrFrame}>
             <QrCode value={pairingLink(phase.pairing.code)} size={168} color="#111" background="#fff" />
           </View>
@@ -140,6 +144,73 @@ export default function PairingPanel({ serverUrl, onApproved, onCancel }: Props)
   );
 }
 
+/**
+ * The code, in a form the person can take with them as well as read off.
+ *
+ * React Native's `selectable` Text on iOS only offers a Copy menu on a long
+ * press, never a drag selection, and on the Mac nobody presses and holds a
+ * mouse button to find one. There the code is a read-only text view instead,
+ * which selects with a drag or a double click and copies with ⌘C like any
+ * other text. A Copy button covers every platform, and is quicker than either.
+ */
+function SignInCode({ code }: { code: string }) {
+  const styles = useStyles();
+  const hoverBg = useHoverBg();
+  const [copied, setCopied] = useState<'copied' | 'failed' | null>(null);
+  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  useEffect(() => () => clearTimeout(timer.current), []);
+
+  const copy = async () => {
+    // A browser that refuses the write resolves false rather than throwing;
+    // saying Copied then would paste whatever was on the clipboard before.
+    let ok = false;
+    try {
+      ok = await Clipboard.setStringAsync(code);
+    } catch {
+      ok = false;
+    }
+    setCopied(ok ? 'copied' : 'failed');
+    clearTimeout(timer.current);
+    if (ok) timer.current = setTimeout(() => setCopied(null), COPIED_MS);
+  };
+
+  const label = `Code ${code.split('').join(' ')}`;
+  return (
+    <>
+      {MAC ? (
+        <TextInput
+          value={code}
+          editable={false}
+          multiline
+          scrollEnabled={false}
+          style={[styles.code, styles.codeField]}
+          accessibilityLabel={label}
+        />
+      ) : (
+        <Text style={styles.code} selectable accessibilityLabel={label}>
+          {code}
+        </Text>
+      )}
+      <HoverPressable
+        onPress={copy}
+        style={hoverBg(styles.copyBtn)}
+        accessibilityRole="button"
+        accessibilityLabel={copied === 'copied' ? 'Code copied' : 'Copy code'}
+        accessibilityLiveRegion="polite"
+      >
+        <Text style={[styles.copyText, copied === 'copied' && styles.copiedText]}>
+          {copied === 'copied' ? 'Copied' : 'Copy code'}
+        </Text>
+      </HoverPressable>
+      {copied === 'failed' && (
+        <Text style={styles.copyFailed} accessibilityLiveRegion="polite">
+          Couldn't copy. Select the code above and copy it instead.
+        </Text>
+      )}
+    </>
+  );
+}
+
 const useStyles = makeStyles((c) => ({
   panel: {
     marginTop: 28,
@@ -163,6 +234,38 @@ const useStyles = makeStyles((c) => ({
     fontSize: 30,
     letterSpacing: 3,
     color: c.textPrimary,
+  },
+  codeField: {
+    // A text view pads its text and draws no frame; strip the padding so the
+    // code sits where the Text version would.
+    padding: 0,
+    paddingTop: 0,
+    paddingBottom: 0,
+    textAlign: 'center',
+    minWidth: 200,
+  },
+  copyBtn: {
+    marginTop: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 7,
+    borderWidth: 1,
+    borderColor: c.border,
+  },
+  copyText: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 13.5,
+    color: c.textSecondary,
+  },
+  copiedText: {
+    color: c.success,
+  },
+  copyFailed: {
+    marginTop: 6,
+    textAlign: 'center',
+    fontFamily: fonts.sansRegular,
+    fontSize: 13,
+    color: c.priorityHigh,
   },
   qrFrame: {
     marginTop: 14,
