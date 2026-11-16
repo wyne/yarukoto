@@ -7,7 +7,7 @@ All endpoints are under `/api/v1` and require `Authorization: Bearer <token>`, e
 
 | Endpoint | Purpose |
 |---|---|
-| `GET /health` | Unauthenticated liveness check; also reports the running build (`version`, `commit`, `commitShort`, `builtAt`) and optional backend `features`. |
+| `GET /health` | Unauthenticated liveness check; also reports the running build (`version`, `commit`, `commitShort`, `builtAt`) optional backend `features`, and the `name` set by `YARUKOTO_SERVER_NAME` (null when unset). |
 | `GET /sync?since=<iso>` | Changes since a cursor, including trashed rows. Omit `since` for a full hydrate. |
 | `POST /sync` | Upsert tasks/lists/folders/view prefs. Rejects any record older than the stored copy and returns the authoritative version. |
 | `GET /tasks/:id/history` | Revisions for one task, newest first, each with the one before it as `previousTask`. |

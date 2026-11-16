@@ -13,6 +13,7 @@ Set these in `docker-compose.yml` or your `.env`.
 | `DATABASE_PATH` | `/data/yarukoto.db` | SQLite file location. |
 | `TRASH_RETENTION_DAYS` | `30` | How long soft-deleted tasks stay restorable before being hard-deleted. The apps read it from `/api/v1/health` and clear their Trash on the same schedule. |
 | `HISTORY_REVISIONS_PER_TASK` | `50` | Snapshots kept per task. `0` disables history entirely. |
+| `YARUKOTO_SERVER_NAME` | unset | What the apps call this server, shown at the bottom of the sidebar in place of its address (`Home`, `Family`). Anyone who can reach the server can read it, before signing in. |
 | `YARUKOTO_TZ` | `TZ`, else the container's zone | IANA zone (`America/New_York`) the task API and AI tools use for "today", weekdays and times. Containers usually run in UTC, so set this. |
 | `BACKUP_INTERVAL_HOURS` | `24` | How often the server snapshots the database. `0` turns automatic backups off. See [Backups](/self-hosting/backups/). |
 | `BACKUP_KEEP` | `7` | Snapshots kept; older ones are deleted. |

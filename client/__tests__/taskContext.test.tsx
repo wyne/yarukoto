@@ -76,7 +76,7 @@ jest.mock('../src/data/api', () => {
   return {
     ...actual,
     createApi: () => ({
-      health: async () => ({ version: '', commit: null, commitShort: null, builtAt: null, features: [], trashRetentionDays: null }),
+      health: async () => ({ version: '', commit: null, commitShort: null, builtAt: null, features: [], trashRetentionDays: null, name: null }),
       pull: async () => emptyBatch,
       push: async () => emptyBatch,
     }),

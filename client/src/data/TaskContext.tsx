@@ -659,6 +659,8 @@ interface TaskContextValue {
   supportsFeature: (feature: ServerFeature) => boolean;
   /** Days a deleted task stays in Trash before it is gone for good. */
   trashRetentionDays: number;
+  /** What the connected server is called, when its owner named it. Null otherwise, and outside server mode. */
+  serverName: string | null;
   /** The signed-in person and their household, when the server has households. */
   household: Household | null;
   /** Re-reads the household now — after inviting or removing someone. */
@@ -787,6 +789,11 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     () => (loadMode() === 'server' ? loadServerSnapshot()?.trashRetentionDays : undefined) ?? DEFAULT_TRASH_RETENTION_DAYS
   );
   const trashRetentionDaysRef = useRef(trashRetentionDays);
+  // Cached like the retention window, so a cold start shows the name rather
+  // than the host for the moment before the first probe answers.
+  const [serverName, setServerName] = useState<string | null>(() =>
+    loadMode() === 'server' ? (loadServerSnapshot()?.serverName ?? null) : null
+  );
   trashRetentionDaysRef.current = trashRetentionDays;
   const [household, setHousehold] = useState<Household | null>(() =>
     loadMode() === 'server' ? (loadServerSnapshot()?.household ?? null) : null
@@ -1306,6 +1313,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     featuresProbedAtRef.current = info ? Date.now() : 0;
     setServerFeatures(info?.features ?? null);
     setTrashRetentionDays(info?.trashRetentionDays ?? DEFAULT_TRASH_RETENTION_DAYS);
+    setServerName(info?.name ?? null);
     setHousehold(who ? householdFrom(who) : null);
 
     setSignedOut(null);
@@ -1328,6 +1336,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     saveMode('sample');
     setServerFeatures([...SERVER_FEATURES]);
     setTrashRetentionDays(DEFAULT_TRASH_RETENTION_DAYS);
+    setServerName(null);
     setHousehold(null);
     setSignedOut(null);
     dispatch({ type: 'USE_SAMPLE_DATA', data: buildSampleData(new Date()) });
@@ -1341,6 +1350,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     saveMode('none');
     setServerFeatures([...SERVER_FEATURES]);
     setTrashRetentionDays(DEFAULT_TRASH_RETENTION_DAYS);
+    setServerName(null);
     setHousehold(null);
     setSignedOut(null);
     dispatch({ type: 'DISCONNECT' });
@@ -1426,6 +1436,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
             // Through the ref as well, for the expiry after this cycle's pull.
             trashRetentionDaysRef.current = info.trashRetentionDays ?? DEFAULT_TRASH_RETENTION_DAYS;
             setTrashRetentionDays(trashRetentionDaysRef.current);
+            setServerName(info.name);
             featuresProbedAtRef.current = Date.now();
             features = next;
             // Written straight through, not just queued: the push below reads the
@@ -1588,6 +1599,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       savedFilters: state.savedFilters,
       serverFeatures: serverFeatures ?? undefined,
       trashRetentionDays,
+      serverName: serverName ?? undefined,
       household: household ?? undefined,
       cursor: cursorRef.current,
     });
@@ -1600,6 +1612,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
     state.savedFilters,
     serverFeatures,
     trashRetentionDays,
+    serverName,
     household,
   ]);
 
@@ -1657,6 +1670,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       state,
       supportsFeature,
       trashRetentionDays,
+      serverName: state.mode === 'server' ? serverName : null,
       household: visibleHousehold,
       refreshHousehold,
       setListShared,
@@ -1707,6 +1721,7 @@ export function TaskProvider({ children }: { children: React.ReactNode }) {
       state,
       supportsFeature,
       trashRetentionDays,
+      serverName,
       visibleHousehold,
       refreshHousehold,
       setListShared,

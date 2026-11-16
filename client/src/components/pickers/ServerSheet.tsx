@@ -236,7 +236,7 @@ function PhoneRoot({
 }) {
   const styles = useStyles();
   const accent = useAccent();
-  const { state } = useTasks();
+  const { state, serverName } = useTasks();
   const syncStatus = useSyncStatus();
   const { me } = household;
 
@@ -278,7 +278,7 @@ function PhoneRoot({
       <Group label="Server">
         <Row value={lastSyncedLabel(new Date(), syncStatus.lastSyncedAt)} chevron onPress={() => onOpen('server')} accessibilityLabel="Server">
           <View style={{ flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <SyncIndicator mode={state.mode} serverUrl={state.serverUrl} />
+            <SyncIndicator mode={state.mode} serverUrl={state.serverUrl} serverName={serverName} />
           </View>
         </Row>
       </Group>
