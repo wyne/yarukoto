@@ -1,9 +1,9 @@
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Platform, Pressable, Text, View } from 'react-native';
 import MenuView, { type MenuAction } from '../components/NativeMenu';
+import { GroupMotion } from '../components/GroupMotion';
 import Animated, {
   FadeIn,
-  LinearTransition,
   useAnimatedRef,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -107,7 +107,6 @@ const VIRTUALIZED = Platform.OS !== 'web';
 const REVEAL_MARGIN = 8;
 /** How many frames a revealed row on the web is followed while it settles. */
 const REVEAL_SETTLE_FRAMES = 45;
-const GROUP_LAYOUT = LinearTransition.duration(180);
 const GROUP_ENTER = FadeIn.duration(140);
 /**
  * No exit to match the entrance.
@@ -1392,11 +1391,7 @@ const TaskListBody = memo(
                 }
                 const collapsed = sections.isGroupCollapsed(group.key);
                 return (
-                  <Animated.View
-                    key={group.key}
-                    layout={switchingView ? undefined : GROUP_LAYOUT}
-                    style={styles.group}
-                  >
+                  <GroupMotion key={group.key} animate={!switchingView} style={styles.group}>
                     <View
                       style={{ marginHorizontal: 6 }}
                       // How a folded header holding the cursor is found to bring it into view.
@@ -1413,14 +1408,11 @@ const TaskListBody = memo(
                       />
                     </View>
                     {!collapsed && group.tasks.length > 0 && (
-                      <Animated.View
-                        entering={switchingView ? undefined : GROUP_ENTER}
-                        layout={switchingView ? undefined : GROUP_LAYOUT}
-                      >
+                      <Animated.View entering={switchingView ? undefined : GROUP_ENTER}>
                         {renderTaskCard(group)}
                       </Animated.View>
                     )}
-                  </Animated.View>
+                  </GroupMotion>
                 );
               })
             ) : (
@@ -1428,7 +1420,7 @@ const TaskListBody = memo(
             ))}
 
           {completed.length > 0 && (
-            <Animated.View layout={switchingView ? undefined : GROUP_LAYOUT}>
+            <GroupMotion animate={!switchingView}>
               <View style={{ marginHorizontal: 6 }}>
                 <SectionHeader
                   label={`Completed · ${completed.length}`}
@@ -1437,10 +1429,7 @@ const TaskListBody = memo(
                 />
               </View>
               {!sections.completedCollapsed && (
-                <Animated.View
-                  entering={switchingView ? undefined : GROUP_ENTER}
-                  layout={switchingView ? undefined : GROUP_LAYOUT}
-                >
+                <Animated.View entering={switchingView ? undefined : GROUP_ENTER}>
                   <Card style={{ marginHorizontal: 12 }}>
                     {completed.map((task, i) => (
                       <View key={task.id}>
@@ -1468,7 +1457,7 @@ const TaskListBody = memo(
                   </Card>
                 </Animated.View>
               )}
-            </Animated.View>
+            </GroupMotion>
           )}
         </Animated.ScrollView>
       )}
