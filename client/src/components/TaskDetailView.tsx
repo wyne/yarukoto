@@ -783,7 +783,7 @@ export default function TaskDetailView({ taskId, onClose, variant, active = true
           />
         </Card>
 
-        <Card style={{ marginTop: 12 }}>
+        <Card style={styles.subtasksCard}>
           <View style={styles.subtasksHeader}>
             <Text style={styles.sectionLabel}>Subtasks</Text>
             {task.subtasks.length > 0 && (
@@ -1180,13 +1180,17 @@ const useStyles = makeStyles((c) => ({
     textTransform: 'uppercase',
     color: c.textTertiary,
   },
+  subtasksCard: {
+    marginTop: 12,
+    paddingBottom: FINE_POINTER ? 4 : 6,
+  },
   subtasksHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
     paddingHorizontal: 14,
     paddingTop: 12,
-    paddingBottom: 8,
+    paddingBottom: FINE_POINTER ? 4 : 6,
   },
   subtaskCount: {
     fontFamily: fonts.monoRegular,
@@ -1203,13 +1207,16 @@ const useStyles = makeStyles((c) => ({
   progressFill: {
     height: '100%',
   },
+  // Subtasks sit a step below the task list's rows (32 with a pointer, 44 by
+  // touch): a checklist inside one task reads as one block, not as a list of
+  // its own. The remove button sets the height, so it shrinks with the row.
   subtaskRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: FINE_POINTER ? 8 : 10,
     paddingHorizontal: 14,
-    paddingVertical: 8,
-    minHeight: 40,
+    paddingVertical: FINE_POINTER ? 3 : 4,
+    minHeight: FINE_POINTER ? 30 : 36,
   },
   subtaskRowWithHandle: {
     paddingRight: 40,
@@ -1242,8 +1249,8 @@ const useStyles = makeStyles((c) => ({
     gap: 2,
   },
   subtaskIconButton: {
-    width: 28,
-    height: 28,
+    width: FINE_POINTER ? 24 : 28,
+    height: FINE_POINTER ? 24 : 28,
     borderRadius: 6,
     alignItems: 'center',
     justifyContent: 'center',
