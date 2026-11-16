@@ -207,6 +207,12 @@ describe('groupDropPatch', () => {
     expect(groupDropPatch(t, 'overdue', 'today', 'date', at)).toEqual({ dueDate: '2026-09-27' });
     expect(groupDropPatch(t, 'overdue', 'tomorrow', 'date', at)).toEqual({ dueDate: '2026-09-28' });
     expect(groupDropPatch(t, 'overdue', 'nodate', 'date', at)).toEqual({ dueDate: undefined, dueTime: undefined });
+    // Clearing the date would take these with it, which a drop gives no sign of.
+    const repeating = task('r', { dueDate: '2026-09-27', repeat: { rule: 'FREQ=WEEKLY', from: 'due' } });
+    const reminded = task('m', { dueDate: '2026-09-27', reminders: [{ id: 'x', offsetDays: 0, time: '09:00' }] });
+    expect(groupDropPatch(repeating, 'today', 'nodate', 'date', at)).toBeNull();
+    expect(groupDropPatch(reminded, 'today', 'nodate', 'date', at)).toBeNull();
+    expect(groupDropPatch(repeating, 'today', 'tomorrow', 'date', at)).toEqual({ dueDate: '2026-09-28' });
     for (const range of ['overdue', 'week', 'later']) {
       expect(groupDropPatch(t, 'today', range, 'date', at)).toBeNull();
     }

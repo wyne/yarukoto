@@ -101,10 +101,10 @@ interface Props {
     moved: { id: string; prevId: string | null; nextId: string | null },
     fromGroupKey: string
   ) => void;
-  /** Whether a row from group `from` may be dropped into group `to`. Absent means never. */
-  acceptsDrop?: (from: string, to: string) => boolean;
-  /** How many rows a drag of this one carries, for the badge on the lifted row. */
-  dragCount?: (id: string) => number;
+  /** Whether row `id` may be dropped from group `from` into group `to`. Absent means never. */
+  acceptsDrop?: (from: string, to: string, id: string) => boolean;
+  /** How many rows a drag of this one, in this group, carries, for the badge on the lifted row. */
+  dragCount?: (id: string, groupKey: string) => number;
   contentContainerStyle?: StyleProp<ViewStyle>;
   refreshControl?: React.ReactElement<RefreshControlProps>;
   onScrollBeginDrag?: () => void;
@@ -264,7 +264,7 @@ const VirtualTaskList = forwardRef<FlatList<Item>, Props>(function VirtualTaskLi
         : above === undefined && below?.kind === 'task'
         ? below.groupKey
         : null;
-    if (toKey === null || (toKey !== fromKey && !acceptsDrop?.(fromKey, toKey))) {
+    if (toKey === null || (toKey !== fromKey && !acceptsDrop?.(fromKey, toKey, moving.task.id))) {
       rejectDrop();
       return;
     }
@@ -451,7 +451,7 @@ const VirtualTaskList = forwardRef<FlatList<Item>, Props>(function VirtualTaskLi
   latestDragCount.current = dragCount;
   const hasDragCount = !!dragCount;
   const stableDragCount = useMemo(
-    () => (hasDragCount ? (id: string) => latestDragCount.current?.(id) ?? 1 : undefined),
+    () => (hasDragCount ? (id: string, groupKey: string) => latestDragCount.current?.(id, groupKey) ?? 1 : undefined),
     [hasDragCount]
   );
 
@@ -626,7 +626,7 @@ const TaskCell = memo(function TaskCell({
   draggable: boolean;
   renderRow: Props['renderRow'];
   renderDivider: Props['renderDivider'];
-  dragCount?: (id: string) => number;
+  dragCount?: (id: string, groupKey: string) => number;
   mark: number;
   nextMark: number;
 }) {
@@ -659,16 +659,26 @@ const TaskCell = memo(function TaskCell({
           </Pressable>
         </View>
       )}
-      {dragCount && <DragCountBadge id={item.task.id} dragCount={dragCount} />}
+      {dragCount && item.groupKey !== null && (
+        <DragCountBadge id={item.task.id} groupKey={item.groupKey} dragCount={dragCount} />
+      )}
     </View>
   );
 });
 
 /** Split out so only the lifted row, not every row, reads the active state. */
-function DragCountBadge({ id, dragCount }: { id: string; dragCount: (id: string) => number }) {
+function DragCountBadge({
+  id,
+  groupKey,
+  dragCount,
+}: {
+  id: string;
+  groupKey: string;
+  dragCount: (id: string, groupKey: string) => number;
+}) {
   const styles = useStyles();
   const activeRow = useIsActive();
-  const count = activeRow ? dragCount(id) : 1;
+  const count = activeRow ? dragCount(id, groupKey) : 1;
   if (count <= 1) return null;
   return (
     <View pointerEvents="none" style={styles.count}>

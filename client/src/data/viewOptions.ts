@@ -1,6 +1,7 @@
 import { FolderDef, GroupBy, ListDef, Priority, SortBy, Task, ViewPref } from './types';
 import { DueBucket, addDays, dueBucket, startOfDay, toISODate } from '@yarukoto/domain/dates';
 import { orderedLists } from './selectors';
+import { clearDateLabel } from './reminders';
 import { fromISODate, monthDayLabel, weekdayShort } from './dateUtils';
 
 export type { GroupBy, SortBy };
@@ -367,6 +368,10 @@ export type GroupDimension = GroupBy | 'day';
  * would be a guess. Upcoming repeats is held out by how far off a repeat is, which
  * a drop can't sensibly change, so it neither gives nor takes.
  *
+ * No date doesn't take a task that repeats or has reminders: both hang off the
+ * date, so clearing it clears them too, and a drop gives no sign of that. Those
+ * go through the task's own Clear date button, which names what goes with it.
+ *
  * Grouping by tag swaps the tag of the group the task left for the one it landed
  * in, leaving its other tags alone — the row was under #dev, so #dev is the tag
  * being moved. No tag on either end removes or adds just that one.
@@ -389,6 +394,7 @@ export function groupDropPatch(
     case 'date': {
       const offset = DATE_DROP_OFFSET[to];
       if (offset === undefined) return null;
+      if (offset === null && clearDateLabel(task) !== undefined) return null;
       return offset === null
         ? { dueDate: undefined, dueTime: undefined }
         : { dueDate: toISODate(addDays(startOfDay(now), offset)) };
