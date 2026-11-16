@@ -1,4 +1,4 @@
-import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useRef } from 'react';
+import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from 'react';
 import { Platform, TextInput, TextInputProps } from 'react-native';
 import { BottomSheetTextInput, useBottomSheetInternal } from '@gorhom/bottom-sheet';
 import { useScheme } from '../theme/ThemeContext';
@@ -37,7 +37,11 @@ const NativeOwnedTextInput = forwardRef<TextInput, Props>(function NativeOwnedTe
 ) {
   const scheme = useScheme();
   const inputRef = useRef<TextInput>(null);
-  const initialValueRef = useRef(value);
+  // The text React tells native the field holds. It stays the opening value,
+  // so later renders don't push the typed text back over the bridge — with one
+  // exception, below.
+  const [mountedText, setMountedText] = useState(value);
+  const handingOverRef = useRef(value === '');
   const nativeValueRef = useRef(value);
   const onChangeTextRef = useRef(onChangeText);
   onChangeTextRef.current = onChangeText;
@@ -49,12 +53,32 @@ const NativeOwnedTextInput = forwardRef<TextInput, Props>(function NativeOwnedTe
   // the field; that value came from native and must not be written back to it.
   const unrenderedRef = useRef<string[]>([]);
   const hasChildren = props.children != null;
+  const hasChildrenRef = useRef(hasChildren);
+  hasChildrenRef.current = hasChildren;
 
   const handleChangeText = useCallback((next: string) => {
     nativeValueRef.current = next;
-    if (Platform.OS !== 'web') unrenderedRef.current.push(next);
+    if (Platform.OS !== 'web') {
+      unrenderedRef.current.push(next);
+      // A field that opened empty never grows. React Native sizes a multiline
+      // field from the text React gave it until that text has been non-empty
+      // once, and an empty one never is, so it keeps the placeholder's height
+      // while the typing runs on below it. Handing over the first text typed
+      // lets it size from what native holds from then on. It is the same text
+      // native already shows, so nothing is redrawn, and it happens once.
+      //
+      // Every change is handed over until one commits, not just the first:
+      // native accepts the text when it comes with the latest event count, and
+      // two keystrokes can land before React renders, so the text has to be
+      // the one that count belongs to.
+      if (handingOverRef.current && !hasChildrenRef.current) setMountedText(next);
+    }
     onChangeTextRef.current(next);
   }, []);
+
+  useLayoutEffect(() => {
+    if (mountedText !== '') handingOverRef.current = false;
+  }, [mountedText]);
 
   useEffect(() => {
     if (Platform.OS === 'web') return;
@@ -84,7 +108,7 @@ const NativeOwnedTextInput = forwardRef<TextInput, Props>(function NativeOwnedTe
       {...props}
       // Styled children (QuickAddInput's tokens) carry the text themselves, and
       // React Native refuses a field given both.
-      {...(Platform.OS === 'web' ? { value } : hasChildren ? {} : { defaultValue: initialValueRef.current })}
+      {...(Platform.OS === 'web' ? { value } : hasChildren ? {} : { defaultValue: mountedText })}
       onChangeText={handleChangeText}
     />
   );
