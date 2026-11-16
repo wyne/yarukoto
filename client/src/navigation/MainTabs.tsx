@@ -19,13 +19,16 @@ import {
   DRAWER_OPEN_EASING,
   DRAWER_OPEN_MS,
   DESKTOP_LIST_MIN_WIDTH,
+  SIDEBAR_RESIZABLE,
   SidebarProvider,
   useSidebar,
   useSidebarCollapsed,
+  useSidebarWidth,
 } from './SidebarContext';
 import { DetailProvider, useDetail, useDetailOverlay } from './DetailContext';
 import { SelectionProvider, useSelectedIds } from './SelectionContext';
 import Sidebar, { SIDEBAR_COLLAPSED_WIDTH, SIDEBAR_WIDTH } from '../components/Sidebar';
+import SidebarResizer from '../components/sidebar/SidebarResizer';
 import { closeOpenSwipeRow, swipeRowOpen } from '../components/SwipeableRow';
 import { drawerSwipeClaimed } from './drawerSwipe';
 import SidebarDrawer from '../components/SidebarDrawer';
@@ -79,12 +82,21 @@ const NativeTab = Platform.OS === 'ios'
  * tabs below and mounts the same sidebar separately as its secondary drawer.
  */
 function TabBar(props: BottomTabBarProps) {
+  const styles = useStyles();
   const { wide, railOnly } = useSidebar();
   // A rail-only window has both: the rail, and the full sidebar to open over it.
   if (wide) {
     return (
       <>
-        <Sidebar {...props} />
+        {/* Its edge drags only where there is room to widen it; a rail-only window has none. */}
+        {SIDEBAR_RESIZABLE && !railOnly ? (
+          <View style={styles.pinnedSidebar}>
+            <Sidebar {...props} />
+            <SidebarResizer />
+          </View>
+        ) : (
+          <Sidebar {...props} />
+        )}
         {railOnly && <SidebarDrawer {...props} />}
       </>
     );
@@ -146,6 +158,7 @@ function Layout() {
   const styles = useStyles();
   const { wide, openDrawer, drawerProgress, serverOpen, serverPairCode, closeServer } = useSidebar();
   const collapsed = useSidebarCollapsed();
+  const { width: fullSidebarWidth } = useSidebarWidth();
   const { openTaskId, closeTask } = useDetail();
   const { selectedIds } = useSelectedIds();
   /**
@@ -170,15 +183,18 @@ function Layout() {
    * The width the pinned sidebar takes from the row, which the list and a task
    * column then share. A ref as well, for the clamp and the layout handler.
    */
-  const sidebarWidth = wide ? (collapsed ? SIDEBAR_COLLAPSED_WIDTH : SIDEBAR_WIDTH) : 0;
+  const sidebarWidth = wide ? (collapsed ? SIDEBAR_COLLAPSED_WIDTH : fullSidebarWidth) : 0;
   const sidebarWidthRef = useRef(sidebarWidth);
   sidebarWidthRef.current = sidebarWidth;
   /**
    * The widest sidebar the row last had room for beside a readable list and the
-   * narrowest task column. Kept to the two widths a sidebar can be, so a window
-   * resize only re-renders the layout when it crosses one of them.
+   * narrowest task column. A ref, read against the sidebar's width at render;
+   * the state beside it only records which side of that width the room is on,
+   * so a window resize re-renders the layout when it crosses it and not on
+   * every frame. Dragging the sidebar re-renders the layout anyway.
    */
-  const [sidebarRoom, setSidebarRoom] = useState(Infinity);
+  const sidebarRoom = useRef(Infinity);
+  const [, setSidebarFits] = useState(true);
   const [detailColumnWidth, setDetailColumnWidth] = useState(DETAIL_COLUMN_WIDTH);
   const detailColumnWidthRef = useRef(detailColumnWidth);
   const resizeStartWidth = useRef(detailColumnWidth);
@@ -201,7 +217,7 @@ function Layout() {
    * comes over the list instead, as it does over Plan, and the list keeps its
    * width.
    */
-  const cramped = wide && FINE_POINTER && sidebarWidth > sidebarRoom;
+  const cramped = wide && FINE_POINTER && sidebarWidth > sidebarRoom.current;
   const showPane = wide && !cramped && (bulk || (!!openTaskId && !overlay));
   /**
    * A desktop window without room for the column still has a pointer: a sheet
@@ -271,9 +287,8 @@ function Layout() {
     if (slideOverOpen.current) redrawSlideOver();
     if (!DESKTOP_UI) return;
     const room = nextWidth - DESKTOP_LIST_MIN_WIDTH - DETAIL_RESIZER_WIDTH - DETAIL_COLUMN_MIN_WIDTH;
-    setSidebarRoom(
-      room >= SIDEBAR_WIDTH ? SIDEBAR_WIDTH : room >= SIDEBAR_COLLAPSED_WIDTH ? SIDEBAR_COLLAPSED_WIDTH : -1
-    );
+    sidebarRoom.current = room;
+    setSidebarFits(room >= sidebarWidthRef.current);
     const max = Math.max(
       DETAIL_COLUMN_MIN_WIDTH,
       nextWidth - sidebarWidthRef.current - DESKTOP_LIST_MIN_WIDTH - DETAIL_RESIZER_WIDTH
@@ -791,6 +806,11 @@ const useStyles = makeStyles((c) => ({
   detailColumnBorder: {
     borderLeftWidth: 1,
     borderLeftColor: c.border,
+  },
+  /** Positions the sidebar's drag handle over its own right edge. */
+  pinnedSidebar: {
+    flexGrow: 0,
+    flexShrink: 0,
   },
   detailResizer: {
     width: DETAIL_RESIZER_WIDTH,

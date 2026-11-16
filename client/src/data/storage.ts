@@ -50,6 +50,7 @@ const SCHEME_KEY = 'yarukoto.scheme';
 const FIRST_TAB_VIEW_KEY = 'yarukoto.firstTabViews';
 const SNOOZES_KEY = 'yarukoto.snoozedReminders';
 const SIDEBAR_RAIL_KEY = 'yarukoto.sidebarRail';
+const SIDEBAR_WIDTH_KEY = 'yarukoto.sidebarWidth';
 const TODAY_DAYS_KEY = 'yarukoto.todayDays';
 const TEXT_SCALE_KEY = 'yarukoto.textScale';
 const BADGE_COUNT_KEY = 'yarukoto.badgeCount';
@@ -70,6 +71,7 @@ const ALL_KEYS = [
   FIRST_TAB_VIEW_KEY,
   SNOOZES_KEY,
   SIDEBAR_RAIL_KEY,
+  SIDEBAR_WIDTH_KEY,
   TODAY_DAYS_KEY,
   TEXT_SCALE_KEY,
   BADGE_COUNT_KEY,
@@ -487,6 +489,24 @@ export function loadSidebarRail(): boolean {
 export function saveSidebarRail(rail: boolean): void {
   if (rail) write(SIDEBAR_RAIL_KEY, '1');
   else remove(SIDEBAR_RAIL_KEY);
+}
+
+/**
+ * The width the pinned sidebar was dragged to, or null for the default.
+ *
+ * Device-local like the rail: how wide the nav should be depends on this
+ * screen and on how long your list names are on it, not on the lists.
+ * The caller clamps it, so a stored value from a build with other limits
+ * still lands inside the current ones.
+ */
+export function loadSidebarWidth(): number | null {
+  const n = Number(read(SIDEBAR_WIDTH_KEY));
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+export function saveSidebarWidth(width: number | null): void {
+  if (width === null) remove(SIDEBAR_WIDTH_KEY);
+  else write(SIDEBAR_WIDTH_KEY, String(Math.round(width)));
 }
 
 /**
