@@ -1,4 +1,4 @@
-import React, { memo, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Platform, Text, View } from 'react-native';
 import Animated, { useAnimatedStyle, useDerivedValue, useSharedValue, withTiming } from 'react-native-reanimated';
 import type { SharedValue } from 'react-native-reanimated';
@@ -81,17 +81,6 @@ interface Props<T> {
    * new key, which the library handles, and reordering must never remount.
    */
   resetKey?: string;
-  /**
-   * Everything a row draws from besides its item, as a value compared with `===`.
-   *
-   * Given, a row whose item and version are both unchanged is skipped when the
-   * list re-renders, and keeps what it drew last time. Without it every row is
-   * rebuilt on every render of the list, which on a long one is most of what a
-   * key press costs. So the version must change whenever the row's output
-   * would: anything `renderItem` reads that the item doesn't carry, including
-   * `renderItem`'s own closure, belongs in it.
-   */
-  itemVersion?: (item: T, index: number) => unknown;
 }
 
 /**
@@ -118,12 +107,7 @@ export default function DragList<T>({
   onLift,
   onDragEnd,
   resetKey,
-  itemVersion,
 }: Props<T>) {
-  // Read through a ref so a skipped row isn't holding a stale one when it next draws.
-  const render = useRef(renderItem);
-  render.current = renderItem;
-
   // Which row is lifted, so only that one carries the count.
   const [activeKey, setActiveKey] = useState<string | null>(null);
 
@@ -283,52 +267,20 @@ export default function DragList<T>({
         }}
       >
         {items.map((item, index) => (
-          <DragRow
+          <GlassRow
             key={keyExtractor(item)}
-            item={item}
-            index={index}
-            render={render}
-            version={itemVersion ? itemVersion(item, index) : NO_VERSION}
             width={containerWidth}
             handle={enabled && FINE_POINTER}
             count={activeKey === keyExtractor(item) ? dragCount?.(keyExtractor(item)) ?? 1 : 1}
             lift={lift}
-          />
+          >
+            {renderItem(item, index)}
+          </GlassRow>
         ))}
       </Sortable.Flex>
     </View>
   );
 }
-
-/** Stands in for a missing `itemVersion`: never equal to itself, so the row always draws. */
-const NO_VERSION = {};
-
-interface DragRowProps<T> {
-  item: T;
-  index: number;
-  render: React.RefObject<(item: T, index: number) => React.ReactNode>;
-  version: unknown;
-  width: SharedValue<number | null>;
-  handle: boolean;
-  count: number;
-  lift: SharedValue<number>;
-}
-
-/** One row, skipped while nothing it draws from has changed. See `itemVersion`. */
-const DragRow = memo(
-  function DragRow<T>({ item, index, render, version: _version, ...glass }: DragRowProps<T>) {
-    return <GlassRow {...glass}>{render.current(item, index)}</GlassRow>;
-  },
-  (a, b) =>
-    a.version !== NO_VERSION &&
-    a.version === b.version &&
-    a.item === b.item &&
-    a.index === b.index &&
-    a.handle === b.handle &&
-    a.count === b.count &&
-    a.width === b.width &&
-    a.lift === b.lift
-) as <T>(props: DragRowProps<T>) => React.ReactElement;
 
 /**
  * The glass pane: while its item is being dragged a hairline edge and a soft
