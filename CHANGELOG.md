@@ -1,5 +1,30 @@
 # Changelog
 
+## [1.7.0](https://github.com/wyne/yarukoto/compare/v1.6.1...v1.7.0) (2026-11-16)
+
+
+### Features
+
+* drag tasks between groups to change their list, priority, date or tag ([9724d70](https://github.com/wyne/yarukoto/commit/9724d70f3d7b2dc4c19a0797a9393cbd42c0ac3d))
+* drag tasks between groups to change their list, priority, date or tag ([4b75742](https://github.com/wyne/yarukoto/commit/4b757425e3619302a3dce839c6034a737fe08aff))
+* drag the sidebar's edge to resize it on web and desktop ([73320b0](https://github.com/wyne/yarukoto/commit/73320b0efe8c4f2bd9313e49ea10d107f74fa133))
+* drag the sidebar's edge to resize it on web and desktop ([e0e052e](https://github.com/wyne/yarukoto/commit/e0e052eea84e23d75c189e193bb1b46f6654772d))
+* fold far-off repeating tasks away and show the year on their dates ([#300](https://github.com/wyne/yarukoto/issues/300)) ([55f87fc](https://github.com/wyne/yarukoto/commit/55f87fcf52b69f58f1fb53203dc0c7c3db3f7c98))
+* offer a time in the add field once a date is set ([#305](https://github.com/wyne/yarukoto/issues/305)) ([194d32b](https://github.com/wyne/yarukoto/commit/194d32bc5df43ab2dcbb173e77d8e8e7a446f41b))
+
+
+### Bug Fixes
+
+* count only the rows a drag carries, and keep No date from clearing a repeat or reminders ([2eed770](https://github.com/wyne/yarukoto/commit/2eed7703388e52116641e2d701500e85102a2c9f))
+* grow the notes field when it opens empty ([#303](https://github.com/wyne/yarukoto/issues/303)) ([6cec14c](https://github.com/wyne/yarukoto/commit/6cec14c9eef79452eb3aa434a781f8a97644f254))
+* make the sign-in code selectable on the Mac and add a Copy button ([#301](https://github.com/wyne/yarukoto/issues/301)) ([c721e04](https://github.com/wyne/yarukoto/commit/c721e04615a065e2fefd8318d9e0c576d5c08ced))
+* tighten subtask rows to match the denser task list ([#302](https://github.com/wyne/yarukoto/issues/302)) ([2e44afb](https://github.com/wyne/yarukoto/commit/2e44afbd63927cc8f7ceefbf7451832fcf443695))
+
+
+### Performance
+
+* virtualize the task list on the web ([#296](https://github.com/wyne/yarukoto/issues/296)) ([317192c](https://github.com/wyne/yarukoto/commit/317192cd380eabb80c8aacfb1283bd9b63328f59))
+
 ## [1.6.1](https://github.com/wyne/yarukoto/compare/v1.6.0...v1.6.1) (2026-11-03)
 
 
