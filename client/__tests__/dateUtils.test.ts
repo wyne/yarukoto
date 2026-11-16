@@ -46,6 +46,9 @@ describe('date utilities', () => {
     expect(formatDueShort(now, '2026-09-27', '18:00')).toBe('Today 6:00 PM');
     expect(formatDueShort(now, '2026-09-28')).toBe('Tomorrow');
     expect(formatDueShort(now, '2026-10-10')).toBe('Oct 10');
+    expect(formatDueShort(now, '2027-03-04')).toBe('Mar 4, 2027');
+    expect(formatDueShort(now, '2027-03-04', '09:00')).toBe('Mar 4, 2027 9:00 AM');
+    expect(formatDueShort(now, '2025-12-20')).toBe('Dec 20, 2025');
   });
 
   test('performs local calendar arithmetic and comparisons', () => {
@@ -65,7 +68,9 @@ describe('date utilities', () => {
     expect(formatTime24to12('00:05')).toBe('12:05 AM');
     expect(formatTime24to12('12:30')).toBe('12:30 PM');
     expect(formatDueFull()).toBe('None');
-    expect(formatDueFull('2026-09-27', '18:00')).toBe('Sun, Sep 27 · 6:00 PM');
+    const now = new Date(2026, 8, 27);
+    expect(formatDueFull('2026-09-27', '18:00', now)).toBe('Sun, Sep 27 · 6:00 PM');
+    expect(formatDueFull('2027-03-04', undefined, now)).toBe('Thu, Mar 4, 2027');
     expect(dayRangeLabel(new Date(2026, 7, 3), new Date(2026, 7, 9))).toBe('Aug 3 – 9');
     expect(dayRangeLabel(new Date(2026, 7, 30), new Date(2026, 8, 5))).toBe('Aug 30 – Sep 5');
   });

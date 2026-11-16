@@ -1,5 +1,9 @@
 import { useCallback, useRef, useState } from 'react';
 import { CollapsedSections, loadCollapsedSections, saveCollapsedSections } from './storage';
+import { LATER_REPEATS_KEY } from './viewOptions';
+
+/** A group that starts folded, so being listed means it was opened. */
+const startsFolded = (groupKey: string) => groupKey === LATER_REPEATS_KEY;
 
 export interface CollapsedController {
   isGroupCollapsed: (groupKey: string) => boolean;
@@ -39,7 +43,10 @@ export function useCollapsedSections(viewKey: string): CollapsedController {
   // Kept until a group is actually folded or opened: the list builds its rows
   // from this, and a new function on every render rebuilt all of them each time.
   const groups = value.groups;
-  const isGroupCollapsed = useCallback((groupKey: string) => groups.includes(groupKey), [groups]);
+  const isGroupCollapsed = useCallback(
+    (groupKey: string) => groups.includes(groupKey) !== startsFolded(groupKey),
+    [groups]
+  );
 
   return {
     isGroupCollapsed,
@@ -53,13 +60,19 @@ export function useCollapsedSections(viewKey: string): CollapsedController {
     completedCollapsed: value.completed,
     toggleCompleted: () => update({ ...value, completed: !value.completed }),
     expandAllGroups: () => {
-      if (value.groups.length > 0) update({ ...value, groups: [] });
+      // Every grouping has the same folded-repeats group, so it keeps its state.
+      const next = value.groups.filter(startsFolded);
+      if (next.length !== value.groups.length) update({ ...value, groups: next });
     },
     setGroupsCollapsed: (groupKeys, collapsed) => {
-      const next = collapsed
-        ? [...value.groups, ...groupKeys.filter((k) => !value.groups.includes(k))]
-        : value.groups.filter((k) => !groupKeys.includes(k));
-      if (next.length !== value.groups.length) update({ ...value, groups: next });
+      const listed = (k: string) => collapsed !== startsFolded(k);
+      const next = [
+        ...value.groups.filter((k) => !groupKeys.includes(k) || listed(k)),
+        ...groupKeys.filter((k) => listed(k) && !value.groups.includes(k)),
+      ];
+      if (next.length !== value.groups.length || next.some((k, i) => k !== value.groups[i])) {
+        update({ ...value, groups: next });
+      }
     },
   };
 }

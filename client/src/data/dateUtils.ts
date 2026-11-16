@@ -90,15 +90,25 @@ export function formatTime24to12(hhmm: string): string {
   return `${h}:${String(m).padStart(2, '0')} ${suffix}`;
 }
 
+/**
+ * "Aug 7", or "Aug 7, 2027" when the date falls outside `now`'s year. A yearly task
+ * due next March reads as this March without it, and this year is the only one a
+ * bare month and day can safely imply.
+ */
+export function monthDayLabel(d: Date, now: Date): string {
+  const base = `${monthShort(d)} ${d.getDate()}`;
+  return d.getFullYear() === now.getFullYear() ? base : `${base}, ${d.getFullYear()}`;
+}
+
 /** "Fri, Aug 7 · 6:00 PM" style label used in the task detail Due row. */
-export function formatDueFull(dueDate?: string, dueTime?: string): string {
+export function formatDueFull(dueDate?: string, dueTime?: string, now: Date = new Date()): string {
   if (!dueDate) return 'None';
   const d = fromISODate(dueDate);
-  const base = `${weekdayShort(d)}, ${monthShort(d)} ${d.getDate()}`;
+  const base = `${weekdayShort(d)}, ${monthDayLabel(d, now)}`;
   return dueTime ? `${base} · ${formatTime24to12(dueTime)}` : base;
 }
 
-/** "Yesterday", "Today", "Tomorrow", "Fri 6:00 PM", "Aug 5" — used in list rows. */
+/** "Yesterday", "Today", "Tomorrow", "Fri 6:00 PM", "Aug 5", "Mar 4, 2027" — used in list rows. */
 export function formatDueShort(now: Date, dueDate?: string, dueTime?: string): string | null {
   if (!dueDate) return null;
   const d = fromISODate(dueDate);
@@ -110,7 +120,7 @@ export function formatDueShort(now: Date, dueDate?: string, dueTime?: string): s
   else if (diffDays === -1) base = 'Yesterday';
   else if (diffDays === 1) base = 'Tomorrow';
   else if (diffDays > 1 && diffDays < 7) base = weekdayShort(d);
-  else base = `${monthShort(d)} ${d.getDate()}`;
+  else base = monthDayLabel(d, now);
 
   if (dueTime) return `${base} ${formatTime24to12(dueTime)}`;
   return base;
