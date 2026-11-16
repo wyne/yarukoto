@@ -16,11 +16,12 @@ import { formatDueShort } from '../data/dateUtils';
 import { getListById, navGroups } from '../data/selectors';
 import { applySuggestion, useQuickAddSuggestions } from '../data/quickAddSuggestions';
 import DueDateQuickMenu from './pickers/DueDateQuickMenu';
+import DueTimeQuickMenu from './pickers/DueTimeQuickMenu';
 import NativeSheet from './NativeSheet';
 import QuickAddInput from './QuickAddInput';
 import { addFieldKey } from '../data/addFieldKeys';
 import KeyCommandsView from '../../modules/mac-pointer/src/KeyCommandsView';
-import { IconCalendarBox, IconCheckBig, IconFlag, IconFolder, IconPlus, IconTag } from '../icons/Icons';
+import { IconCalendarBox, IconCheckBig, IconClock, IconFlag, IconFolder, IconPlus, IconTag } from '../icons/Icons';
 import { useNativeDateTimePicker } from '../navigation/DateTimePickerContext';
 
 const PRIORITY_MENU: { key: Priority; label: string }[] = [
@@ -166,7 +167,7 @@ export default function TaskComposerSheet({ visible, onClose, defaults, contextL
       mode,
       date: effective.dueDate,
       time: effective.dueTime,
-      onChange: draft.changeDue,
+      onChange: mode === 'date' ? draft.changeDue : (_, dueTime) => draft.changeTime(dueTime),
       onDismiss: () => requestAnimationFrame(() => inputRef.current?.focus()),
     });
   };
@@ -292,13 +293,25 @@ export default function TaskComposerSheet({ visible, onClose, defaults, contextL
           time={effective.dueTime}
           onChange={draft.changeDue}
           onCustomDate={() => openDuePicker('date')}
-          onCustomTime={() => openDuePicker('time')}
           onDone={closeMenu}
         >
           <View style={styles.helper}>
             <IconCalendarBox size={20} color={effective.dueDate ? accent : colors.textTertiary} />
           </View>
         </DueDateQuickMenu>
+        {/* Time counts from the date, so it is offered once there is one, as in the task pane. */}
+        {!!effective.dueDate && (
+          <DueTimeQuickMenu
+            time={effective.dueTime}
+            onChange={draft.changeTime}
+            onPickTime={() => openDuePicker('time')}
+            onDone={closeMenu}
+          >
+            <View style={styles.helper} accessibilityLabel="time">
+              <IconClock size={20} color={effective.dueTime ? accent : colors.textTertiary} />
+            </View>
+          </DueTimeQuickMenu>
+        )}
         {helper('priority', IconFlag, effective.priority !== 'none')}
         {helper('tags', IconTag, effective.tags.length > 0)}
         {helper('list', IconFolder, effective.listId !== null)}

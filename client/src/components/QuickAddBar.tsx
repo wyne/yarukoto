@@ -7,8 +7,8 @@ import { useFieldFocus } from '../theme/focus';
 import { useHoverBg } from '../theme/hover';
 import { priorityColor } from '../theme/colors';
 import { QuickAddDefaults, useTasks } from '../data/TaskContext';
-import { IconCalendarBox, IconFlag, IconFolder, IconPlus, IconTag } from '../icons/Icons';
-import { formatDueShort } from '../data/dateUtils';
+import { IconCalendarBox, IconClock, IconFlag, IconFolder, IconPlus, IconTag } from '../icons/Icons';
+import { formatDueShort, formatTime24to12 } from '../data/dateUtils';
 import { getListById } from '../data/selectors';
 import { applySuggestion, useQuickAddSuggestions } from '../data/quickAddSuggestions';
 import { useCommand } from '../navigation/MenuCommands';
@@ -24,6 +24,7 @@ import Tooltip from './Tooltip';
 import HoverPressable from './HoverPressable';
 import { measureAnchor, PopoverAnchor } from './Popover';
 import DueDateQuickMenu from './pickers/DueDateQuickMenu';
+import DueTimeQuickMenu from './pickers/DueTimeQuickMenu';
 import PriorityPickerSheet from './pickers/PriorityPickerSheet';
 import TagPickerSheet from './pickers/TagPickerSheet';
 import ListPickerSheet from './pickers/ListPickerSheet';
@@ -62,6 +63,7 @@ export default function QuickAddBar({ defaults, contextLabel, onAdded }: Props) 
   const [anchor, setAnchor] = useState<PopoverAnchor | undefined>(undefined);
   const inputRef = useRef<TextInput>(null);
   const dateRef = useRef<View>(null);
+  const timeRef = useRef<View>(null);
   // File ▸ New Task (⌘N) on the Mac: this field is where a new task starts.
   // Once the command menu it may have come from is gone, which on the web
   // pulls focus back to itself until then.
@@ -100,19 +102,19 @@ export default function QuickAddBar({ defaults, contextLabel, onAdded }: Props) 
     setPicker(null);
     refocus();
   };
-  // The Mac's menu offers "Pick date" for the native picker; the web's menu
-  // has its own calendar.
-  const openDatePicker = () => {
-    const node = dateRef.current as unknown as {
+  // The Mac's menus offer "Pick date" and "Pick time" for the native picker;
+  // the web's menus have their own calendar and times.
+  const openDueTimePicker = (mode: 'date' | 'time') => {
+    const node = (mode === 'date' ? dateRef : timeRef).current as unknown as {
       measureInWindow?: (cb: (x: number, y: number, width: number, height: number) => void) => void;
     } | null;
     const present = (at?: PopoverAnchor) =>
       presentDateTimePicker({
         anchor: at,
-        mode: 'date',
+        mode,
         date: effective.dueDate,
         time: effective.dueTime,
-        onChange: draft.changeDue,
+        onChange: mode === 'date' ? draft.changeDue : (_, dueTime) => draft.changeTime(dueTime),
         onDismiss: refocus,
       });
     if (node?.measureInWindow) node.measureInWindow((x, y, width, height) => present({ x, y, width, height }));
@@ -123,8 +125,9 @@ export default function QuickAddBar({ defaults, contextLabel, onAdded }: Props) 
   // view's own scope.
   const pickedDate =
     effective.dueDate && !parsed?.dueDate && effective.dueDate !== defaults?.dueDate
-      ? formatDueShort(new Date(), effective.dueDate, effective.dueTime)
+      ? formatDueShort(new Date(), effective.dueDate)
       : null;
+  const pickedTime = effective.dueTime && !parsed?.dueTime ? formatTime24to12(effective.dueTime) : null;
   const pickedList =
     effective.listId && !parsed?.listName && effective.listId !== (defaults?.listId ?? null)
       ? getListById(state.lists, effective.listId)?.name
@@ -222,7 +225,7 @@ export default function QuickAddBar({ defaults, contextLabel, onAdded }: Props) 
             date={effective.dueDate}
             time={effective.dueTime}
             onChange={draft.changeDue}
-            onCustomDate={openDatePicker}
+            onCustomDate={() => openDueTimePicker('date')}
             onDone={refocus}
           >
             <View style={styles.tool}>
@@ -231,6 +234,23 @@ export default function QuickAddBar({ defaults, contextLabel, onAdded }: Props) 
           </DueDateQuickMenu>
         </View>
       </Tooltip>
+      {/* Time counts from the date, so it is offered once there is one, as in the task pane. */}
+      {!!effective.dueDate && (
+        <Tooltip label="Time" align="center">
+          <View ref={timeRef} collapsable={false}>
+            <DueTimeQuickMenu
+              time={effective.dueTime}
+              onChange={draft.changeTime}
+              onPickTime={() => openDueTimePicker('time')}
+              onDone={refocus}
+            >
+              <View style={styles.tool}>
+                {face(IconClock, effective.dueTime ? accent : null, pickedTime?.toLowerCase())}
+              </View>
+            </DueTimeQuickMenu>
+          </View>
+        </Tooltip>
+      )}
       <Tooltip label="Priority" align="center">
         <HoverPressable style={hoverBg(styles.tool)} onPress={openPicker('priority')} accessibilityLabel="Priority">
           {face(IconFlag, effective.priority !== 'none' ? priorityColor(effective.priority, colors) : null)}
