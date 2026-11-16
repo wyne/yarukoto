@@ -12,7 +12,7 @@ import { useDetailActions, useOverlayDetailWhileFocused } from '../navigation/De
 import { useTasks } from '../data/TaskContext';
 import { PlanMode, PlanSort, loadPlanPrefs, savePlanPrefs } from '../data/storage';
 import { tasksByDate } from '../data/selectors';
-import { addDays, addMonths, addWeeks, dayRangeLabel, isSameDay, monthShort, startOfWeek, toISODate } from '../data/dateUtils';
+import { addDays, addMonths, addWeeks, dayRangeLabel, isSameDay, monthDayLabel, startOfWeek, toISODate } from '../data/dateUtils';
 import { Task } from '../data/types';
 import AgendaDayGroup from './calendar/AgendaDayGroup';
 import AddExistingTaskSheet, { AddExistingTaskButton } from './calendar/AddExistingTaskSheet';
@@ -272,7 +272,7 @@ export default function CalendarScreen() {
     setSelectedDate(today);
   };
 
-  const selectedDateLabel = `${monthShort(selectedDate)} ${selectedDate.getDate()}`;
+  const selectedDateLabel = monthDayLabel(selectedDate, today);
 
   // Both day views run to the bottom of the screen, under a tab bar and a FAB.
   // Each is zero where it doesn't exist: a wide layout has neither, the web tab

@@ -26,7 +26,10 @@ import {
   SortBy,
   ViewOptions,
   groupByDay,
+  LATER_REPEATS_KEY,
   groupTasks,
+  laterRepeatsGroup,
+  splitLaterRepeats,
   viewKey,
 } from '../data/viewOptions';
 import { useCollapsedSections } from '../data/uiPrefs';
@@ -341,21 +344,32 @@ const TaskListBody = memo(
     return { active: a, completed: c };
   }, [state.tasks, mode, filter, untriagedOnly, folderListIds, days]);
 
-  const groups = useMemo(
-    () =>
-      byDay
-        ? groupByDay(active, options, now, days)
-        : groupTasks(active, options, { lists: state.lists, folders: state.folders, now }),
-    [active, options, state.lists, state.folders, byDay, days]
-  );
+  const groups = useMemo(() => {
+    // Today only ever holds what is due soon, so there is nothing to set aside.
+    const { soon, later } = mode === 'today' ? { soon: active, later: [] } : splitLaterRepeats(active, now);
+    const main = byDay
+      ? groupByDay(soon, options, now, days)
+      : groupTasks(soon, options, { lists: state.lists, folders: state.folders, now });
+    return [...main, ...laterRepeatsGroup(later)];
+  }, [active, mode, options, state.lists, state.folders, byDay, days]);
   /** The dimension the rows are grouped by, which day sections set aside. */
   const groupDimension: GroupBy = byDay ? 'none' : options.groupBy;
   const grouped = byDay || options.groupBy !== 'none';
+  /** Whether a group has a header to fold it under, which an ungrouped view's rows don't. */
+  const headed = useCallback(
+    (groupKey: string) => grouped || groupKey === LATER_REPEATS_KEY,
+    [grouped]
+  );
+  const isFolded = useCallback(
+    (groupKey: string) => headed(groupKey) && sections.isGroupCollapsed(groupKey),
+    [headed, sections.isGroupCollapsed]
+  );
+  /** Whether any group on screen can fold. */
+  const foldable = grouped || groups.some((g) => g.key === LATER_REPEATS_KEY);
   /** Whether the cursor is on a folded group's header, which is still there and still folded. */
   const onFoldStop =
     foldStop !== null &&
-    grouped &&
-    sections.isGroupCollapsed(foldStop) &&
+    isFolded(foldStop) &&
     groups.some((g) => g.key === foldStop && g.tasks.length > 0);
 
   const {
@@ -464,19 +478,19 @@ const TaskListBody = memo(
       Array.from(
         new Set(
           groups
-            .filter((g) => !(grouped && sections.isGroupCollapsed(g.key)))
+            .filter((g) => !isFolded(g.key))
             .flatMap((g) => g.tasks.map((t) => t.id))
         )
       ),
-    [groups, grouped, sections.isGroupCollapsed]
+    [groups, isFolded]
   );
   const cursor = !onFoldStop && anchorId && navIds.includes(anchorId) ? anchorId : null;
   // The cursor leaves a header when it lands on a task by any other route.
   useEffect(() => setFoldStop(null), [anchorId]);
   /** The cursor's places, with folded groups' headers among the tasks; see ListStop. */
   const stops = useMemo(
-    () => listStops(groups, (k) => grouped && sections.isGroupCollapsed(k)),
-    [groups, grouped, sections.isGroupCollapsed]
+    () => listStops(groups, isFolded),
+    [groups, isFolded]
   );
   const stopAt = onFoldStop
     ? stops.findIndex((s) => s.taskId === null && s.groupKey === foldStop)
@@ -523,7 +537,7 @@ const TaskListBody = memo(
    */
   const fold = (collapsed: boolean | 'toggle') => {
     const stop = stops[stopAt];
-    if (!grouped || !stop) return;
+    if (!stop || !headed(stop.groupKey)) return;
     const folded = sections.isGroupCollapsed(stop.groupKey);
     const next = collapsed === 'toggle' ? !folded : collapsed;
     if (next === folded) return;
@@ -541,10 +555,10 @@ const TaskListBody = memo(
   };
   /** `zM` and `zR`: every group, with the cursor kept on whatever group it was in. */
   const foldAll = (collapsed: boolean) => {
-    if (!grouped) return;
+    if (!foldable) return;
     const stop = stops[stopAt];
     sections.setGroupsCollapsed(
-      groups.map((g) => g.key),
+      groups.filter((g) => headed(g.key)).map((g) => g.key),
       collapsed
     );
     if (!stop) return;
@@ -589,7 +603,7 @@ const TaskListBody = memo(
     justAdded.current = null;
     if (!navIds.includes(id)) {
       const folded = groups.find((g) => g.tasks.some((t) => t.id === id));
-      if (folded && options.groupBy !== 'none' && sections.isGroupCollapsed(folded.key)) {
+      if (folded && isFolded(folded.key)) {
         justAdded.current = id;
         sections.toggleGroup(folded.key);
       } else {
@@ -715,12 +729,12 @@ const TaskListBody = memo(
   useCommand('previousGroup', () => moveToStop(stops[groupStop(stops, stopAt, -1)]), hasStops);
   useCommand('scrollLineDown', () => scrollLines(1), hasStops);
   useCommand('scrollLineUp', () => scrollLines(-1), hasStops);
-  const canFold = hasStops && grouped && stopAt !== -1;
+  const canFold = hasStops && !!stops[stopAt] && headed(stops[stopAt].groupKey);
   useCommand('toggleFold', () => fold('toggle'), canFold);
   useCommand('openFold', () => fold(false), canFold);
   useCommand('closeFold', () => fold(true), canFold);
-  useCommand('openAllFolds', () => foldAll(false), hasStops && grouped);
-  useCommand('closeAllFolds', () => foldAll(true), hasStops && grouped);
+  useCommand('openAllFolds', () => foldAll(false), hasStops && foldable);
+  useCommand('closeAllFolds', () => foldAll(true), hasStops && foldable);
   /** View ▸ Toggle Task Pane: closes the task beside the list, or opens the cursor's. */
   useCommand(
     'toggleTaskPane',
