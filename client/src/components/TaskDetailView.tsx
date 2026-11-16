@@ -857,7 +857,7 @@ export default function TaskDetailView({ taskId, onClose, variant, active = true
             )}
           />
           {addingSubtask ? (
-            <View style={styles.subtaskRow}>
+            <View style={[styles.subtaskRow, styles.addSubtaskRow]}>
               <IconPlus size={15} color={colors.textTertiary} />
               <NativeOwnedTextInput
                 ref={subtaskInputRef as never}
@@ -884,7 +884,7 @@ export default function TaskDetailView({ taskId, onClose, variant, active = true
               />
             </View>
           ) : (
-            <Pressable style={hoverBg(styles.subtaskRow)} onPress={() => setAddingSubtask(true)}>
+            <Pressable style={hoverBg([styles.subtaskRow, styles.addSubtaskRow])} onPress={() => setAddingSubtask(true)}>
               <IconPlus size={15} color={colors.textTertiary} />
               <Text style={styles.addSubtaskText}>Add subtask</Text>
             </Pressable>
@@ -1182,7 +1182,8 @@ const useStyles = makeStyles((c) => ({
   },
   subtasksCard: {
     marginTop: 12,
-    paddingBottom: FINE_POINTER ? 4 : 6,
+    // By touch the 44pt Add subtask row already leaves room below it.
+    paddingBottom: FINE_POINTER ? 4 : 0,
   },
   subtasksHeader: {
     flexDirection: 'row',
@@ -1217,6 +1218,11 @@ const useStyles = makeStyles((c) => ({
     paddingHorizontal: 14,
     paddingVertical: FINE_POINTER ? 3 : 4,
     minHeight: FINE_POINTER ? 30 : 36,
+  },
+  // Add subtask keeps a full 44pt tap target by touch: it has no hitSlop, and
+  // growing one would reach into the subtask above it.
+  addSubtaskRow: {
+    minHeight: FINE_POINTER ? 30 : 44,
   },
   subtaskRowWithHandle: {
     paddingRight: 40,
