@@ -178,7 +178,7 @@ export const COMMANDS: readonly CommandDef[] = [
   // File ▸ Open…'s key, for the thing this app opens: a search of the open
   // tasks by title, in the command menu.
   { id: 'goToTask', title: 'Go to Task…', menu: 'file', group: 'new', shortcut: cmd('o'), web: true, picker: true, keywords: 'open find search jump' },
-  // In place of the system's Close, which Catalyst leaves dimmed. Mac only (MacStatusMenu).
+  // In place of the system's Close, which Catalyst leaves dimmed. Mac only (AppMenuBar).
   { id: 'closeWindow', title: 'Close Window', menu: 'file', group: 'close', shortcut: cmd('w'), hiddenFromPalette: true },
 
   // / as vim searches, for the web, where the browser keeps ⌘F.

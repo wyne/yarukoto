@@ -78,6 +78,7 @@ jest.mock('../src/navigation/shortcutHints', () => ({
 jest.mock('../modules/mac-menu/src/MacMenu', () => null);
 
 import MenuCommands, {
+  AppMenuBar,
   dispatchCommand,
   showPalettePicker,
   useCommand,
@@ -88,7 +89,12 @@ const originalPlatformOs = Object.getOwnPropertyDescriptor(Platform, 'OS');
 function renderMenu() {
   let root!: ReactTestRenderer;
   act(() => {
-    root = create(<MenuCommands />);
+    root = create(
+      <>
+        <AppMenuBar />
+        <MenuCommands />
+      </>
+    );
   });
   return root;
 }
@@ -140,6 +146,19 @@ test('routes global commands to their app-level behavior', () => {
   expect(dispatchCommand('support')).toBe(true);
   expect(dispatchCommand('privacy')).toBe(true);
   expect(mockOpenLink.mock.calls).toEqual([['setup'], ['support'], ['privacy']]);
+  act(() => root.unmount());
+});
+
+test('Check for Updates answers over the first-run screen, with nothing else to go to', () => {
+  let root!: ReactTestRenderer;
+  act(() => {
+    root = create(<AppMenuBar />);
+  });
+  expect(dispatchCommand('checkForUpdates')).toBe(true);
+  expect(mockCheckForUpdates).toHaveBeenCalledTimes(1);
+  expect(dispatchCommand('newTask')).toBe(false);
+  expect(dispatchCommand('nextView')).toBe(false);
+  expect(mockNavigate).not.toHaveBeenCalled();
   act(() => root.unmount());
 });
 

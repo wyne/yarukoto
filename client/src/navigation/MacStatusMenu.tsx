@@ -5,11 +5,7 @@ import { MAC } from '../data/platform';
 import { useTasks } from '../data/TaskContext';
 import { useBadgeCount } from '../data/badgeCountSetting';
 import { useShowTask } from './showTask';
-import { dispatchCommand, useCommand } from './MenuCommands';
-
-const closeWindow = () => {
-  MacStatusItem?.closeMainWindow();
-};
+import { dispatchCommand } from './MenuCommands';
 
 /** How often Today is worked out again with nothing changed, so midnight moves it on. */
 const RECHECK_MS = 60_000;
@@ -27,9 +23,6 @@ export default function MacStatusMenu() {
   const { state, toggleComplete } = useTasks();
   const setting = useBadgeCount();
   const [minute, setMinute] = useState(0);
-
-  // File ▸ Close, ⌘W. Native decides whether that hides or quits.
-  useCommand('closeWindow', closeWindow, !!MacStatusItem);
 
   useEffect(() => {
     if (!MAC || !MacStatusItem) return;
