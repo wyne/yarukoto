@@ -11,6 +11,8 @@ import { elapsedShort } from '../data/dateUtils';
 interface Props {
   mode: AppMode;
   serverUrl: string;
+  /** What the server's owner called it, shown in place of the host when set. */
+  serverName?: string | null;
   /** Collapsed sidebar shows the dot alone. */
   compact?: boolean;
 }
@@ -25,11 +27,22 @@ const SYNC_PULSE_UP_MS = 520;
  *
  * When everything is fine the label is the server host rather than the word
  * "Synced" — a green dot already says that, and the host is the more useful
- * thing to see at a glance.
+ * thing to see at a glance. A server with a name shows the name, and the host
+ * goes under it: the name is what you call it, the host is how to tell two
+ * servers with the same name apart.
  */
-function describe(mode: AppMode, status: SyncStatus, serverUrl: string, now: Date): { color: string; label: string } {
+function describe(
+  mode: AppMode,
+  status: SyncStatus,
+  serverUrl: string,
+  serverName: string | null,
+  now: Date
+): { color: string; label: string; detail?: string } {
   const colors = useColors();
   const host = serverUrl.replace(/^https?:\/\//, '');
+  const fine = serverName
+    ? { label: serverName, detail: host || undefined }
+    : { label: host || 'Connected' };
   const stale = status.lastSyncedAt ? elapsedShort(now, status.lastSyncedAt) : null;
 
   if (mode === 'sample') return { color: colors.textFaint, label: 'Sample data' };
@@ -38,7 +51,7 @@ function describe(mode: AppMode, status: SyncStatus, serverUrl: string, now: Dat
   // Labels stay short: the sidebar is narrow, and a truncated message helps nobody.
   switch (status.state) {
     case 'syncing':
-      return { color: colors.success, label: host || 'Connected' };
+      return { color: colors.success, ...fine };
     case 'pending':
       return { color: colors.priorityMedium, label: `${status.pending} pending` };
     case 'offline':
@@ -57,18 +70,18 @@ function describe(mode: AppMode, status: SyncStatus, serverUrl: string, now: Dat
       return { color: colors.priorityHigh, label: 'Token rejected' };
     case 'synced':
     default:
-      return { color: colors.success, label: host || 'Connected' };
+      return { color: colors.success, ...fine };
   }
 }
 
-export default function SyncIndicator({ mode, serverUrl, compact }: Props) {
+export default function SyncIndicator({ mode, serverUrl, serverName = null, compact }: Props) {
   const styles = useStyles();
   // Read here rather than passed in, so a status change re-renders the indicator
   // alone and not the sidebar or sheet around it.
   const status = useSyncStatus();
   // Recomputed on each render, which the 5s sync cycle already triggers — so the
   // elapsed time stays current without a timer of its own.
-  const { color, label } = describe(mode, status, serverUrl, new Date());
+  const { color, label, detail } = describe(mode, status, serverUrl, serverName, new Date());
 
   // A slow pulse while syncing, so the indicator reads as live without being a
   // spinner competing for attention.
@@ -143,10 +156,20 @@ export default function SyncIndicator({ mode, serverUrl, compact }: Props) {
           },
         ]}
       />
-      {!compact && (
+      {!compact && !detail && (
         <Text style={styles.label} numberOfLines={1}>
           {label}
         </Text>
+      )}
+      {!compact && detail && (
+        <View style={styles.named}>
+          <Text style={styles.name} numberOfLines={1}>
+            {label}
+          </Text>
+          <Text style={styles.detail} numberOfLines={1}>
+            {detail}
+          </Text>
+        </View>
       )}
     </>
   );
@@ -162,6 +185,19 @@ const useStyles = makeStyles((c) => ({
     flex: 1,
     fontFamily: fonts.monoRegular,
     fontSize: 13.5,
+    color: c.textTertiary,
+  },
+  named: {
+    flex: 1,
+  },
+  name: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 14,
+    color: c.textSecondary,
+  },
+  detail: {
+    fontFamily: fonts.monoRegular,
+    fontSize: 12,
     color: c.textTertiary,
   },
 }));

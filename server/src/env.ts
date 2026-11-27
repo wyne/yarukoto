@@ -36,6 +36,20 @@ export function parseTrustProxy(value: string | undefined): boolean | string {
   return trimmed;
 }
 
+/** Longest server name the apps are sent; past this it is a sentence, not a name. */
+export const SERVER_NAME_MAX = 60;
+
+/**
+ * What the apps call this server, from `YARUKOTO_SERVER_NAME`. Null when unset
+ * or blank, and the apps show the host instead. Trimmed and capped because it
+ * is drawn in a narrow sidebar row.
+ */
+export function parseServerName(value: string | undefined): string | null {
+  const trimmed = value?.replace(/\s+/g, ' ').trim();
+  if (!trimmed) return null;
+  return trimmed.slice(0, SERVER_NAME_MAX);
+}
+
 const databasePath = process.env.DATABASE_PATH ?? path.resolve(process.cwd(), 'data/yarukoto.db');
 
 export const env = {
@@ -43,6 +57,8 @@ export const env = {
   port: Number(process.env.PORT ?? 8080),
   databasePath,
   trashRetentionDays: Number(process.env.TRASH_RETENTION_DAYS ?? DEFAULT_TRASH_RETENTION_DAYS),
+  /** Shown in the apps in place of the host. Public: `/health` answers it before sign-in. */
+  serverName: parseServerName(process.env.YARUKOTO_SERVER_NAME),
   historyRevisionsPerTask: Number(process.env.HISTORY_REVISIONS_PER_TASK ?? 50),
   webRoot: process.env.WEB_ROOT ?? path.resolve(process.cwd(), '../web'),
   /**

@@ -626,6 +626,8 @@ export interface ServerSnapshot {
   serverFeatures?: ServerFeature[];
   /** How long the server keeps trash, as it last said. Absent means it never said. */
   trashRetentionDays?: number;
+  /** What the server last said it is called. Absent when it has no name, or never said. */
+  serverName?: string;
   /** Who was signed in, so a cold start knows whose reminders are whose. */
   household?: Household;
   cursor?: string;
@@ -701,6 +703,7 @@ function parseServerSnapshot(raw: string): ServerSnapshot | null {
     serverFeatures: parseServerFeatures(stored.serverFeatures),
     trashRetentionDays:
       typeof stored.trashRetentionDays === 'number' && stored.trashRetentionDays > 0 ? stored.trashRetentionDays : undefined,
+    serverName: typeof stored.serverName === 'string' && stored.serverName ? stored.serverName : undefined,
     household: parseHousehold(stored.household),
     cursor: typeof stored.cursor === 'string' ? stored.cursor : undefined,
     savedAt: typeof stored.savedAt === 'string' ? stored.savedAt : new Date(0).toISOString(),

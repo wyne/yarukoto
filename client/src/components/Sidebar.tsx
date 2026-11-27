@@ -59,6 +59,7 @@ import { dispatchCommand } from '../navigation/MenuCommands';
 import ShortcutHint, { HINT_ON_ICON_CORNER } from './ShortcutHint';
 import { NavRow, flattenTree, parentOf, resolveDrop } from './sidebar/navTree';
 import { loadCollapsedFolders, saveCollapsedFolders } from '../data/storage';
+import MacMenu from '../../modules/mac-menu/src/MacMenu';
 import SyncIndicator from './SyncIndicator';
 import { useWindowSelector } from './useWindowSelector';
 import {
@@ -261,7 +262,7 @@ const Sidebar = React.memo(function Sidebar({ state, navigation, onNavigate }: P
   const fullWidth = wide && !inDrawer ? pinnedWidth : SIDEBAR_WIDTH;
   const insets = useSafeAreaInsets();
   const winHeight = useWindowSelector((window) => window.height);
-  const { state: data, reorderList, reorderFolder, supportsFeature } = useTasks();
+  const { state: data, reorderList, reorderFolder, supportsFeature, serverName } = useTasks();
   const rows = useMemo(
     () => flattenTree(data.folders, data.lists, { collapsed: collapsedFolders }),
     [data.folders, data.lists, collapsedFolders]
@@ -613,6 +614,37 @@ const Sidebar = React.memo(function Sidebar({ state, navigation, onNavigate }: P
   }, [settled]);
 
   /**
+   * The Mac's title bar names the view in front, as a document window names its
+   * document. The app's own name is already in the menu bar and the Dock.
+   *
+   * Read from where the navigation is, not from a press still in flight, and
+   * set by one sidebar: a rail-only window mounts the drawer's as well.
+   */
+  const windowTitle = (() => {
+    if (!MAC) return '';
+    if (browseFilterId) {
+      const filter = data.savedFilters.find((f) => f.id === browseFilterId && !f.deletedAt);
+      if (filter) return filter.name;
+    }
+    const onTaskList = native ? onListTab && nativeListScreen === 'Tasks' : onInbox;
+    if (onTaskList && inboxParams?.listId) {
+      const list = data.lists.find((l) => l.id === inboxParams.listId);
+      if (list) return list.name;
+    }
+    if (onTaskList && inboxParams?.folderId) {
+      const folder = data.folders.find((f) => f.id === inboxParams.folderId);
+      if (folder) return folder.name;
+    }
+    if (onTaskList && inboxParams?.tag) return `#${inboxParams.tag}`;
+    return VIEWS.find(({ route }) => routeActive(route))?.label ?? 'Yarukoto';
+  })();
+  const setsWindowTitle = MAC && !(inDrawer && wide);
+  useEffect(() => {
+    if (!setsWindowTitle || !windowTitle) return;
+    MacMenu?.setWindowTitle(windowTitle).catch(() => {});
+  }, [setsWindowTitle, windowTitle]);
+
+  /**
    * The sidebar from the keyboard, on the desktop: ↑ and ↓ move through every
    * row and show it at once, as Mail does with mailboxes; → and ← open and
    * fold a folder (← from a list in one goes up to the folder); Return,
@@ -764,6 +796,9 @@ const Sidebar = React.memo(function Sidebar({ state, navigation, onNavigate }: P
   useCommand('nextView', () => stepView(1), answersViewKeys);
   useCommand('previousView', () => stepView(-1), answersViewKeys);
 
+  const showBrand = !MAC && !collapsed;
+  const hasToggle = wide && !inDrawer;
+
   const sidebarStyle = [
     styles.sidebar,
     { width: collapsed ? SIDEBAR_COLLAPSED_WIDTH : fullWidth },
@@ -779,9 +814,13 @@ const Sidebar = React.memo(function Sidebar({ state, navigation, onNavigate }: P
         focusKey={keyFocus}
         onKey={handleKey}
       >
-        <View style={[styles.brandRow, collapsed && styles.brandRowCollapsed]}>
-          {!collapsed && <Text style={styles.brand}>Yarukoto</Text>}
-          {wide && !inDrawer && (
+        {/* The Mac's menu bar and Dock already name the app, and its title bar
+            names the view, so the wordmark would be the third Yarukoto on screen.
+            The row stays for the chevron, which is all it holds there. */}
+        {(showBrand || hasToggle) && (
+        <View style={[styles.brandRow, !showBrand && styles.brandRowBare, collapsed && styles.brandRowCollapsed]}>
+          {showBrand && <Text style={styles.brand}>Yarukoto</Text>}
+          {hasToggle && (
             <Pressable
               // No room to push the content aside, so the full sidebar comes over it.
               onPress={railOnly ? openDrawer : toggleCollapsed}
@@ -798,6 +837,7 @@ const Sidebar = React.memo(function Sidebar({ state, navigation, onNavigate }: P
             </Pressable>
           )}
         </View>
+        )}
 
         <Animated.ScrollView
           ref={scrollRef}
@@ -1004,6 +1044,7 @@ const Sidebar = React.memo(function Sidebar({ state, navigation, onNavigate }: P
           <SyncIndicator
             mode={data.mode}
             serverUrl={data.serverUrl}
+            serverName={serverName}
             compact={collapsed}
           />
           <IconSettings size={18} color={colors.textTertiary} />
@@ -1398,6 +1439,10 @@ const useStyles = makeStyles((c) => ({
     minHeight: BRAND_LINE + 14,
     paddingRight: 12,
     paddingBottom: 14,
+  },
+  /** No wordmark to push it over, so the chevron keeps to the right edge itself. */
+  brandRowBare: {
+    justifyContent: 'flex-end',
   },
   /** The chevron over the rail's column of marks; see `RAIL_ROW_WIDTH`. */
   brandRowCollapsed: {
