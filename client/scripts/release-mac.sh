@@ -10,6 +10,8 @@
 #   - `notarytool` keychain profile (default: yarukoto-notary), or an App Store
 #     Connect API key in NOTARY_KEY (a path to the .p8), NOTARY_KEY_ID and
 #     NOTARY_ISSUER, which is how CI notarizes (.github/workflows/desktop-release.yml)
+#   - Optional: MAC_PROVISIONING_PROFILE, a Developer ID provisioning profile for
+#     the app's bundle id, which lets the app keep credentials in the Keychain
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
@@ -124,6 +126,27 @@ ENTITLEMENTS="ios/$SCHEME/$SCHEME.entitlements"
 if [ ! -f "$ENTITLEMENTS" ]; then
   echo "Missing generated Catalyst entitlements: $ENTITLEMENTS" >&2
   exit 1
+fi
+# The Keychain needs an application identifier on a Catalyst app, and outside
+# the App Store only an embedded Developer ID provisioning profile can grant
+# one. Without MAC_PROVISIONING_PROFILE the app still runs, but keeps its
+# credentials in its sandbox container instead (client/src/data/storage.ts).
+if [ -n "${MAC_PROVISIONING_PROFILE:-}" ]; then
+  if [ ! -f "$MAC_PROVISIONING_PROFILE" ]; then
+    echo "Missing provisioning profile: $MAC_PROVISIONING_PROFILE" >&2
+    exit 1
+  fi
+  BUNDLE_ID="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Contents/Info.plist")"
+  cp "$MAC_PROVISIONING_PROFILE" "$APP/Contents/embedded.provisionprofile"
+  SIGNING_ENTITLEMENTS="$(mktemp -t yarukoto-entitlements).plist"
+  cp "$ENTITLEMENTS" "$SIGNING_ENTITLEMENTS"
+  /usr/libexec/PlistBuddy \
+    -c "Add :com.apple.application-identifier string $TEAM_ID.$BUNDLE_ID" \
+    -c "Add :com.apple.developer.team-identifier string $TEAM_ID" \
+    -c "Add :keychain-access-groups array" \
+    -c "Add :keychain-access-groups:0 string $TEAM_ID.$BUNDLE_ID" \
+    "$SIGNING_ENTITLEMENTS"
+  ENTITLEMENTS="$SIGNING_ENTITLEMENTS"
 fi
 codesign --force --timestamp --options runtime \
   --entitlements "$ENTITLEMENTS" \
