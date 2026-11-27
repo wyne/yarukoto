@@ -32,7 +32,8 @@ import { EMPTY_CRITERIA, TaskCriteria, isEmptyCriteria, normalizeCriteria } from
  *
  * Credentials — the access token and each saved server's token — live in the
  * Keychain / Android Keystore through SecureStore instead, behind the same
- * cache. On web there is no secure store, so they stay in localStorage there.
+ * cache. On web there is no secure store, so they stay in localStorage there,
+ * and a write the keychain refuses stays in AsyncStorage (see `writeSecure`).
  */
 
 const URL_KEY = 'yarukoto.serverUrl';
@@ -158,11 +159,27 @@ function read(key: string): string | null {
   return cache[key] ?? null;
 }
 
+/**
+ * Writes a credential to SecureStore, or keeps it in AsyncStorage when the
+ * keychain refuses it. A Mac build signed without a provisioning profile has no
+ * keychain access at all, and a dropped write there signs the person out on
+ * every relaunch. `readSecure` prefers the keychain copy and moves this one
+ * across once the keychain takes it.
+ */
+function writeSecure(key: string, value: string): void {
+  SecureStore.setItemAsync(key, value, SECURE_OPTIONS)
+    .then(() => AsyncStorage.removeItem(key))
+    .catch(() => {
+      if (cache[key] === value) return AsyncStorage.setItem(key, value);
+    })
+    .catch(() => {});
+}
+
 function write(key: string, value: string): void {
   cache[key] = value;
   // Fire-and-forget: the cache is already authoritative for this session, so a
   // failed write costs a re-connect next launch rather than breaking anything now.
-  if (isSecure(key)) SecureStore.setItemAsync(key, value, SECURE_OPTIONS).catch(() => {});
+  if (isSecure(key)) writeSecure(key, value);
   else AsyncStorage.setItem(key, value).catch(() => {});
 }
 

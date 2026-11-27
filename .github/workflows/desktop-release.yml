@@ -15,6 +15,8 @@ name: Desktop release
 #   APPLE_API_KEY_P8          contents of an App Store Connect API key (.p8), for notarization
 #   APPLE_API_KEY_ID          that key's ID
 #   APPLE_API_ISSUER_ID       the issuer ID shown above the keys list
+#   MAC_PROVISIONING_PROFILE  optional: base64 of a Developer ID provisioning profile
+#                             for the Mac bundle id, which lets the app use the Keychain
 # Windows stays unsigned for now, so SmartScreen warns on first launch.
 on:
   workflow_dispatch:
@@ -107,6 +109,7 @@ jobs:
           MAC_CERTIFICATE_P12: ${{ secrets.MAC_CERTIFICATE_P12 }}
           MAC_CERTIFICATE_PASSWORD: ${{ secrets.MAC_CERTIFICATE_PASSWORD }}
           APPLE_API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
+          MAC_PROVISIONING_PROFILE: ${{ secrets.MAC_PROVISIONING_PROFILE }}
         run: |
           KEYCHAIN="$RUNNER_TEMP/signing.keychain-db"
           KEYCHAIN_PASSWORD=$(openssl rand -hex 24)
@@ -122,6 +125,10 @@ jobs:
           security list-keychains -d user -s "$KEYCHAIN" \
             $(security list-keychains -d user | tr -d '"')
           printf '%s' "$APPLE_API_KEY_P8" > "$RUNNER_TEMP/notary.p8"
+          if [ -n "$MAC_PROVISIONING_PROFILE" ]; then
+            echo "$MAC_PROVISIONING_PROFILE" | base64 --decode > "$RUNNER_TEMP/mac.provisionprofile"
+            echo "MAC_PROVISIONING_PROFILE=$RUNNER_TEMP/mac.provisionprofile" >> "$GITHUB_ENV"
+          fi
 
       - name: Build, sign and notarize
         working-directory: client

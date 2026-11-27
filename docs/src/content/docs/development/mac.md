@@ -105,6 +105,7 @@ The workflow needs these repository secrets:
 | `APPLE_API_KEY_P8` | The text of an App Store Connect API key (`.p8`) from **Users and Access → Integrations → App Store Connect API**. Developer access is enough to notarize. |
 | `APPLE_API_KEY_ID` | That key's ID. |
 | `APPLE_API_ISSUER_ID` | The issuer ID shown above the key list. |
+| `MAC_PROVISIONING_PROFILE` | Optional. A Developer ID provisioning profile for the Mac bundle id, base64-encoded. It gives the app an application identifier, which the Keychain requires; without it the app keeps its sign-in in its sandbox container instead. Locally, pass the profile's path in the same variable to `npm run mac:release`. |
 
 The release workflow additionally needs `EXPO_TOKEN` for the iOS and Android EAS builds. An
 optional fine-grained `RELEASE_PLEASE_TOKEN` with repository contents and pull request write access

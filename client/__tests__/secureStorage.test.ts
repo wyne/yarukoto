@@ -82,3 +82,28 @@ test('a SecureStore failure keeps the old copy rather than signing out', async (
   expect(storage.loadToken()).toBe('secret');
   expect(mockAsyncData['yarukoto.token']).toBe('secret');
 });
+
+test('a token the keychain refuses is kept in AsyncStorage and survives a relaunch', async () => {
+  reset();
+  mockState.secureFails = true;
+  let storage = require('../src/data/storage');
+  await storage.initStorage();
+  storage.saveToken('fresh');
+  await flush();
+  expect(mockSecureData['yarukoto.token']).toBeUndefined();
+  expect(mockAsyncData['yarukoto.token']).toBe('fresh');
+
+  jest.resetModules();
+  storage = require('../src/data/storage');
+  await storage.initStorage();
+  expect(storage.loadToken()).toBe('fresh');
+
+  // Once the keychain works, the next launch moves the token into it.
+  mockState.secureFails = false;
+  jest.resetModules();
+  storage = require('../src/data/storage');
+  await storage.initStorage();
+  expect(storage.loadToken()).toBe('fresh');
+  expect(mockSecureData['yarukoto.token']).toBe('fresh');
+  expect(mockAsyncData['yarukoto.token']).toBeUndefined();
+});
