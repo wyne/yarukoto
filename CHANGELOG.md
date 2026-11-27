@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.8.0](https://github.com/wyne/yarukoto/compare/v1.7.0...v1.8.0) (2026-11-27)
+
+
+### Features
+
+* name the view in the Mac title bar and show the server's name ([#307](https://github.com/wyne/yarukoto/issues/307)) ([6821ef6](https://github.com/wyne/yarukoto/commit/6821ef6bc53dc121684254489c56fd5c850edd50))
+
+
+### Bug Fixes
+
+* keep the Mac app signed in across relaunches ([#312](https://github.com/wyne/yarukoto/issues/312)) ([72eb951](https://github.com/wyne/yarukoto/commit/72eb9514ac6e3a621a66b0e693a183603877e9bc))
+* **mac:** keep the menu bar and Check for Updates working when signed out ([#310](https://github.com/wyne/yarukoto/issues/310)) ([0df16fa](https://github.com/wyne/yarukoto/commit/0df16fa2470c4b411a3ad75e8677a6890574a76f))
+
 ## [1.7.0](https://github.com/wyne/yarukoto/compare/v1.6.1...v1.7.0) (2026-11-16)
 
 
