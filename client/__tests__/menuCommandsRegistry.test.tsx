@@ -25,6 +25,7 @@ import {
   dispatchCommand,
   useAvailableCommands,
   useCommand,
+  useMainLayoutCommands,
 } from '../src/navigation/MenuCommands';
 import type { CommandId } from '../src/navigation/commands';
 
@@ -32,6 +33,11 @@ let available: ReadonlySet<CommandId> = new Set();
 
 function AvailabilityWatcher() {
   available = useAvailableCommands();
+  return null;
+}
+
+function MainLayout() {
+  useMainLayoutCommands();
   return null;
 }
 
@@ -69,6 +75,7 @@ test('publishes registered commands and removes them when their screen leaves', 
   act(() => {
     root = create(
       <>
+        <MainLayout />
         <AvailabilityWatcher />
         <Handler id="completeTask" run={run} />
       </>
@@ -79,7 +86,14 @@ test('publishes registered commands and removes them when their screen leaves', 
   expect(dispatchCommand('completeTask')).toBe(true);
   expect(run).toHaveBeenCalledTimes(1);
 
-  act(() => root.update(<AvailabilityWatcher />));
+  act(() =>
+    root.update(
+      <>
+        <MainLayout />
+        <AvailabilityWatcher />
+      </>
+    )
+  );
   expect(available.has('completeTask')).toBe(false);
   expect(dispatchCommand('completeTask')).toBe(false);
   act(() => root.unmount());
@@ -112,15 +126,35 @@ test('the most recently mounted active screen answers a command', () => {
 
 test('fallback commands navigate and are delivered when the destination registers', () => {
   const run = jest.fn();
+  let root!: ReactTestRenderer;
+  act(() => {
+    root = create(<MainLayout />);
+  });
   expect(dispatchCommand('newTask')).toBe(true);
   expect(mockNavigate).toHaveBeenCalledWith('Main', { screen: 'InboxTab' });
 
-  let root!: ReactTestRenderer;
   act(() => {
-    root = create(<Handler id="newTask" run={run} />);
+    root.update(
+      <>
+        <MainLayout />
+        <Handler id="newTask" run={run} />
+      </>
+    );
   });
   expect(requestAnimationFrame).toHaveBeenCalled();
   expect(run).toHaveBeenCalledTimes(1);
+  act(() => root.unmount());
+});
+
+test('fallbacks go nowhere while the main layout is down', () => {
+  let root!: ReactTestRenderer;
+  act(() => {
+    root = create(<AvailabilityWatcher />);
+  });
+  expect(available.has('newTask')).toBe(false);
+  expect(dispatchCommand('newTask')).toBe(false);
+  expect(dispatchCommand('nextView')).toBe(false);
+  expect(mockNavigate).not.toHaveBeenCalled();
   act(() => root.unmount());
 });
 

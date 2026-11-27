@@ -2,6 +2,7 @@ import { useCallback, useContext, useEffect, useRef, useState, useSyncExternalSt
 import { Platform } from 'react-native';
 import { NavigationContext } from '@react-navigation/native';
 import MacMenu from '../../modules/mac-menu/src/MacMenu';
+import MacStatusItem from '../../modules/mac-status-item/src/MacStatusItem';
 import { DESKTOP_APP, DESKTOP_UI, MAC } from '../data/platform';
 import { LINKS, openLink } from '../data/links';
 import { checkForAppUpdatesInteractively } from '../data/appUpdates';
@@ -31,6 +32,11 @@ import type { PalettePicker } from '../data/palettePickers';
  * to a screen that has it and wait there for it to register. Settings, the
  * command menu, the views (⌘1–⌘8), the Help links and Undo belong to the whole app and are
  * answered here, as are Back and Forward.
+ *
+ * The Mac menu bar itself, and Check for Updates, belong to the app rather than
+ * the account, so they are wired up by `AppMenuBar`, mounted above the
+ * navigator: the first-run screen — never connected, or signed out — has a
+ * menu bar too, and an update check doesn't need a server.
  *
  * Desktop only: a phone has no keyboard to send these.
  */
@@ -67,7 +73,12 @@ const PENDING_MS = 1500;
 // What can be answered, as a store React and the menu bar both read.
 const subscribers = new Set<() => void>();
 const ALWAYS = [...Object.keys(FALLBACKS), ...Object.keys(DEFAULTS)] as CommandId[];
-let available: ReadonlySet<CommandId> = new Set(ALWAYS);
+/**
+ * Whether the main layout is up. The fallbacks and defaults all go somewhere in
+ * it, so over the first-run screen there is nowhere for them to go.
+ */
+let mainUp = false;
+let available: ReadonlySet<CommandId> = new Set();
 
 /** How many answers in force say each command is the option in use. */
 const checks = new Map<CommandId, number>();
@@ -77,7 +88,7 @@ const sameSet = (a: ReadonlySet<CommandId>, b: ReadonlySet<CommandId>) =>
   a.size === b.size && [...a].every((id) => b.has(id));
 
 function recompute() {
-  const next = new Set<CommandId>(ALWAYS);
+  const next = new Set<CommandId>(mainUp ? ALWAYS : []);
   handlers.forEach((stack, id) => {
     if (stack.length) next.add(id);
   });
@@ -128,6 +139,7 @@ export function dispatchCommand(id: CommandId, fromPalette = false): boolean {
     stack[stack.length - 1]();
     return true;
   }
+  if (!mainUp) return false;
   const answer = DEFAULTS[id];
   if (answer) {
     answer();
@@ -172,6 +184,22 @@ function useCommandHandler(id: CommandId, handler: Handler, active: boolean, isC
       recompute();
     };
   }, [id, checking]);
+}
+
+/**
+ * Marks the main layout as up while mounted, which is what lets the fallbacks
+ * and defaults answer. Called by `MenuCommands`.
+ */
+export function useMainLayoutCommands() {
+  useEffect(() => {
+    mainUp = true;
+    recompute();
+    return () => {
+      mainUp = false;
+      pending = null;
+      recompute();
+    };
+  }, []);
 }
 
 /**
@@ -272,6 +300,60 @@ function stepFixedView(delta: 1 | -1) {
 const openSetupGuide = () => openLink(LINKS.setupGuide);
 const openSupport = () => openLink(LINKS.support);
 const openPrivacy = () => openLink(LINKS.privacy);
+const checkForUpdates = () => void checkForAppUpdatesInteractively();
+const closeWindow = () => {
+  MacStatusItem?.closeMainWindow();
+};
+
+/** Edit ▸ Undo's answer, while the main layout is up to give one. */
+let undoAction: (() => void) | null = null;
+
+/**
+ * The Mac menu bar, and the commands that belong to the app rather than to an
+ * account. Mounted above the navigator, so it is there on the first-run screen
+ * as well as the main layout: the menu bar is built from the command list once,
+ * then dimmed and lit as screens come and go, and over the first-run screen
+ * everything but these is dimmed.
+ */
+export function AppMenuBar() {
+  useCommandHandler('checkForUpdates', checkForUpdates, DESKTOP_APP);
+  // File ▸ Close, ⌘W. Native decides whether that hides or quits.
+  useCommandHandler('closeWindow', closeWindow, MAC && !!MacStatusItem);
+
+  const enabled = useAvailableCommands();
+  useEffect(() => {
+    if (!MAC || !MacMenu) return;
+    MacMenu.setCommands(
+      // Only what has a place in the menus; list movement doesn't.
+      COMMANDS.filter((c) => c.menu).map((c) => ({
+        id: c.id,
+        title: c.title,
+        menu: c.menu!,
+        group: c.group,
+        submenu: c.submenu,
+        input: c.shortcut?.input,
+        modifiers: c.shortcut?.modifiers ?? [],
+        list: !!c.list,
+        yieldsToText: !!c.yieldsToText,
+      }))
+    );
+    const subscription = MacMenu.addListener('onCommand', ({ command }) => {
+      if (command === 'undo') undoAction?.();
+      else dispatchCommand(command as CommandId);
+    });
+    return () => subscription.remove();
+  }, []);
+  useEffect(() => {
+    if (!MAC || !MacMenu) return;
+    MacMenu.setEnabled([...enabled]);
+  }, [enabled]);
+  const checkedNow = useCheckedCommands();
+  useEffect(() => {
+    if (!MAC || !MacMenu) return;
+    MacMenu.setChecked([...checkedNow]);
+  }, [checkedNow]);
+  return null;
+}
 
 /** Mounted once, in the main layout, so it never runs over the first-run screen. */
 export default function MenuCommands() {
@@ -304,8 +386,8 @@ export default function MenuCommands() {
     setPicker(null);
   }, []);
 
+  useMainLayoutCommands();
   useCommandHandler('settings', openServer, DESKTOP_UI);
-  useCommandHandler('checkForUpdates', () => void checkForAppUpdatesInteractively(), DESKTOP_APP);
   // A menu's own key, pressed again while it is up, puts it away.
   useCommandHandler(
     'commandMenu',
@@ -364,43 +446,14 @@ export default function MenuCommands() {
   useCommandHandler('support', openSupport, DESKTOP_UI);
   useCommandHandler('privacy', openPrivacy, DESKTOP_UI);
 
-  const latest = useRef({ undo });
-  latest.current = { undo };
-
-  // The menu bar: built from the command list once, then dimmed and lit as
-  // screens come and go.
-  const enabled = useAvailableCommands();
+  const latestUndo = useRef(undo);
+  latestUndo.current = undo;
   useEffect(() => {
-    if (!MAC || !MacMenu) return;
-    MacMenu.setCommands(
-      // Only what has a place in the menus; list movement doesn't.
-      COMMANDS.filter((c) => c.menu).map((c) => ({
-        id: c.id,
-        title: c.title,
-        menu: c.menu!,
-        group: c.group,
-        submenu: c.submenu,
-        input: c.shortcut?.input,
-        modifiers: c.shortcut?.modifiers ?? [],
-        list: !!c.list,
-        yieldsToText: !!c.yieldsToText,
-      }))
-    );
-    const subscription = MacMenu.addListener('onCommand', ({ command }) => {
-      if (command === 'undo') latest.current.undo();
-      else dispatchCommand(command as CommandId);
-    });
-    return () => subscription.remove();
+    undoAction = () => latestUndo.current();
+    return () => {
+      undoAction = null;
+    };
   }, []);
-  useEffect(() => {
-    if (!MAC || !MacMenu) return;
-    MacMenu.setEnabled([...enabled]);
-  }, [enabled]);
-  const checkedNow = useCheckedCommands();
-  useEffect(() => {
-    if (!MAC || !MacMenu) return;
-    MacMenu.setChecked([...checkedNow]);
-  }, [checkedNow]);
 
   useCommandKeyHints();
 

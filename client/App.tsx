@@ -14,6 +14,7 @@ import TaskReminderNotificationScheduler from './src/data/TaskReminderNotificati
 import AppBadge from './src/data/AppBadge';
 import { initStorage } from './src/data/storage';
 import RootNavigator from './src/navigation/RootNavigator';
+import { AppMenuBar } from './src/navigation/MenuCommands';
 import { RootStackParamList } from './src/navigation/types';
 import { DateTimePickerProvider, navigationRef } from './src/navigation/DateTimePickerContext';
 import { DragProvider } from './src/drag/DragContext';
@@ -88,6 +89,7 @@ function Chrome() {
     <NavigationContainer ref={navigationRef} linking={linking} theme={navTheme}>
       <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
       <RootNavigator />
+      <AppMenuBar />
     </NavigationContainer>
   );
 }
